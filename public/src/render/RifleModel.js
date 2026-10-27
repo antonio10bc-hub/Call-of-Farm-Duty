@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { VoxelModel } from './VoxelModel.js';
-import { damp } from '../core/math.js';
+import { clamp, damp } from '../core/math.js';
 
 const WOOD = 0xb0703a, WOOD_DARK = 0x7a4824, METAL = 0x5c6068, METAL_DARK = 0x34373e, BRASS = 0xd9b04a;
 
@@ -46,22 +46,27 @@ export class RifleModel extends VoxelModel {
         this.boltT = 0;
     }
 
-    // dx, dy: cuánto se ha girado la vista este frame (el rifle se queda un poco atrás)
-    update(dt, dx = 0, dy = 0, bob = 0) {
+    // dx, dy: cuánto se ha girado la vista este frame (el rifle se queda un poco atrás, con
+    // inercia); bob: balanceo vertical; ads: 0 = en la cadera, 1 = pegado al ojo para apuntar
+    update(dt, dx = 0, dy = 0, bob = 0, ads = 0) {
         this.kick = Math.max(0, this.kick - dt * 5);
         this.boltT += dt;
-        this.swayX = damp(this.swayX, -dx * 6, 10, dt);
-        this.swayY = damp(this.swayY, dy * 6, 10, dt);
+        const lag = 1 - ads * 0.8;
+        this.swayX = damp(this.swayX, clamp(-dx * 8, -0.6, 0.6) * lag, 9, dt);
+        this.swayY = damp(this.swayY, clamp(dy * 8, -0.6, 0.6) * lag, 9, dt);
         const k = this.kick * this.kick;
-        this.root.position.set(this.rest.x + this.swayX * 0.1, this.rest.y + this.swayY * 0.1 + bob, this.rest.z + k * 0.1);
-        this.root.rotation.set(k * 0.35 + 0.04, this.swayX * 0.2 + 0.32, 0.06);
+        // Al apuntar sube al centro, con la mira a la altura del ojo
+        const a = ads * ads * (3 - 2 * ads);
+        const x = this.rest.x + (0 - this.rest.x) * a, y = this.rest.y + (-0.055 - this.rest.y) * a, z = this.rest.z + (-0.36 - this.rest.z) * a;
+        this.root.position.set(x + this.swayX * 0.1, y + this.swayY * 0.1 + bob * lag, z + k * 0.1);
+        this.root.rotation.set(k * 0.35 + 0.04 * (1 - a), this.swayX * 0.25 + 0.32 * (1 - a), 0.06 * (1 - a) + this.swayX * 0.15);
         // Squash & stretch del disparo
         this.gun.scale.set(1 + k * 0.12, 1 + k * 0.12, 1 - k * 0.18);
         // Cerrojo: atrás y adelante tras cada disparo
         const b = this.boltT > 0.25 && this.boltT < 0.65 ? Math.sin(((this.boltT - 0.25) / 0.4) * Math.PI) : 0;
         this.bolt.position.z = 0.06 + b * 0.12;
         this.bolt.rotation.x = b * -0.8;
-        this.root.rotation.z = -b * 0.15;
+        this.root.rotation.z += -b * 0.15;
         this.updateFx(dt);
     }
 }

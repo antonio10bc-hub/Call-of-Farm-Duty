@@ -255,6 +255,7 @@ function startMusic(cfg) {
 
 // ---------- Transiciones ----------
 let harvestField = -1;
+let snipeStart = 0;
 function harvest(i) {
     if (mode !== 'farm' || !state.isReady(i)) return;
     sfx.unlock();
@@ -272,6 +273,7 @@ function harvest(i) {
 function enterSnipe() {
     sniper.enter([{ plot: harvestField, count: state.plots[harvestField].left }]);
     mode = 'snipe';
+    snipeStart = time;
     renderer.flash(INK, 1);
     $('farm-ui').classList.add('hidden');
     $('bubbles').classList.add('hidden');
@@ -288,8 +290,9 @@ function goFarm(done = false) {
     if (mode !== 'snipe') return;
     mode = 'toFarm';
     modeT = 0;
-    aim = null;
+    touch = null;
     sniper.release(false);
+    if (document.exitPointerLock && locked()) document.exitPointerLock();
     if (!done) sfx.play('ui');
     goFarm.done = done;
 }
@@ -316,10 +319,13 @@ function enterFarm() {
 
 // ---------- Entrada ----------
 // Mapa: arrastrar desplaza, pellizcar o la rueda hacen zoom, tocar selecciona.
-// Francotirador: mantener apunta, mover desplaza la mira despacio, soltar dispara. Un
-// deslizamiento rápido en horizontal cambia de torre (sin disparar).
+// Francotirador (como un shooter): la vista es libre y la mirilla está siempre en el centro.
+//   Dedo: arrastrar mira; dejarlo quieto un momento sube el arma (apunta), moverlo con la
+//   mira puesta la desplaza despacio y soltarlo dispara. Deslizar desde un borde cambia de torre.
+//   Ratón: el cursor se bloquea y moverlo mira; mantener el botón derecho apunta y soltarlo
+//   dispara; el izquierdo dispara al momento.
 const pointers = new Map();
-let pan = null, pinch = null, aim = null;
+let pan = null, pinch = null, touch = null, edge = null;
 
 function unitsPerPx() {
     return (rig.halfWidth * rig.zoom * 2) / innerWidth;
@@ -341,27 +347,38 @@ function isUi(e) {
     return e.target.closest && e.target.closest('button, .panel, .screen');
 }
 
+const locked = () => document.pointerLockElement === canvas;
+function lockMouse() {
+    if (locked() || !canvas.requestPointerLock) return;
+    try {
+        const r = canvas.requestPointerLock();
+        if (r && r.catch) r.catch(() => {});
+    } catch { /* sin bloqueo: se mira arrastrando */ }
+}
+document.addEventListener('pointerlockchange', () => document.body.classList.toggle('locked', locked()));
+
 addEventListener('pointerdown', (e) => {
     sfx.unlock();
     if (!music.playing && Settings.music && sfx.ctx) startMusic(mode === 'snipe' ? THEME.sniperMusic : THEME.music);
     if (isUi(e)) return;
-    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (mode === 'farm') {
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
         if (pointers.size === 2) {
             const [a, b] = [...pointers.values()];
             pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) };
             pan = null;
         } else pan = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, moved: false };
-    } else if (mode === 'snipe' && !aim) {
-        // Ratón: botón derecho (o izquierdo) mantiene la mira; dedo: cualquier toque
-        aim = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, t: performance.now() };
-        const n = ndcOf(e.clientX, e.clientY);
-        sniper.press(n.x, n.y);
+        return;
     }
+    if (mode !== 'snipe' || e.pointerType === 'mouse') return; // el ratón va por mousedown
+    if (e.clientX < S.edgeSwipe || e.clientX > innerWidth - S.edgeSwipe) {
+        edge = { id: e.pointerId, x: e.clientX, y: e.clientY };
+        return;
+    }
+    if (!touch) touch = { id: e.pointerId, lx: e.clientX, ly: e.clientY, ax: e.clientX, ay: e.clientY, still: performance.now() };
 });
 
 addEventListener('pointermove', (e) => {
-    if (e.pointerType === 'mouse') moveReticle(e.clientX, e.clientY);
     const p = pointers.get(e.pointerId);
     if (p) {
         p.x = e.clientX;
@@ -380,10 +397,32 @@ addEventListener('pointermove', (e) => {
             if (Math.hypot(e.clientX - pan.x, e.clientY - pan.y) > 8) pan.moved = true;
             if (pan.moved) panBy(dx, dy);
         }
-    } else if (mode === 'snipe' && aim && e.pointerId === aim.id) {
-        sniper.drag(e.clientX - aim.lx, e.clientY - aim.ly);
-        aim.lx = e.clientX;
-        aim.ly = e.clientY;
+        return;
+    }
+    if (mode !== 'snipe') return;
+    if (e.pointerType === 'mouse' && locked()) {
+        sniper.look(e.movementX, e.movementY, S.lookMouse);
+        return;
+    }
+    if (edge && e.pointerId === edge.id) {
+        const dx = e.clientX - edge.x, dy = e.clientY - edge.y;
+        if (Math.abs(dx) > S.flickDist && Math.abs(dx) > Math.abs(dy)) {
+            // Desde el borde izquierdo hacia dentro: torre anterior; desde el derecho: siguiente
+            sniper.goCorner(dx > 0 ? -1 : 1);
+            edge = null;
+        }
+        return;
+    }
+    if (touch && e.pointerId === touch.id) {
+        sniper.look(e.clientX - touch.lx, e.clientY - touch.ly, touch.mouse ? S.lookMouse : S.lookTouch);
+        touch.lx = e.clientX;
+        touch.ly = e.clientY;
+        // Si el dedo se mueve, vuelve a contar el rato que lleva quieto
+        if (Math.hypot(e.clientX - touch.ax, e.clientY - touch.ay) > S.holdSlop) {
+            touch.ax = e.clientX;
+            touch.ay = e.clientY;
+            touch.still = performance.now();
+        }
     }
 });
 
@@ -394,23 +433,46 @@ function endPointer(e, cancel) {
         if (!pan.moved && !cancel) tapMap(e.clientX, e.clientY);
         pan = null;
     }
-    if (mode === 'snipe' && aim && e.pointerId === aim.id) {
-        const dx = e.clientX - aim.x, dy = e.clientY - aim.y, dur = performance.now() - aim.t;
-        aim = null;
-        if (cancel) sniper.release(false);
-        else if (dur < S.flickTime && Math.abs(dx) > S.flickDist && Math.abs(dx) > Math.abs(dy) * 1.3) {
-            // Deslizamiento rápido: cambio de torre, sin disparar
-            sniper.release(false);
-            sniper.goCorner(dx < 0 ? 1 : -1);
-        } else sniper.release(true);
+    if (edge && e.pointerId === edge.id) edge = null;
+    if (touch && e.pointerId === touch.id && !touch.mouse) {
+        touch = null;
+        if (mode === 'snipe' && sniper.scoped) sniper.release(!cancel);
     }
 }
 addEventListener('pointerup', (e) => endPointer(e, false));
 addEventListener('pointercancel', (e) => endPointer(e, true));
+
+// Botones del ratón en primera persona (mousedown/mouseup también ven el segundo botón
+// cuando ya hay otro pulsado, cosa que pointerdown no hace)
+addEventListener('mousedown', (e) => {
+    if (mode !== 'snipe' || isUi(e)) return;
+    lockMouse();
+    if (e.button === 2) sniper.setAds(true);
+    else if (e.button === 0) {
+        if (locked()) sniper.fire();
+        else touch = { id: 'mouse', mouse: true, lx: e.clientX, ly: e.clientY, ax: e.clientX, ay: e.clientY, still: Infinity };
+    }
+});
+addEventListener('mousemove', (e) => {
+    if (mode === 'snipe' && touch && touch.mouse && !locked()) {
+        sniper.look(e.clientX - touch.lx, e.clientY - touch.ly, S.lookMouse);
+        touch.lx = e.clientX;
+        touch.ly = e.clientY;
+    }
+});
+addEventListener('mouseup', (e) => {
+    if (e.button === 0 && touch && touch.mouse) touch = null;
+    if (mode === 'snipe' && e.button === 2 && sniper.scoped) sniper.release(true);
+});
 addEventListener('contextmenu', (e) => e.preventDefault());
 addEventListener('wheel', (e) => {
     if (mode === 'farm') zoomBy(Math.exp(e.deltaY * 0.0012));
 }, { passive: true });
+
+// Dedo quieto un momento: sube el arma
+function holdCheck() {
+    if (mode === 'snipe' && touch && !touch.mouse && !sniper.scoped && performance.now() - touch.still > S.holdTime) sniper.setAds(true);
+}
 
 function tapMap(x, y) {
     ray.setFromCamera(ndcOf(x, y), rig.camera);
@@ -420,15 +482,8 @@ function tapMap(x, y) {
     select(hit);
 }
 
-// Mirilla del ratón (ordenador): una cruz pixelada que sigue al cursor en primera persona
-function moveReticle(x, y) {
-    const r = $('reticle');
-    r.style.left = `${x}px`;
-    r.style.top = `${y}px`;
-}
-
-// Teclado: espacio/enter mantiene la mira (soltar dispara), WASD/flechas la mueven;
-// A/D o Q/E sin mira cambian de torre; Esc vuelve a la granja.
+// Teclado: WASD/flechas miran, espacio/enter mantiene la mira (soltar dispara), Q/E cambian de
+// torre, Esc baja la mira o vuelve a la granja (con el ratón bloqueado, Esc lo suelta), H vuelve.
 const keys = new Set();
 addEventListener('keydown', (e) => {
     sfx.unlock();
@@ -444,28 +499,31 @@ addEventListener('keydown', (e) => {
         return;
     }
     if (mode !== 'snipe') return;
-    if (k === ' ' || k === 'enter') sniper.press(0, 0);
+    if (k === ' ' || k === 'enter') sniper.setAds(true);
     else if (k === 'escape' || k === 'backspace') sniper.scoped ? sniper.release(false) : goFarm();
-    else if (k === 'q' || (!sniper.scoped && (k === 'a' || k === 'arrowleft'))) sniper.goCorner(-1);
-    else if (k === 'e' || (!sniper.scoped && (k === 'd' || k === 'arrowright'))) sniper.goCorner(1);
+    else if (k === 'h') goFarm();
+    else if (k === 'q') sniper.goCorner(-1);
+    else if (k === 'e') sniper.goCorner(1);
 });
 addEventListener('keyup', (e) => {
     const k = e.key.toLowerCase();
     keys.delete(k);
-    if (mode === 'snipe' && (k === ' ' || k === 'enter') && !aim) sniper.release(true);
+    if (mode === 'snipe' && (k === ' ' || k === 'enter')) sniper.release(true);
 });
 
 function keyInput(dt) {
     const x = (keys.has('d') || keys.has('arrowright') ? 1 : 0) - (keys.has('a') || keys.has('arrowleft') ? 1 : 0);
     const y = (keys.has('s') || keys.has('arrowdown') ? 1 : 0) - (keys.has('w') || keys.has('arrowup') ? 1 : 0);
     if (!x && !y) return;
-    if (mode === 'snipe' && sniper.scoped) sniper.drag(x * dt * 260, y * dt * 260);
+    if (mode === 'snipe') sniper.look(x, y, S.lookPad * 0.6 * dt);
     else if (mode === 'farm') panBy(-x * dt * 500, -y * dt * 500);
 }
 
-// Mando: A/RT mantienen la mira (soltar dispara), stick izquierdo la mueve, LB/RB cambian de
-// torre, B sale. En la granja el stick desplaza el mapa y A recoge el primer campo maduro.
+// Mando: sticks miran (con curva de respuesta), LT apunta (soltarlo dispara), RT/A disparan,
+// LB/RB cambian de torre, B baja la mira o sale. En la granja el stick desplaza el mapa y A
+// recoge el primer campo maduro.
 const padPrev = [];
+const curve = (v) => (Math.abs(v) < 0.15 ? 0 : Math.sign(v) * ((Math.abs(v) - 0.15) / 0.85) ** 2);
 function pollPad(dt) {
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     const pad = [...pads].find((p) => p);
@@ -473,7 +531,7 @@ function pollPad(dt) {
     const pressed = (i) => pad.buttons[i] && pad.buttons[i].pressed;
     const down = (i) => pressed(i) && !padPrev[i];
     const up = (i) => !pressed(i) && padPrev[i];
-    const ax = Math.abs(pad.axes[0]) > 0.15 ? pad.axes[0] : 0, ay = Math.abs(pad.axes[1]) > 0.15 ? pad.axes[1] : 0;
+    const ax = curve(pad.axes[0] || 0) + curve(pad.axes[2] || 0), ay = curve(pad.axes[1] || 0) + curve(pad.axes[3] || 0);
     if (mode === 'farm') {
         if (ax || ay) panBy(-ax * dt * 600, -ay * dt * 600);
         if (down(0)) {
@@ -481,9 +539,10 @@ function pollPad(dt) {
             if (i !== undefined) harvest(i);
         }
     } else if (mode === 'snipe') {
-        if (sniper.scoped) sniper.drag(ax * dt * 300, ay * dt * 300);
-        if (down(0) || down(7)) sniper.press(0, 0);
-        if (up(0) || up(7)) sniper.release(true);
+        if (ax || ay) sniper.look(ax, ay, S.lookPad * dt);
+        if (down(6)) sniper.setAds(true);
+        if (up(6)) sniper.release(true);
+        if (down(7) || down(0)) sniper.fire();
         if (down(1)) sniper.scoped ? sniper.release(false) : goFarm();
         if (down(4) || down(14)) sniper.goCorner(-1);
         if (down(5) || down(15)) sniper.goCorner(1);
@@ -544,6 +603,7 @@ function frame(now) {
     time += dt;
     pollPad(dt);
     keyInput(dt);
+    holdCheck();
 
     if (mode === 'farm' || mode === 'toSnipe') {
         const progress = [];
@@ -588,7 +648,7 @@ function frame(now) {
         document.body.classList.toggle('scoped', sniper.scoped);
         scope.show(sniper.fov < (S.fov + S.scopeFov) * 0.5);
         scope.setReady(sniper.canFire);
-        $('snipe-hint').classList.toggle('gone', sniper.moving || sniper.scoped);
+        $('snipe-hint').classList.toggle('gone', sniper.moving || sniper.scoped || time - snipeStart > 6);
         if (mode === 'toFarm') {
             modeT += dt;
             renderer.flash(INK, Math.min(1, modeT / 0.35));

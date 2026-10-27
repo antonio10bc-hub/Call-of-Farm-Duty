@@ -21,15 +21,23 @@ export const CONFIG = {
         zoomMax: 1.7,
     },
     sniper: {
-        fov: 62,            // vista normal en primera persona
+        fov: 64,            // vista normal en primera persona
         scopeFov: 12,       // con la mira
-        cornerTime: 0.9,    // segundos para saltar de esquina
-        aimSpeed: 0.0016,   // radianes por píxel arrastrado con la mira (se escala con el zoom)
-        yawLimit: 1.0,      // giro máximo a cada lado del centro del campo
-        sway: 0.004,        // vaivén de la respiración con la mira
+        cornerTime: 0.9,    // segundos para saltar de torre
+        lookTouch: 0.0062,  // radianes por píxel al arrastrar el dedo para mirar
+        lookMouse: 0.0024,  // radianes por píxel de ratón (cursor bloqueado)
+        lookPad: 2.6,       // radianes por segundo con el stick a tope
+        adsSlow: 0.3,       // con la mira la vista se mueve más despacio (además del zoom)
+        adsTime: 0.2,       // segundos para subir el arma al ojo
+        holdTime: 220,      // ms con el dedo quieto para apuntar
+        holdSlop: 9,        // px que puede moverse el dedo y seguir "quieto"
+        edgeSwipe: 40,      // px desde el borde donde un deslizamiento cambia de torre
+        flickDist: 60,      // px de ese deslizamiento
+        pitchMin: -1.25,
+        pitchMax: 0.7,
+        sway: 0.0035,       // vaivén de la respiración con la mira
+        recoil: 0.07,       // radianes que sube la vista al disparar (sin mira)
         boltTime: 0.7,      // recarga del cerrojo entre disparos
-        flickTime: 350,     // ms: un deslizamiento más rápido que esto cambia de esquina
-        flickDist: 55,      // px
         hitStop: 0.07,
         slowmo: 0.25,
         slowmoTime: 1.1,

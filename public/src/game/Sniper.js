@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CONFIG } from '../config.js';
-import { clamp, damp, wrapAngle } from '../core/math.js';
+import { clamp, wrapAngle } from '../core/math.js';
 import { box } from '../render/materials.js';
 import { Particles } from '../render/Particles.js';
 import { Shockwaves } from '../render/Shockwaves.js';
@@ -13,13 +13,12 @@ const GRAIN = [0xf6cf4a, 0xffe9a0, 0xd9a42e, 0xfff6dc];
 const CHAFF = [0xe8b830, 0xc8c84a, 0xfff3d6];
 const _v = new THREE.Vector3();
 const _o = new THREE.Vector3();
-const _ray = new THREE.Raycaster();
-const _ndc = new THREE.Vector2();
 const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
-// Modo francotirador en primera persona. Un solo gesto: mantener apunta (la mira hace zoom
-// hacia ese punto), mover la mirilla la desplaza despacio y soltar dispara. Se puede apuntar y
-// disparar también mientras se salta de una torre a otra.
+// Modo francotirador en primera persona, con el tacto de un shooter: la vista es libre (se
+// mira arrastrando o con el ratón) y la mirilla está siempre en el centro. Apuntar sube el arma
+// al ojo y hace zoom hacia donde se mira; con la mira la vista va más despacio; soltar dispara.
+// Se puede mirar, apuntar y disparar también mientras se salta de una torre a otra.
 export class Sniper {
     // hooks: { sfx, onHit(target, ndcX, ndcY), onFinish(), onDone(), onCorner(i) }
     constructor(theme, hooks) {
@@ -45,15 +44,21 @@ export class Sniper {
 
         this.corner = 0;
         this.pos = new THREE.Vector3();
-        // Dirección absoluta de la vista (mientras se apunta) y la que se ve ahora mismo
-        this.aimYaw = 0;
-        this.aimPitch = 0;
+        // Hacia dónde mira el jugador (lo controla él) y lo que se ve (con sway y retroceso)
+        this.lookYaw = 0;
+        this.lookPitch = 0;
         this.yaw = 0;
         this.pitch = 0;
         this.scoped = false;
+        this.adsK = 0;          // 0 = arma en la cadera, 1 = mira puesta
+        this.kickP = 0;         // retroceso (muelle): desplazamiento y velocidad
+        this.kickV = 0;
+        this.kickYaw = 0;
+        this.dipP = 0;          // amortiguación al aterrizar en una torre
+        this.dipV = 0;
+        this.roll = 0;
         this.fov = S.fov;
         this.bolt = 0;
-        this.recoil = 0;
         this.trauma = 0;
         this.hitStop = 0;
         this.slowmo = 0;
@@ -74,8 +79,10 @@ export class Sniper {
         this.eyeOf(0, this.pos);
         this.scoped = false;
         this.fov = S.fov;
-        this.yaw = this.aimYaw = this.baseYaw();
-        this.pitch = this.aimPitch = this.basePitch();
+        this.yaw = this.lookYaw = this.baseYaw();
+        this.pitch = this.lookPitch = this.basePitch();
+        this.adsK = this.kickP = this.kickV = this.dipP = this.dipV = 0;
+        this.pending = false;
         this.bolt = 0;
         this.ending = -1;
         this.slowmo = 0;
@@ -114,44 +121,42 @@ export class Sniper {
         return Math.atan2(-(this.pos.y - 0.5), d);
     }
 
-    // Mantener pulsado: apunta hacia ese punto de la pantalla (coordenadas -1..1) y hace zoom
-    press(nx, ny) {
-        if (this.ending >= 0) return;
-        _ndc.set(nx, ny);
-        this.camera.updateMatrixWorld();
-        _ray.setFromCamera(_ndc, this.camera);
-        const d = _ray.ray.direction;
-        this.aimYaw = Math.atan2(-d.x, -d.z);
-        this.aimPitch = Math.asin(clamp(d.y, -1, 1));
-        this.clampAim();
-        if (!this.scoped) {
-            this.scoped = true;
-            this.hooks.sfx.play('scopeIn');
-        }
+    // Girar la vista. rate: radianes por píxel (o por unidad de stick); con la mira, más fino
+    look(dx, dy, rate) {
+        const k = rate * (this.fov / S.fov) * (1 - this.adsK * (1 - S.adsSlow));
+        this.lookYaw -= dx * k;
+        this.lookPitch = clamp(this.lookPitch - dy * k, S.pitchMin, S.pitchMax);
     }
 
-    // Mover el dedo o el ratón con la mira puesta: la mirilla se desplaza despacio
-    drag(dx, dy) {
-        if (!this.scoped) return;
-        const k = S.aimSpeed * (this.fov / S.fov + 0.15);
-        this.aimYaw -= dx * k;
-        this.aimPitch -= dy * k;
-        this.clampAim();
+    // Mirar a un punto del mundo (lo usan las pruebas)
+    lookAt(x, y, z) {
+        const dx = x - this.pos.x, dy = y - this.pos.y, dz = z - this.pos.z;
+        this.lookYaw = Math.atan2(-dx, -dz);
+        this.lookPitch = Math.atan2(dy, Math.hypot(dx, dz));
     }
 
-    // Soltar: dispara (si el cerrojo está listo) y sale de la mira
+    // Subir o bajar el arma al ojo
+    setAds(on) {
+        this.pending = false;
+        if (on === this.scoped || (on && this.ending >= 0)) return;
+        this.scoped = on;
+        this.hooks.sfx.play(on ? 'scopeIn' : 'scopeOut');
+    }
+
+    // Soltar: dispara (si el cerrojo está listo) y baja el arma
+    // Si se suelta mientras el cerrojo aún recarga, el disparo queda guardado: el arma sigue
+    // arriba y dispara en cuanto está lista (no se pierde la puntería)
     release(fire = true) {
         if (!this.scoped) return false;
+        if (fire && this.bolt > 0 && this.ending < 0) {
+            this.pending = true;
+            return false;
+        }
+        this.pending = false;
         const hit = fire ? this.fire() : false;
         this.scoped = false;
         if (!fire) this.hooks.sfx.play('scopeOut');
         return hit;
-    }
-
-    clampAim() {
-        const by = this.baseYaw();
-        this.aimYaw = by + clamp(wrapAngle(this.aimYaw - by), -S.yawLimit, S.yawLimit);
-        this.aimPitch = clamp(this.aimPitch, -0.9, 0.35);
     }
 
     get canFire() {
@@ -165,17 +170,19 @@ export class Sniper {
         }
         const { sfx } = this.hooks;
         this.bolt = S.boltTime;
-        this.recoil = 1;
-        this.trauma = Math.min(1, this.trauma + 0.35);
+        // Retroceso: la vista salta hacia arriba (y un poco de lado) y vuelve con un muelle
+        this.kickV += S.recoil * (this.scoped ? 30 : 22);
+        this.kickYaw = (Math.random() - 0.5) * S.recoil * 0.5;
+        this.trauma = Math.min(1, this.trauma + (this.scoped ? 0.2 : 0.35));
         this.rifle.fire();
         sfx.play('snipe');
         setTimeout(() => sfx.play('bolt'), 320);
         vibrate('crate');
 
-        // El disparo sale hacia donde apunta la mira (no hacia donde se ha ido el retroceso)
+        // El disparo sale justo por la mirilla: el centro de lo que se ve ahora
+        this.camera.updateMatrixWorld();
         const origin = this.pos.clone();
-        const cp = Math.cos(this.aimPitch);
-        const dir = new THREE.Vector3(-Math.sin(this.aimYaw) * cp, Math.sin(this.aimPitch), -Math.cos(this.aimYaw) * cp);
+        const dir = this.camera.getWorldDirection(new THREE.Vector3());
         this.rifle.muzzle.getWorldPosition(_o);
         this.particles.burst(_o.x, _o.y, _o.z, 10, [0xffffff, 0xffe03a, 0xff9a1f], { speed: 1.4, up: 0.6, size: 0.04, ttl: 0.16, grav: 0 });
 
@@ -238,49 +245,60 @@ export class Sniper {
 
         if (this.move) {
             const m = this.move;
-            const before = this.baseYaw();
             m.t = Math.min(1, m.t + rawDt / S.cornerTime);
             const e = easeInOut(m.t);
             this.pos.lerpVectors(m.from, m.to, e);
-            this.pos.y += Math.sin(e * Math.PI) * 1.2; // tirolina/salto de torre a torre
-            // Sin mira, la vista acompaña al centro del campo
-            if (!this.scoped) this.aimYaw += wrapAngle(this.baseYaw() - before);
+            this.pos.y += Math.sin(e * Math.PI) * 1.2; // salto de torre a torre
+            // Inclinación de la cabeza hacia el lado al que se va (la vista sigue siendo tuya)
+            const side = Math.sign(_v.subVectors(m.to, m.from).dot(_o.set(Math.cos(this.lookYaw), 0, -Math.sin(this.lookYaw)))) || 1;
+            this.roll = Math.sin(e * Math.PI) * 0.07 * side;
             if (m.t >= 1) {
                 this.corner = m.idx;
                 this.move = null;
-                this.trauma = Math.min(1, this.trauma + 0.25);
+                this.roll = 0;
+                this.dipV -= 2.2; // aterrizaje: las piernas amortiguan
+                this.trauma = Math.min(1, this.trauma + 0.2);
                 const t = this.field.towers[this.corner];
                 t.model.select();
                 this.particles.burst(t.x, t.floor + 0.1, t.z, 14, [this.theme.dust, 0xb07a44], { speed: 1.6, up: 1.2, size: 0.08, ttl: 0.5 });
                 this.hooks.sfx.play('drop');
+                vibrate('pickup');
                 if (this.hooks.onCorner) this.hooks.onCorner(this.corner);
             }
         }
 
-        // Sin mira la vista vuelve sola a mirar al centro del campo
-        if (!this.scoped) {
-            this.aimYaw = this.baseYaw() + wrapAngle(this.aimYaw - this.baseYaw()) * Math.exp(-rawDt * 3);
-            this.aimPitch = damp(this.aimPitch, this.basePitch(), 3, rawDt);
-        }
-        this.fov = damp(this.fov, this.scoped ? S.scopeFov : S.fov, 12, rawDt);
+        // Subir/bajar el arma al ojo; el zoom sigue al arma con su propia curva
+        this.adsK = Math.min(1, Math.max(0, this.adsK + (this.scoped ? 1 : -1.3) * rawDt / S.adsTime));
+        const zk = clamp((this.adsK - 0.3) / 0.7, 0, 1);
+        this.fov = S.fov + (S.scopeFov - S.fov) * zk * zk * (3 - 2 * zk);
         this.camera.fov = this.fov;
         this.camera.updateProjectionMatrix();
         this.bolt = Math.max(0, this.bolt - dt);
-        this.recoil = Math.max(0, this.recoil - rawDt * 4);
-        const tr = this.trauma * this.trauma;
-        this.trauma = Math.max(0, this.trauma - rawDt * 2.2);
-        const shake = tr * 0.03 * (this.fov / S.fov);
-        const sw = this.scoped ? S.sway : 0;
-        this.yaw = this.aimYaw + Math.sin(time * 1.3) * sw + (Math.random() * 2 - 1) * shake;
-        this.pitch = this.aimPitch + Math.cos(time * 0.9) * sw * 0.7 + this.recoil * this.recoil * 0.06 * (this.fov / S.fov) + (Math.random() * 2 - 1) * shake;
-        this.camera.position.copy(this.pos);
-        this.camera.rotation.set(this.pitch, this.yaw, 0);
+        if (this.pending && this.bolt <= 0) this.release(true);
 
-        const bob = this.move ? -Math.sin(this.move.t * Math.PI) * 0.06 : Math.sin(time * 2) * 0.004;
-        this.rifle.update(rawDt, wrapAngle(this.yaw - this.prevYaw), this.pitch - this.prevPitch, bob);
+        // Muelles del retroceso y del aterrizaje
+        this.kickV += (-170 * this.kickP - 20 * this.kickV) * rawDt;
+        this.kickP += this.kickV * rawDt;
+        this.dipV += (-90 * this.dipP - 12 * this.dipV) * rawDt;
+        this.dipP += this.dipV * rawDt;
+        const tr = this.trauma * this.trauma;
+        this.trauma = Math.max(0, this.trauma - rawDt * 2.4);
+        const shake = tr * 0.025 * (this.fov / S.fov);
+        // Respiración con la mira (un ocho lento)
+        const sw = S.sway * this.adsK;
+        const fovK = this.fov / S.fov;
+        this.yaw = this.lookYaw + Math.sin(time * 0.9) * sw + this.kickYaw * this.kickP * 10 + (Math.random() * 2 - 1) * shake;
+        this.pitch = clamp(this.lookPitch + Math.sin(time * 1.8) * sw * 0.6 + this.kickP * fovK + (Math.random() * 2 - 1) * shake, -1.5, 1.5);
+        this.camera.position.copy(this.pos);
+        this.camera.position.y += this.dipP * 0.12 + (this.move ? 0 : Math.sin(time * 1.6) * 0.008 * (1 - this.adsK));
+        this.camera.rotation.set(this.pitch, this.yaw, this.roll);
+
+        const bob = this.move ? -Math.sin(this.move.t * Math.PI * 2) * 0.03 : Math.sin(time * 1.6) * 0.004 + this.dipP * 0.05;
+        this.rifle.update(rawDt, wrapAngle(this.yaw - this.prevYaw), this.pitch - this.prevPitch, bob, this.adsK);
         this.prevYaw = this.yaw;
         this.prevPitch = this.pitch;
-        this.rifle.root.visible = this.fov > (S.fov + S.scopeFov) * 0.55;
+        // La mira tapa el arma cuando está pegada al ojo
+        this.rifle.root.visible = this.adsK < 0.85;
 
         this.field.update(dt, time, this.pos, (s) => {
             this.particles.burst(s.x, 0.05, s.z, 6, [this.theme.dust, 0xc8c84a], { speed: 1.2, up: 1, size: 0.07, ttl: 0.4 });
@@ -296,7 +314,7 @@ export class Sniper {
         if (this.ending >= 0) {
             const before = this.ending;
             this.ending += rawDt;
-            if (this.ending > 0.45 && this.scoped) this.scoped = false;
+            if (this.ending > 0.45 && this.scoped) this.setAds(false);
             // Lluvia de grano dorado durante la celebración
             if (Math.floor(this.ending * 10) !== Math.floor(before * 10)) {
                 this.camera.getWorldDirection(_v);

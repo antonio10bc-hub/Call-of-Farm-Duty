@@ -27,18 +27,42 @@ async function enterField(page) {
     await expect.poll(() => page.evaluate(() => game.sniper.field.sheaves.every((s) => s.landed)), { timeout: 20_000 }).toBe(true);
 }
 
-// Mantiene pulsado sobre la siguiente mata, espera al zoom y suelta: un disparo
+// Gesto táctil sintético (pointerType touch) sobre el lienzo: [x, y, ms de espera] por paso
+async function touchPath(page, steps) {
+    await page.evaluate(async (steps) => {
+        const el = document.getElementById('view');
+        const ev = (type, x, y) => el.dispatchEvent(new PointerEvent(type, { pointerId: 7, pointerType: 'touch', clientX: x, clientY: y, bubbles: true, isPrimary: true }));
+        steps.forEach(([type, x, y, wait], i) => (steps[i] = [type, x, y, wait]));
+        for (const [type, x, y, wait] of steps) {
+            ev(type, x, y);
+            if (wait) await new Promise((r) => setTimeout(r, wait));
+        }
+    }, steps);
+}
+
+// Mira a la siguiente mata, mantiene el botón derecho (sube el arma) y lo suelta: un disparo
 async function shootNext(page) {
-    const t = await page.evaluate(() => {
+    const ok = await page.evaluate(() => {
         const s = game.sniper.field.sheaves.find((x) => x.alive);
-        return s && { x: s.x, z: s.z };
+        if (!s) return false;
+        game.sniper.lookAt(s.x, 0.9, s.z);
+        return true;
     });
-    if (!t) return false;
-    const p = await screenOf(page, 'sniper', t.x, 0.9, t.z);
-    await page.mouse.move(p.x, p.y);
-    await page.mouse.down();
+    if (!ok) return false;
+    await expect.poll(() => page.evaluate(() => game.sniper.canFire && !game.sniper.scoped && !game.sniper.moving), { timeout: 10_000 }).toBe(true);
+    await page.evaluate(() => {
+        const s = game.sniper.field.sheaves.find((x) => x.alive);
+        if (s) game.sniper.lookAt(s.x, 0.9, s.z);
+    });
+    await page.mouse.down({ button: 'right' });
     await page.waitForTimeout(450);
-    await page.mouse.up();
+    // La vista puede haberse movido (salto de torre en curso): se vuelve a centrar la mata
+    await page.evaluate(() => {
+        const s = game.sniper.field.sheaves.find((x) => x.alive);
+        if (s) game.sniper.lookAt(s.x, 0.9, s.z);
+    });
+    await page.waitForTimeout(60);
+    await page.mouse.up({ button: 'right' });
     return true;
 }
 
@@ -63,22 +87,33 @@ test('la granja es un mapa: tocar el granero abre su ficha', async ({ page }) =>
     expect(errors).toEqual([]);
 });
 
-test('la burbuja de un campo maduro lleva al francotirador; deslizar cambia de torre', async ({ page }) => {
+test('primera persona: arrastrar mira, quieto apunta y soltar dispara; deslizar desde el borde cambia de torre', async ({ page }) => {
     const errors = watchErrors(page);
     await enterField(page);
     await expect(page.locator('#snipe-ui')).toBeVisible();
-    await page.mouse.move(300, 420);
-    await page.mouse.down();
-    await page.mouse.move(120, 425);
-    await page.mouse.up();
-    await expect.poll(() => page.evaluate(() => game.sniper.corner)).toBe(1);
-    expect(await page.evaluate(() => game.state.wheat)).toBe(0); // deslizar no dispara
+    // Arrastrar gira la vista y no apunta ni dispara
+    const yaw0 = await page.evaluate(() => game.sniper.lookYaw);
+    await touchPath(page, [['pointerdown', 200, 400, 16], ['pointermove', 160, 400, 16], ['pointermove', 120, 400, 16], ['pointerup', 120, 400, 0]]);
+    expect(await page.evaluate(() => game.sniper.lookYaw)).toBeGreaterThan(yaw0 + 0.1);
+    expect(await page.evaluate(() => game.state.wheat)).toBe(0);
+    // Mirando a una mata, dejar el dedo quieto sube el arma y soltarlo dispara
+    await page.evaluate(() => {
+        const s = game.sniper.field.sheaves.find((x) => x.alive);
+        game.sniper.lookAt(s.x, 0.9, s.z);
+    });
+    await touchPath(page, [['pointerdown', 200, 400, 600]]);
+    expect(await page.evaluate(() => game.sniper.scoped)).toBe(true);
+    await touchPath(page, [['pointerup', 200, 400, 0]]);
+    await expect.poll(() => page.evaluate(() => game.state.wheat)).toBe(1);
+    // Deslizar desde el borde izquierdo hacia dentro: torre anterior
+    await touchPath(page, [['pointerdown', 6, 400, 16], ['pointermove', 60, 402, 16], ['pointermove', 120, 404, 16], ['pointerup', 120, 404, 0]]);
+    await expect.poll(() => page.evaluate(() => game.sniper.corner)).toBe(3);
     await page.locator('#btn-home').click();
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('farm');
     expect(errors).toEqual([]);
 });
 
-test('mantener apunta, soltar dispara; al recoger todo se vuelve a la granja', async ({ page }) => {
+test('ratón: botón derecho apunta y al soltar dispara; al recoger todo se vuelve a la granja', async ({ page }) => {
     const errors = watchErrors(page);
     await enterField(page);
     const total = await page.evaluate(() => game.sniper.field.remaining);
@@ -86,11 +121,11 @@ test('mantener apunta, soltar dispara; al recoger todo se vuelve a la granja', a
     await expect.poll(() => page.evaluate(() => game.state.wheat)).toBe(1);
     await expect(page.locator('#left-count')).toHaveText(String(total - 1));
     // Se puede disparar mientras se salta de torre
+    await page.evaluate(() => document.exitPointerLock());
     await page.locator('#btn-next').click();
-    await page.waitForTimeout(800);
+    await page.mouse.move(195, 380);
     for (let k = 0; k < total * 3; k++) {
         if (!(await shootNext(page))) break;
-        await page.waitForTimeout(500); // cerrojo
     }
     await expect.poll(() => page.evaluate(() => game.mode), { timeout: 20_000 }).toBe('farm');
     expect(await page.evaluate(() => game.state.wheat)).toBe(total);

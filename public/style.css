@@ -733,20 +733,25 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
 @keyframes bubbleBob { 50% { transform: translate(-50%, calc(-100% - 5px)); } }
 
 /* ---------- FRANCOTIRADOR ---------- */
+/* Mirilla de la cadera: fija en el centro, como en un shooter */
 .reticle {
     position: fixed;
+    left: 50%;
+    top: 50%;
     z-index: 12;
-    width: 36px;
-    height: 36px;
-    margin: -18px 0 0 -18px;
+    width: 26px;
+    height: 26px;
+    margin: -13px 0 0 -13px;
     background: var(--px-reticle) center / 100% 100% no-repeat;
     image-rendering: pixelated;
     pointer-events: none;
     display: none;
 }
+body.sniping:not(.scoped) .reticle { display: block; }
+body.locked { cursor: none; }
+.hint .for-mouse { display: none; }
 @media (hover: hover) and (pointer: fine) {
-    body.sniping { cursor: none; }
-    body.sniping:not(.scoped) .reticle { display: block; }
-    body.sniping button { cursor: pointer; }
+    .hint .for-mouse { display: inline; }
+    .hint .for-touch { display: none; }
 }
 .snipe-ui .hint { font-size: 8px; }
