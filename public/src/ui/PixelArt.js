@@ -168,10 +168,16 @@ const SPRITES = {
         rows: ['..KK..', '.KWYK.', '.KYYK.', '.KYOK.', '.KYOK.', 'KKKKKK', 'KOOOOK', 'KOOOOK', 'KKKKKK'],
         pal: { K: INK, W: '#fff4b0', Y: '#ffd23f', O: '#e6a400' },
     },
-    // Mirilla del francotirador (cursor y la O del título)
+    // Mirilla del francotirador
     reticle: {
         rows: ['....KKKKK....', '..KKCCRCCKK..', '.KCC..R..CCK.', '.KC...R...CK.', 'KC....R....CK', 'KC.........CK', 'KRRRR.W.RRRRK', 'KC.........CK', 'KC....R....CK', '.KC...R...CK.', '.KCC..R..CCK.', '..KKCCRCCKK..', '....KKKKK....'],
         pal: { K: INK, C: '#fff3d6', R: '#c8402e', W: '#ffffff' },
+    },
+    // Diana del logo (la O de CALL OF): anillos rojo y crema, sencilla para que se lea en grande
+    target: {
+        rows: ['....KKKKK....', '..KKRRRRRKK..', '.KRRRRRRRRRK.', '.KRRCCCCCRRK.', 'KRRCCRRRCCRRK', 'KRRCRRRRRCRRK', 'KRRCRRWRRCRRK',
+            'KRRCRRRRRCRRK', 'KRRCCRRRCCRRK', '.KRRCCCCCRRK.', '.KRRRRRRRRRK.', '..KKRRRRRKK..', '....KKKKK....'],
+        pal: { K: INK, R: '#c8402e', C: '#fff3d6', W: '#ffffff' },
     },
     sparkA: {
         rows: ['...W...', '...W...', '...Y...', 'WWYWYWW', '...Y...', '...W...', '...W...'],

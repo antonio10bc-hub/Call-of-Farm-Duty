@@ -669,7 +669,7 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
     justify-content: center;
     align-items: center;
     gap: 3px;
-    font-size: clamp(14px, 4.6vw, 22px);
+    font-size: clamp(18px, 6.2vw, 30px);
     color: #c8d870;
     letter-spacing: 2px;
     text-shadow: 3px 3px 0 var(--ink);
@@ -679,14 +679,15 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
 .ts-top span::after { content: ''; position: absolute; left: -2px; right: -2px; top: 44%; height: 2px; background: var(--wood); }
 .ts-scope {
     display: inline-block;
-    width: 1em;
-    height: 1em;
-    background: var(--px-reticle) center / 100% 100% no-repeat;
+    width: 1.6em;
+    height: 1.6em;
+    margin: -0.3em 0.1em;
+    background: var(--px-target) center / 100% 100% no-repeat;
     image-rendering: pixelated;
     filter: drop-shadow(3px 3px 0 var(--ink));
     animation: scopePulse 1.6s steps(2) infinite;
 }
-@keyframes scopePulse { 50% { transform: scale(.82); } }
+@keyframes scopePulse { 50% { transform: scale(.9); } }
 .ts-main {
     margin-top: 12px;
     font-size: clamp(26px, 9.4vw, 52px);
