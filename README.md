@@ -3,7 +3,8 @@
 Granja voxel con estética de consola portátil (mismo estudio y estilo que Tank-less): el trigo crece en la granja y lo cosechas desde una torreta con un rifle de francotirador en primera persona.
 
 ## Cómo se juega
-- **Granja:** un mapa que se gestiona tocando sus edificios (granero, silo, casa, torre de vigía, tractor) y sus 6 campos de trigo, que crecen solos. Arrastra para moverte; pellizca o usa la rueda para el zoom. Sobre cada campo maduro sale **¡RECOGER!**.
+- **Granja:** un mapa que se gestiona tocando sus edificios (granero, silo, casa, torre de vigía, tractor) y su campo de trigo, que crece solo. Arrastra para moverte; pellizca o usa la rueda para el zoom. Cuando el campo está maduro sale **¡RECOGER!**.
+- **Mejorar el campo:** en su ficha, **MEJORAR** cuesta 3 de trigo: el campo se hace más grande y en el campo de tiro aparecen más matas (de 6 a 30, en 7 niveles).
 - **Francotirador:** desde una torre en cada esquina del campo, con control de shooter: la vista es libre y la mirilla está en el centro.
   - Móvil: arrastra para mirar; deja el dedo quieto un momento para subir el arma (zoom), muévelo para afinar (más despacio) y suéltalo para disparar. Desliza desde el borde (o usa las flechas) para cambiar de torre.
   - Ordenador: el clic de RECOGER ya bloquea el ratón; muévelo para mirar, mantén el botón derecho para apuntar y suéltalo para disparar (el izquierdo dispara al momento). Q/E saltan a la torre de la izquierda/derecha, Esc suelta el ratón, H vuelve a la granja.

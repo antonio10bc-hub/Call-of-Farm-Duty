@@ -2,13 +2,13 @@ import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { THEME } from './content/theme.js';
 import { CROPS } from './content/crops.js';
-import { INFO } from './content/farm.js';
+import { FARM, INFO } from './content/farm.js';
 import { RetroRenderer } from './render/RetroRenderer.js';
 import { CameraRig } from './render/CameraRig.js';
 import { Particles } from './render/Particles.js';
 import { weatherParticle } from './render/weather.js';
 import { Farm } from './world/Farm.js';
-import { FarmState, PLOT_COUNT } from './game/FarmState.js';
+import { FarmState } from './game/FarmState.js';
 import { Sniper } from './game/Sniper.js';
 import { Scope } from './ui/Scope.js';
 import { installPixelSprites } from './ui/PixelArt.js';
@@ -49,7 +49,7 @@ function addLights(scene) {
 const farmScene = new THREE.Scene();
 farmScene.background = new THREE.Color(THEME.sky);
 addLights(farmScene);
-const farm = new Farm(THEME);
+const farm = new Farm(THEME, state.level);
 farmScene.add(farm.root);
 const farmParticles = new Particles(farmScene, 500);
 const rig = new CameraRig(M);
@@ -70,7 +70,7 @@ farm.onLand = (m) => {
 const sniper = new Sniper(THEME, {
     sfx,
     onHit(target, nx, ny) {
-        state.collect(target.plot);
+        state.collect();
         const x = (nx * 0.5 + 0.5) * innerWidth, y = (-ny * 0.5 + 0.5) * innerHeight;
         popPlus(x, y);
         flyWheat(x, y, $('snipe-wheat'), () => updateCounts(true));
@@ -173,39 +173,31 @@ function showCorner(i) {
 
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.ceil(s) % 60).padStart(2, '0')}`;
 
-// Burbujas de "¡RECOGER!" encima de cada campo maduro (salen de la propia granja)
-const bubbles = [];
-for (let i = 0; i < PLOT_COUNT; i++) {
-    const b = document.createElement('button');
-    b.className = 'bubble hidden';
-    b.innerHTML = `<span class="wheat-ico"></span><span>${L('HARVEST!', '¡RECOGER!')}</span>`;
-    b.addEventListener('pointerdown', (e) => e.stopPropagation());
-    b.addEventListener('click', (e) => {
-        e.stopPropagation();
-        harvest(i);
-    });
-    $('bubbles').appendChild(b);
-    bubbles.push(b);
-}
+// Burbuja de "¡RECOGER!" encima del campo maduro (sale de la propia granja)
+const bubble = document.createElement('button');
+bubble.className = 'bubble hidden';
+bubble.innerHTML = `<span class="wheat-ico"></span><span>${L('HARVEST!', '¡RECOGER!')}</span>`;
+bubble.addEventListener('pointerdown', (e) => e.stopPropagation());
+bubble.addEventListener('click', (e) => {
+    e.stopPropagation();
+    harvest();
+});
+$('bubbles').appendChild(bubble);
 
+const _b = new THREE.Vector3();
 function placeBubbles() {
-    const show = mode === 'farm' && farm.introT > 1.6;
-    const v = new THREE.Vector3();
-    for (let i = 0; i < PLOT_COUNT; i++) {
-        const b = bubbles[i];
-        const on = show && state.isReady(i);
-        if (on && b.classList.contains('hidden')) {
-            b.classList.remove('hidden');
-            sfx.play('itemSpawn');
-        } else if (!on) b.classList.add('hidden');
-        if (!on) continue;
-        farm.fieldTop(i, v).project(rig.camera);
-        b.style.left = `${(v.x * 0.5 + 0.5) * innerWidth}px`;
-        b.style.top = `${(-v.y * 0.5 + 0.5) * innerHeight}px`;
-    }
+    const on = mode === 'farm' && farm.introT > 1.6 && state.isReady();
+    if (on && bubble.classList.contains('hidden')) {
+        bubble.classList.remove('hidden');
+        sfx.play('itemSpawn');
+    } else if (!on) bubble.classList.add('hidden');
+    if (!on) return;
+    farm.fieldTop(_b).project(rig.camera);
+    bubble.style.left = `${(_b.x * 0.5 + 0.5) * innerWidth}px`;
+    bubble.style.top = `${(-_b.y * 0.5 + 0.5) * innerHeight}px`;
 }
 
-// Ficha del edificio o campo tocado
+// Ficha del edificio o del campo tocado
 function select(what) {
     selected = what;
     const panel = $('panel');
@@ -222,7 +214,7 @@ function select(what) {
         m.select();
         rig.focus(m.def.x, m.def.z + 1);
     } else {
-        const f = farm.fields[what.field];
+        const f = farm.field;
         rig.focus(f.cx, f.cz + 1);
     }
     refreshPanel();
@@ -230,23 +222,44 @@ function select(what) {
 
 function refreshPanel() {
     if (!selected) return;
-    const title = $('panel-title'), text = $('panel-text'), bar = $('panel-bar'), act = $('panel-action');
+    const title = $('panel-title'), text = $('panel-text'), bar = $('panel-bar'), act = $('panel-action'), up = $('panel-upgrade');
     if (selected.structure) {
         const m = farm.byId[selected.structure];
         title.textContent = m.def.name;
         text.textContent = selected.structure === 'barn' ? `${INFO.barn} ${L('WHEAT', 'TRIGO')}: ${state.wheat}` : INFO[selected.structure];
         bar.parentElement.classList.add('hidden');
         act.classList.add('hidden');
+        up.classList.add('hidden');
         return;
     }
-    const i = selected.field, p = state.progress(i), ready = state.isReady(i);
-    title.textContent = `${L('WHEAT FIELD', 'CAMPO DE TRIGO')} ${i + 1}`;
+    const p = state.progress(), ready = state.isReady();
+    title.textContent = `${L('WHEAT FIELD', 'CAMPO DE TRIGO')} ${L('LV', 'NV')}.${state.level + 1}`;
     text.textContent = ready
-        ? L(`RIPE! ${state.plots[i].left} BUNDLES TO HARVEST.`, `¡MADURO! ${state.plots[i].left} MATAS PARA RECOGER.`)
+        ? L(`RIPE! ${state.plot.left} BUNDLES TO HARVEST.`, `¡MADURO! ${state.plot.left} MATAS PARA RECOGER.`)
         : `${L('GROWING... READY IN', 'CRECIENDO... LISTO EN')} ${fmt((1 - p) * CROPS.wheat.growTime)}`;
     bar.parentElement.classList.remove('hidden');
     bar.style.width = `${Math.round(p * 20) * 5}%`;
     act.classList.toggle('hidden', !ready);
+    // Mejora: más grande y con más matas, por trigo
+    up.classList.remove('hidden');
+    up.disabled = !state.canUpgrade;
+    $('upgrade-label').textContent = state.maxed ? L('MAX LEVEL', 'NIVEL MÁXIMO') : L('UPGRADE', 'MEJORAR');
+    $('upgrade-cost').textContent = state.maxed ? '' : FARM.field.upgradeCost;
+    up.classList.toggle('maxed', state.maxed);
+}
+
+function upgradeField() {
+    if (mode !== 'farm' || !state.upgrade()) return;
+    farm.setLevel(state.level);
+    const f = farm.field;
+    rig.focus(f.cx, f.cz + 1);
+    rig.shake(0.14);
+    for (let k = 0; k < 6; k++) farmParticles.burst(f.x + Math.random() * f.w, 0.2, f.z + Math.random() * f.d, 6, [THEME.dust, 0xd9b77a, 0xffe03a], { speed: 2, up: 1.6, size: 0.12, ttl: 0.5 });
+    sfx.play('power');
+    vibrate('pickup');
+    updateCounts();
+    stage(L('FIELD UPGRADED!', '¡CAMPO MEJORADO!'), `${L('BUNDLES', 'MATAS')}: ${state.sheaves}`);
+    refreshPanel();
 }
 
 function startMusic(cfg) {
@@ -254,26 +267,24 @@ function startMusic(cfg) {
 }
 
 // ---------- Transiciones ----------
-let harvestField = -1;
 let snipeStart = 0;
-function harvest(i) {
-    if (mode !== 'farm' || !state.isReady(i)) return;
+function harvest() {
+    if (mode !== 'farm' || !state.isReady()) return;
     sfx.unlock();
     sfx.play('go');
     vibrate('pickup');
-    harvestField = i;
     // Con ratón, este mismo clic bloquea el cursor: al entrar ya se mira moviéndolo
     if (matchMedia('(pointer: fine)').matches) lockMouse();
     mode = 'toSnipe';
     modeT = 0;
     select(null);
-    const f = farm.fields[i];
+    const f = farm.field;
     rig.focus(f.cx, f.cz);
     rig.zoomTarget = M.zoomMin * 0.8;
 }
 
 function enterSnipe() {
-    sniper.enter([{ plot: harvestField, count: state.plots[harvestField].left }]);
+    sniper.enter(state.plot.left);
     mode = 'snipe';
     snipeStart = time;
     renderer.flash(INK, 1);
@@ -313,7 +324,7 @@ function enterFarm() {
     updateCounts();
     startMusic(THEME.music);
     if (goFarm.done) {
-        const f = farm.fields[harvestField];
+        const f = farm.field;
         farm.byId.barn.select();
         setTimeout(() => stage(L('HARVEST DONE!', '¡COSECHA HECHA!'), `${L('WHEAT', 'TRIGO')}: ${state.wheat}`), 300);
         rig.focus(f.cx, f.cz);
@@ -486,7 +497,7 @@ function tapMap(x, y) {
     ray.setFromCamera(ndcOf(x, y), rig.camera);
     const hit = farm.pick(ray);
     if (!hit) return select(null);
-    if (hit.field !== undefined && state.isReady(hit.field) && selected && selected.field === hit.field) return harvest(hit.field);
+    if (hit.field && state.isReady() && selected && selected.field) return harvest();
     select(hit);
 }
 
@@ -500,10 +511,7 @@ addEventListener('keydown', (e) => {
     if (e.repeat) return;
     if (mode === 'farm') {
         if (k === 'escape') select(null);
-        if (k === 'enter' || k === ' ') {
-            const i = state.readyPlots()[0];
-            if (i !== undefined) harvest(i);
-        }
+        if (k === 'enter' || k === ' ') harvest();
         return;
     }
     if (mode !== 'snipe') return;
@@ -529,7 +537,7 @@ function keyInput(dt) {
 
 // Mando: sticks miran (con curva de respuesta), LT apunta (soltarlo dispara), RT/A disparan,
 // LB/RB cambian de torre, B baja la mira o sale. En la granja el stick desplaza el mapa y A
-// recoge el primer campo maduro.
+// recoge el campo si está maduro.
 const padPrev = [];
 const curve = (v) => (Math.abs(v) < 0.15 ? 0 : Math.sign(v) * ((Math.abs(v) - 0.15) / 0.85) ** 2);
 function pollPad(dt) {
@@ -542,10 +550,7 @@ function pollPad(dt) {
     const ax = curve(pad.axes[0] || 0) + curve(pad.axes[2] || 0), ay = curve(pad.axes[1] || 0) + curve(pad.axes[3] || 0);
     if (mode === 'farm') {
         if (ax || ay) panBy(-ax * dt * 600, -ay * dt * 600);
-        if (down(0)) {
-            const i = state.readyPlots()[0];
-            if (i !== undefined) harvest(i);
-        }
+        if (down(0)) harvest();
     } else if (mode === 'snipe') {
         if (ax || ay) sniper.look(ax, ay, S.lookPad * dt);
         if (down(6)) sniper.setAds(true);
@@ -567,7 +572,8 @@ const tapBtn = (id, fn) => $(id).addEventListener('click', (e) => {
 tapBtn('btn-home', () => goFarm());
 tapBtn('btn-prev', () => sniper.goSide(-1));
 tapBtn('btn-next', () => sniper.goSide(1));
-tapBtn('panel-action', () => selected && selected.field !== undefined && harvest(selected.field));
+tapBtn('panel-action', () => selected && selected.field && harvest());
+tapBtn('panel-upgrade', upgradeField);
 tapBtn('panel-close', () => select(null));
 tapBtn('btn-settings', () => {
     sfx.play('ui');
@@ -614,8 +620,7 @@ function frame(now) {
     holdCheck();
 
     if (mode === 'farm' || mode === 'toSnipe') {
-        const progress = [];
-        for (let i = 0; i < PLOT_COUNT; i++) progress.push(state.progress(i));
+        const progress = state.progress();
         farm.update(dt, time, progress);
         if (mode === 'toSnipe') {
             modeT += dt;
@@ -627,19 +632,18 @@ function frame(now) {
             uiT = 0.25;
             refreshPanel();
         }
-        // Humo de la chimenea y del tractor; destellos sobre los campos maduros
+        // Humo de la chimenea y del tractor; destellos sobre el campo maduro
         if (Math.random() < dt * 5) {
             const h = farm.byId.house;
             h.root.localToWorld(_w.copy(h.chimney));
             farmParticles.spawn(_w.x, _w.y, _w.z, 0.2 + Math.random() * 0.2, 0.7, 0.1, 0.18 + Math.random() * 0.1, 2.2, Math.random() < 0.5 ? 0xe8e4dc : 0xcfc8c0, -0.1);
         }
-        progress.forEach((p, i) => {
-            if (p >= 1 && Math.random() < dt * 4) {
-                const f = farm.fields[i];
-                weatherParticle(farmParticles, 'sparkle', f.x + Math.random() * f.w, f.z + Math.random() * f.d, Math.random() < 0.5 ? 0xffffff : 0xffe03a);
-                farmParticles.y[farmParticles.n - 1] = 1.1;
-            }
-        });
+        // Más destellos cuanto más grande es el campo
+        const f = farm.field;
+        if (progress >= 1 && Math.random() < dt * 4 * Math.sqrt((f.w * f.d) / 20)) {
+            weatherParticle(farmParticles, 'sparkle', f.x + Math.random() * f.w, f.z + Math.random() * f.d, Math.random() < 0.5 ? 0xffffff : 0xffe03a);
+            farmParticles.y[farmParticles.n - 1] = 1.1;
+        }
         if (Math.random() < dt * THEME.ambient.rate) {
             const c = THEME.ambient.colors;
             weatherParticle(farmParticles, THEME.ambient.kind, rig.fx + (Math.random() - 0.5) * 20, rig.fz + (Math.random() - 0.5) * 20, c[(Math.random() * c.length) | 0]);
@@ -679,4 +683,4 @@ if ('serviceWorker' in navigator && !/^(localhost|127\.)/.test(location.hostname
 }
 
 // Para las pruebas (Playwright)
-window.game = { state, sniper, farm, rig, get mode() { return mode; }, harvest, goFarm, select };
+window.game = { state, sniper, farm, rig, get mode() { return mode; }, harvest, upgradeField, goFarm, select };

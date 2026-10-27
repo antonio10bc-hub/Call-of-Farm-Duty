@@ -11,25 +11,33 @@ const _p = new THREE.Vector3();
 const INTRO_TIME = 2.2;
 const PER_TILE = 3; // tallos por lado de cada casilla de campo
 
+// Casillas que ocupa el campo de trigo en un nivel (crece desde su esquina superior derecha)
+function fieldRect(level) {
+    const F = FARM.field, { w, d } = F.levels[level];
+    const x = F.right - w, z = F.top;
+    return { x, z, w, d, cx: x + w / 2, cz: z + d / 2 };
+}
+const inRect = (f, x, z, m = 0) => x >= f.x - m && x < f.x + f.w + m && z >= f.z - m && z < f.z + f.d + m;
+
 // Mapa de la granja: el sitio de gestión. Césped hasta el horizonte, caminos de tierra, campos
 // de trigo y edificios que se pueden tocar. Todo se monta en ola al empezar (cae y rebota).
 export class Farm {
-    constructor(theme) {
+    constructor(theme, level = 0) {
         this.theme = theme;
         this.size = FARM.size;
         this.cx = this.cz = FARM.size / 2;
         this.animated = [];
         this.root = new THREE.Group();
         this.introT = 0;
-        this.fields = FARM.fields.map((f) => ({ ...f, cx: f.x + f.w / 2, cz: f.z + f.d / 2 }));
+        this.clock = 0; // reloj propio para que el trigo nuevo brote al mejorar el campo
+        this.decor = []; // entradas animadas que se apartan cuando el campo crece encima
+        this.level = level;
+        this.field = fieldRect(level);
         this.build();
     }
 
     kindAt(c, r) {
-        for (let i = 0; i < this.fields.length; i++) {
-            const f = this.fields[i];
-            if (c >= f.x && c < f.x + f.w && r >= f.z && r < f.z + f.d) return { field: i };
-        }
+        if (inRect(this.field, c, r)) return { field: true };
         for (const [x0, z0, x1, z1] of FARM.paths) if (c >= x0 && c < x1 && r >= z0 && r < z1) return { path: true };
         for (const s of FARM.structures) if (Math.abs(c + 0.5 - s.x) < s.w / 2 + 0.3 && Math.abs(r + 0.5 - s.z) < s.d / 2 + 0.3) return { building: true };
         return null;
@@ -47,11 +55,8 @@ export class Farm {
         const tiles = [];
         for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) tiles.push({ c, r, k: this.kindAt(c, r) });
         const floor = new THREE.InstancedMesh(box(1, 0.3, 1), toon(0xffffff), tiles.length);
-        tiles.forEach(({ c, r, k }, i) => {
-            const col = k && k.field !== undefined ? theme.soil[r & 1] : k && k.path ? theme.path[(c * 7 + r * 3) % 2] : theme.grass[(c * 5 + r * 3 + ((c * r) % 3)) % 3];
-            floor.setColorAt(i, _c.setHex(col).offsetHSL(0, 0, (Math.random() - 0.5) * theme.grassJitter));
-        });
-        this.addAnimated(floor, tiles.map(({ c, r, k }) => ({ x: c + 0.5, y: k && k.field !== undefined ? -0.12 : k && k.path ? -0.17 : -0.15, z: r + 0.5 })));
+        tiles.forEach((t, i) => this.paintTile(floor, t, i));
+        this.floor = { tiles, entry: this.addAnimated(floor, tiles.map(({ c, r, k }) => ({ x: c + 0.5, y: this.tileY(k), z: r + 0.5 }))) };
 
         this.buildWheat();
         this.buildFences();
@@ -73,28 +78,80 @@ export class Farm {
         this.byId = Object.fromEntries(this.structures.map((m) => [m.def.id, m]));
     }
 
-    // Trigo: tallos finos (sin contorno, para que se lean a píxel fino) con su espiga
-    buildWheat() {
+    tileY(k) {
+        return k && k.field ? -0.12 : k && k.path ? -0.17 : -0.15;
+    }
+
+    paintTile(mesh, { c, r, k }, i) {
+        const { theme } = this;
+        const col = k && k.field ? theme.soil[r & 1] : k && k.path ? theme.path[(c * 7 + r * 3) % 2] : theme.grass[(c * 5 + r * 3 + ((c * r) % 3)) % 3];
+        mesh.setColorAt(i, _c.setHex(col).offsetHSL(0, 0, (Math.random() - 0.5) * theme.grassJitter));
+    }
+
+    // Trigo: tallos finos (sin contorno, para que se lean a píxel fino) con su espiga.
+    // Al mejorar el campo se conservan los tallos que ya había y los nuevos brotan en ola
+    // desde el borde del campo viejo (old: casillas del nivel anterior).
+    buildWheat(old = null) {
+        const f = this.field, n = PER_TILE;
+        const prev = new Map((this.stalks || []).map((s) => [s.key, s]));
         this.stalks = [];
-        this.fields.forEach((f, fi) => {
-            const n = PER_TILE;
-            for (let a = 0; a < f.w * n; a++) for (let b = 0; b < f.d * n; b++) {
-                this.stalks.push({
-                    field: fi,
-                    x: f.x + (a + 0.5) / n + (Math.random() - 0.5) * 0.12,
-                    z: f.z + (b + 0.5) / n + (Math.random() - 0.5) * 0.12,
-                    h: 0.75 + Math.random() * 0.3,
-                    ph: Math.random() * 6,
-                    tilt: (Math.random() - 0.5) * 0.12,
-                    tone: Math.random(),
-                });
+        for (let a = 0; a < f.w * n; a++) for (let b = 0; b < f.d * n; b++) {
+            const key = `${f.x * n + a},${f.z * n + b}`;
+            const x = f.x + (a + 0.5) / n, z = f.z + (b + 0.5) / n;
+            const keep = prev.get(key);
+            if (keep) {
+                this.stalks.push(keep);
+                continue;
             }
-        });
-        const n = this.stalks.length;
-        this.stalkMesh = this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), toon(0xffffff), n));
-        this.earMesh = this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), toon(0xffffff), n));
+            const t0 = old
+                ? this.clock + 0.1 + Math.hypot(Math.max(0, old.x - x, x - old.x - old.w), Math.max(0, z - old.z - old.d)) * 0.12
+                : 0.8 + Math.hypot(x - this.cx, z - this.cz) * 0.03;
+            this.stalks.push({
+                key,
+                t0,
+                x: x + (Math.random() - 0.5) * 0.12,
+                z: z + (Math.random() - 0.5) * 0.12,
+                h: 0.75 + Math.random() * 0.3,
+                ph: Math.random() * 6,
+                tilt: (Math.random() - 0.5) * 0.12,
+                tone: Math.random(),
+            });
+        }
+        const count = this.stalks.length;
+        if (!this.stalkMat) {
+            this.stalkMat = toon(0xffffff);
+            this.earMat = toon(0xffffff);
+        }
+        for (const m of [this.stalkMesh, this.earMesh]) {
+            if (!m) continue;
+            this.root.remove(m);
+            m.dispose();
+        }
+        this.stalkMesh = this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), this.stalkMat, count));
+        this.earMesh = this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), this.earMat, count));
         // Las espigas no cambian de color: maduras doradas, con dos tonos
         this.stalks.forEach((s, i) => this.earMesh.setColorAt(i, _c.setHex(s.tone < 0.5 ? CROPS.wheat.ear : CROPS.wheat.earDark)));
+    }
+
+    // El campo pasa a otro nivel: la tierra arada se extiende, la hierba alta, flores y
+    // piedras que quedan debajo se apartan y el trigo nuevo brota
+    setLevel(level) {
+        if (level === this.level) return;
+        const old = this.field;
+        this.level = level;
+        this.field = fieldRect(level);
+        const { tiles, entry } = this.floor;
+        tiles.forEach((t, i) => {
+            const k = this.kindAt(t.c, t.r);
+            if ((k && k.field) === (t.k && t.k.field)) return;
+            t.k = k;
+            entry.positions[i].y = this.tileY(k);
+            this.paintTile(entry.mesh, t, i);
+        });
+        entry.mesh.instanceColor.needsUpdate = true;
+        for (const e of this.decor) e.positions.forEach((p) => (p.hide = p.hide || inRect(this.field, p.x, p.z, 0.15)));
+        for (const e of [entry, ...this.decor]) this.layout(e, this.introT);
+        this.buildWheat(old);
     }
 
     // Valla de madera alrededor de toda la granja
@@ -149,12 +206,14 @@ export class Farm {
             else if (p < 0.2) flowers.push({ x, y: 0.05, z, sx: 0.09, sy: 0.1, sz: 0.09 });
             else if (p < 0.215) rocks.push({ x, y: 0.1, z, sx: 0.4, sy: 0.22, sz: 0.3, ry: Math.random() });
         }
+        const n0 = this.animated.length;
         const tm = this.addHulled(0xffffff, tufts, 0.2);
         tufts.forEach((_, i) => tm.setColorAt(i, _c.setHex(this.theme.leaves[i % 3])));
         const fm = new THREE.InstancedMesh(box(1, 1, 1), toon(0xffffff), Math.max(1, flowers.length));
         flowers.forEach((_, i) => fm.setColorAt(i, _c.setHex(this.theme.flowers[i % this.theme.flowers.length])));
         this.addAnimated(fm, flowers, 0.2);
         this.addHulled(0xa8a49c, rocks, 0.2);
+        this.decor = this.animated.slice(n0);
     }
 
     buildClouds() {
@@ -210,7 +269,7 @@ export class Farm {
     layout({ mesh, positions, delays }, t) {
         positions.forEach((p, i) => {
             const k = Math.min(1, Math.max(0, (t - delays[i]) / 0.45));
-            const s = k <= 0 ? 0.0001 : easeOutBack(k);
+            const s = k <= 0 || p.hide ? 0.0001 : easeOutBack(k);
             _d.position.set(p.x, p.y - (1 - k) * 3, p.z);
             _d.rotation.set(0, p.ry || 0, 0);
             _d.scale.set(p.sx || 1, (p.sy || 1) * s, p.sz || 1);
@@ -220,19 +279,19 @@ export class Farm {
         mesh.instanceMatrix.needsUpdate = true;
     }
 
-    // Lo que hay bajo un rayo de la cámara: un edificio, un campo o nada
+    // Lo que hay bajo un rayo de la cámara: un edificio, el campo o nada
     pick(ray) {
         const hits = ray.intersectObjects(this.structures.map((m) => m.root), true);
         if (hits.length) return { structure: hits[0].object.userData.structure };
         const t = -ray.ray.origin.y / ray.ray.direction.y;
         if (!(t > 0)) return null;
         ray.ray.at(t, _p);
-        const i = this.fields.findIndex((f) => _p.x >= f.x - 0.2 && _p.x <= f.x + f.w + 0.2 && _p.z >= f.z - 0.2 && _p.z <= f.z + f.d + 0.2);
-        return i >= 0 ? { field: i } : null;
+        return inRect(this.field, _p.x, _p.z, 0.2) ? { field: true } : null;
     }
 
-    // progress[i]: crecimiento de cada campo de 0 a 1
+    // progress: crecimiento del campo de 0 a 1
     update(dt, time, progress) {
+        this.clock += dt;
         if (this.introT < INTRO_TIME + 0.5) {
             this.introT += dt;
             for (const a of this.animated) this.layout(a, this.introT);
@@ -253,9 +312,9 @@ export class Farm {
 
         const stages = CROPS.wheat.stages;
         this.stalks.forEach((s, i) => {
-            const p = progress[s.field];
+            const p = progress;
             const ready = p >= 1;
-            const intro = Math.min(1, Math.max(0, (this.introT - 0.8 - Math.hypot(s.x - this.cx, s.z - this.cz) * 0.03) / 0.4));
+            const intro = Math.min(1, Math.max(0, (this.clock - s.t0) / 0.4));
             const g = (0.1 + 0.9 * Math.min(1, p)) * (intro <= 0 ? 0.0001 : easeOutBack(intro));
             const h = s.h * g;
             // El viento: una ola que recorre el campo
@@ -284,9 +343,9 @@ export class Farm {
         }
     }
 
-    // Punto en el mundo sobre el centro de un campo (para su burbuja de RECOGER)
-    fieldTop(i, out = new THREE.Vector3()) {
-        const f = this.fields[i];
+    // Punto en el mundo sobre el centro del campo (para su burbuja de RECOGER)
+    fieldTop(out = new THREE.Vector3()) {
+        const f = this.field;
         return out.set(f.cx, 1.4, f.cz);
     }
 }

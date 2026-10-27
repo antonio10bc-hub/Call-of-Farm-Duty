@@ -72,9 +72,10 @@ export class Sniper {
         this.prevPitch = 0;
     }
 
-    enter(plots) {
+    // count: matas maduras que quedan en el campo
+    enter(count) {
         this.field.restartIntro();
-        this.field.spawnSheaves(plots);
+        this.field.spawnSheaves(count);
         this.particles.clear();
         this.waves.clear();
         this.corner = 0;

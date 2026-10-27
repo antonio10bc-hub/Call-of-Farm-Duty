@@ -1,30 +1,33 @@
 import { CROPS } from '../content/crops.js';
 import { FARM } from '../content/farm.js';
 
-// Estado de la granja: parcelas con su hora de siembra y el trigo recogido. Se guarda en el
-// navegador; sin almacenamiento simplemente no se recuerda.
-const KEY = 'cofd.farm.v2';
-export const PLOT_COUNT = FARM.fields.length;
+// Estado de la granja: el campo de trigo (nivel, hora de siembra y matas que quedan) y el trigo
+// recogido. Se guarda en el navegador; sin almacenamiento simplemente no se recuerda.
+const KEY = 'cofd.farm.v3';
+const OLD_KEY = 'cofd.farm.v2'; // seis campos: de ahí solo se conserva el trigo
+const LEVELS = FARM.field.levels;
 
 export class FarmState {
     constructor(now = Date.now()) {
         this.wheat = 0;
-        // Al empezar, algunas parcelas ya están listas para que se pueda jugar desde el principio
-        const grow = CROPS.wheat.growTime * 1000;
-        this.plots = Array.from({ length: PLOT_COUNT }, (_, i) => ({
-            crop: 'wheat',
-            plantedAt: i < 2 ? now - grow : now - grow * (0.15 + 0.7 * (i / PLOT_COUNT)),
-            left: CROPS.wheat.sheaves, // haces que quedan por recoger cuando está lista
-        }));
+        this.level = 0; // índice en FARM.field.levels
+        // Al empezar, el campo ya está listo para que se pueda jugar desde el principio
+        this.plot = { crop: 'wheat', plantedAt: now - CROPS.wheat.growTime * 1000, left: LEVELS[0].sheaves };
         this.load();
     }
 
     load() {
         try {
             const d = JSON.parse(localStorage.getItem(KEY) || 'null');
-            if (!d || !Array.isArray(d.plots) || d.plots.length !== PLOT_COUNT) return;
+            if (!d || !d.plot) {
+                const old = JSON.parse(localStorage.getItem(OLD_KEY) || 'null');
+                if (old) this.wheat = old.wheat | 0;
+                return;
+            }
+            const p = d.plot;
             this.wheat = d.wheat | 0;
-            this.plots = d.plots.map((p) => ({ crop: CROPS[p.crop] ? p.crop : 'wheat', plantedAt: +p.plantedAt || 0, left: p.left | 0 }));
+            this.level = Math.min(LEVELS.length - 1, Math.max(0, d.level | 0));
+            this.plot = { crop: CROPS[p.crop] ? p.crop : 'wheat', plantedAt: +p.plantedAt || 0, left: p.left | 0 };
         } catch {
             /* sin almacenamiento */
         }
@@ -32,48 +35,54 @@ export class FarmState {
 
     save() {
         try {
-            localStorage.setItem(KEY, JSON.stringify({ wheat: this.wheat, plots: this.plots }));
+            localStorage.setItem(KEY, JSON.stringify({ wheat: this.wheat, level: this.level, plot: this.plot }));
         } catch {
             /* ignorar */
         }
     }
 
+    get sheaves() {
+        return LEVELS[this.level].sheaves;
+    }
+
+    get maxed() {
+        return this.level >= LEVELS.length - 1;
+    }
+
+    get canUpgrade() {
+        return !this.maxed && this.wheat >= FARM.field.upgradeCost;
+    }
+
     // Avance de 0 a 1 (1 = listo para recoger)
-    progress(i, now = Date.now()) {
-        const p = this.plots[i];
+    progress(now = Date.now()) {
+        const p = this.plot;
         return Math.min(1, Math.max(0, (now - p.plantedAt) / (CROPS[p.crop].growTime * 1000)));
     }
 
-    isReady(i, now) {
-        return this.progress(i, now) >= 1 && this.plots[i].left > 0;
+    isReady(now) {
+        return this.progress(now) >= 1 && this.plot.left > 0;
     }
 
-    readyPlots(now = Date.now()) {
-        const out = [];
-        for (let i = 0; i < PLOT_COUNT; i++) if (this.isReady(i, now)) out.push(i);
-        return out;
+    // Mejora el campo: más grande y con más matas (las nuevas se suman a las que quedan)
+    upgrade() {
+        if (!this.canUpgrade) return false;
+        const before = this.sheaves;
+        this.wheat -= FARM.field.upgradeCost;
+        this.level++;
+        this.plot.left += this.sheaves - before;
+        this.save();
+        return true;
     }
 
-    // Segundos que faltan para la próxima parcela lista (0 si ya hay alguna)
-    nextReadyIn(now = Date.now()) {
-        let best = Infinity;
-        for (let i = 0; i < PLOT_COUNT; i++) {
-            if (this.isReady(i, now)) return 0;
-            const p = this.plots[i];
-            best = Math.min(best, (p.plantedAt + CROPS[p.crop].growTime * 1000 - now) / 1000);
-        }
-        return Math.max(0, best);
-    }
-
-    // Un haz recogido de la parcela i. Al recoger el último, se vuelve a sembrar.
-    collect(i, now = Date.now()) {
-        const p = this.plots[i];
+    // Un haz recogido. Al recoger el último, se vuelve a sembrar.
+    collect(now = Date.now()) {
+        const p = this.plot;
         if (p.left <= 0) return false;
         p.left--;
         this.wheat++;
         if (p.left === 0) {
             p.plantedAt = now;
-            p.left = CROPS[p.crop].sheaves;
+            p.left = this.sheaves;
         }
         this.save();
         return true;

@@ -529,6 +529,22 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
 .arrow-btn:active { transform: translateY(5px); box-shadow: 0 1px 0 var(--ink); }
 .arrow-btn.prev { left: 14px; }
 .arrow-btn.next { right: 14px; }
+/* Tecla que hace lo mismo que la flecha (Q izquierda, E derecha); sin teclado no se muestra */
+.key-cap {
+    position: absolute;
+    top: -12px;
+    right: -10px;
+    min-width: 22px;
+    padding: 4px 4px 3px;
+    font-size: 9px;
+    line-height: 1;
+    color: var(--cream);
+    background: var(--ink);
+    border: 2px solid var(--cream);
+    box-shadow: 0 3px 0 var(--ink);
+}
+.arrow-btn.prev .key-cap { right: auto; left: -10px; }
+@media (hover: none) { .key-cap { display: none; } }
 
 
 /* +1 que salta donde le das y el haz que vuela al contador */
@@ -697,6 +713,21 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
 }
 .harvest-btn { font-size: 16px; padding: 14px 22px; display: flex; align-items: center; gap: 10px; }
 .harvest-btn .wheat-ico { width: 22px; height: 24px; }
+.upgrade-btn {
+    font-size: 11px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #8fd14f;
+    box-shadow: 0 5px 0 var(--ink), inset 0 -4px 0 #5a9e32, inset 0 3px 0 #d4f5a8;
+    animation: none;
+}
+.upgrade-btn:active { box-shadow: 0 1px 0 var(--ink), inset 0 -2px 0 #5a9e32; }
+.upgrade-btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+.upgrade-btn.maxed .upgrade-cost { display: none; }
+.upgrade-cost { display: flex; align-items: center; gap: 4px; padding: 3px 6px; background: var(--cream); border: 3px solid var(--ink); }
+.upgrade-cost .wheat-ico { width: 14px; height: 16px; }
 
 /* Burbujas de RECOGER: salen de cada campo maduro y botan */
 .bubbles { position: fixed; inset: 0; z-index: 9; pointer-events: none; }

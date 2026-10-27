@@ -154,3 +154,31 @@ test('ratón: botón derecho apunta y al soltar dispara; al recoger todo se vuel
     await expect(page.locator('#wheat-count')).toHaveText(String(total));
     expect(errors).toEqual([]);
 });
+
+test('mejorar el campo: cuesta 3 de trigo, lo hace más grande y con más matas', async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto('/');
+    await expect(page.locator('.bubble:not(.hidden)')).toHaveCount(1, { timeout: 30_000 });
+    const before = await page.evaluate(() => ({ w: game.farm.field.w, d: game.farm.field.d, left: game.state.plot.left, stalks: game.farm.stalks.length }));
+    await page.evaluate(() => game.select({ field: true }));
+    // Sin trigo suficiente no se puede mejorar
+    await expect(page.locator('#panel-upgrade')).toBeDisabled();
+    await page.evaluate(() => { game.state.wheat = 4; });
+    await expect(page.locator('#panel-upgrade')).toBeEnabled();
+    await page.locator('#panel-upgrade').click();
+    expect(await page.evaluate(() => game.state.level)).toBe(1);
+    expect(await page.evaluate(() => game.state.wheat)).toBe(1);
+    const after = await page.evaluate(() => ({ w: game.farm.field.w, d: game.farm.field.d, left: game.state.plot.left, stalks: game.farm.stalks.length }));
+    expect(after.w * after.d).toBeGreaterThan(before.w * before.d);
+    expect(after.stalks).toBeGreaterThan(before.stalks);
+    expect(after.left).toBeGreaterThan(before.left);
+    await expect(page.locator('#panel-title')).toHaveText('CAMPO DE TRIGO NV.2');
+    // En el campo de tiro salen todas las matas del nivel nuevo
+    await page.locator('.bubble:not(.hidden)').click();
+    await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
+    expect(await page.evaluate(() => game.sniper.field.remaining)).toBe(after.left);
+    // Se guarda: al recargar sigue en el nivel 2
+    await page.reload();
+    await expect.poll(() => page.evaluate(() => window.game && game.state.level)).toBe(1);
+    expect(errors).toEqual([]);
+});

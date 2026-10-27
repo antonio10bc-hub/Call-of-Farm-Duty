@@ -13,20 +13,28 @@ export const FARM = {
         { id: 'tower', kind: 'tower', x: 23.5, z: 19, w: 2, d: 2, name: L('WATCHTOWER', 'TORRE DE VIGÍA') },
         { id: 'tractor', kind: 'tractor', x: 11.5, z: 13, w: 2, d: 3, ry: 1, name: L('TRACTOR', 'TRACTOR') },
     ],
-    // Campos de trigo (en casillas): esquina superior izquierda y tamaño
-    fields: [
-        { x: 3, z: 16, w: 5, d: 4 },
-        { x: 9, z: 16, w: 5, d: 4 },
-        { x: 16, z: 16, w: 5, d: 4 },
-        { x: 3, z: 21, w: 5, d: 4 },
-        { x: 9, z: 21, w: 5, d: 4 },
-        { x: 16, z: 21, w: 5, d: 4 },
-    ],
+    // El campo de trigo: uno solo, que crece al mejorarlo. Su esquina superior derecha queda
+    // fija junto al cruce de caminos (right, top) y se extiende hacia la izquierda y abajo.
+    field: {
+        right: 14,
+        top: 16,
+        upgradeCost: 3, // trigo por cada mejora
+        //   w, d      tamaño en casillas
+        //   sheaves   matas maduras que aparecen en el campo de tiro
+        levels: [
+            { w: 5, d: 4, sheaves: 6 },
+            { w: 6, d: 5, sheaves: 9 },
+            { w: 7, d: 6, sheaves: 12 },
+            { w: 8, d: 7, sheaves: 16 },
+            { w: 9, d: 8, sheaves: 20 },
+            { w: 10, d: 9, sheaves: 25 },
+            { w: 11, d: 10, sheaves: 30 },
+        ],
+    },
     // Caminos de tierra: rectángulos de casillas [x0, z0, x1, z1) (el final no entra)
     paths: [
         [14, 13, 16, 30],   // camino principal hacia el sur
         [3, 15, 25, 16],    // entre el granero y los campos
-        [3, 20, 21, 21],    // entre las dos filas de campos
         [8, 9, 9, 15],      // de la casa al camino
         [9, 9, 12, 10],     // de la casa al granero
         [22, 16, 23, 18],   // a la torre

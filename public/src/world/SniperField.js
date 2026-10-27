@@ -177,13 +177,11 @@ export class SniperField {
         mesh.instanceMatrix.needsUpdate = true;
     }
 
-    // Coloca una mata por cada haz que quede (plots: [{ plot, count }])
-    spawnSheaves(plots) {
+    // Coloca una mata por cada haz que quede
+    spawnSheaves(count) {
         this.targets.length = 0;
-        const list = [];
-        for (const { plot, count } of plots) for (let k = 0; k < count; k++) list.push(plot);
         const xs = this.poly.map((p) => p.x), zs = this.poly.map((p) => p.z);
-        list.slice(0, 64).forEach((plot, i) => {
+        for (let i = 0; i < Math.min(count, 64); i++) {
             let x = 0, z = 0;
             for (let tries = 0; tries < 80; tries++) {
                 x = Math.min(...xs) + Math.random() * (Math.max(...xs) - Math.min(...xs));
@@ -196,8 +194,8 @@ export class SniperField {
                 const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * 0.38;
                 return { ox: Math.sin(a) * r, oz: Math.cos(a) * r, h: 1.2 + Math.random() * 0.45 - r * 0.6, tilt: (Math.random() - 0.5) * 0.25, dir: Math.random() * Math.PI * 2, ph: Math.random() * 6, tone: Math.random() };
             });
-            this.targets.push({ plot, x, z, stalks, alive: true, grow: -0.5 - i * 0.06, landed: false, flash: 0, dying: 0 });
-        });
+            this.targets.push({ x, z, stalks, alive: true, grow: -0.5 - i * 0.06, landed: false, flash: 0, dying: 0 });
+        }
         this.tStalks.count = this.tEars.count = this.targets.length * CLUMP;
     }
 
