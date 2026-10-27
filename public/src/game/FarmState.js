@@ -11,6 +11,7 @@ const growMs = (id) => CROPS[FIELD_BY_ID[id].crop].growTime * 1000;
 
 export class FarmState {
     constructor(now = Date.now()) {
+        this.freeCosts = false; // depuración: todas las mejoras a 0
         this.items = Object.fromEntries(Object.keys(CROPS).map((c) => [c, 0]));
         // Los terrenos bloqueados se siembran al desbloquearlos (y quedan listos para recoger)
         this.fields = Object.fromEntries(FARM.fields.map((f) => [f.id, {
@@ -86,9 +87,15 @@ export class FarmState {
         return this.fields[id].level >= levelsOf(id).length - 1;
     }
 
+    // Lo que cuesta mejorar el campo id, por recurso (todo a 0 con la depuración de costes)
+    cost(id) {
+        const c = FIELD_BY_ID[id].cost;
+        return this.freeCosts ? Object.fromEntries(Object.keys(c).map((k) => [k, 0])) : c;
+    }
+
     // ¿Hay de todo lo que pide la mejora?
     affordable(id) {
-        return Object.entries(FIELD_BY_ID[id].cost).every(([c, n]) => this.items[c] >= n);
+        return Object.entries(this.cost(id)).every(([c, n]) => this.items[c] >= n);
     }
 
     canUpgrade(id) {
@@ -128,7 +135,7 @@ export class FarmState {
     upgrade(id) {
         if (!this.canUpgrade(id)) return false;
         const before = this.sheaves(id);
-        for (const [c, n] of Object.entries(FIELD_BY_ID[id].cost)) this.items[c] -= n;
+        for (const [c, n] of Object.entries(this.cost(id))) this.items[c] -= n;
         this.fields[id].level++;
         this.fields[id].left += this.sheaves(id) - before;
         this.save();

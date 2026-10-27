@@ -37,6 +37,7 @@ const canvas = $('view');
 const renderer = new RetroRenderer(canvas, CONFIG.render);
 const scope = new Scope($('scope'));
 const state = new FarmState();
+state.freeCosts = Settings.freeCosts;
 
 function addLights(scene) {
     const { light } = THEME;
@@ -343,7 +344,7 @@ function refreshPanel() {
     up.classList.remove('hidden');
     up.disabled = !state.canUpgrade(id);
     $('upgrade-label').textContent = maxed ? L('MAX LEVEL', 'NIVEL MÁXIMO') : L('UPGRADE', 'MEJORAR');
-    const cost = maxed ? '' : Object.entries(def.cost).map(([c, n]) => `<span class="upgrade-cost${state.items[c] < n ? ' short' : ''}">${ico(CROPS[c].icon)}<b>${n}</b></span>`).join('');
+    const cost = maxed ? '' : Object.entries(state.cost(id)).map(([c, n]) => `<span class="upgrade-cost${state.items[c] < n ? ' short' : ''}">${ico(CROPS[c].icon)}<b>${n}</b></span>`).join('');
     if ($('upgrade-cost').innerHTML !== cost) $('upgrade-cost').innerHTML = cost;
     up.classList.toggle('maxed', maxed);
 }
@@ -759,6 +760,11 @@ for (const el of document.querySelectorAll('.toggle')) {
         const on = Settings.toggle(key);
         el.classList.toggle('off', !on);
         if (key === 'sfx') sfx.enabled = on;
+        if (key === 'freeCosts') {
+            state.freeCosts = on;
+            updateCounts();
+            refreshPanel();
+        }
         if (key === 'music') {
             music.enabled = on;
             if (on) startMusic(mode === 'snipe' ? THEME.sniperMusic : THEME.music);

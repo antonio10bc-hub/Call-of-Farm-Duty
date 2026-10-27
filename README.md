@@ -16,7 +16,7 @@ Granja voxel con estética de consola portátil (mismo estudio y estilo que Tank
   - Medallas (pequeñas, arriba): COLATERAL xN, y DOBLE / TRIPLE / MULTI KILL al encadenar matas con menos de 3 s entre una y otra.
   - Si sueltas mientras el cerrojo recarga, el disparo sale en cuanto está listo. Se puede mirar, apuntar y disparar durante el salto entre torres.
   - El botón GRANJA vuelve en cualquier momento; lo recogido se guarda.
-- **Ajustes:** música, sonido, vibración, idioma y BORRAR PROGRESO (dos toques: borra el trigo y el campo, no los ajustes).
+- **Ajustes:** música, sonido, vibración e idioma. En la caja DEBUG: COSTES 0 (todas las mejoras gratis; se recuerda) y BORRAR PROGRESO (dos toques: borra la cosecha y los campos, no los ajustes).
 
 ## Desarrollo
 ```

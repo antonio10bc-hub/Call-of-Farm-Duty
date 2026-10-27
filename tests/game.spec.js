@@ -323,3 +323,22 @@ test('tomates: con el trigo al máximo se desbloquea disparando al barril; luego
     expect(await page.evaluate(() => [game.state.fields.tomato.level, game.state.items.wheat, game.state.items.tomato])).toEqual([1, 0, 0]);
     expect(errors).toEqual([]);
 });
+
+test('debug: con COSTES 0 se mejora sin gastar nada', async ({ page }) => {
+    const errors = watchErrors(page);
+    await openFarm(page);
+    await page.evaluate(() => game.select({ field: 'wheat' }));
+    await expect(page.locator('#panel-upgrade')).toBeDisabled();
+    await page.locator('#btn-settings').click();
+    await page.locator('#toggle-free').click();
+    await expect(page.locator('#toggle-free')).not.toHaveClass(/off/);
+    await page.locator('#btn-settings-close').click();
+    await expect(page.locator('#panel-upgrade')).toBeEnabled();
+    await expect(page.locator('#upgrade-cost')).toHaveText('0');
+    await page.locator('#panel-upgrade').click();
+    expect(await page.evaluate(() => [game.state.fields.wheat.level, game.state.wheat])).toEqual([1, 0]);
+    // Se recuerda al recargar
+    await page.reload();
+    await expect.poll(() => page.evaluate(() => window.game && game.state.freeCosts)).toBe(true);
+    expect(errors).toEqual([]);
+});
