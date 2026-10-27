@@ -8,6 +8,8 @@ import { RifleModel } from '../render/RifleModel.js';
 import { SniperField } from '../world/SniperField.js';
 import { vibrate } from '../core/Haptics.js';
 import { CROPS } from '../content/crops.js';
+import { KILLSTREAKS, KS } from '../content/killstreaks.js';
+import { Killstreaks } from './Killstreaks.js';
 
 const S = CONFIG.sniper;
 const FIRE = [0xffffff, 0xffe03a, 0xff9a1f, 0xff3e1a];
@@ -23,8 +25,11 @@ const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) 
 // Se puede mirar, apuntar y disparar también mientras se salta de una torre a otra.
 // Dos modos: cosecha (los blancos son las matas o los tomates) y desbloqueo (un solo disparo
 // lejano al barril rojo encima de la chatarra, sin poder cambiar de torre).
+// Cosechando hay rachas de bajas (content/killstreaks.js): granada, misil Predator (mientras
+// se guía, la vista y el gatillo son del misil), bombardero y bomba nuclear.
 export class Sniper {
-    // hooks: { sfx, onHit(target, ndcX, ndcY), onMedal({ collateral, streak }), onUnlock(), onFinish(), onDone(), onCorner(i) }
+    // hooks: { sfx, onHit(target, ndcX, ndcY), onMedal({ collateral, streak, reward }), onUnlock(),
+    //          onPredator(on), onNukeCount(s), onNuke(), onFinish(), onDone(), onCorner(i) }
     constructor(theme, hooks) {
         this.theme = theme;
         this.hooks = hooks;
@@ -40,6 +45,11 @@ export class Sniper {
         this.scene.add(this.camera);
         this.rifle = new RifleModel(theme.outline);
         this.camera.add(this.rifle.root);
+
+        this.ks = new Killstreaks(this);
+        this.streak = 0;
+        this.streakT = 0; // lo que le queda a la barra de la racha (s) y lo que duraba llena
+        this.streakMax = 1;
 
         this.tracer = new THREE.Mesh(box(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xfff6dc }));
         this.tracer.visible = false;
@@ -102,11 +112,12 @@ export class Sniper {
         this.ending = -1;
         this.slowmo = 0;
         this.hitStop = 0;
-        this.streak = 0; // matas seguidas, cada una a menos de multiKillTime de la anterior
-        this.lastKill = -Infinity;
+        this.streak = this.streakT = 0;
+        this.ks.clear();
     }
 
     leave() {
+        this.ks.clear();
         this.field.clearSheaves();
         this.particles.clear();
     }
@@ -123,7 +134,7 @@ export class Sniper {
 
     // Salta a la torre vecina (dir: +1 / -1). La mira sigue puesta si lo estaba.
     goCorner(dir) {
-        if (this.move || this.ending >= 0 || this.unlocking) return;
+        if (this.move || this.ending >= 0 || this.unlocking || this.ks.predator) return;
         const n = this.field.towers.length;
         const to = (this.corner + dir + n) % n;
         this.move = { from: this.pos.clone(), to: this.eyeOf(to), t: 0, idx: to };
@@ -132,7 +143,7 @@ export class Sniper {
 
     // Salta a la torre vecina que queda a la izquierda (side -1) o a la derecha (+1) de la vista
     goSide(side) {
-        if (this.move || this.ending >= 0 || this.unlocking) return;
+        if (this.move || this.ending >= 0 || this.unlocking || this.ks.predator) return;
         const n = this.field.towers.length;
         const rx = Math.cos(this.lookYaw), rz = -Math.sin(this.lookYaw); // derecha de la vista
         const along = (d) => {
@@ -160,6 +171,7 @@ export class Sniper {
 
     // Girar la vista. rate: radianes por píxel (o por unidad de stick); con la mira, más fino
     look(dx, dy, rate) {
+        if (this.ks.predator) return this.ks.steer(dx, dy, rate); // guiando el misil
         const k = rate * (this.fov / S.fov) * (1 - this.adsK * (1 - S.adsSlow));
         this.lookYaw -= dx * k;
         this.lookPitch = clamp(this.lookPitch - dy * k, S.pitchMin, S.pitchMax);
@@ -176,6 +188,7 @@ export class Sniper {
     // Subir o bajar el arma al ojo
     setAds(on) {
         this.pending = false;
+        if (this.ks.predator) return on && this.ks.boost(); // el gatillo acelera el misil
         if (on === this.scoped || (on && this.ending >= 0)) return;
         this.scoped = on;
         this.hooks.sfx.play(on ? 'scopeIn' : 'scopeOut');
@@ -185,6 +198,7 @@ export class Sniper {
     // Si se suelta mientras el cerrojo aún recarga, el disparo queda guardado: el arma sigue
     // arriba y dispara en cuanto está lista (no se pierde la puntería)
     release(fire = true) {
+        if (this.ks.predator) return false;
         if (!this.scoped) return false;
         if (fire && this.bolt > 0 && this.ending < 0) {
             this.pending = true;
@@ -215,6 +229,7 @@ export class Sniper {
     }
 
     fire() {
+        if (this.ks.predator) return this.ks.boost(), false;
         if (!this.canFire) {
             this.hooks.sfx.play('scopeOut');
             return false;
@@ -248,34 +263,16 @@ export class Sniper {
 
         if (this.unlocking) return this.fireAtJunk(origin, dir, muzzle);
         const hits = this.field.raycast(origin, dir);
-        const C = CROPS[this.crop];
         let end;
         if (hits.length) {
             // La bala sigue tras la última mata hasta el suelo
             const tEnd = dir.y < -1e-3 ? Math.min(80, -origin.y / dir.y) : hits[hits.length - 1].t;
             end = origin.clone().addScaledVector(dir, tEnd);
-            hits.forEach(({ sheaf: s }, k) => {
-                s.alive = false;
-                s.dying = 0.14 + k * 0.05;
-                s.flash = 1;
-                // Grano y paja (o zumo y pepitas de tomate) que saltan, polvo de tierra y una onda
-                this.particles.burst(s.x, s.y, s.z, 50, C.burst, { speed: 3.6, up: 4.2, size: 0.09, ttl: 1.0 });
-                this.particles.burst(s.x, s.y - 0.3, s.z, 30, C.chaff, { speed: 2.4, up: 3, size: 0.06, ttl: 1.2, grav: 4 });
-                this.particles.burst(s.x, 0.1, s.z, 12, [this.theme.dust, 0x8a5a34], { speed: 1.8, up: 1, size: 0.12, ttl: 0.5 });
-                this.waves.spawn(s.x, s.z, 0xffe9a0, 1.8, 0.35);
-                _v.set(s.x, s.y, s.z).project(this.camera);
-                this.hooks.onHit(s, _v.x, _v.y);
-                if (k) setTimeout(() => sfx.play('harvest'), k * 90);
-            });
             this.hitStop = S.hitStop * Math.min(3, hits.length);
             this.trauma = Math.min(1, this.trauma + 0.2 * hits.length);
-            vibrate('pickup');
-            sfx.play('harvest');
-            // Medallas: colateral (varias de una bala) y racha (doble, triple, multi kill)
-            this.streak = (this.time - this.lastKill < S.multiKillTime ? this.streak : 0) + hits.length;
-            this.lastKill = this.time;
-            if (this.hooks.onMedal) this.hooks.onMedal({ collateral: hits.length, streak: this.streak });
-            if (this.field.remaining === 0) this.finish();
+            // Colateral: varias de una bala
+            if (hits.length > 1 && this.hooks.onMedal) this.hooks.onMedal({ collateral: hits.length });
+            this.harvest(hits.map((h) => h.sheaf));
         } else {
             const t = dir.y < -1e-3 ? -origin.y / dir.y : 80;
             end = origin.clone().addScaledVector(dir, Math.min(t, 80));
@@ -287,6 +284,56 @@ export class Sniper {
         }
         this.drawTracer(origin, dir, muzzle, end);
         return hits.length > 0;
+    }
+
+    // Blancos recogidos (por una bala, una granada, bombas...): saltan, cuentan para la racha
+    // (doble, triple, multi kill y las recompensas) y, si no queda nada, se acaba el campo
+    harvest(list) {
+        const { sfx } = this.hooks, C = CROPS[this.crop];
+        list.forEach((s, k) => {
+            s.alive = false;
+            s.dying = 0.14 + Math.min(k, 6) * 0.05;
+            s.flash = 1;
+            // Grano y paja (o zumo y pepitas de tomate) que saltan, polvo de tierra y una onda
+            this.particles.burst(s.x, s.y, s.z, 50, C.burst, { speed: 3.6, up: 4.2, size: 0.09, ttl: 1.0 });
+            this.particles.burst(s.x, s.y - 0.3, s.z, 30, C.chaff, { speed: 2.4, up: 3, size: 0.06, ttl: 1.2, grav: 4 });
+            this.particles.burst(s.x, 0.1, s.z, 12, [this.theme.dust, 0x8a5a34], { speed: 1.8, up: 1, size: 0.12, ttl: 0.5 });
+            this.waves.spawn(s.x, s.z, 0xffe9a0, 1.8, 0.35);
+            _v.set(s.x, s.y, s.z).project(this.camera);
+            this.hooks.onHit(s, _v.x, _v.y);
+            if (k && k < 6) setTimeout(() => sfx.play('harvest'), k * 90);
+        });
+        vibrate('pickup');
+        sfx.play('harvest');
+        this.addStreak(list.length);
+        if (this.field.remaining === 0 && !this.ks.holdsEnd && this.ending < 0) this.finish();
+    }
+
+    // La racha sube y la barra se rellena, cada vez durando menos. Al llegar a cada número se
+    // lanza su recompensa.
+    addStreak(n) {
+        const prev = this.streak;
+        this.streak += n;
+        this.streakMax = Math.max(KS.bar.min, KS.bar.time * KS.bar.decay ** (this.streak - 1));
+        this.streakT = this.streakMax;
+        if (this.hooks.onMedal && this.streak >= 2 && prev < 4) this.hooks.onMedal({ streak: Math.min(4, this.streak) });
+        for (const k of KILLSTREAKS) if (prev < k.at && this.streak >= k.at) this.ks.trigger(k.id);
+    }
+
+    // Explosión en el suelo (granada, misil, bombas): fuego, humo, polvo y ondas, y se recoge
+    // todo lo que quede a menos de r. k: tamaño (1 = normal)
+    blast(x, z, r, k = 1) {
+        const P = this.particles, { sfx } = this.hooks;
+        P.burst(x, 0.5, z, 90 * k, FIRE, { speed: 8 * k, up: 7 * k, size: 0.35 * k, ttl: 0.8, grav: 3 });
+        P.burst(x, 0.8, z, 40 * k, SMOKE, { speed: 3 * k, up: 4 * k, size: 0.7 * k, ttl: 2, grav: -1.5 });
+        P.burst(x, 0.2, z, 60 * k, [this.theme.dust, 0x8a5a34], { speed: 9 * k, up: 2, size: 0.25 * k, ttl: 0.9, grav: 4 });
+        this.waves.spawn(x, z, 0xffe03a, r * 1.6, 0.5);
+        this.waves.spawn(x, z, 0xffffff, r * 0.8, 0.3);
+        this.trauma = Math.min(1, this.trauma + 0.3 * k);
+        sfx.play(Math.random() < 0.5 ? 'boom' : 'crateBreak');
+        vibrate('crate');
+        const caught = this.field.targets.filter((s) => s.alive && s.landed && Math.hypot(s.x - x, s.z - z) <= r);
+        if (caught.length) this.harvest(caught);
     }
 
     drawTracer(origin, dir, muzzle, end) {
@@ -361,6 +408,7 @@ export class Sniper {
     }
 
     finish() {
+        this.ks.stopControl();
         this.ending = 0;
         this.slowmo = S.slowmoTime;
         this.hooks.sfx.play('win');
@@ -378,6 +426,9 @@ export class Sniper {
         }
         this.time += dt;
         const time = this.time;
+        // La barra de la racha se vacía (no mientras se guía el misil o cuenta la nuclear)
+        if (this.streak > 0 && !this.ks.paused && this.ending < 0 && (this.streakT -= dt) <= 0) this.streak = this.streakT = 0;
+        this.ks.update(dt, rawDt);
 
         if (this.move) {
             const m = this.move;
@@ -439,8 +490,12 @@ export class Sniper {
         this.rifle.update(rawDt, wrapAngle(this.yaw - this.prevYaw), this.pitch - this.prevPitch, bob, this.adsK);
         this.prevYaw = this.yaw;
         this.prevPitch = this.pitch;
-        // La mira tapa el arma cuando está pegada al ojo
-        this.rifle.root.visible = this.adsK < 0.85;
+        // La mira tapa el arma cuando está pegada al ojo; guiando el misil, la vista es la suya
+        this.rifle.root.visible = this.adsK < 0.85 && !this.ks.predator;
+        if (this.ks.predator) {
+            this.ks.aimCamera(this.camera);
+            this.fov = this.camera.fov;
+        }
 
         // El barril, esperando: suelta humo y chispas para que se vea que es el blanco
         const B = this.unlocking && !this.field.exploded && this.field.barrel;

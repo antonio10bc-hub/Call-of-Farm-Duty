@@ -422,7 +422,7 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
     position: fixed;
     left: 0;
     right: 0;
-    top: calc(var(--safe-top) + 92px);
+    top: calc(var(--safe-top) + 150px);
     z-index: 15;
     display: flex;
     flex-direction: column;
@@ -441,6 +441,7 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
 }
 .medal.collateral { color: var(--cyan); border-color: var(--cyan); }
 .medal.multi { color: #fff; background: var(--barn); border-color: #fff; }
+.medal.reward { font-size: 14px; padding: 7px 10px; color: var(--ink); background: var(--yellow); border-color: var(--ink); }
 @keyframes medalPop {
     0% { opacity: 0; transform: scale(1.8); }
     12% { opacity: 1; transform: scale(1); }
@@ -895,6 +896,51 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
 body.sniping:not(.scoped) .reticle { display: block; }
 /* Desbloqueo: una sola torre y un solo blanco (el barril) */
 body.unlocking .arrow-btn, body.unlocking .corners, body.unlocking .left-badge { display: none; }
+
+/* Racha de bajas: arriba en el centro, bajo las torres. La barra se vacía y parpadea al final */
+.streak {
+    position: absolute;
+    top: calc(var(--safe-top) + 92px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 170px;
+    padding: 6px 8px 7px;
+    color: #fff;
+    background: var(--ink);
+    border: 3px solid var(--yellow);
+    box-shadow: 0 4px 0 rgba(42, 26, 14, .45);
+    text-align: center;
+}
+.streak.hidden { display: none; }
+.streak-head { font-size: 9px; }
+.streak-head b { color: var(--yellow); font-weight: normal; font-size: 12px; }
+.streak-bar { height: 8px; margin: 5px 0 4px; padding: 1px; background: #5a3a22; }
+.streak-bar i { display: block; height: 100%; background: var(--yellow); }
+.streak.low .streak-bar i { background: var(--barn); animation: blink .25s steps(2) infinite; }
+@keyframes blink { 50% { opacity: .3; } }
+.streak-next { font-size: 6px; line-height: 1.5; color: #c8b89a; }
+
+/* Misil Predator: vista verdosa con líneas, recuadro de impacto en el centro y su altura */
+.predator-hud { display: none; position: fixed; inset: 0; z-index: 12; pointer-events: none; color: #c8ffb0; text-shadow: 2px 2px 0 var(--ink); }
+body.predator .predator-hud { display: block; background: rgba(60, 120, 50, .16) repeating-linear-gradient(0deg, rgba(0, 0, 0, .12) 0 2px, transparent 2px 5px); }
+body.predator .reticle, body.predator .hint, body.predator .arrow-btn, body.predator .corners, body.predator #scope { display: none !important; }
+.pred-title { position: absolute; top: calc(var(--safe-top) + 62px); left: 0; right: 0; text-align: center; font-size: 12px; animation: blink .6s steps(2) infinite; }
+.pred-box { position: absolute; left: 50%; top: 50%; width: 90px; height: 90px; margin: -45px 0 0 -45px; }
+.pred-box i { position: absolute; width: 22px; height: 22px; border: 0 solid #c8ffb0; }
+.pred-box i:nth-child(1) { left: 0; top: 0; border-width: 3px 0 0 3px; }
+.pred-box i:nth-child(2) { right: 0; top: 0; border-width: 3px 3px 0 0; }
+.pred-box i:nth-child(3) { left: 0; bottom: 0; border-width: 0 0 3px 3px; }
+.pred-box i:nth-child(4) { right: 0; bottom: 0; border-width: 0 3px 3px 0; }
+.pred-alt { position: absolute; left: 50%; top: calc(50% + 56px); transform: translateX(-50%); font-size: 10px; }
+.pred-help { position: absolute; left: 0; right: 0; bottom: calc(max(14px, env(safe-area-inset-bottom)) + 30px); text-align: center; font-size: 9px; }
+
+/* Bomba nuclear: cuenta atrás grande en rojo */
+.nuke-count { position: fixed; left: 0; right: 0; top: 30%; z-index: 16; display: flex; flex-direction: column; align-items: center; gap: 10px; pointer-events: none; color: #fff; text-shadow: 3px 3px 0 var(--ink); }
+.nuke-count.hidden { display: none; }
+.nuke-count span { font-size: 12px; padding: 6px 10px; background: var(--barn); border: 3px solid var(--ink); animation: blink .5s steps(2) infinite; }
+.nuke-count b { font-size: 64px; font-weight: normal; color: #ff3e1a; }
+.nuke-count.tick b { animation: nukeTick 1s steps(5) both; }
+@keyframes nukeTick { from { transform: scale(1.6); } 30% { transform: scale(1); } }
 body.locked { cursor: none; }
 .hint .for-mouse { display: none; }
 @media (hover: hover) and (pointer: fine) {

@@ -3,6 +3,7 @@ import { CONFIG } from './config.js';
 import { THEME } from './content/theme.js';
 import { CROPS } from './content/crops.js';
 import { FARM, FIELD_BY_ID, INFO } from './content/farm.js';
+import { KILLSTREAKS, useDebugStreaks } from './content/killstreaks.js';
 import { RetroRenderer } from './render/RetroRenderer.js';
 import { CameraRig } from './render/CameraRig.js';
 import { Particles } from './render/Particles.js';
@@ -38,6 +39,7 @@ const renderer = new RetroRenderer(canvas, CONFIG.render);
 const scope = new Scope($('scope'));
 const state = new FarmState();
 state.freeCosts = Settings.freeCosts;
+useDebugStreaks(Settings.debugStreaks);
 
 function addLights(scene) {
     const { light } = THEME;
@@ -79,13 +81,42 @@ const sniper = new Sniper(THEME, {
         flyItem(cropOf(snipeField).icon, x, y, $('snipe-wheat'), () => updateCounts(true));
         $('left-count').textContent = sniper.field.remaining;
     },
-    onMedal({ collateral, streak }) {
+    onMedal({ collateral, streak, reward }) {
         if (collateral > 1) medal(`${L('COLLATERAL', 'COLATERAL')} x${collateral}`, 'collateral');
         if (streak >= 2) {
-            const name = streak === 2 ? L('DOUBLE KILL', 'DOBLE KILL') : streak === 3 ? L('TRIPLE KILL', 'TRIPLE KILL') : `${L('MULTI KILL', 'MULTI KILL')} x${streak}`;
+            const name = streak === 2 ? L('DOUBLE KILL', 'DOBLE KILL') : streak === 3 ? L('TRIPLE KILL', 'TRIPLE KILL') : L('MULTI KILL', 'MULTI KILL');
             medal(name, streak >= 4 ? 'multi' : '');
         }
-        if (collateral > 1 || streak >= 2) vibrate('kill');
+        // Recompensa de la racha: su medalla, más grande
+        if (reward) {
+            const k = KILLSTREAKS.find((r) => r.id === reward);
+            medal(`${k.at} · ${k.name}`, 'reward');
+        }
+        if (collateral > 1 || streak >= 2 || reward) vibrate('kill');
+    },
+    // Misil Predator: la interfaz del francotirador se cambia por la del misil
+    onPredator(on) {
+        document.body.classList.toggle('predator', on);
+    },
+    onNukeCount(n) {
+        const el = $('nuke-count');
+        el.classList.toggle('hidden', n <= 0);
+        $('nuke-n').textContent = n;
+        el.classList.remove('tick');
+        void el.offsetWidth;
+        el.classList.add('tick');
+    },
+    // Bomba nuclear: fogonazo blanco largo y, además del campo, se recoge lo maduro de toda la granja
+    onNuke() {
+        $('nuke-count').classList.add('hidden');
+        renderer.flash(0xffffff, 1);
+        for (let k = 1; k <= 6; k++) setTimeout(() => renderer.flash(k % 2 ? 0xfff6dc : 0xffffff, 1 - k * 0.12), k * 160);
+        for (const def of FARM.fields) {
+            if (def.id === snipeField || !state.isReady(def.id)) continue;
+            for (let n = state.fields[def.id].left; n > 0; n--) state.collect(def.id);
+        }
+        updateCounts(true);
+        setTimeout(() => banner(L('NUKE!', '¡NUCLEAR!')), 300);
     },
     // El barril ha reventado: el terreno queda limpio y desbloqueado (se guarda ya)
     onUnlock() {
@@ -380,6 +411,24 @@ function revealUnlocked() {
     return false;
 }
 
+// Barra de la racha de bajas: cuántas lleva, lo que le queda a la barra y la siguiente recompensa
+function updateStreak() {
+    const n = sniper.streak, el = $('streak');
+    el.classList.toggle('hidden', n <= 0 || sniper.unlocking);
+    if (n <= 0) return;
+    $('streak-n').textContent = n;
+    $('streak-fill').style.width = `${Math.round(Math.max(0, sniper.streakT / sniper.streakMax) * 40) * 2.5}%`;
+    el.classList.toggle('low', sniper.streakT < 1);
+    const next = KILLSTREAKS.find((k) => k.at > n);
+    $('streak-next').textContent = next ? `${L('NEXT', 'SIGUIENTE')}: ${next.at} ${next.name}` : L('MAX STREAK!', '¡RACHA MÁXIMA!');
+}
+
+// Guiando el misil: altura en la interfaz
+function updatePredator() {
+    const p = sniper.ks.predator;
+    if (p) $('pred-alt').textContent = `${L('ALT', 'ALT')} ${Math.max(0, Math.round(p.y))}M`;
+}
+
 function startMusic(cfg) {
     if (Settings.music) music.start(cfg, 7);
 }
@@ -435,6 +484,7 @@ function enterSnipe() {
     showCorner(0);
     updateCounts();
     startMusic(THEME.sniperMusic);
+    $('nuke-count').classList.add('hidden');
     const msg = unlock ? L('SHOOT THE RED BARREL!', '¡DISPARA AL BARRIL ROJO!') : L('HARVEST!', '¡A COSECHAR!');
     setTimeout(() => mode === 'snipe' && banner(msg, 'go'), 450);
 }
@@ -454,6 +504,8 @@ function enterFarm() {
     const unlocking = sniper.unlocking;
     sniper.leave();
     if (document.exitPointerLock && locked()) document.exitPointerLock();
+    document.body.classList.remove('predator');
+    $('nuke-count').classList.add('hidden');
     mode = 'farm';
     renderer.flash(INK, 1);
     scope.show(false);
@@ -634,7 +686,7 @@ addEventListener('wheel', (e) => {
 
 // Dedo quieto un momento: sube el arma
 function holdCheck() {
-    if (mode === 'snipe' && touch && !touch.mouse && !sniper.scoped && performance.now() - touch.still > S.holdTime) sniper.setAds(true);
+    if (mode === 'snipe' && touch && !touch.mouse && !sniper.scoped && !sniper.ks.predator && performance.now() - touch.still > S.holdTime) sniper.setAds(true);
 }
 
 function tapMap(x, y) {
@@ -760,6 +812,7 @@ for (const el of document.querySelectorAll('.toggle')) {
         const on = Settings.toggle(key);
         el.classList.toggle('off', !on);
         if (key === 'sfx') sfx.enabled = on;
+        if (key === 'debugStreaks') useDebugStreaks(on);
         if (key === 'freeCosts') {
             state.freeCosts = on;
             updateCounts();
@@ -839,6 +892,8 @@ function frame(now) {
         const spreadPx = (Math.tan(sniper.spread) / Math.tan((sniper.fov * Math.PI) / 360)) * (innerHeight / 2);
         $('reticle').style.setProperty('--spread', `${Math.max(5, Math.round(spreadPx))}px`);
         $('snipe-hint').classList.toggle('gone', sniper.moving || sniper.scoped || time - snipeStart > 6);
+        updateStreak();
+        updatePredator();
         if (mode === 'toFarm') {
             modeT += dt;
             renderer.flash(INK, Math.min(1, modeT / 0.35));

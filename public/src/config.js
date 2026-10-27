@@ -48,7 +48,6 @@ export const CONFIG = {
         sway: 0.0055,       // vaivén de la respiración con la mira
         recoil: 0.07,       // radianes que sube la vista al disparar (sin mira)
         boltTime: 0.7,      // recarga del cerrojo entre disparos
-        multiKillTime: 3,   // s entre matas para encadenar doble / triple / multi kill
         hitStop: 0.07,
         slowmo: 0.25,
         slowmoTime: 1.1,

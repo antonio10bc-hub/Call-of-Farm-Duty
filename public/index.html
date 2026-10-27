@@ -85,6 +85,20 @@
             <span class="for-mouse" data-es="RATÓN PARA MIRAR · MANTÉN CLIC DERECHO PARA APUNTAR, SUELTA PARA DISPARAR&lt;br&gt;CLIC IZQUIERDO: DISPARAR · Q/E: TORRE · ESC: SOLTAR RATÓN · H: GRANJA">MOUSE TO LOOK · HOLD RIGHT CLICK TO AIM, RELEASE TO FIRE<br>LEFT CLICK: FIRE · Q/E: TOWER · ESC: FREE MOUSE · H: FARM</span>
         </div>
         <div id="reticle" class="reticle"><i></i><i></i><i></i><i></i><b></b></div>
+        <!-- Racha de bajas: número, barra que se vacía y la siguiente recompensa -->
+        <div id="streak" class="streak hidden">
+            <div class="streak-head"><span data-es="RACHA">STREAK</span> <b id="streak-n">0</b></div>
+            <div class="streak-bar"><i id="streak-fill"></i></div>
+            <div id="streak-next" class="streak-next"></div>
+        </div>
+        <!-- Misil Predator: vista del misil -->
+        <div id="predator-hud" class="predator-hud">
+            <div class="pred-title" data-es="MISIL PREDATOR">PREDATOR MISSILE</div>
+            <div class="pred-box"><i></i><i></i><i></i><i></i></div>
+            <div id="pred-alt" class="pred-alt"></div>
+            <div class="pred-help" data-es="MUEVE: GUIAR · DISPARA: TURBO">MOVE: STEER · FIRE: BOOST</div>
+        </div>
+        <div id="nuke-count" class="nuke-count hidden"><span data-es="BOMBA NUCLEAR">NUKE INCOMING</span><b id="nuke-n">5</b></div>
     </div>
 
     <div id="banner" class="banner"></div>
@@ -110,6 +124,7 @@
             <div class="debug-title">DEBUG</div>
             <div class="toggles toggles-col">
                 <button id="toggle-free" class="toggle" data-key="freeCosts" data-es="COSTES 0">FREE COSTS</button>
+                <button id="toggle-streaks" class="toggle" data-key="debugStreaks" data-es="RACHAS 1·2·3·4">STREAKS 1·2·3·4</button>
             </div>
             <button id="btn-reset" class="btn btn-danger set-btn" data-es="BORRAR PROGRESO">RESET PROGRESS</button>
         </div>

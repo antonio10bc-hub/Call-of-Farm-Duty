@@ -56,13 +56,19 @@ async function shootNext(page) {
         return true;
     });
     if (!ok) return false;
-    await expect.poll(() => page.evaluate(() => game.sniper.canFire && !game.sniper.scoped && !game.sniper.moving), { timeout: 10_000 }).toBe(true);
+    await expect.poll(() => page.evaluate(() => (game.sniper.canFire && !game.sniper.scoped && !game.sniper.moving) || game.sniper.ending >= 0), { timeout: 10_000 }).toBe(true);
+    if (await page.evaluate(() => game.sniper.ending >= 0)) return false;
     await page.evaluate(() => {
         const s = game.sniper.field.sheaves.find((x) => x.alive);
         if (s) game.sniper.lookAt(s.x, 0.9, s.z);
     });
     await page.mouse.down({ button: 'right' });
-    await expect.poll(() => page.evaluate(() => game.sniper.adsK === 1 && game.sniper.spread < 0.002), { timeout: 20_000 }).toBe(true);
+    // (si mientras tanto una granada recoge lo último y se acaba el campo, ya no hay disparo)
+    await expect.poll(() => page.evaluate(() => (game.sniper.adsK === 1 && game.sniper.spread < 0.002) || game.sniper.ending >= 0), { timeout: 20_000 }).toBe(true);
+    if (await page.evaluate(() => game.sniper.ending >= 0)) {
+        await page.mouse.up({ button: 'right' });
+        return false;
+    }
     // La vista puede haberse movido (salto de torre en curso): se vuelve a centrar la mata
     await page.evaluate(() => {
         const s = game.sniper.field.sheaves.find((x) => x.alive);
@@ -340,5 +346,99 @@ test('debug: con COSTES 0 se mejora sin gastar nada', async ({ page }) => {
     // Se recuerda al recargar
     await page.reload();
     await expect.poll(() => page.evaluate(() => window.game && game.state.freeCosts)).toBe(true);
+    expect(errors).toEqual([]);
+});
+
+// Al campo de tiro con el trigo al máximo (32 matas: sitio para encadenar rachas)
+async function enterBigField(page) {
+    await openFarm(page);
+    await page.evaluate(() => { game.state.wheat = 12; for (let i = 0; i < 4; i++) game.upgradeField('wheat'); game.state.wheat = 0; game.select(null); });
+    const bubble = page.locator('.bubble:not(.hidden)').first();
+    await bubble.click();
+    await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
+    await expect.poll(() => page.evaluate(() => game.sniper.field.sheaves.every((s) => s.landed)), { timeout: 20_000 }).toBe(true);
+}
+
+test('racha: la barra sale al recoger, se vacía y a las 5 sale una granada que recoge lo de alrededor', async ({ page }) => {
+    const errors = watchErrors(page);
+    await enterBigField(page);
+    await shootNext(page);
+    await expect.poll(() => page.evaluate(() => game.sniper.streak)).toBeGreaterThan(0);
+    await expect(page.locator('#streak')).toBeVisible();
+    await expect(page.locator('#streak-next')).toContainText('GRANADA');
+    // Si la barra se vacía, la racha se pierde
+    await page.evaluate(() => { game.sniper.streakT = 0.01; });
+    await expect.poll(() => page.evaluate(() => game.sniper.streak)).toBe(0);
+    await expect(page.locator('#streak')).toBeHidden();
+    // A las 5: granada (sola), que recoge lo que pilla al explotar
+    const before = await page.evaluate(() => game.state.wheat);
+    await page.evaluate(() => game.sniper.addStreak(5));
+    await expect(page.locator('#medals')).toContainText('GRANADA');
+    await expect.poll(() => page.evaluate(() => game.state.wheat), { timeout: 5_000 }).toBeGreaterThan(before);
+    expect(errors).toEqual([]);
+});
+
+test('racha de 10: misil Predator con vista cenital, se guía y se acelera, y explota recogiendo', async ({ page }) => {
+    const errors = watchErrors(page);
+    await enterBigField(page);
+    await page.evaluate(() => game.sniper.addStreak(10));
+    await expect.poll(() => page.evaluate(() => !!game.sniper.ks.predator)).toBe(true);
+    await expect(page.locator('#predator-hud')).toBeVisible();
+    // Mirando hacia abajo desde lo alto; mover la vista mueve el misil y el gatillo lo acelera
+    await expect.poll(() => page.evaluate(() => game.sniper.camera.position.y)).toBeGreaterThan(20);
+    const x0 = await page.evaluate(() => game.sniper.ks.predator.x + game.sniper.ks.predator.z);
+    await page.keyboard.down('d');
+    await page.waitForTimeout(300);
+    await page.keyboard.up('d');
+    expect(await page.evaluate(() => game.sniper.ks.predator.x + game.sniper.ks.predator.z)).not.toBeCloseTo(x0, 2);
+    await page.keyboard.press(' ');
+    expect(await page.evaluate(() => game.sniper.ks.predator.boost)).toBe(true);
+    // Mientras se guía, la racha no se pierde
+    expect(await page.evaluate(() => game.sniper.ks.paused)).toBe(true);
+    await expect.poll(() => page.evaluate(() => game.sniper.ks.predator), { timeout: 10_000 }).toBe(null);
+    await expect(page.locator('#predator-hud')).toBeHidden();
+    expect(await page.evaluate(() => game.state.wheat)).toBeGreaterThan(0);
+    expect(errors).toEqual([]);
+});
+
+test('rachas de 15 y 25: bombardero que bombardea el campo y bomba nuclear que lo recoge todo', async ({ page }) => {
+    const errors = watchErrors(page);
+    await enterBigField(page);
+    const total = await page.evaluate(() => game.sniper.field.remaining);
+    await page.evaluate(() => game.sniper.addStreak(15));
+    await expect.poll(() => page.evaluate(() => !!game.sniper.ks.plane)).toBe(true);
+    await expect.poll(() => page.evaluate(() => game.sniper.ks.bombs.length > 0), { timeout: 8_000 }).toBe(true);
+    await expect.poll(() => page.evaluate(() => !game.sniper.ks.plane), { timeout: 12_000 }).toBe(true);
+    await expect.poll(() => page.evaluate(() => game.state.wheat), { timeout: 5_000 }).toBeGreaterThan(0);
+    // Nuclear: cuenta atrás de 5 y lo que quede, recogido (las bombas pueden haber llevado ya
+    // la racha a 25 por su cuenta)
+    await page.evaluate(() => { const s = game.sniper; if (!s.ks.nuke) s.addStreak(Math.max(1, 25 - s.streak)); });
+    await expect(page.locator('#nuke-count')).toBeVisible();
+    await expect(page.locator('#nuke-n')).toHaveText(/^[1-5]$/);
+    await expect.poll(() => page.evaluate(() => game.sniper.field.remaining), { timeout: 10_000 }).toBe(0);
+    await expect.poll(() => page.evaluate(() => game.mode), { timeout: 15_000 }).toBe('farm');
+    expect(await page.evaluate(() => game.state.wheat)).toBe(total);
+    expect(errors).toEqual([]);
+});
+
+test('debug: RACHAS 1·2·3·4 pone cada recompensa a 1, 2, 3 y 4 bajas', async ({ page }) => {
+    const errors = watchErrors(page);
+    await enterField(page);
+    await page.locator('#btn-home').click();
+    await expect.poll(() => page.evaluate(() => game.mode)).toBe('farm');
+    await page.locator('#btn-settings').click();
+    await page.locator('#toggle-streaks').click();
+    await expect(page.locator('#toggle-streaks')).not.toHaveClass(/off/);
+    await page.locator('#btn-settings-close').click();
+    // Con una sola baja ya sale la granada
+    await page.evaluate(() => game.harvest('wheat'));
+    await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
+    await expect.poll(() => page.evaluate(() => game.sniper.field.sheaves.every((s) => s.landed)), { timeout: 20_000 }).toBe(true);
+    await expect(page.locator('#streak-next')).toBeHidden();
+    await shootNext(page);
+    await expect(page.locator('#medals')).toContainText('GRANADA');
+    // Se recuerda al recargar
+    await page.reload();
+    await expect.poll(() => page.evaluate(() => window.game && document.querySelector('#toggle-streaks').classList.contains('off'))).toBe(false);
     expect(errors).toEqual([]);
 });

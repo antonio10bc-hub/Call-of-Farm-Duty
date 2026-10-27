@@ -127,6 +127,13 @@ export class Sfx {
         switch (name) {
             // Francotirador: estampido grave + chasquido, cerrojo, mira y cosecha
             case 'snipe': this.noise(0.5, 0.9, 5200, pan); this.tone('square', 220, 40, 0.35, 0.35, pan); this.tone('sine', 90, 30, 0.5, 0.5, pan); break;
+            // Rachas de bajas: granada, misil Predator, bombardero y bomba nuclear
+            case 'grenade': this.noise(0.25, 0.12, 2400, pan); this.tone('triangle', 500, 900, 0.18, 0.08, pan); break;
+            case 'missile': this.noise(1.2, 0.35, 1800); this.tone('sawtooth', 120, 420, 1.2, 0.08); break;
+            case 'boost': this.noise(0.5, 0.4, 3200); this.tone('sawtooth', 300, 900, 0.5, 0.1); break;
+            case 'plane': this.tone('sawtooth', 62, 70, 4.5, 0.09); this.tone('sawtooth', 93, 88, 4.5, 0.06); this.noise(4.5, 0.12, 500); break;
+            case 'siren': this.tone('square', 880, 660, 0.45, 0.12); break;
+            case 'nuke': this.noise(3, 1, 700); this.tone('sine', 70, 18, 3, 0.9); this.tone('square', 140, 30, 1.2, 0.3); break;
             case 'bolt': this.tone('square', 260, 180, 0.04, 0.1, pan); this.tone('square', 420, 300, 0.05, 0.1, pan, 0.12); this.noise(0.04, 0.15, 6000, pan, 0.12); break;
             case 'scopeIn': this.tone('triangle', 300, 900, 0.12, 0.1); this.noise(0.06, 0.08, 5000); break;
             case 'scopeOut': this.tone('triangle', 900, 300, 0.1, 0.08); break;

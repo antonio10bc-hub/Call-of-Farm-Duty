@@ -5,7 +5,8 @@ const KEY = 'cofd.settings';
 // uiSize: tamaño de la interfaz en el ordenador ('small' | 'normal' | 'large')
 // pixel: tamaño del píxel del juego en el ordenador ('big' | 'normal' | 'fine'; fino por defecto)
 // freeCosts: depuración, todas las mejoras cuestan 0
-const DEFAULTS = { music: true, sfx: true, vibration: true, analytics: null, uiSize: 'normal', pixel: 'fine', freeCosts: false };
+// debugStreaks: depuración, las rachas de bajas a 1, 2, 3 y 4
+const DEFAULTS = { music: true, sfx: true, vibration: true, analytics: null, uiSize: 'normal', pixel: 'fine', freeCosts: false, debugStreaks: false };
 
 export const Settings = {
     ...DEFAULTS,
