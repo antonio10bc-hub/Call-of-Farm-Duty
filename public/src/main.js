@@ -89,6 +89,9 @@ const sniper = new Sniper(THEME, {
     // El barril ha reventado: el terreno queda limpio y desbloqueado (se guarda ya)
     onUnlock() {
         state.unlock(snipeField);
+        // Fogonazo blanco a toda pantalla y, al poco, el ¡BUM!
+        renderer.flash(0xfff6dc, 1);
+        setTimeout(() => renderer.flash(0xffcc33, 0.7), 420);
         setTimeout(() => banner(L('BOOM!', '¡BUM!')), 150);
     },
     onFinish() {

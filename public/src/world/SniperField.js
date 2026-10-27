@@ -35,6 +35,9 @@ function edgeDist(poly, x, z) {
     return best;
 }
 
+// Resto siempre positivo (las casillas lejanas tienen coordenadas negativas)
+const mod = (a, n) => ((a % n) + n) % n;
+
 function instanced(root, mat, n) {
     const m = new THREE.InstancedMesh(box(1, 1, 1), mat, n);
     m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -72,7 +75,20 @@ export class SniperField {
             this.root.add(t.root);
             return { x, z, floor: 3.2, model: t };
         });
+        // La atalaya del desbloqueo: sola y muy lejos, mirando al montón de chatarra
+        const F = FIELD.farTower, ft = new Tower(theme.outline, true);
+        ft.root.position.set(F.x, 0, F.z);
+        ft.root.rotation.y = Math.atan2(FIELD.pile.x - F.x, FIELD.pile.z - F.z) + Math.PI;
+        ft.root.visible = false;
+        this.root.add(ft.root);
+        this.farTower = { x: F.x, z: F.z, floor: 3.2, model: ft };
         this.build();
+    }
+
+    // Desbloqueo: solo se ve la atalaya lejana (las cuatro del campo no están)
+    setUnlockView(on) {
+        for (const t of this.towers) t.model.root.visible = !on;
+        this.farTower.model.root.visible = on;
     }
 
     build() {
@@ -83,13 +99,14 @@ export class SniperField {
         root.add(far);
 
         // Casillas alrededor del campo: dentro tierra (arada o sucia), fuera hierba
-        const xs = this.poly.map((p) => p.x), zs = this.poly.map((p) => p.z);
+        // (hasta la atalaya lejana del desbloqueo, que también pisa casillas)
+        const xs = [...this.poly.map((p) => p.x), FIELD.farTower.x], zs = [...this.poly.map((p) => p.z), FIELD.farTower.z];
         const c0 = Math.floor(Math.min(...xs)) - 7, c1 = Math.ceil(Math.max(...xs)) + 7;
         const r0 = Math.floor(Math.min(...zs)) - 7, r1 = Math.ceil(Math.max(...zs)) + 7;
         const tiles = [];
         for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) tiles.push({ c, r, soil: inside(this.poly, c + 0.5, r + 0.5) });
         const floor = new THREE.InstancedMesh(box(1, 0.3, 1), toon(0xffffff), tiles.length);
-        tiles.forEach(({ c, r, soil }, i) => floor.setColorAt(i, _c.setHex(soil ? theme.soil[r & 1] : theme.grass[(c * 5 + r * 3) % 3]).offsetHSL(0, 0, (Math.random() - 0.5) * theme.grassJitter)));
+        tiles.forEach(({ c, r, soil }, i) => floor.setColorAt(i, _c.setHex(soil ? theme.soil[r & 1] : theme.grass[mod(c * 5 + r * 3, 3)]).offsetHSL(0, 0, (Math.random() - 0.5) * theme.grassJitter)));
         this.addAnimated(floor, tiles.map(({ c, r, soil }) => ({ x: c + 0.5, y: soil ? -0.12 : -0.15, z: r + 0.5 })));
         this.floor = floor;
         this.tiles = tiles;
@@ -120,9 +137,12 @@ export class SniperField {
 
         // Árboles alrededor, y colinas a lo lejos
         const trunks = [], leaves = [];
+        const F = FIELD.farTower, P = FIELD.pile;
         for (let k = 0; k < 60; k++) {
             const a = Math.random() * Math.PI * 2, d = 20 + Math.random() * 16, s = 0.9 + Math.random() * 0.7;
             const x = this.cx + Math.sin(a) * d, z = this.cz + Math.cos(a) * d;
+            // Ninguno entre la atalaya lejana y el barril (ni pegado a ella)
+            if (segDist(x, z, F.x, F.z, P.x, P.z) < 3.5) continue;
             trunks.push({ x, y: 0.5 * s, z, sx: 0.3 * s, sy: s, sz: 0.3 * s });
             leaves.push({ x, y: 1.35 * s, z, sx: 1.5 * s, sy: 0.9 * s, sz: 1.5 * s, ry: k, k: 0 });
             leaves.push({ x, y: 2.0 * s, z, sx: 1.05 * s, sy: 0.7 * s, sz: 1.05 * s, ry: k + 0.4, k: 1 });
@@ -203,7 +223,7 @@ export class SniperField {
         const { theme } = this;
         this.tiles.forEach(({ c, r, soil }, i) => {
             if (!soil) return;
-            const col = kind === 'junk' ? JUNK.ground[(c * 7 + r * 5 + ((c * r) % 3)) % JUNK.ground.length] : theme.soil[r & 1];
+            const col = kind === 'junk' ? JUNK.ground[mod(c * 7 + r * 5 + mod(c * r, 3), JUNK.ground.length)] : theme.soil[r & 1];
             this.floor.setColorAt(i, _c.setHex(col).offsetHSL(0, 0, (Math.random() - 0.5) * theme.grassJitter));
         });
         this.floor.instanceColor.needsUpdate = true;
@@ -279,17 +299,25 @@ export class SniperField {
         this.tLeaves.instanceColor.needsUpdate = this.tStems.instanceColor.needsUpdate = true;
     }
 
-    // Terreno abandonado: chatarra por todo el campo y, al fondo, el montón con el barril rojo
+    // Terreno abandonado: chatarra a montones por todo el campo y por la hierba hasta la atalaya
+    // lejana y, al fondo, el gran montón con el barril rojo
     spawnJunk() {
         this.clearSheaves();
         this.dress('junk');
         this.crop = null;
-        const P = FIELD.pile, xs = this.poly.map((p) => p.x), zs = this.poly.map((p) => p.z), t0 = this.towers[0];
+        const P = FIELD.pile, F = this.farTower, xs = this.poly.map((p) => p.x), zs = this.poly.map((p) => p.z);
         const { pieces, barrel } = junkyard({
             x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs),
-            px: P.x, pz: P.z, count: 55,
-            inside: (x, z) => inside(this.poly, x, z) && edgeDist(this.poly, x, z) > 1.2 && Math.hypot(x - t0.x, z - t0.z) > 4,
+            px: P.x, pz: P.z, count: 120,
+            inside: (x, z) => inside(this.poly, x, z) && edgeDist(this.poly, x, z) > 0.8,
+            layers: [[2.4, 11], [1.8, 9], [1.3, 7], [0.8, 4]],
         });
+        // Fuera del campo: chatarra por la hierba en el camino hasta la atalaya
+        const out = junkyard({
+            x0: F.x - 12, x1: Math.max(...xs) + 8, z0: F.z - 12, z1: Math.max(...zs) + 8, px: 9999, pz: 9999, count: 110, layers: [],
+            inside: (x, z) => !inside(this.poly, x, z) && edgeDist(this.poly, x, z) > 0.8 && Math.hypot(x - F.x, z - F.z) > 6 && segDist(x, z, F.x, F.z, P.x, P.z) < 16,
+        });
+        pieces.push(...out.pieces);
         const g = new THREE.Group(), ink = outline(this.theme.outline), mats = new Map();
         const mat = (c) => mats.get(c) || mats.set(c, toon(c)).get(c);
         const part = (p, parent) => {
@@ -310,12 +338,29 @@ export class SniperField {
         for (const p of barrelParts({ ...barrel, x: 0, y: 0, z: 0 })) part(p, bg);
         bg.position.set(barrel.x, barrel.y, barrel.z);
         g.add(bg);
+        // Contorno que brilla alrededor del barril (casco invertido de color vivo, sin luz): el
+        // blanco se distingue desde la atalaya
+        const glow = new THREE.Mesh(box(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xff3e1a, side: THREE.BackSide }));
+        glow.scale.set(barrel.w * 1.4, barrel.h * 1.3, barrel.w * 1.4);
+        glow.position.y = barrel.h / 2;
+        bg.add(glow);
+        // Bola de fuego de la explosión: cubos anidados que crecen y se apagan
+        const fireball = [0xffffff, 0xffe03a, 0xff9a1f, 0xff3e1a].map((c, i) => {
+            const m = new THREE.Mesh(box(1, 1, 1), new THREE.MeshBasicMaterial({ color: c, transparent: true, depthWrite: false }));
+            m.visible = false;
+            m.position.set(barrel.x, barrel.y + barrel.h / 2, barrel.z);
+            m.rotation.set(i * 0.4, i * 0.7, i * 0.2);
+            m.renderOrder = 10 - i;
+            g.add(m);
+            return m;
+        });
         this.root.add(g);
         const r = barrel.w * 0.6;
         this.junk = {
-            group: g, pieces: flying, barrel: bg, mats, center: barrel, t: -1,
+            group: g, pieces: flying, barrel: bg, glow, fireball, mats, center: barrel, t: -1, idle: 0,
+            body: mats.get(JUNK.barrel),
             hit: [barrel.x - r, barrel.y, barrel.z - r, barrel.x + r, barrel.y + barrel.h, barrel.z + r],
-            pile: [P.x - 2.4, 0, P.z - 2.4, P.x + 2.4, barrel.y, P.z + 2.4],
+            pile: [P.x - 3, 0, P.z - 3, P.x + 3, barrel.y, P.z + 3],
         };
     }
 
@@ -331,14 +376,17 @@ export class SniperField {
         if (!J || J.t >= 0) return;
         J.t = 0;
         J.barrel.visible = false;
+        for (const m of J.fireball) m.visible = true;
         const b = J.center;
+        // La onda llega a todo: lo de cerca sale disparado y lo de lejos, a saltos
         for (const p of J.pieces) {
             const dx = p.obj.position.x - b.x, dz = p.obj.position.z - b.z, d = Math.hypot(dx, dz) || 1;
-            const k = 16 / (1 + d * 0.18);
+            const k = 30 / (1 + d * 0.1);
             p.vx = (dx / d) * k * (0.6 + Math.random() * 0.5);
             p.vz = (dz / d) * k * (0.6 + Math.random() * 0.5);
-            p.vy = (5 + Math.random() * 8) / (1 + d * 0.06);
-            p.spin = (Math.random() - 0.5) * 14;
+            p.vy = (9 + Math.random() * 14) / (1 + d * 0.035);
+            p.spin = (Math.random() - 0.5) * 18;
+            p.delay = d * 0.012; // la onda tarda en llegar a lo de lejos
         }
         this.cleaning = { x: b.x, z: b.z, t: 0, done: new Set() };
     }
@@ -351,6 +399,7 @@ export class SniperField {
         if (!this.junk) return;
         this.root.remove(this.junk.group);
         for (const m of this.junk.mats.values()) m.dispose();
+        for (const m of [...this.junk.fireball, this.junk.glow]) m.material.dispose();
         this.junk = null;
     }
 
@@ -514,10 +563,33 @@ export class SniperField {
     // limpiando en un anillo que sale del barril.
     updateJunk(dt) {
         const J = this.junk;
-        if (J.t < 0) return;
+        if (J.t < 0) {
+            // Espera: el barril tiembla, late y parpadea, y su contorno brilla (rojo a amarillo)
+            const t = (J.idle += dt), b = J.center, beat = Math.max(0, Math.sin(t * 6)) ** 6;
+            J.barrel.rotation.set(Math.sin(t * 7.3) * 0.05, t * 0.6, Math.sin(t * 9.1) * 0.05);
+            J.barrel.scale.setScalar(1 + beat * 0.12);
+            J.body.color.setHex(JUNK.barrel).lerp(_w, (Math.sin(t * 6) > 0.85 ? 0.55 : 0) + beat * 0.2);
+            const k = 0.5 + 0.5 * Math.sin(t * 4);
+            J.glow.material.color.setHex(0xff2a1a).lerp(_c.setHex(0xffe03a), k);
+            J.glow.scale.set(b.w * (1.3 + k * 0.25), b.h * (1.22 + k * 0.18), b.w * (1.3 + k * 0.25));
+            return;
+        }
         J.t += dt;
+        // Bola de fuego: crece de golpe y se apaga
+        J.fireball.forEach((m, i) => {
+            const grow = Math.min(1, J.t / (0.25 + i * 0.08)), fade = Math.max(0, (J.t - 0.3 - i * 0.12) / 0.9);
+            // De dentro afuera: núcleo blanco, amarillo, naranja y rojo
+            m.scale.setScalar(Math.max(0.0001, (2 + 10 * (1 - (1 - grow) ** 3)) * (0.55 + i * 0.15) * (1 + fade * 0.4)));
+            m.material.opacity = Math.max(0, 1 - fade);
+            m.rotation.y += dt * (1 + i);
+            m.visible = fade < 1;
+        });
         for (const p of J.pieces) {
             const o = p.obj;
+            if (p.delay > 0) {
+                p.delay -= dt;
+                continue;
+            }
             p.vy -= 18 * dt;
             o.position.x += p.vx * dt;
             o.position.y = Math.max(0.1, o.position.y + p.vy * dt);
@@ -529,12 +601,12 @@ export class SniperField {
             }
             o.rotation.x += p.spin * dt;
             o.rotation.z += p.spin * 0.7 * dt;
-            o.scale.setScalar(Math.max(0.0001, 1 - Math.max(0, J.t - 0.9) / 0.6));
+            o.scale.setScalar(Math.max(0.0001, 1 - Math.max(0, J.t - 1.6) / 0.8));
         }
         const C = this.cleaning;
         if (!C) return;
         C.t += dt;
-        const R = C.t * 22, { theme } = this;
+        const R = C.t * 26, { theme } = this;
         this.tiles.forEach(({ c, r, soil }, i) => {
             if (!soil || C.done.has(i) || Math.hypot(c + 0.5 - C.x, r + 0.5 - C.z) > R) return;
             C.done.add(i);
@@ -547,6 +619,13 @@ export class SniperField {
     restartIntro() {
         this.introT = 0;
     }
+}
+
+// Distancia de (x, z) al segmento a-b
+function segDist(x, z, ax, az, bx, bz) {
+    const vx = bx - ax, vz = bz - az;
+    const t = Math.max(0, Math.min(1, ((x - ax) * vx + (z - az) * vz) / (vx * vx + vz * vz)));
+    return Math.hypot(x - ax - vx * t, z - az - vz * t);
 }
 
 // Caja de impacto de un blanco: se ciñe a la silueta de la mata de trigo (tallos y espigas) o

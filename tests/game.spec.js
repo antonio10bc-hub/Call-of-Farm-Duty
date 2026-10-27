@@ -77,11 +77,11 @@ test('la granja es un mapa: tocar el granero abre su ficha', async ({ page }) =>
     await expect(page.locator('#panel-title')).toHaveText('GRANERO');
     await page.locator('#panel-close').click();
     await expect(page.locator('#panel')).toBeHidden();
-    // Arrastrar desplaza el mapa
+    // Arrastrar desplaza el mapa (desde un trozo libre, sin carteles encima)
     const before = await page.evaluate(() => game.rig.fx + game.rig.fz);
-    await page.mouse.move(200, 400);
+    await page.mouse.move(300, 680);
     await page.mouse.down();
-    await page.mouse.move(120, 300, { steps: 6 });
+    await page.mouse.move(220, 580, { steps: 6 });
     await page.mouse.up();
     expect(await page.evaluate(() => game.rig.fx + game.rig.fz)).not.toBeCloseTo(before, 1);
     expect(errors).toEqual([]);

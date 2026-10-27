@@ -247,7 +247,7 @@ export class Farm {
             const a = Math.random() * Math.PI * 2, d = this.size * 0.62 + Math.random() * 10;
             spots.push([this.cx + Math.sin(a) * d * (1 + Math.random() * 0.1), this.cz + Math.cos(a) * d]);
         }
-        spots.push([3, 4], [26, 5], [28.6, 17.5], [1.6, 28.6], [27, 13]);
+        spots.push([3, 4], [26, 5], [1.6, 28.6], [27, 13]);
         const trunks = [], leaves = [];
         spots.forEach(([x, z], i) => {
             const s = 0.8 + Math.random() * 0.6;

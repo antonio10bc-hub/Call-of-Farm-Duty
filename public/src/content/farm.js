@@ -10,7 +10,6 @@ export const FARM = {
         { id: 'barn', kind: 'barn', x: 15, z: 11, w: 5, d: 4, ry: 0, name: L('BARN', 'GRANERO') },
         { id: 'silo', kind: 'silo', x: 19.5, z: 10, w: 2, d: 2, name: L('SILO', 'SILO') },
         { id: 'house', kind: 'house', x: 8, z: 7, w: 4, d: 4, ry: 0, name: L('FARMHOUSE', 'CASA') },
-        { id: 'tower', kind: 'tower', x: 23.5, z: 19, w: 2, d: 2, name: L('WATCHTOWER', 'TORRE DE VIGÍA') },
         { id: 'tractor', kind: 'tractor', x: 11.5, z: 13, w: 2, d: 3, ry: 1, name: L('TRACTOR', 'TRACTOR') },
     ],
     // Campos de cultivo. Cada uno crece al mejorarlo desde una esquina fija (corner) hacia
@@ -39,16 +38,16 @@ export const FARM = {
             id: 'tomato',
             crop: 'tomato',
             name: L('TOMATO FIELD', 'CAMPO DE TOMATES'),
-            corner: { x: 17, z: 21, dx: 1, dz: 1 }, // al otro lado del camino, bajo la torre de vigía
+            corner: { x: 16, z: 16, dx: 1, dz: 1 }, // la otra esquina del cruce, frente al trigo
             cost: { wheat: 5, tomato: 3 },
             locked: { after: 'wheat', name: L('JUNKYARD', 'TERRENO ABANDONADO') },
-            // El último llena el hueco hasta la valla (x 17..28, z 21..29)
+            // El último llena el hueco entre el camino y la valla (x 16..28, z 16..27)
             levels: [
                 { w: 5, d: 4, sheaves: 4, sign: 0x9a6a3a },
-                { w: 6, d: 5, sheaves: 7, sign: 0xb07a44 },
-                { w: 8, d: 6, sheaves: 11, sign: 0x5a9e32 },
-                { w: 10, d: 7, sheaves: 16, sign: 0x3a7ec8 },
-                { w: 11, d: 8, sheaves: 22, sign: 0xc8402e },
+                { w: 7, d: 5, sheaves: 7, sign: 0xb07a44 },
+                { w: 9, d: 7, sheaves: 11, sign: 0x5a9e32 },
+                { w: 11, d: 9, sheaves: 16, sign: 0x3a7ec8 },
+                { w: 12, d: 11, sheaves: 22, sign: 0xc8402e },
             ],
         },
     ],
@@ -58,7 +57,6 @@ export const FARM = {
         [3, 15, 25, 16],    // entre el granero y los campos
         [8, 9, 9, 15],      // de la casa al camino
         [9, 9, 12, 10],     // de la casa al granero
-        [22, 16, 23, 18],   // a la torre
     ],
 };
 
@@ -67,7 +65,6 @@ export const INFO = {
     barn: L('STORES ALL YOUR HARVEST.', 'GUARDA TODA TU COSECHA.'),
     silo: L('GRAIN SILO. KEEPS THE HARVEST DRY.', 'SILO DE GRANO. MANTIENE SECA LA COSECHA.'),
     house: L('HOME SWEET HOME.', 'HOGAR, DULCE HOGAR.'),
-    tower: L('FROM UP HERE YOU SEE EVERY FIELD.', 'DESDE AQUÍ ARRIBA SE VEN TODOS LOS CAMPOS.'),
     tractor: L('READY TO PLOUGH.', 'LISTO PARA ARAR.'),
 };
 

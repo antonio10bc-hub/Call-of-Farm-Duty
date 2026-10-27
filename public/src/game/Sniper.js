@@ -32,7 +32,7 @@ export class Sniper {
         this.scene.background = new THREE.Color(theme.sky);
         this.field = new SniperField(theme);
         this.scene.add(this.field.root);
-        this.particles = new Particles(this.scene, 900);
+        this.particles = new Particles(this.scene, 3200);
         this.waves = new Shockwaves(this.scene);
 
         this.camera = new THREE.PerspectiveCamera(S.fov, 1, 0.05, 500);
@@ -81,6 +81,8 @@ export class Sniper {
         this.unlocking = !!what.unlock;
         this.crop = what.crop || null;
         this.field.restartIntro();
+        this.field.setUnlockView(this.unlocking);
+        this.puffT = 0;
         if (this.unlocking) this.field.spawnJunk();
         else this.field.spawn(what.crop, what.count);
         this.particles.clear();
@@ -109,8 +111,9 @@ export class Sniper {
         this.particles.clear();
     }
 
+    // Ojo del tirador en la torre i (en el desbloqueo, siempre la atalaya lejana)
     eyeOf(i, out = new THREE.Vector3()) {
-        const t = this.field.towers[i];
+        const t = this.unlocking ? this.field.farTower : this.field.towers[i];
         return out.set(t.x, t.floor + 1.15, t.z);
     }
 
@@ -316,27 +319,45 @@ export class Sniper {
         return false;
     }
 
-    // ¡Boom! Fuego, humo y chatarra por los aires, ondas en el suelo y la tierra queda limpia
+    // ¡BOOM! Fogonazo, bola de fuego, hongo de humo, chatarra por los aires, ondas que
+    // recorren todo el campo y explosiones en cadena por el montón; la tierra queda limpia
     explode() {
         const { sfx } = this.hooks;
         const b = this.field.barrel;
         this.field.explode();
         const P = this.particles;
-        P.burst(b.x, b.y, b.z, 140, FIRE, { speed: 11, up: 9, size: 0.32, ttl: 0.9, grav: 3 });
-        P.burst(b.x, b.y + 0.5, b.z, 70, SMOKE, { speed: 4, up: 5, size: 0.6, ttl: 2.4, grav: -1.5 });
-        P.burst(b.x, b.y, b.z, 90, RUST, { speed: 14, up: 12, size: 0.16, ttl: 1.6, grav: 16 });
-        P.burst(b.x, 0.2, b.z, 60, [this.theme.dust, 0x8a5a34], { speed: 9, up: 2, size: 0.3, ttl: 1.2, grav: 2 });
-        for (const [r, ttl, col] of [[5, 0.4, 0xffffff], [10, 0.7, 0xffe03a], [16, 1.1, 0xff9a1f]]) this.waves.spawn(b.x, b.z, col, r, ttl);
+        const blast = (x, y, z, k) => {
+            P.burst(x, y, z, 260 * k, FIRE, { speed: 20 * k, up: 15 * k, size: 0.7 * k, ttl: 1.1, grav: 2 });
+            P.burst(x, y, z, 160 * k, RUST, { speed: 24 * k, up: 18 * k, size: 0.22 * k, ttl: 2.2, grav: 16 });
+        };
+        blast(b.x, b.y, b.z, 1);
+        // Hongo: columna de humo que sube y se abre arriba
+        P.burst(b.x, b.y + 1, b.z, 220, SMOKE, { speed: 5, up: 10, size: 1.5, ttl: 4, grav: -2.5 });
+        P.burst(b.x, b.y + 6, b.z, 120, [...SMOKE, 0xff9a1f], { speed: 9, up: 3, size: 1.8, ttl: 3.2, grav: -1 });
+        // Polvo que barre el suelo hacia fuera
+        P.burst(b.x, 0.3, b.z, 260, [this.theme.dust, 0x8a5a34, 0x6f8a3a], { speed: 26, up: 1.5, size: 0.6, ttl: 1.6, grav: 1 });
+        for (const [r, ttl, col] of [[8, 0.4, 0xffffff], [16, 0.7, 0xffe03a], [28, 1.1, 0xff9a1f], [40, 1.6, 0xfff3d6]]) this.waves.spawn(b.x, b.z, col, r, ttl);
+        // Explosiones en cadena por el montón
+        for (let k = 1; k <= 4; k++) {
+            setTimeout(() => {
+                if (!this.unlocking) return;
+                const a = Math.random() * Math.PI * 2, d = 2 + Math.random() * 4;
+                blast(b.x + Math.sin(a) * d, 0.8, b.z + Math.cos(a) * d, 0.5);
+                this.waves.spawn(b.x + Math.sin(a) * d, b.z + Math.cos(a) * d, 0xffe03a, 10, 0.6);
+                this.trauma = Math.min(1, this.trauma + 0.5);
+                sfx.play(k % 2 ? 'crateBreak' : 'boom');
+            }, 180 + k * 230);
+        }
         this.trauma = 1;
-        this.hitStop = 0.14;
+        this.hitStop = 0.18;
         sfx.play('boom');
-        setTimeout(() => sfx.play('crateBreak'), 80);
-        setTimeout(() => sfx.play('boom'), 220);
+        setTimeout(() => sfx.play('crateBreak'), 60);
+        setTimeout(() => sfx.play('boom'), 140);
         vibrate('kill');
         if (this.hooks.onUnlock) this.hooks.onUnlock();
         this.ending = 0;
-        this.slowmo = S.slowmoTime * 1.4;
-        setTimeout(() => sfx.play('win'), 900);
+        this.slowmo = S.slowmoTime * 1.8;
+        setTimeout(() => sfx.play('win'), 1400);
     }
 
     finish() {
@@ -421,6 +442,12 @@ export class Sniper {
         // La mira tapa el arma cuando está pegada al ojo
         this.rifle.root.visible = this.adsK < 0.85;
 
+        // El barril, esperando: suelta humo y chispas para que se vea que es el blanco
+        const B = this.unlocking && !this.field.exploded && this.field.barrel;
+        if (B && (this.puffT -= dt) <= 0) {
+            this.puffT = 0.09;
+            this.particles.spawn(B.x + (Math.random() - 0.5) * 0.3, B.y + 0.55, B.z + (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.4, 1 + Math.random(), (Math.random() - 0.5) * 0.4, 0.2 + Math.random() * 0.15, 1.3, Math.random() < 0.7 ? SMOKE[(Math.random() * 2) | 0] : 0xffe03a, -0.8);
+        }
         this.field.update(dt, time, this.pos, (s) => {
             this.particles.burst(s.x, 0.05, s.z, 6, [this.theme.dust, 0xc8c84a], { speed: 1.2, up: 1, size: 0.07, ttl: 0.4 });
         });
@@ -440,14 +467,14 @@ export class Sniper {
             if (Math.floor(this.ending * 10) !== Math.floor(before * 10)) {
                 if (this.unlocking) {
                     const b = this.field.junk && this.field.junk.center;
-                    if (b && this.ending < 2) this.particles.burst(b.x + (Math.random() - 0.5) * 3, 0.4, b.z + (Math.random() - 0.5) * 3, 8, Math.random() < 0.3 ? FIRE : SMOKE, { speed: 1.2, up: 3, size: 0.5, ttl: 1.6, grav: -1 });
+                    if (b && this.ending < 3.5) this.particles.burst(b.x + (Math.random() - 0.5) * 6, 0.4, b.z + (Math.random() - 0.5) * 6, 14, Math.random() < 0.35 ? FIRE : SMOKE, { speed: 1.5, up: 4, size: 1, ttl: 2, grav: -1.5 });
                 } else {
                     this.camera.getWorldDirection(_v);
                     const p = _o.copy(this.pos).addScaledVector(_v, 7);
                     this.particles.burst(p.x + (Math.random() - 0.5) * 5, p.y + 2, p.z + (Math.random() - 0.5) * 5, 16, [...CROPS[this.crop].burst, 0xffffff], { speed: 1.6, up: 1.5, size: 0.08, ttl: 1.5, grav: 4 });
                 }
             }
-            const doneAt = this.unlocking ? 3.4 : 2.6;
+            const doneAt = this.unlocking ? 4.6 : 2.6;
             if (this.ending > doneAt && before <= doneAt) this.hooks.onDone();
         }
     }

@@ -36,9 +36,10 @@ function piece(x, y, z, s, flat = false) {
 }
 
 // Piezas repartidas por el terreno (inside(x, z) dice si un punto vale) y un montón en (px, pz)
-// con el barril rojo encima. s: escala (1 = tamaño real, en el campo de tiro).
+// con el barril rojo encima. s: escala (1 = tamaño real, en el campo de tiro). layers: capas
+// del montón, de abajo arriba, como [radio, piezas].
 // Devuelve { pieces: [cajas], barrel: { x, y, z, w, h } (y = base del barril) }
-export function junkyard({ x0, z0, x1, z1, px, pz, count, s = 1, inside = () => true }) {
+export function junkyard({ x0, z0, x1, z1, px, pz, count, s = 1, inside = () => true, layers = [[1.6, 7], [1.1, 5], [0.6, 3]] }) {
     const pieces = [];
     for (let n = 0, tries = 0; n < count && tries < count * 20; tries++) {
         const x = x0 + Math.random() * (x1 - x0), z = z0 + Math.random() * (z1 - z0);
@@ -48,7 +49,7 @@ export function junkyard({ x0, z0, x1, z1, px, pz, count, s = 1, inside = () => 
     }
     // El montón: capas de chatarra cada vez más estrechas
     let y = 0;
-    for (const [r, n] of [[1.6, 7], [1.1, 5], [0.6, 3]]) {
+    for (const [r, n] of layers) {
         for (let k = 0; k < n; k++) {
             const a = (k / n) * Math.PI * 2 + Math.random() * 0.6, d = r * s * (0.4 + Math.random() * 0.6);
             pieces.push(...piece(px + Math.sin(a) * d, y, pz + Math.cos(a) * d, s, true));
