@@ -142,7 +142,7 @@ export class SniperField {
             const a = Math.random() * Math.PI * 2, d = 20 + Math.random() * 16, s = 0.9 + Math.random() * 0.7;
             const x = this.cx + Math.sin(a) * d, z = this.cz + Math.cos(a) * d;
             // Ninguno entre la atalaya lejana y el barril (ni pegado a ella)
-            if (segDist(x, z, F.x, F.z, P.x, P.z) < 3.5) continue;
+            if (segDist(x, z, F.x, F.z, P.x, P.z) < 3.5 + FIELD.pileJitter) continue;
             trunks.push({ x, y: 0.5 * s, z, sx: 0.3 * s, sy: s, sz: 0.3 * s });
             leaves.push({ x, y: 1.35 * s, z, sx: 1.5 * s, sy: 0.9 * s, sz: 1.5 * s, ry: k, k: 0 });
             leaves.push({ x, y: 2.0 * s, z, sx: 1.05 * s, sy: 0.7 * s, sz: 1.05 * s, ry: k + 0.4, k: 1 });
@@ -305,7 +305,16 @@ export class SniperField {
         this.clearSheaves();
         this.dress('junk');
         this.crop = null;
-        const P = FIELD.pile, F = this.farTower, xs = this.poly.map((p) => p.x), zs = this.poly.map((p) => p.z);
+        const F = this.farTower, xs = this.poly.map((p) => p.x), zs = this.poly.map((p) => p.z);
+        // El montón, cada vez en un sitio algo distinto (dentro del campo, lejos del borde)
+        let P = FIELD.pile;
+        for (let k = 0; k < 30; k++) {
+            const x = FIELD.pile.x + (Math.random() * 2 - 1) * FIELD.pileJitter, z = FIELD.pile.z + (Math.random() * 2 - 1) * FIELD.pileJitter;
+            if (inside(this.poly, x, z) && edgeDist(this.poly, x, z) > 3) {
+                P = { x, z };
+                break;
+            }
+        }
         const { pieces, barrel } = junkyard({
             x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs),
             px: P.x, pz: P.z, count: 120,

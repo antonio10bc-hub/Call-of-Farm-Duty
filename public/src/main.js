@@ -310,13 +310,15 @@ function refreshPanel() {
     const id = selected.field, def = FIELD_BY_ID[id], f = state.fields[id], crop = CROPS[def.crop];
     // Terreno bloqueado: qué falta para desbloquearlo (el otro campo al máximo) o el botón
     if (!f.unlocked) {
-        const after = FIELD_BY_ID[def.locked.after], af = state.fields[after.id], can = state.canUnlock(id);
+        const can = state.canUnlock(id);
         title.textContent = def.locked.name;
-        text.textContent = can
-            ? L('FULL OF RUSTY JUNK. HIT THE RED BARREL FROM FAR AWAY TO BLOW IT ALL UP!', 'LLENO DE CHATARRA OXIDADA. ¡DALE AL BARRIL ROJO DESDE LEJOS PARA VOLARLO TODO!')
-            : L(`FULL OF RUSTY JUNK. MAX OUT THE ${after.name} (LV.${after.levels.length}) TO UNLOCK IT.`, `LLENO DE CHATARRA OXIDADA. SUBE EL ${after.name} AL NIVEL MÁXIMO (NV.${after.levels.length}) PARA DESBLOQUEARLO.`);
         bar.parentElement.classList.toggle('hidden', can);
-        bar.style.width = `${Math.round(((af.level + 1) / after.levels.length) * 20) * 5}%`;
+        if (can) text.textContent = L('FULL OF RUSTY JUNK. HIT THE RED BARREL FROM FAR AWAY TO BLOW IT ALL UP!', 'LLENO DE CHATARRA OXIDADA. ¡DALE AL BARRIL ROJO DESDE LEJOS PARA VOLARLO TODO!');
+        else {
+            const after = FIELD_BY_ID[def.locked.after], af = state.fields[after.id];
+            text.textContent = L(`FULL OF RUSTY JUNK. MAX OUT THE ${after.name} (LV.${after.levels.length}) TO UNLOCK IT.`, `LLENO DE CHATARRA OXIDADA. SUBE EL ${after.name} AL NIVEL MÁXIMO (NV.${after.levels.length}) PARA DESBLOQUEARLO.`);
+            bar.style.width = `${Math.round(((af.level + 1) / after.levels.length) * 20) * 5}%`;
+        }
         act.classList.toggle('hidden', !can);
         act.classList.add('unlock-btn');
         $('action-ico').className = 'ico barrel-ico';
@@ -366,6 +368,7 @@ function revealUnlocked() {
     for (const v of farm.views) {
         if (!v.locked || !state.fields[v.id].unlocked) continue;
         farm.unlock(v.id);
+        updateCounts();
         const f = v.rect;
         rig.focus(f.cx, f.cz + 1);
         rig.shake(0.2);
@@ -407,8 +410,14 @@ function startUnlock(id) {
     if (mode === 'farm' && state.canUnlock(id)) goSnipe(id, true);
 }
 
-// El primer campo listo para recoger (teclado y mando)
-const readyField = () => FARM.fields.map((f) => f.id).find((id) => state.isReady(id));
+// Teclado y mando: recoge el primer campo listo o, si no hay, desbloquea el primer terreno que se pueda
+function quickAction() {
+    const ids = FARM.fields.map((f) => f.id);
+    const ready = ids.find((id) => state.isReady(id));
+    if (ready) return harvest(ready);
+    const free = ids.find((id) => state.canUnlock(id));
+    if (free) startUnlock(free);
+}
 
 function enterSnipe() {
     const unlock = goSnipe.unlock;
@@ -645,7 +654,7 @@ addEventListener('keydown', (e) => {
     if (e.repeat) return;
     if (mode === 'farm') {
         if (k === 'escape') select(null);
-        if (k === 'enter' || k === ' ') harvest(readyField());
+        if (k === 'enter' || k === ' ') quickAction();
         return;
     }
     if (mode !== 'snipe') return;
@@ -671,7 +680,7 @@ function keyInput(dt) {
 
 // Mando: sticks miran (con curva de respuesta), LT apunta (soltarlo dispara), RT/A disparan,
 // LB/RB cambian de torre, B baja la mira o sale. En la granja el stick desplaza el mapa y A
-// recoge el campo si está maduro.
+// recoge el primer campo maduro (o desbloquea el primer terreno que se pueda).
 const padPrev = [];
 const curve = (v) => (Math.abs(v) < 0.15 ? 0 : Math.sign(v) * ((Math.abs(v) - 0.15) / 0.85) ** 2);
 function pollPad(dt) {
@@ -684,7 +693,7 @@ function pollPad(dt) {
     const ax = curve(pad.axes[0] || 0) + curve(pad.axes[2] || 0), ay = curve(pad.axes[1] || 0) + curve(pad.axes[3] || 0);
     if (mode === 'farm') {
         if (ax || ay) panBy(-ax * dt * 600, -ay * dt * 600);
-        if (down(0)) harvest(readyField());
+        if (down(0)) quickAction();
     } else if (mode === 'snipe') {
         if (ax || ay) sniper.look(ax, ay, S.lookPad * dt);
         if (down(6)) sniper.setAds(true);
@@ -843,4 +852,4 @@ if ('serviceWorker' in navigator && !/^(localhost|127\.)/.test(location.hostname
 }
 
 // Para las pruebas (Playwright)
-window.game = { state, sniper, farm, rig, get mode() { return mode; }, harvest, startUnlock, upgradeField, goFarm, select, updateCounts };
+window.game = { state, sniper, farm, rig, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, goFarm, select, updateCounts };

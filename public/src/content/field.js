@@ -12,5 +12,6 @@ export const FIELD = {
     // Desbloqueo: el montón de chatarra con el barril rojo, al fondo del campo, y una sola
     // atalaya muy lejos (unos 52 m), desde la que se dispara sin poder cambiar de torre
     pile: { x: 19.5, z: 11 },
+    pileJitter: 3.5,   // el montón cambia de sitio (hasta esto en x y en z) en cada desbloqueo
     farTower: { x: -26, z: -14.5 },
 };

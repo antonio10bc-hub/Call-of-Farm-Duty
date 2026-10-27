@@ -12,7 +12,7 @@ const growMs = (id) => CROPS[FIELD_BY_ID[id].crop].growTime * 1000;
 export class FarmState {
     constructor(now = Date.now()) {
         this.items = Object.fromEntries(Object.keys(CROPS).map((c) => [c, 0]));
-        // Al empezar, el trigo ya está listo para que se pueda jugar desde el principio
+        // Los terrenos bloqueados se siembran al desbloquearlos (y quedan listos para recoger)
         this.fields = Object.fromEntries(FARM.fields.map((f) => [f.id, {
             unlocked: !f.locked,
             level: 0,
@@ -42,6 +42,7 @@ export class FarmState {
             if (v3 && v3.plot) {
                 this.items.wheat = v3.wheat | 0;
                 const w = this.fields.wheat;
+                w.unlocked = true;
                 w.level = Math.min(levelsOf('wheat').length - 1, Math.max(0, v3.level | 0));
                 w.plantedAt = +v3.plot.plantedAt || 0;
                 w.left = v3.plot.left | 0;
@@ -94,10 +95,11 @@ export class FarmState {
         return this.fields[id].unlocked && !this.maxed(id) && this.affordable(id);
     }
 
-    // Un terreno bloqueado se puede desbloquear cuando el campo del que depende está al máximo
+    // Un terreno bloqueado se puede desbloquear ya, o cuando el campo del que depende (after)
+    // está al máximo
     canUnlock(id) {
         const lock = FIELD_BY_ID[id].locked;
-        return !!lock && !this.fields[id].unlocked && this.maxed(lock.after);
+        return !!lock && !this.fields[id].unlocked && (!lock.after || this.maxed(lock.after));
     }
 
     // Terreno limpio: queda sembrado y listo para recoger la primera vez

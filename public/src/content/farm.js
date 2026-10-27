@@ -15,8 +15,8 @@ export const FARM = {
     // Campos de cultivo. Cada uno crece al mejorarlo desde una esquina fija (corner) hacia
     // los lados que marcan dx, dz (+1 / -1).
     //   cost      lo que cuesta cada mejora, por recurso
-    //   locked    empieza como un terreno abandonado lleno de chatarra; se puede desbloquear
-    //             cuando el campo `after` llega a su nivel máximo (disparando al barril rojo)
+    //   locked    empieza como un terreno abandonado lleno de chatarra que se desbloquea
+    //             disparando al barril rojo; con `after`, solo cuando ese campo está al máximo
     //   levels    w, d: tamaño en casillas; sheaves: blancos en el campo de tiro; sign: color del cartel
     fields: [
         {
@@ -25,6 +25,8 @@ export const FARM = {
             name: L('WHEAT FIELD', 'CAMPO DE TRIGO'),
             corner: { x: 14, z: 16, dx: -1, dz: 1 }, // junto al cruce de caminos
             cost: { wheat: 3 },
+            // Lo primero del juego: limpiar este terreno para poder sembrar trigo
+            locked: { name: L('JUNKYARD', 'TERRENO ABANDONADO') },
             // El último llena el hueco entre el camino, la valla y los árboles (x 3..14, z 16..27)
             levels: [
                 { w: 4, d: 3, sheaves: 6, sign: 0x9a6a3a },

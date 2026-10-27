@@ -18,8 +18,15 @@ async function screenOf(page, which, x, y, z) {
     }, [which, x, y, z]);
 }
 
-async function enterField(page) {
+// Abre la granja con el trigo ya desbloqueado (como si ya se hubiera volado su chatarra)
+async function openFarm(page) {
     await page.goto('/');
+    await expect(page.locator('#sign-wheat')).toBeVisible({ timeout: 30_000 });
+    await page.evaluate(() => { game.state.unlock('wheat'); game.revealUnlocked(); });
+}
+
+async function enterField(page) {
+    await openFarm(page);
     const bubble = page.locator('.bubble:not(.hidden)').first();
     await expect(bubble).toBeVisible({ timeout: 30_000 });
     await bubble.click();
@@ -66,10 +73,45 @@ async function shootNext(page) {
     return true;
 }
 
+test('lo primero: el trigo es un terreno con chatarra y se desbloquea disparando al barril', async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto('/');
+    await expect(page.locator('#sign-wheat')).toHaveText('¡DESBLOQUEAR!', { timeout: 30_000 });
+    await expect(page.locator('#sign-tomato')).toHaveText('BLOQUEADO');
+    await expect(page.locator('.bubble:not(.hidden)')).toHaveCount(0);
+    expect(await page.evaluate(() => game.farm.fields.wheat.locked)).toBe(true);
+    await page.locator('#sign-wheat').click();
+    await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
+    expect(await page.evaluate(() => game.sniper.unlocking)).toBe(true);
+    await aimAndShoot(page, 'game.sniper.field.barrel');
+    await expect.poll(() => page.evaluate(() => game.sniper.field.exploded)).toBe(true);
+    await expect.poll(() => page.evaluate(() => game.mode), { timeout: 20_000 }).toBe('farm');
+    // Terreno limpio y sembrado: el trigo ya está listo para recoger
+    expect(await page.evaluate(() => [game.state.fields.wheat.unlocked, game.farm.fields.wheat.locked])).toEqual([true, false]);
+    await expect(page.locator('#sign-wheat')).toHaveText('NV.1');
+    await expect(page.locator('.bubble:not(.hidden)')).toHaveCount(1);
+    expect(errors).toEqual([]);
+});
+
+test('el montón con el barril cambia de sitio en cada desbloqueo', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('#sign-wheat')).toBeVisible({ timeout: 30_000 });
+    const spots = await page.evaluate(() => {
+        const f = game.sniper.field, out = [];
+        for (let k = 0; k < 6; k++) {
+            f.spawnJunk();
+            out.push(`${f.barrel.x.toFixed(2)},${f.barrel.z.toFixed(2)}`);
+        }
+        f.clearSheaves();
+        return out;
+    });
+    expect(new Set(spots).size).toBeGreaterThan(1);
+});
+
 test('la granja es un mapa: tocar el granero abre su ficha', async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto('/');
-    await expect(page.locator('.bubble:not(.hidden)').first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('#sign-wheat')).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('#wheat-count')).toHaveText('0');
     const p = await screenOf(page, 'map', 15, 1.4, 11);
     await page.mouse.click(p.x, p.y);
@@ -159,7 +201,7 @@ test('ratón: botón derecho apunta y al soltar dispara; al recoger todo se vuel
 
 test('mejorar el campo: cuesta 3 de trigo, lo hace más grande y con más matas', async ({ page }) => {
     const errors = watchErrors(page);
-    await page.goto('/');
+    await openFarm(page);
     await expect(page.locator('.bubble:not(.hidden)')).toHaveCount(1, { timeout: 30_000 });
     const before = await page.evaluate(() => ({ w: game.farm.fields.wheat.rect.w, d: game.farm.fields.wheat.rect.d, left: game.state.fields.wheat.left, stalks: game.farm.fields.wheat.plants.length }));
     // El cartel flotante dice el nivel y al tocarlo abre la ficha del campo
@@ -211,7 +253,7 @@ test('colateral: una bala que atraviesa dos matas recoge las dos', async ({ page
 
 test('ajustes: borrar el progreso pide confirmación y deja la granja como al empezar', async ({ page }) => {
     const errors = watchErrors(page);
-    await page.goto('/');
+    await openFarm(page);
     await expect(page.locator('.bubble:not(.hidden)')).toHaveCount(1, { timeout: 30_000 });
     await page.evaluate(() => { game.state.wheat = 7; game.upgradeField('wheat'); });
     expect(await page.evaluate(() => [game.state.fields.wheat.level, game.state.wheat])).toEqual([1, 4]);
@@ -239,7 +281,7 @@ async function aimAndShoot(page, where) {
 
 test('tomates: con el trigo al máximo se desbloquea disparando al barril; luego se cosechan y se mejoran con trigo y tomates', async ({ page }) => {
     const errors = watchErrors(page);
-    await page.goto('/');
+    await openFarm(page);
     await expect(page.locator('#sign-tomato')).toBeVisible({ timeout: 30_000 });
     // Bloqueado mientras el trigo no está al máximo
     await expect(page.locator('#sign-tomato')).toHaveText('BLOQUEADO');
