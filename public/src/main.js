@@ -410,8 +410,8 @@ addEventListener('pointermove', (e) => {
     if (edge && e.pointerId === edge.id) {
         const dx = e.clientX - edge.x, dy = e.clientY - edge.y;
         if (Math.abs(dx) > S.flickDist && Math.abs(dx) > Math.abs(dy)) {
-            // Desde el borde izquierdo hacia dentro: torre anterior; desde el derecho: siguiente
-            sniper.goCorner(dx > 0 ? -1 : 1);
+            // Desde el borde izquierdo: torre de la izquierda; desde el derecho: la de la derecha
+            sniper.goSide(dx > 0 ? -1 : 1);
             edge = null;
         }
         return;
@@ -490,8 +490,8 @@ function tapMap(x, y) {
     select(hit);
 }
 
-// Teclado: WASD/flechas miran, espacio/enter mantiene la mira (soltar dispara), Q/E cambian de
-// torre, Esc baja la mira o vuelve a la granja (con el ratón bloqueado, Esc lo suelta), H vuelve.
+// Teclado: WASD/flechas miran, espacio/enter mantiene la mira (soltar dispara), Q/E saltan a la
+// torre de la izquierda/derecha, Esc baja la mira o vuelve a la granja (con el ratón bloqueado, Esc lo suelta), H vuelve.
 const keys = new Set();
 addEventListener('keydown', (e) => {
     sfx.unlock();
@@ -510,8 +510,8 @@ addEventListener('keydown', (e) => {
     if (k === ' ' || k === 'enter') sniper.setAds(true);
     else if (k === 'escape' || k === 'backspace') sniper.scoped ? sniper.release(false) : goFarm();
     else if (k === 'h') goFarm();
-    else if (k === 'q') sniper.goCorner(-1);
-    else if (k === 'e') sniper.goCorner(1);
+    else if (k === 'q') sniper.goSide(-1);
+    else if (k === 'e') sniper.goSide(1);
 });
 addEventListener('keyup', (e) => {
     const k = e.key.toLowerCase();
@@ -552,8 +552,8 @@ function pollPad(dt) {
         if (up(6)) sniper.release(true);
         if (down(7) || down(0)) sniper.fire();
         if (down(1)) sniper.scoped ? sniper.release(false) : goFarm();
-        if (down(4) || down(14)) sniper.goCorner(-1);
-        if (down(5) || down(15)) sniper.goCorner(1);
+        if (down(4) || down(14)) sniper.goSide(-1);
+        if (down(5) || down(15)) sniper.goSide(1);
     }
     pad.buttons.forEach((b, i) => (padPrev[i] = b.pressed));
 }
@@ -565,8 +565,8 @@ const tapBtn = (id, fn) => $(id).addEventListener('click', (e) => {
     fn();
 });
 tapBtn('btn-home', () => goFarm());
-tapBtn('btn-prev', () => sniper.goCorner(-1));
-tapBtn('btn-next', () => sniper.goCorner(1));
+tapBtn('btn-prev', () => sniper.goSide(-1));
+tapBtn('btn-next', () => sniper.goSide(1));
 tapBtn('panel-action', () => selected && selected.field !== undefined && harvest(selected.field));
 tapBtn('panel-close', () => select(null));
 tapBtn('btn-settings', () => {

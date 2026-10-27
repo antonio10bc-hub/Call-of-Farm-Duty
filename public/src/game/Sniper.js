@@ -117,6 +117,18 @@ export class Sniper {
         this.hooks.sfx.play('corner');
     }
 
+    // Salta a la torre vecina que queda a la izquierda (side -1) o a la derecha (+1) de la vista
+    goSide(side) {
+        if (this.move || this.ending >= 0) return;
+        const n = this.field.towers.length;
+        const rx = Math.cos(this.lookYaw), rz = -Math.sin(this.lookYaw); // derecha de la vista
+        const along = (d) => {
+            const t = this.field.towers[(this.corner + d + n) % n];
+            return (t.x - this.pos.x) * rx + (t.z - this.pos.z) * rz;
+        };
+        this.goCorner(along(1) * side >= along(-1) * side ? 1 : -1);
+    }
+
     baseYaw() {
         return Math.atan2(-(this.field.cx - this.pos.x), -(this.field.cz - this.pos.z));
     }

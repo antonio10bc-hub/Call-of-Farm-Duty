@@ -112,9 +112,24 @@ test('primera persona: arrastrar mira, quieto apunta y soltar dispara; deslizar 
     expect(await page.evaluate(() => game.sniper.spread)).toBeGreaterThan(0.05);
     await touchPath(page, [['pointerdown', 200, 400, 40], ['pointerup', 200, 400, 0]]);
     expect(await page.evaluate(() => game.sniper.bolt)).toBeGreaterThan(0);
-    // Deslizar desde el borde izquierdo hacia dentro: torre anterior
+    // Deslizar desde el borde izquierdo hacia dentro: la torre de la izquierda
+    await page.evaluate(() => { const sn = game.sniper; window.__view = { x: sn.pos.x, z: sn.pos.z, yaw: sn.lookYaw, corner: sn.corner }; });
     await touchPath(page, [['pointerdown', 6, 400, 16], ['pointermove', 60, 402, 16], ['pointermove', 120, 404, 16], ['pointerup', 120, 404, 0]]);
-    await expect.poll(() => page.evaluate(() => game.sniper.corner)).toBe(3);
+    // Lado (-1 izquierda, +1 derecha) en que queda la torre i respecto a la vista guardada
+    const side = (i) => page.evaluate((i) => {
+        const sn = game.sniper, v = window.__view, t = sn.field.towers[i];
+        return Math.sign((t.x - v.x) * Math.cos(v.yaw) - (t.z - v.z) * Math.sin(v.yaw));
+    }, i);
+    const remember = () => page.evaluate(() => { const sn = game.sniper; window.__view = { x: sn.pos.x, z: sn.pos.z, yaw: sn.lookYaw, corner: sn.corner }; });
+    await expect.poll(() => page.evaluate(() => game.sniper.corner !== window.__view.corner && !game.sniper.moving)).toBe(true);
+    expect(await side(await page.evaluate(() => game.sniper.corner))).toBe(-1);
+    // Q salta a la torre de la izquierda y E a la de la derecha
+    for (const [key, want] of [['e', 1], ['q', -1]]) {
+        await remember();
+        await page.keyboard.press(key);
+        await expect.poll(() => page.evaluate(() => game.sniper.corner !== window.__view.corner && !game.sniper.moving)).toBe(true);
+        expect(await side(await page.evaluate(() => game.sniper.corner))).toBe(want);
+    }
     await page.locator('#btn-home').click();
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('farm');
     expect(errors).toEqual([]);
