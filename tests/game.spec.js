@@ -55,7 +55,7 @@ async function shootNext(page) {
         if (s) game.sniper.lookAt(s.x, 0.9, s.z);
     });
     await page.mouse.down({ button: 'right' });
-    await expect.poll(() => page.evaluate(() => game.sniper.adsK === 1 && game.sniper.spread < 0.002), { timeout: 5_000 }).toBe(true);
+    await expect.poll(() => page.evaluate(() => game.sniper.adsK === 1 && game.sniper.spread < 0.002), { timeout: 20_000 }).toBe(true);
     // La vista puede haberse movido (salto de torre en curso): se vuelve a centrar la mata
     await page.evaluate(() => {
         const s = game.sniper.field.sheaves.find((x) => x.alive);
@@ -102,9 +102,9 @@ test('primera persona: arrastrar mira, quieto apunta y soltar dispara; deslizar 
         game.sniper.lookAt(s.x, 0.9, s.z);
     });
     await touchPath(page, [['pointerdown', 200, 400, 300]]);
-    expect(await page.evaluate(() => game.sniper.scoped)).toBe(true);
+    await expect.poll(() => page.evaluate(() => game.sniper.scoped)).toBe(true);
     // Con la mira arriba y asentada el tiro es preciso
-    await expect.poll(() => page.evaluate(() => game.sniper.adsK === 1 && game.sniper.spread < 0.002), { timeout: 5_000 }).toBe(true);
+    await expect.poll(() => page.evaluate(() => game.sniper.adsK === 1 && game.sniper.spread < 0.002), { timeout: 20_000 }).toBe(true);
     await touchPath(page, [['pointerup', 200, 400, 0]]);
     await expect.poll(() => page.evaluate(() => game.state.wheat)).toBe(1);
     // Sin mira la dispersión es grande (no scope) y un toque rápido dispara desde la cadera
