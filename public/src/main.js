@@ -261,6 +261,11 @@ const uiButton = (cls, onTap) => {
     $('bubbles').appendChild(b);
     return b;
 };
+// Cartel del granero: es el armamento (las rachas de bajas); tocarlo abre su menú
+const armory = uiButton('field-sign armory-sign hidden', () => select({ structure: 'barn' }));
+armory.id = 'sign-barn';
+armory.innerHTML = `${ico('ks-grenade')}<span>${L('ARMORY', 'ARMAMENTO')}</span>`;
+
 for (const def of FARM.fields) {
     const id = def.id;
     bubbles[id] = uiButton('bubble hidden', () => harvest(id));
@@ -288,6 +293,14 @@ function refreshSigns() {
 const _b = new THREE.Vector3();
 function placeBubbles() {
     const show = mode === 'farm' && farm.introT > 1.6;
+    armory.classList.toggle('hidden', !show);
+    if (show) {
+        const barn = farm.byId.barn;
+        // (el cartel ya sube un poco por su cuenta: con esto queda justo sobre el tejado)
+        _b.set(barn.def.x, barn.top - 1.4, barn.def.z).project(rig.camera);
+        armory.style.left = `${(_b.x * 0.5 + 0.5) * innerWidth}px`;
+        armory.style.top = `${(-_b.y * 0.5 + 0.5) * innerHeight}px`;
+    }
     for (const def of FARM.fields) {
         const id = def.id, bubble = bubbles[id], sign = signs[id];
         const on = show && state.isReady(id);

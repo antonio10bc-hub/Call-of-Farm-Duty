@@ -136,6 +136,11 @@ test('la granja es un mapa: tocar el granero abre el menú de rachas de bajas (2
     expect(await page.evaluate(() => game.state.streaks)).toEqual(['grenade', 'nuke']);
     await page.locator('#btn-streaks-close').click();
     await expect(page.locator('#streaks')).toBeHidden();
+    // El cartel ARMAMENTO encima del granero también abre el menú
+    await expect(page.locator('#sign-barn')).toHaveText('ARMAMENTO');
+    await page.locator('#sign-barn').click();
+    await expect(page.locator('#streaks')).toBeVisible();
+    await page.locator('#btn-streaks-close').click();
     // Arrastrar desplaza el mapa (desde un trozo libre, sin carteles encima)
     const before = await page.evaluate(() => game.rig.fx + game.rig.fz);
     await page.mouse.move(300, 680);

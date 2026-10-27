@@ -539,6 +539,7 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
 .tomato-ico { --ico: var(--px-tomato); }
 .barrel-ico { --ico: var(--px-barrel); }
 .lock-ico { --ico: var(--px-lock); }
+.ks-grenade-ico { --ico: var(--px-ks-grenade); }
 
 /* ---------- GRANJA (menú principal) ---------- */
 .farm-ui {
@@ -866,6 +867,9 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
     animation: signBob 1.6s steps(2) infinite;
 }
 .field-sign.hidden { display: none; }
+/* Cartel del granero (armamento): verde militar con el icono de la granada */
+.armory-sign { --sign: #5a6a3a; }
+.armory-sign .ico { width: 14px; height: 14px; }
 /* Terreno bloqueado: tabla gris con candado; cuando ya se puede, ¡DESBLOQUEAR! en rojo y latiendo */
 .field-sign.locked { --sign: #7a7068; }
 .field-sign.locked .ico { width: 12px; height: 13px; }
