@@ -855,6 +855,14 @@ tapBtn('btn-streaks-close', () => {
     $('streaks').classList.add('hidden');
 });
 tapBtn('btn-lang', switchLang);
+tapBtn('btn-debug', () => {
+    sfx.play('ui');
+    $('debug').classList.remove('hidden');
+});
+tapBtn('btn-debug-close', () => {
+    sfx.play('ui');
+    $('debug').classList.add('hidden');
+});
 // Depuración: cuántas bajas pide cada racha (- / +), y volver a las normales
 const ksRows = {};
 for (const k of KILLSTREAKS) {
@@ -884,6 +892,16 @@ function setStreakCount(k, n) {
     refreshStreaks();
     sfx.play('ui');
 }
+// Depuración: todos los terrenos bloqueados, limpios y sembrados de golpe (sin requisitos)
+tapBtn('btn-unlock-all', () => {
+    const ids = FARM.fields.map((f) => f.id).filter((id) => state.unlock(id, Date.now(), true));
+    sfx.play(ids.length ? 'power' : 'miss');
+    if (!ids.length) return;
+    $('debug').classList.add('hidden');
+    while (revealUnlocked());
+    rig.focus(home.x, home.z);
+    setTimeout(() => stage(L('ALL UNLOCKED!', '¡TODO DESBLOQUEADO!'), ids.map((id) => FIELD_BY_ID[id].name).join(' · ')), 350);
+});
 tapBtn('ks-default', () => {
     Settings.set('streaks', null);
     setStreakCounts(null);

@@ -122,9 +122,10 @@ export class FarmState {
         return !!lock && !this.fields[id].unlocked && (!lock.after || this.maxed(lock.after));
     }
 
-    // Terreno limpio: queda sembrado y listo para recoger la primera vez
-    unlock(id, now = Date.now()) {
-        if (!this.canUnlock(id)) return false;
+    // Terreno limpio: queda sembrado y listo para recoger la primera vez. force: sin mirar lo
+    // que pide (depuración)
+    unlock(id, now = Date.now(), force = false) {
+        if (this.fields[id].unlocked || (!force && !this.canUnlock(id))) return false;
         const f = this.fields[id];
         f.unlocked = true;
         f.plantedAt = now - growMs(id);

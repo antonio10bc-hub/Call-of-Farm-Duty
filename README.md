@@ -21,7 +21,8 @@ Granja voxel con estética de consola portátil (mismo estudio y estilo que Tank
     - Lo que recogen las recompensas también suma a la racha. Los números y ajustes están en `content/killstreaks.js`.
   - Si sueltas mientras el cerrojo recarga, el disparo sale en cuanto está listo. Se puede mirar, apuntar y disparar durante el salto entre torres.
   - El botón GRANJA vuelve en cualquier momento; lo recogido se guarda.
-- **Ajustes:** música, sonido, vibración e idioma. En la caja DEBUG: COSTES 0 (todas las mejoras gratis), BAJAS POR RACHA (con - / + se elige cuántas bajas pide cada recompensa; RACHAS POR DEFECTO las devuelve a 5, 10, 20 y 30; todo se recuerda) y BORRAR PROGRESO (dos toques: borra la cosecha y los campos, no los ajustes).
+- **Ajustes:** música, sonido, vibración e idioma.
+- **Debug** (botón discreto abajo a la derecha de la granja): COSTES 0 (todas las mejoras gratis), BAJAS POR RACHA (con - / + se elige cuántas bajas pide cada recompensa; RACHAS POR DEFECTO las devuelve a 5, 10, 20 y 30), DESBLOQUEAR TODO (todos los terrenos limpios y sembrados, sin requisitos) y BORRAR PROGRESO (dos toques: borra la cosecha, los campos y las rachas equipadas, no los ajustes). Lo de COSTES y BAJAS se recuerda.
 
 ## Desarrollo
 ```

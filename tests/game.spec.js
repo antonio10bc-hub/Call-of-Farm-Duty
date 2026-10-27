@@ -279,7 +279,7 @@ test('ajustes: borrar el progreso pide confirmación y deja la granja como al em
     await expect(page.locator('.bubble:not(.hidden)')).toHaveCount(1, { timeout: 30_000 });
     await page.evaluate(() => { game.state.wheat = 7; game.upgradeField('wheat'); });
     expect(await page.evaluate(() => [game.state.fields.wheat.level, game.state.wheat])).toEqual([1, 4]);
-    await page.locator('#btn-settings').click();
+    await page.locator('#btn-debug').click();
     // El primer toque solo arma el botón
     await page.locator('#btn-reset').click();
     await expect(page.locator('#btn-reset')).toHaveText('¿SEGURO? TOCA OTRA VEZ');
@@ -351,10 +351,10 @@ test('debug: con COSTES 0 se mejora sin gastar nada', async ({ page }) => {
     await openFarm(page);
     await page.evaluate(() => game.select({ field: 'wheat' }));
     await expect(page.locator('#panel-upgrade')).toBeDisabled();
-    await page.locator('#btn-settings').click();
+    await page.locator('#btn-debug').click();
     await page.locator('#toggle-free').click();
     await expect(page.locator('#toggle-free')).not.toHaveClass(/off/);
-    await page.locator('#btn-settings-close').click();
+    await page.locator('#btn-debug-close').click();
     await expect(page.locator('#panel-upgrade')).toBeEnabled();
     await expect(page.locator('#upgrade-cost')).toHaveText('0');
     await page.locator('#panel-upgrade').click();
@@ -445,7 +445,7 @@ test('debug: se elige cuántas bajas pide cada racha', async ({ page }) => {
     await enterField(page);
     await page.locator('#btn-home').click();
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('farm');
-    await page.locator('#btn-settings').click();
+    await page.locator('#btn-debug').click();
     // La granada, de 5 a 1 bajas (cuatro veces -)
     await expect(page.locator('#ks-grenade')).toHaveText('5');
     for (let i = 0; i < 4; i++) await page.locator('.ks-row', { has: page.locator('#ks-grenade') }).locator('[data-d="-1"]').click();
@@ -454,7 +454,7 @@ test('debug: se elige cuántas bajas pide cada racha', async ({ page }) => {
     await expect(page.locator('#ks-grenade')).toHaveText('1'); // nunca menos de 1
     await page.locator('.ks-row', { has: page.locator('#ks-nuke') }).locator('[data-d="1"]').click();
     await expect(page.locator('#ks-nuke')).toHaveText('31');
-    await page.locator('#btn-settings-close').click();
+    await page.locator('#btn-debug-close').click();
     // Con una sola baja ya sale la granada
     await page.evaluate(() => game.harvest('wheat'));
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
@@ -465,9 +465,26 @@ test('debug: se elige cuántas bajas pide cada racha', async ({ page }) => {
     // Se recuerda al recargar, y RACHAS POR DEFECTO lo devuelve todo a su sitio
     await page.reload();
     await expect(page.locator('#ks-grenade')).toHaveText('1');
-    await page.locator('#btn-settings').click();
+    await page.locator('#btn-debug').click();
     await page.locator('#ks-default').click();
     await expect(page.locator('#ks-grenade')).toHaveText('5');
     await expect(page.locator('#ks-nuke')).toHaveText('30');
+    expect(errors).toEqual([]);
+});
+
+test('debug: DESBLOQUEAR TODO limpia todos los terrenos sin requisitos', async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto('/');
+    await expect(page.locator('#sign-wheat')).toHaveText('¡DESBLOQUEAR!', { timeout: 30_000 });
+    await expect(page.locator('#sign-tomato')).toHaveText('BLOQUEADO');
+    await page.locator('#btn-debug').click();
+    await page.locator('#btn-unlock-all').click();
+    await expect(page.locator('#debug')).toBeHidden();
+    expect(await page.evaluate(() => [game.state.fields.wheat.unlocked, game.state.fields.tomato.unlocked])).toEqual([true, true]);
+    expect(await page.evaluate(() => [game.farm.fields.wheat.locked, game.farm.fields.tomato.locked])).toEqual([false, false]);
+    await expect(page.locator('#sign-wheat')).toHaveText('NV.1');
+    await expect(page.locator('#sign-tomato')).toHaveText('NV.1');
+    await expect(page.locator('.bubble:not(.hidden)')).toHaveCount(2);
+    await expect(page.locator('#farm-tomato')).toBeVisible();
     expect(errors).toEqual([]);
 });
