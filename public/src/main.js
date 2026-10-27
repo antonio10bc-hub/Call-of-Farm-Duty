@@ -3,7 +3,7 @@ import { CONFIG } from './config.js';
 import { THEME } from './content/theme.js';
 import { CROPS } from './content/crops.js';
 import { FARM, FIELD_BY_ID, INFO } from './content/farm.js';
-import { KILLSTREAKS, setStreakCounts } from './content/killstreaks.js';
+import { KILLSTREAKS, MAX_EQUIPPED, setStreakCounts } from './content/killstreaks.js';
 import { RetroRenderer } from './render/RetroRenderer.js';
 import { CameraRig } from './render/CameraRig.js';
 import { Particles } from './render/Particles.js';
@@ -106,9 +106,11 @@ const sniper = new Sniper(THEME, {
         void el.offsetWidth;
         el.classList.add('tick');
     },
-    // Bomba nuclear: fogonazo blanco largo y, además del campo, se recoge lo maduro de toda la granja
+    // Bomba nuclear: fogonazo blanco largo, luego neblina amarillenta que se queda (lluvia
+    // radiactiva) y, además del campo, se recoge lo maduro de toda la granja
     onNuke() {
         $('nuke-count').classList.add('hidden');
+        setTimeout(() => mode === 'snipe' && document.body.classList.add('fallout'), 700);
         renderer.flash(0xffffff, 1);
         for (let k = 1; k <= 6; k++) setTimeout(() => renderer.flash(k % 2 ? 0xfff6dc : 0xffffff, 1 - k * 0.12), k * 160);
         for (const def of FARM.fields) {
@@ -304,6 +306,13 @@ function placeBubbles() {
 
 // Ficha del edificio o del campo tocado
 function select(what) {
+    // El granero es el cuartel de las rachas de bajas: abre su menú
+    if (what && what.structure === 'barn') {
+        select(null);
+        farm.byId.barn.select();
+        rig.focus(farm.byId.barn.def.x, farm.byId.barn.def.z + 1);
+        return openStreaks();
+    }
     selected = what;
     const panel = $('panel');
     if (!what) {
@@ -331,9 +340,7 @@ function refreshPanel() {
     if (selected.structure) {
         const m = farm.byId[selected.structure];
         title.textContent = m.def.name;
-        text.textContent = selected.structure === 'barn'
-            ? `${INFO.barn} ${CROPS.wheat.name}: ${state.items.wheat} · ${CROPS.tomato.name}: ${state.items.tomato}`
-            : INFO[selected.structure];
+        text.textContent = INFO[selected.structure];
         bar.parentElement.classList.add('hidden');
         act.classList.add('hidden');
         up.classList.add('hidden');
@@ -419,8 +426,9 @@ function updateStreak() {
     $('streak-n').textContent = n;
     $('streak-fill').style.width = `${Math.round(Math.max(0, sniper.streakT / sniper.streakMax) * 40) * 2.5}%`;
     el.classList.toggle('low', sniper.streakT < 1);
-    const next = KILLSTREAKS.find((k) => k.at > n);
-    $('streak-next').textContent = next ? `${L('NEXT', 'SIGUIENTE')}: ${next.at} ${next.name}` : L('MAX STREAK!', '¡RACHA MÁXIMA!');
+    // La siguiente de las equipadas en el granero
+    const next = KILLSTREAKS.filter((k) => sniper.equipped.includes(k.id) && k.at > n).sort((a, b) => a.at - b.at)[0];
+    $('streak-next').textContent = next ? `${L('NEXT', 'SIGUIENTE')}: ${next.at} ${next.name}` : sniper.equipped.length ? L('MAX STREAK!', '¡RACHA MÁXIMA!') : L('NO STREAKS: EQUIP THEM IN THE BARN', 'SIN RACHAS: EQUÍPALAS EN EL GRANERO');
 }
 
 // Guiando el misil: altura en la interfaz
@@ -471,7 +479,8 @@ function quickAction() {
 
 function enterSnipe() {
     const unlock = goSnipe.unlock;
-    sniper.enter(unlock ? { unlock: true } : { crop: FIELD_BY_ID[snipeField].crop, count: state.fields[snipeField].left });
+    sniper.enter(unlock ? { unlock: true } : { crop: FIELD_BY_ID[snipeField].crop, count: state.fields[snipeField].left, streaks: [...state.streaks] });
+    document.body.classList.remove('fallout');
     mode = 'snipe';
     snipeStart = time;
     renderer.flash(INK, 1);
@@ -504,7 +513,7 @@ function enterFarm() {
     const unlocking = sniper.unlocking;
     sniper.leave();
     if (document.exitPointerLock && locked()) document.exitPointerLock();
-    document.body.classList.remove('predator');
+    document.body.classList.remove('predator', 'fallout');
     $('nuke-count').classList.add('hidden');
     mode = 'farm';
     renderer.flash(INK, 1);
@@ -783,6 +792,54 @@ tapBtn('btn-settings-close', () => {
     sfx.play('ui');
     $('settings').classList.add('hidden');
 });
+
+// ---------- Granero: elegir las rachas de bajas (como mucho MAX_EQUIPPED) ----------
+const ksCards = {};
+for (const k of KILLSTREAKS) {
+    const card = document.createElement('button');
+    card.className = 'ks-card';
+    card.id = `ks-card-${k.id}`;
+    card.innerHTML = `<i class="ks-ico" style="--ico: var(--px-${k.icon})"></i><span class="ks-info"><b>${k.name}</b><span class="ks-kills"></span><small>${k.desc}</small></span><em></em>`;
+    card.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!state.toggleStreak(k.id)) {
+            // Ya hay dos: hay que quitar una antes
+            sfx.play('miss');
+            const info = $('ks-pick-info');
+            info.classList.remove('warn');
+            void info.offsetWidth;
+            info.classList.add('warn');
+            return;
+        }
+        sfx.play(state.streaks.includes(k.id) ? 'reloaded' : 'ui');
+        refreshStreaks();
+    });
+    $('ks-cards').appendChild(card);
+    ksCards[k.id] = card;
+}
+
+function refreshStreaks() {
+    const full = state.streaks.length >= MAX_EQUIPPED;
+    for (const k of KILLSTREAKS) {
+        const card = ksCards[k.id], on = state.streaks.includes(k.id);
+        card.classList.toggle('on', on);
+        card.classList.toggle('full', full && !on);
+        card.querySelector('.ks-kills').textContent = `${k.at} ${L('KILLS', 'BAJAS')}`;
+        card.querySelector('em').textContent = on ? L('EQUIPPED', 'EQUIPADA') : L('EQUIP', 'EQUIPAR');
+    }
+    $('ks-pick-info').textContent = `${L(`PICK UP TO ${MAX_EQUIPPED}`, `ELIGE HASTA ${MAX_EQUIPPED}`)} · ${state.streaks.length}/${MAX_EQUIPPED}`;
+}
+
+function openStreaks() {
+    sfx.play('ui');
+    refreshStreaks();
+    $('streaks').classList.remove('hidden');
+}
+
+tapBtn('btn-streaks-close', () => {
+    sfx.play('ui');
+    $('streaks').classList.add('hidden');
+});
 tapBtn('btn-lang', switchLang);
 // Depuración: cuántas bajas pide cada racha (- / +), y volver a las normales
 const ksRows = {};
@@ -810,12 +867,14 @@ function setStreakCount(k, n) {
     Settings.set('streaks', counts);
     setStreakCounts(counts);
     refreshStreakRows();
+    refreshStreaks();
     sfx.play('ui');
 }
 tapBtn('ks-default', () => {
     Settings.set('streaks', null);
     setStreakCounts(null);
     refreshStreakRows();
+    refreshStreaks();
     sfx.play('ui');
 });
 refreshStreakRows();

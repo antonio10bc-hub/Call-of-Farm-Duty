@@ -41,10 +41,9 @@ export class Barn extends VoxelModel {
         this.part(door, 1.66, 1.55, 0.08, R2, 0, 0.82, 0.06, false);
         for (const s of [-1, 1]) this.part(door, 2.0, 0.12, 0.05, TRIM, 0, 0.82, 0.11, false).rotation.z = s * 0.75;
         this.part(door, 0.06, 1.55, 0.06, TRIM, 0, 0.82, 0.11, false);
-        // Ventana del pajar con paja asomando
-        this.part(b, 0.9, 0.7, 0.08, TRIM, 0, top + 0.75, D / 2 + 0.24);
-        this.part(b, 0.7, 0.5, 0.06, 0x3a2414, 0, top + 0.75, D / 2 + 0.28, false);
-        this.part(b, 0.6, 0.18, 0.12, 0xf0c850, 0, top + 0.56, D / 2 + 0.3, false);
+        // El granero es el cuartel de las rachas de bajas: en el hastial, una diana como la del
+        // logo (anillos rojo y crema) en lugar de la ventana del pajar
+        [[1.15, TRIM], [0.9, R], [0.62, TRIM], [0.34, R]].forEach(([s, c], i) => this.part(b, s, s, 0.06, c, 0, top + 0.78, D / 2 + 0.24 + i * 0.02, i === 0));
         // Ventanas laterales
         for (const s of [-1, 1]) for (const z of [-0.8, 0.8]) {
             this.part(b, 0.06, 0.6, 0.6, TRIM, s * (W / 2 + 0.03), 1.75, z, false);
@@ -58,16 +57,31 @@ export class Barn extends VoxelModel {
         this.part(this.vane, 0.5, 0.05, 0.05, 0x3a3030, 0, 0.5, 0, false);
         this.part(this.vane, 0.3, 0.2, 0.04, 0x3a3030, 0.1, 0.72, 0, false);
         this.part(this.vane, 0.12, 0.12, 0.04, 0x3a3030, -0.16, 0.72, 0, false);
-        // Balas de paja junto al portón
-        for (const [x, z, y] of [[-2.7, 1.3, 0], [-2.7, 1.3, 0.5], [-2.7, 0.4, 0], [2.6, 1.5, 0]]) {
-            this.part(b, 0.7, 0.5, 0.5, 0xe8c25a, x, 0.25 + y, z);
-            this.part(b, 0.72, 0.5, 0.06, 0xb88a3a, x, 0.25 + y, z + 0.12, false);
+        // Sacos terreros a los lados del portón
+        const SAND = 0xc8b08a, SAND2 = 0xa8906a;
+        for (const s of [-1, 1]) for (let row = 0; row < 2; row++) for (let k = 0; k < 3 - row; k++) {
+            this.part(b, 0.5, 0.26, 0.34, (k + row) % 2 ? SAND : SAND2, s * (1.45 + k * 0.48 + row * 0.24), 0.13 + row * 0.26, D / 2 + 0.55);
         }
+        // Cajas de munición (verde militar con franja amarilla)
+        const AMMO = 0x5a6a3a;
+        for (const [x, z, y] of [[-2.75, 0.9, 0], [-2.75, 0.2, 0], [-2.75, 0.55, 0.42], [2.7, 1.1, 0]]) {
+            this.part(b, 0.62, 0.42, 0.55, AMMO, x, 0.21 + y, z);
+            this.part(b, 0.64, 0.08, 0.57, 0xffcc33, x, 0.3 + y, z, false);
+        }
+        // Red de camuflaje sobre el tejado
+        [[-1.2, 2, 0x5a6a3a], [0.9, 2, 0x6a5a3a], [-0.2, 3, 0x4a5a2e], [1.1, 1, 0x4a5a2e], [-1.6, 1, 0x6a5a3a]].forEach(([x, i, c]) => {
+            this.part(b, 1.0, 0.08, D * 0.7, c, x, top + 0.33 + i * 0.3, 0, false);
+        });
+        // Antena de radio con su luz roja que parpadea
+        this.part(b, 0.06, 2.2, 0.06, 0x3a3030, W / 2 - 0.5, top + 1.1, -D / 2 + 0.5, false);
+        this.part(b, 0.4, 0.04, 0.04, 0x3a3030, W / 2 - 0.5, top + 1.9, -D / 2 + 0.5, false);
+        this.light = this.part(b, 0.14, 0.14, 0.14, 0xff2a1a, W / 2 - 0.5, top + 2.25, -D / 2 + 0.5);
         this.top = top + 2.6;
     }
 
     update(dt, time) {
         this.vane.rotation.y = Math.sin(time * 0.4) * 1.2 + time * 0.15;
+        this.light.visible = Math.sin(time * 5) > 0;
         this.updateFx(dt);
     }
 }

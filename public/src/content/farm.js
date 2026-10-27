@@ -64,7 +64,6 @@ export const FARM = {
 
 // Fichas de los edificios: un texto corto debajo del nombre
 export const INFO = {
-    barn: L('STORES ALL YOUR HARVEST.', 'GUARDA TODA TU COSECHA.'),
     silo: L('GRAIN SILO. KEEPS THE HARVEST DRY.', 'SILO DE GRANO. MANTIENE SECA LA COSECHA.'),
     house: L('HOME SWEET HOME.', 'HOGAR, DULCE HOGAR.'),
     tractor: L('READY TO PLOUGH.', 'LISTO PARA ARAR.'),

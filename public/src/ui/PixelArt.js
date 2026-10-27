@@ -173,6 +173,23 @@ const SPRITES = {
         rows: ['....KKKKK....', '..KKCCRCCKK..', '.KCC..R..CCK.', '.KC...R...CK.', 'KC....R....CK', 'KC.........CK', 'KRRRR.W.RRRRK', 'KC.........CK', 'KC....R....CK', '.KC...R...CK.', '.KCC..R..CCK.', '..KKCCRCCKK..', '....KKKKK....'],
         pal: { K: INK, C: '#fff3d6', R: '#c8402e', W: '#ffffff' },
     },
+    // Rachas de bajas (menú del granero): granada, misil, bombardero y bomba nuclear
+    ksGrenade: {
+        rows: ['.....KKK....', '....KYYK.KK.', '...KKKKKKOK.', '..KGGGGGGK..', '.KGLGGGGGGK.', '.KGLGGGGGGK.', '.KGGGGGGGGK.', '.KDDDDDDDDK.', '.KGGGGGGGGK.', '.KGGGGGGGDK.', '..KGGGGGDK..', '...KKKKKK...'],
+        pal: { K: INK, G: '#5a7a3a', L: '#8aa85a', D: '#3a5a2a', Y: '#c8c0b0', O: '#ffd23f' },
+    },
+    ksPredator: {
+        rows: ['....KYYK....', '.....KK.....', '....KRRK....', '....KRRK....', '....KWWK....', '....KWWK....', '..KRKWWKRK..', '..KRKWWKRK..', '...KKWWKK...', '....KWWK....', '....KWWK....', '.....KK.....'],
+        pal: { K: INK, W: '#d8dce2', R: '#c8402e', Y: '#ffd23f' },
+    },
+    ksBomber: {
+        rows: ['.....KK.....', '....KGGK....', '....KGGK....', 'KKKKKGGKKKKK', 'KGGGGGGGGGGK', 'KKKKKGGKKKKK', '....KGGK....', '....KGGK....', '...KKGGKK...', '..KGGGGGGK..', '...KKKKKK...', '............'],
+        pal: { K: INK, G: '#6a7a5a' },
+    },
+    ksNuke: {
+        rows: ['..KKKKKKKK..', '.KOOYYYYOOK.', 'KOYYWWWYYYOK', 'KOOYYYYYYOOK', '.KKKOYYOKKK.', '....KYYK....', '....KOYK....', '....KYOK....', '...KOYYOK...', '.KKOOYYOOKK.', 'KOOOOOOOOOOK', 'KKKKKKKKKKKK'],
+        pal: { K: INK, Y: '#ffd23f', O: '#ff9a1f', W: '#fff4b0' },
+    },
     // Diana del logo (la O de CALL OF): anillos rojo y crema, sencilla para que se lea en grande
     target: {
         rows: ['....KKKKK....', '..KKRRRRRKK..', '.KRRRRRRRRRK.', '.KRRCCCCCRRK.', 'KRRCCRRRCCRRK', 'KRRCRRRRRCRRK', 'KRRCRRWRRCRRK',

@@ -61,11 +61,22 @@ export class Killstreaks {
         else if (id === 'bomber') this.callBomber();
     }
 
-    // El blanco vivo con más vecinos a menos de r (donde más se recoge de una vez)
-    bestSpot(r) {
+    // El blanco vivo con más vecinos a menos de r (donde más se recoge de una vez). inView: si hay
+    // alguno dentro de la vista, solo entre esos (la granada se ve volar hasta él)
+    bestSpot(r, inView = false) {
         const alive = this.sn.field.targets.filter((s) => s.alive && s.landed);
+        let pool = alive;
+        if (inView) {
+            const cam = this.sn.camera, v = new THREE.Vector3();
+            cam.updateMatrixWorld();
+            const seen = alive.filter((s) => {
+                v.set(s.x, s.y, s.z).project(cam);
+                return v.z < 1 && Math.abs(v.x) < 0.8 && Math.abs(v.y) < 0.8;
+            });
+            if (seen.length) pool = seen;
+        }
         let best = null, bestN = -1;
-        for (const s of alive) {
+        for (const s of pool) {
             const n = alive.reduce((k, o) => k + (Math.hypot(o.x - s.x, o.z - s.z) <= r ? 1 : 0), 0);
             if (n > bestN) [best, bestN] = [s, n];
         }
@@ -73,16 +84,28 @@ export class Killstreaks {
     }
 
     // ---------- Granada ----------
+    // Sale de delante de la cámara, abajo a la derecha (como lanzada con la mano) para que se vea
+    // salir; es gorda, brilla en amarillo y deja estela de humo y chispas
     throwGrenade() {
-        const t = this.bestSpot(KS.grenade.radius);
+        const t = this.bestSpot(KS.grenade.radius, true);
         if (!t) return;
         const g = new THREE.Group();
-        hulled(g, this.ink, 0.26, 0.32, 0.26, 0x4a5a2a);
-        hulled(g, this.ink, 0.1, 0.08, 0.16, 0xc8c0b0, 0, 0.2, 0.04);
+        hulled(g, this.ink, 0.42, 0.52, 0.42, 0x5a7a3a);
+        hulled(g, this.ink, 0.44, 0.08, 0.44, 0x3a5a2a, 0, -0.06, 0);
+        hulled(g, this.ink, 0.16, 0.12, 0.22, 0xc8c0b0, 0, 0.32, 0.05);
+        const glow = new THREE.Mesh(box(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffe03a, side: THREE.BackSide }));
+        glow.scale.set(0.62, 0.72, 0.62);
+        g.add(glow);
         this.root.add(g);
-        const from = this.sn.pos.clone();
-        from.y -= 0.5;
-        this.grenades.push({ obj: g, from, x: t.x, z: t.z, t: 0 });
+        const cam = this.sn.camera;
+        cam.updateMatrixWorld();
+        const from = cam.getWorldPosition(new THREE.Vector3())
+            .addScaledVector(cam.getWorldDirection(new THREE.Vector3()), 2.4)
+            .addScaledVector(new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion), 0.2)
+            .addScaledVector(new THREE.Vector3(0, 1, 0).applyQuaternion(cam.quaternion), -0.4);
+        // Arco bajo: así no se sale por arriba de la pantalla
+        const arc = Math.min(KS.grenade.arc, 1.2 + Math.hypot(t.x - from.x, t.z - from.z) * 0.08);
+        this.grenades.push({ obj: g, glow, from, x: t.x, z: t.z, t: 0, arc, trail: 0 });
         this.sn.hooks.sfx.play('grenade');
     }
 
@@ -197,13 +220,20 @@ export class Killstreaks {
 
     update(dt, rawDt) {
         const sn = this.sn;
-        // Granadas en vuelo
+        // Granadas en vuelo: arco, giro, brillo que late y estela
         this.grenades = this.grenades.filter((g) => {
             g.t += dt;
             const k = Math.min(1, g.t / KS.grenade.flight);
-            g.obj.position.set(g.from.x + (g.x - g.from.x) * k, g.from.y + (0.2 - g.from.y) * k + Math.sin(k * Math.PI) * KS.grenade.arc, g.from.z + (g.z - g.from.z) * k);
+            const o = g.obj.position;
+            o.set(g.from.x + (g.x - g.from.x) * k, g.from.y + (0.25 - g.from.y) * k + Math.sin(k * Math.PI) * g.arc, g.from.z + (g.z - g.from.z) * k);
             g.obj.rotation.set(g.t * 9, g.t * 4, 0);
+            g.glow.scale.setScalar(0.62 + Math.abs(Math.sin(g.t * 14)) * 0.18);
+            if ((g.trail -= dt) <= 0) {
+                g.trail = 0.025;
+                sn.particles.spawn(o.x, o.y, o.z, (Math.random() - 0.5) * 0.3, 0.4, (Math.random() - 0.5) * 0.3, 0.16 + Math.random() * 0.1, 0.7, Math.random() < 0.65 ? SMOKE[(Math.random() * 3) | 0] : 0xffe03a, -0.5);
+            }
             if (k < 1) return true;
+            g.glow.material.dispose();
             this.root.remove(g.obj);
             sn.blast(g.x, g.z, KS.grenade.radius, 0.7);
             return false;

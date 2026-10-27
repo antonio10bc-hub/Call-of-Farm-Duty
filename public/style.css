@@ -907,6 +907,41 @@ body.sniping:not(.scoped) .reticle { display: block; }
 /* Desbloqueo: una sola torre y un solo blanco (el barril) */
 body.unlocking .arrow-btn, body.unlocking .corners, body.unlocking .left-badge { display: none; }
 
+/* Granero: menú de rachas de bajas. Tarjetas con icono, bajas que piden y si están equipadas */
+.streaks-screen { gap: 14px; }
+.ks-pick-info { font-size: 9px; color: #c8b89a; }
+.ks-pick-info.warn { animation: ksWarn .6s steps(2) 2; }
+@keyframes ksWarn { 50% { color: #ff6a4a; transform: scale(1.15); } }
+.ks-cards { display: flex; flex-direction: column; gap: 10px; width: min(330px, 100%); }
+.ks-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    font-family: var(--font);
+    text-align: left;
+    color: var(--ink);
+    background: var(--cream);
+    border: 3px solid var(--ink);
+    box-shadow: 0 5px 0 var(--ink), inset 0 -4px 0 #e6d6b4;
+    cursor: pointer;
+}
+.ks-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--ink); }
+.ks-card.on { background: var(--yellow); box-shadow: 0 5px 0 var(--ink), inset 0 -4px 0 #e8a82a; }
+.ks-card.full { opacity: .55; }
+.ks-ico { flex: none; width: 40px; height: 40px; background: var(--ico) center / 100% 100% no-repeat; image-rendering: pixelated; }
+.ks-info { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.ks-info b { font-size: 10px; font-weight: normal; }
+.ks-kills { font-size: 9px; color: var(--barn); }
+.ks-info small { font-size: 7px; line-height: 1.5; color: #6a5440; }
+.ks-card em { flex: none; font-style: normal; font-size: 7px; padding: 5px 6px; color: #fff; background: #a8957a; border: 2px solid var(--ink); }
+.ks-card.on em { background: #17d65a; text-shadow: 1px 1px 0 var(--ink); }
+
+/* Lluvia radiactiva: neblina amarillenta que se queda tras la bomba nuclear */
+.nuke-haze { position: fixed; inset: 0; z-index: 9; pointer-events: none; opacity: 0; transition: opacity 1.5s; background: radial-gradient(ellipse at center, rgba(235, 215, 80, .28) 0%, rgba(170, 150, 40, .5) 100%); }
+body.fallout .nuke-haze { opacity: 1; animation: haze 3s ease-in-out infinite; }
+@keyframes haze { 50% { filter: brightness(1.15) saturate(1.2); } }
+
 /* Racha de bajas: arriba en el centro, bajo las torres. La barra se vacía y parpadea al final */
 .streak {
     position: absolute;

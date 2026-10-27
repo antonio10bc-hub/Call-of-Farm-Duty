@@ -128,7 +128,7 @@ export class Sfx {
             // Francotirador: estampido grave + chasquido, cerrojo, mira y cosecha
             case 'snipe': this.noise(0.5, 0.9, 5200, pan); this.tone('square', 220, 40, 0.35, 0.35, pan); this.tone('sine', 90, 30, 0.5, 0.5, pan); break;
             // Rachas de bajas: granada, misil Predator, bombardero y bomba nuclear
-            case 'grenade': this.noise(0.25, 0.12, 2400, pan); this.tone('triangle', 500, 900, 0.18, 0.08, pan); break;
+            case 'grenade': this.noise(0.25, 0.12, 2400, pan); this.tone('triangle', 500, 900, 0.18, 0.08, pan); this.tone('sine', 1500, 500, 1.3, 0.05, pan, 0.1); break;
             case 'missile': this.noise(1.2, 0.35, 1800); this.tone('sawtooth', 120, 420, 1.2, 0.08); break;
             case 'boost': this.noise(0.5, 0.4, 3200); this.tone('sawtooth', 300, 900, 0.5, 0.1); break;
             case 'plane': this.tone('sawtooth', 62, 70, 4.5, 0.09); this.tone('sawtooth', 93, 88, 4.5, 0.06); this.noise(4.5, 0.12, 500); break;

@@ -1,8 +1,9 @@
 import { CROPS } from '../content/crops.js';
 import { FARM, FIELD_BY_ID } from '../content/farm.js';
+import { KILLSTREAKS, MAX_EQUIPPED, DEFAULT_EQUIPPED } from '../content/killstreaks.js';
 
-// Estado de la granja: lo recogido de cada cultivo y cada campo (desbloqueado o no, nivel, hora
-// de siembra y blancos que quedan). Se guarda en el navegador; sin almacenamiento simplemente no
+// Estado de la granja: lo recogido de cada cultivo, cada campo (desbloqueado o no, nivel, hora
+// de siembra y blancos que quedan) y las rachas de bajas equipadas en el granero. Se guarda en el navegador; sin almacenamiento simplemente no
 // se recuerda.
 const KEY = 'cofd.farm.v4';
 const OLD_KEYS = ['cofd.farm.v3', 'cofd.farm.v2']; // v3: un solo campo de trigo
@@ -12,6 +13,7 @@ const growMs = (id) => CROPS[FIELD_BY_ID[id].crop].growTime * 1000;
 export class FarmState {
     constructor(now = Date.now()) {
         this.freeCosts = false; // depuración: todas las mejoras a 0
+        this.streaks = [...DEFAULT_EQUIPPED];
         this.items = Object.fromEntries(Object.keys(CROPS).map((c) => [c, 0]));
         // Los terrenos bloqueados se siembran al desbloquearlos (y quedan listos para recoger)
         this.fields = Object.fromEntries(FARM.fields.map((f) => [f.id, {
@@ -28,6 +30,7 @@ export class FarmState {
             const d = JSON.parse(localStorage.getItem(KEY) || 'null');
             if (d && d.fields) {
                 for (const c of Object.keys(this.items)) this.items[c] = (d.items && d.items[c]) | 0;
+                if (Array.isArray(d.streaks)) this.streaks = d.streaks.filter((id) => KILLSTREAKS.some((k) => k.id === id)).slice(0, MAX_EQUIPPED);
                 for (const [id, f] of Object.entries(this.fields)) {
                     const s = d.fields[id];
                     if (!s) continue;
@@ -64,10 +67,20 @@ export class FarmState {
 
     save() {
         try {
-            localStorage.setItem(KEY, JSON.stringify({ items: this.items, fields: this.fields }));
+            localStorage.setItem(KEY, JSON.stringify({ items: this.items, fields: this.fields, streaks: this.streaks }));
         } catch {
             /* ignorar */
         }
+    }
+
+    // Equipar o quitar una racha de bajas. Con MAX_EQUIPPED puestas no entra otra: false
+    toggleStreak(id) {
+        const i = this.streaks.indexOf(id);
+        if (i >= 0) this.streaks.splice(i, 1);
+        else if (this.streaks.length >= MAX_EQUIPPED) return false;
+        else this.streaks.push(id);
+        this.save();
+        return true;
     }
 
     // Atajo: el trigo recogido (lo más usado)

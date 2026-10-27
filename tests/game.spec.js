@@ -114,17 +114,28 @@ test('el montón con el barril cambia de sitio en cada desbloqueo', async ({ pag
     expect(new Set(spots).size).toBeGreaterThan(1);
 });
 
-test('la granja es un mapa: tocar el granero abre su ficha', async ({ page }) => {
+test('la granja es un mapa: tocar el granero abre el menú de rachas de bajas (2 como mucho)', async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto('/');
     await expect(page.locator('#sign-wheat')).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('#wheat-count')).toHaveText('0');
     const p = await screenOf(page, 'map', 15, 1.4, 11);
     await page.mouse.click(p.x, p.y);
-    await expect(page.locator('#panel')).toBeVisible();
-    await expect(page.locator('#panel-title')).toHaveText('GRANERO');
-    await page.locator('#panel-close').click();
-    await expect(page.locator('#panel')).toBeHidden();
+    await expect(page.locator('#streaks')).toBeVisible();
+    // Por defecto: granada y misil Predator; cada una con sus bajas
+    await expect(page.locator('#ks-card-grenade')).toHaveClass(/on/);
+    await expect(page.locator('#ks-card-predator')).toHaveClass(/on/);
+    await expect(page.locator('#ks-card-bomber')).toContainText('20 BAJAS');
+    await expect(page.locator('#ks-card-nuke')).toContainText('30 BAJAS');
+    // Con dos puestas no entra una tercera; quitando una, sí
+    await page.locator('#ks-card-nuke').click();
+    await expect(page.locator('#ks-card-nuke')).not.toHaveClass(/on/);
+    await page.locator('#ks-card-predator').click();
+    await page.locator('#ks-card-nuke').click();
+    await expect(page.locator('#ks-pick-info')).toContainText('2/2');
+    expect(await page.evaluate(() => game.state.streaks)).toEqual(['grenade', 'nuke']);
+    await page.locator('#btn-streaks-close').click();
+    await expect(page.locator('#streaks')).toBeHidden();
     // Arrastrar desplaza el mapa (desde un trozo libre, sin carteles encima)
     const before = await page.evaluate(() => game.rig.fx + game.rig.fz);
     await page.mouse.move(300, 680);
@@ -350,8 +361,9 @@ test('debug: con COSTES 0 se mejora sin gastar nada', async ({ page }) => {
 });
 
 // Al campo de tiro con el trigo al máximo (32 matas: sitio para encadenar rachas)
-async function enterBigField(page) {
+async function enterBigField(page, streaks) {
     await openFarm(page);
+    if (streaks) await page.evaluate((s) => { game.state.streaks = s; }, streaks);
     await page.evaluate(() => { game.state.wheat = 12; for (let i = 0; i < 4; i++) game.upgradeField('wheat'); game.state.wheat = 0; game.select(null); });
     const bubble = page.locator('.bubble:not(.hidden)').first();
     await bubble.click();
@@ -401,21 +413,22 @@ test('racha de 10: misil Predator con vista cenital, se guía y se acelera, y ex
     expect(errors).toEqual([]);
 });
 
-test('rachas de 15 y 25: bombardero que bombardea el campo y bomba nuclear que lo recoge todo', async ({ page }) => {
+test('rachas de 20 y 30: bombardero que bombardea el campo y bomba nuclear que lo recoge todo', async ({ page }) => {
     const errors = watchErrors(page);
-    await enterBigField(page);
+    await enterBigField(page, ['bomber', 'nuke']);
     const total = await page.evaluate(() => game.sniper.field.remaining);
-    await page.evaluate(() => game.sniper.addStreak(15));
+    await page.evaluate(() => game.sniper.addStreak(20));
     await expect.poll(() => page.evaluate(() => !!game.sniper.ks.plane)).toBe(true);
     await expect.poll(() => page.evaluate(() => game.sniper.ks.bombs.length > 0), { timeout: 8_000 }).toBe(true);
     await expect.poll(() => page.evaluate(() => !game.sniper.ks.plane), { timeout: 12_000 }).toBe(true);
     await expect.poll(() => page.evaluate(() => game.state.wheat), { timeout: 5_000 }).toBeGreaterThan(0);
     // Nuclear: cuenta atrás de 5 y lo que quede, recogido (las bombas pueden haber llevado ya
-    // la racha a 25 por su cuenta)
-    await page.evaluate(() => { const s = game.sniper; if (!s.ks.nuke) s.addStreak(Math.max(1, 25 - s.streak)); });
+    // la racha a 30 por su cuenta)
+    await page.evaluate(() => { const s = game.sniper; if (!s.ks.nuke) s.addStreak(Math.max(1, 30 - s.streak)); });
     await expect(page.locator('#nuke-count')).toBeVisible();
     await expect(page.locator('#nuke-n')).toHaveText(/^[1-5]$/);
     await expect.poll(() => page.evaluate(() => game.sniper.field.remaining), { timeout: 10_000 }).toBe(0);
+    await expect(page.locator('#nuke-haze')).toHaveCSS('opacity', '1', { timeout: 5_000 }); // neblina radiactiva
     await expect.poll(() => page.evaluate(() => game.mode), { timeout: 15_000 }).toBe('farm');
     expect(await page.evaluate(() => game.state.wheat)).toBe(total);
     expect(errors).toEqual([]);
@@ -434,7 +447,7 @@ test('debug: se elige cuántas bajas pide cada racha', async ({ page }) => {
     await page.locator('.ks-row', { has: page.locator('#ks-grenade') }).locator('[data-d="-1"]').click();
     await expect(page.locator('#ks-grenade')).toHaveText('1'); // nunca menos de 1
     await page.locator('.ks-row', { has: page.locator('#ks-nuke') }).locator('[data-d="1"]').click();
-    await expect(page.locator('#ks-nuke')).toHaveText('26');
+    await expect(page.locator('#ks-nuke')).toHaveText('31');
     await page.locator('#btn-settings-close').click();
     // Con una sola baja ya sale la granada
     await page.evaluate(() => game.harvest('wheat'));
@@ -449,6 +462,6 @@ test('debug: se elige cuántas bajas pide cada racha', async ({ page }) => {
     await page.locator('#btn-settings').click();
     await page.locator('#ks-default').click();
     await expect(page.locator('#ks-grenade')).toHaveText('5');
-    await expect(page.locator('#ks-nuke')).toHaveText('25');
+    await expect(page.locator('#ks-nuke')).toHaveText('30');
     expect(errors).toEqual([]);
 });

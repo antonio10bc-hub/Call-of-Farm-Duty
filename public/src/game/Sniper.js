@@ -47,6 +47,7 @@ export class Sniper {
         this.camera.add(this.rifle.root);
 
         this.ks = new Killstreaks(this);
+        this.equipped = [];
         this.streak = 0;
         this.streakT = 0; // lo que le queda a la barra de la racha (s) y lo que duraba llena
         this.streakMax = 1;
@@ -89,6 +90,7 @@ export class Sniper {
     // what: { crop, count } para cosechar (count blancos de ese cultivo) o { unlock: true }
     enter(what) {
         this.unlocking = !!what.unlock;
+        this.equipped = what.streaks || []; // rachas de bajas que valen en esta partida
         this.crop = what.crop || null;
         this.field.restartIntro();
         this.field.setUnlockView(this.unlocking);
@@ -317,7 +319,7 @@ export class Sniper {
         this.streakMax = Math.max(KS.bar.min, KS.bar.time * KS.bar.decay ** (this.streak - 1));
         this.streakT = this.streakMax;
         if (this.hooks.onMedal && this.streak >= 2 && prev < 4) this.hooks.onMedal({ streak: Math.min(4, this.streak) });
-        for (const k of KILLSTREAKS) if (prev < k.at && this.streak >= k.at) this.ks.trigger(k.id);
+        for (const k of KILLSTREAKS) if (this.equipped.includes(k.id) && prev < k.at && this.streak >= k.at) this.ks.trigger(k.id);
     }
 
     // Explosión en el suelo (granada, misil, bombas): fuego, humo, polvo y ondas, y se recoge
