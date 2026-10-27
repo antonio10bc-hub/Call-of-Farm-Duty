@@ -7,10 +7,12 @@ import { Shockwaves } from '../render/Shockwaves.js';
 import { RifleModel } from '../render/RifleModel.js';
 import { SniperField } from '../world/SniperField.js';
 import { vibrate } from '../core/Haptics.js';
+import { CROPS } from '../content/crops.js';
 
 const S = CONFIG.sniper;
-const GRAIN = [0xf6cf4a, 0xffe9a0, 0xd9a42e, 0xfff6dc];
-const CHAFF = [0xe8b830, 0xc8c84a, 0xfff3d6];
+const FIRE = [0xffffff, 0xffe03a, 0xff9a1f, 0xff3e1a];
+const SMOKE = [0x5a5048, 0x7a7068, 0x3a302a, 0x9a9088];
+const RUST = [0x8a4a2a, 0xa85a2a, 0x6a3a22, 0x2e2a28];
 const _v = new THREE.Vector3();
 const _o = new THREE.Vector3();
 const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -19,8 +21,10 @@ const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) 
 // mira arrastrando o con el ratón) y la mirilla está siempre en el centro. Apuntar sube el arma
 // al ojo y hace zoom hacia donde se mira; con la mira la vista va más despacio; soltar dispara.
 // Se puede mirar, apuntar y disparar también mientras se salta de una torre a otra.
+// Dos modos: cosecha (los blancos son las matas o los tomates) y desbloqueo (un solo disparo
+// lejano al barril rojo encima de la chatarra, sin poder cambiar de torre).
 export class Sniper {
-    // hooks: { sfx, onHit(target, ndcX, ndcY), onMedal({ collateral, streak }), onFinish(), onDone(), onCorner(i) }
+    // hooks: { sfx, onHit(target, ndcX, ndcY), onMedal({ collateral, streak }), onUnlock(), onFinish(), onDone(), onCorner(i) }
     constructor(theme, hooks) {
         this.theme = theme;
         this.hooks = hooks;
@@ -72,10 +76,13 @@ export class Sniper {
         this.prevPitch = 0;
     }
 
-    // count: matas maduras que quedan en el campo
-    enter(count) {
+    // what: { crop, count } para cosechar (count blancos de ese cultivo) o { unlock: true }
+    enter(what) {
+        this.unlocking = !!what.unlock;
+        this.crop = what.crop || null;
         this.field.restartIntro();
-        this.field.spawnSheaves(count);
+        if (this.unlocking) this.field.spawnJunk();
+        else this.field.spawn(what.crop, what.count);
         this.particles.clear();
         this.waves.clear();
         this.corner = 0;
@@ -113,7 +120,7 @@ export class Sniper {
 
     // Salta a la torre vecina (dir: +1 / -1). La mira sigue puesta si lo estaba.
     goCorner(dir) {
-        if (this.move || this.ending >= 0) return;
+        if (this.move || this.ending >= 0 || this.unlocking) return;
         const n = this.field.towers.length;
         const to = (this.corner + dir + n) % n;
         this.move = { from: this.pos.clone(), to: this.eyeOf(to), t: 0, idx: to };
@@ -122,7 +129,7 @@ export class Sniper {
 
     // Salta a la torre vecina que queda a la izquierda (side -1) o a la derecha (+1) de la vista
     goSide(side) {
-        if (this.move || this.ending >= 0) return;
+        if (this.move || this.ending >= 0 || this.unlocking) return;
         const n = this.field.towers.length;
         const rx = Math.cos(this.lookYaw), rz = -Math.sin(this.lookYaw); // derecha de la vista
         const along = (d) => {
@@ -132,13 +139,20 @@ export class Sniper {
         this.goCorner(along(1) * side >= along(-1) * side ? 1 : -1);
     }
 
+    // Al entrar se mira al centro del campo (o, en el desbloqueo, hacia el montón de chatarra)
+    aimPoint() {
+        const b = this.unlocking && this.field.barrel;
+        return b ? { x: b.x, y: b.y - 1, z: b.z } : { x: this.field.cx, y: 0.5, z: this.field.cz };
+    }
+
     baseYaw() {
-        return Math.atan2(-(this.field.cx - this.pos.x), -(this.field.cz - this.pos.z));
+        const a = this.aimPoint();
+        return Math.atan2(-(a.x - this.pos.x), -(a.z - this.pos.z));
     }
 
     basePitch() {
-        const d = Math.hypot(this.field.cx - this.pos.x, this.field.cz - this.pos.z);
-        return Math.atan2(-(this.pos.y - 0.5), d);
+        const a = this.aimPoint();
+        return Math.atan2(-(this.pos.y - a.y), Math.hypot(a.x - this.pos.x, a.z - this.pos.z));
     }
 
     // Girar la vista. rate: radianes por píxel (o por unidad de stick); con la mira, más fino
@@ -229,7 +243,9 @@ export class Sniper {
         const muzzle = _o.clone();
         this.particles.burst(_o.x, _o.y, _o.z, 10, [0xffffff, 0xffe03a, 0xff9a1f], { speed: 1.4, up: 0.6, size: 0.04, ttl: 0.16, grav: 0 });
 
+        if (this.unlocking) return this.fireAtJunk(origin, dir, muzzle);
         const hits = this.field.raycast(origin, dir);
+        const C = CROPS[this.crop];
         let end;
         if (hits.length) {
             // La bala sigue tras la última mata hasta el suelo
@@ -239,12 +255,12 @@ export class Sniper {
                 s.alive = false;
                 s.dying = 0.14 + k * 0.05;
                 s.flash = 1;
-                // Grano y paja que saltan, polvo de tierra y una onda en el suelo
-                this.particles.burst(s.x, 0.9, s.z, 50, GRAIN, { speed: 3.6, up: 4.2, size: 0.09, ttl: 1.0 });
-                this.particles.burst(s.x, 0.6, s.z, 30, CHAFF, { speed: 2.4, up: 3, size: 0.06, ttl: 1.2, grav: 4 });
+                // Grano y paja (o zumo y pepitas de tomate) que saltan, polvo de tierra y una onda
+                this.particles.burst(s.x, s.y, s.z, 50, C.burst, { speed: 3.6, up: 4.2, size: 0.09, ttl: 1.0 });
+                this.particles.burst(s.x, s.y - 0.3, s.z, 30, C.chaff, { speed: 2.4, up: 3, size: 0.06, ttl: 1.2, grav: 4 });
                 this.particles.burst(s.x, 0.1, s.z, 12, [this.theme.dust, 0x8a5a34], { speed: 1.8, up: 1, size: 0.12, ttl: 0.5 });
                 this.waves.spawn(s.x, s.z, 0xffe9a0, 1.8, 0.35);
-                _v.set(s.x, 0.9, s.z).project(this.camera);
+                _v.set(s.x, s.y, s.z).project(this.camera);
                 this.hooks.onHit(s, _v.x, _v.y);
                 if (k) setTimeout(() => sfx.play('harvest'), k * 90);
             });
@@ -266,13 +282,61 @@ export class Sniper {
             }
             setTimeout(() => sfx.play('miss'), 60);
         }
+        this.drawTracer(origin, dir, muzzle, end);
+        return hits.length > 0;
+    }
+
+    drawTracer(origin, dir, muzzle, end) {
         const from = this.scoped ? origin.clone().addScaledVector(dir, 1.5).add(_v.set(0, -0.15, 0)) : muzzle;
         this.tracer.position.copy(from).lerp(end, 0.5);
         this.tracer.lookAt(end);
         this.tracer.scale.set(0.03, 0.03, from.distanceTo(end));
         this.tracer.visible = true;
         this.tracerT = 0.06;
-        return hits.length > 0;
+    }
+
+    // Desbloqueo: el barril revienta todo; la chatarra solo suelta chispas
+    fireAtJunk(origin, dir, muzzle) {
+        const { sfx } = this.hooks;
+        const hit = this.field.raycastJunk(origin, dir);
+        const t = hit ? hit.t : dir.y < -1e-3 ? Math.min(80, -origin.y / dir.y) : 80;
+        const end = origin.clone().addScaledVector(dir, t);
+        this.drawTracer(origin, dir, muzzle, end);
+        if (hit && hit.barrel) {
+            this.explode();
+            return true;
+        }
+        if (hit) {
+            this.particles.burst(end.x, end.y, end.z, 16, [0xffffff, 0xffe03a, 0xff9a1f], { speed: 3, up: 2.5, size: 0.06, ttl: 0.35 });
+            setTimeout(() => sfx.play('wall'), 60);
+        } else {
+            if (end.y < 0.5) this.particles.burst(end.x, 0.05, end.z, 14, [0x8a5a34, 0x6f8a3a, this.theme.dust], { speed: 1.6, up: 2.2, size: 0.08, ttl: 0.5 });
+            setTimeout(() => sfx.play('miss'), 60);
+        }
+        return false;
+    }
+
+    // ¡Boom! Fuego, humo y chatarra por los aires, ondas en el suelo y la tierra queda limpia
+    explode() {
+        const { sfx } = this.hooks;
+        const b = this.field.barrel;
+        this.field.explode();
+        const P = this.particles;
+        P.burst(b.x, b.y, b.z, 140, FIRE, { speed: 11, up: 9, size: 0.32, ttl: 0.9, grav: 3 });
+        P.burst(b.x, b.y + 0.5, b.z, 70, SMOKE, { speed: 4, up: 5, size: 0.6, ttl: 2.4, grav: -1.5 });
+        P.burst(b.x, b.y, b.z, 90, RUST, { speed: 14, up: 12, size: 0.16, ttl: 1.6, grav: 16 });
+        P.burst(b.x, 0.2, b.z, 60, [this.theme.dust, 0x8a5a34], { speed: 9, up: 2, size: 0.3, ttl: 1.2, grav: 2 });
+        for (const [r, ttl, col] of [[5, 0.4, 0xffffff], [10, 0.7, 0xffe03a], [16, 1.1, 0xff9a1f]]) this.waves.spawn(b.x, b.z, col, r, ttl);
+        this.trauma = 1;
+        this.hitStop = 0.14;
+        sfx.play('boom');
+        setTimeout(() => sfx.play('crateBreak'), 80);
+        setTimeout(() => sfx.play('boom'), 220);
+        vibrate('kill');
+        if (this.hooks.onUnlock) this.hooks.onUnlock();
+        this.ending = 0;
+        this.slowmo = S.slowmoTime * 1.4;
+        setTimeout(() => sfx.play('win'), 900);
     }
 
     finish() {
@@ -372,13 +436,19 @@ export class Sniper {
             const before = this.ending;
             this.ending += rawDt;
             if (this.ending > 0.45 && this.scoped) this.setAds(false);
-            // Lluvia de grano dorado durante la celebración
+            // Lluvia de lo cosechado durante la celebración (tras la explosión, humo y chispas)
             if (Math.floor(this.ending * 10) !== Math.floor(before * 10)) {
-                this.camera.getWorldDirection(_v);
-                const p = _o.copy(this.pos).addScaledVector(_v, 7);
-                this.particles.burst(p.x + (Math.random() - 0.5) * 5, p.y + 2, p.z + (Math.random() - 0.5) * 5, 16, [...GRAIN, 0xffffff], { speed: 1.6, up: 1.5, size: 0.08, ttl: 1.5, grav: 4 });
+                if (this.unlocking) {
+                    const b = this.field.junk && this.field.junk.center;
+                    if (b && this.ending < 2) this.particles.burst(b.x + (Math.random() - 0.5) * 3, 0.4, b.z + (Math.random() - 0.5) * 3, 8, Math.random() < 0.3 ? FIRE : SMOKE, { speed: 1.2, up: 3, size: 0.5, ttl: 1.6, grav: -1 });
+                } else {
+                    this.camera.getWorldDirection(_v);
+                    const p = _o.copy(this.pos).addScaledVector(_v, 7);
+                    this.particles.burst(p.x + (Math.random() - 0.5) * 5, p.y + 2, p.z + (Math.random() - 0.5) * 5, 16, [...CROPS[this.crop].burst, 0xffffff], { speed: 1.6, up: 1.5, size: 0.08, ttl: 1.5, grav: 4 });
+                }
             }
-            if (this.ending > 2.6 && before <= 2.6) this.hooks.onDone();
+            const doneAt = this.unlocking ? 3.4 : 2.6;
+            if (this.ending > doneAt && before <= doneAt) this.hooks.onDone();
         }
     }
 }

@@ -9,4 +9,7 @@ export const FIELD = {
     ],
     towerOut: 1.6,     // la torreta queda algo por fuera de la esquina
     margin: 1.4,       // los haces no aparecen pegados al borde
+    // Desbloqueo: el montón de chatarra con el barril rojo, al fondo (lejos de la torre 0, desde
+    // la que se dispara sin poder cambiar de torre)
+    pile: { x: 19.5, z: 11 },
 };

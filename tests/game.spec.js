@@ -161,31 +161,31 @@ test('mejorar el campo: cuesta 3 de trigo, lo hace más grande y con más matas'
     const errors = watchErrors(page);
     await page.goto('/');
     await expect(page.locator('.bubble:not(.hidden)')).toHaveCount(1, { timeout: 30_000 });
-    const before = await page.evaluate(() => ({ w: game.farm.field.w, d: game.farm.field.d, left: game.state.plot.left, stalks: game.farm.stalks.length }));
+    const before = await page.evaluate(() => ({ w: game.farm.fields.wheat.rect.w, d: game.farm.fields.wheat.rect.d, left: game.state.fields.wheat.left, stalks: game.farm.fields.wheat.plants.length }));
     // El cartel flotante dice el nivel y al tocarlo abre la ficha del campo
-    await expect(page.locator('#field-sign')).toHaveText('NV.1');
-    await page.locator('#field-sign').click();
+    await expect(page.locator('#sign-wheat')).toHaveText('NV.1');
+    await page.locator('#sign-wheat').click();
     await expect(page.locator('#panel-title')).toHaveText('CAMPO DE TRIGO NV.1');
     // Sin trigo suficiente no se puede mejorar
     await expect(page.locator('#panel-upgrade')).toBeDisabled();
     await page.evaluate(() => { game.state.wheat = 4; });
     await expect(page.locator('#panel-upgrade')).toBeEnabled();
     await page.locator('#panel-upgrade').click();
-    expect(await page.evaluate(() => game.state.level)).toBe(1);
+    expect(await page.evaluate(() => game.state.fields.wheat.level)).toBe(1);
     expect(await page.evaluate(() => game.state.wheat)).toBe(1);
-    const after = await page.evaluate(() => ({ w: game.farm.field.w, d: game.farm.field.d, left: game.state.plot.left, stalks: game.farm.stalks.length }));
+    const after = await page.evaluate(() => ({ w: game.farm.fields.wheat.rect.w, d: game.farm.fields.wheat.rect.d, left: game.state.fields.wheat.left, stalks: game.farm.fields.wheat.plants.length }));
     expect(after.w * after.d).toBeGreaterThan(before.w * before.d);
     expect(after.stalks).toBeGreaterThan(before.stalks);
     expect(after.left).toBeGreaterThan(before.left);
     await expect(page.locator('#panel-title')).toHaveText('CAMPO DE TRIGO NV.2');
-    await expect(page.locator('#field-sign')).toHaveText('NV.2');
+    await expect(page.locator('#sign-wheat')).toHaveText('NV.2');
     // En el campo de tiro salen todas las matas del nivel nuevo
     await page.locator('.bubble:not(.hidden)').click();
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
     expect(await page.evaluate(() => game.sniper.field.remaining)).toBe(after.left);
     // Se guarda: al recargar sigue en el nivel 2
     await page.reload();
-    await expect.poll(() => page.evaluate(() => window.game && game.state.level)).toBe(1);
+    await expect.poll(() => page.evaluate(() => window.game && game.state.fields.wheat.level)).toBe(1);
     expect(errors).toEqual([]);
 });
 
@@ -200,10 +200,12 @@ test('colateral: una bala que atraviesa dos matas recoge las dos', async ({ page
         b.z = a.z + (dz / d) * 0.9;
     });
     expect(await shootNext(page)).toBe(true);
-    await expect.poll(() => page.evaluate(() => game.state.wheat)).toBe(2);
-    // Medallas pequeñas arriba: colateral y, al ser dos matas seguidas, doble kill
-    await expect(page.locator('#medals')).toContainText('COLATERAL x2');
-    await expect(page.locator('#medals')).toContainText('DOBLE KILL');
+    // Dos como poco (alguna otra mata puede quedar también en la línea de tiro)
+    await expect.poll(() => page.evaluate(() => game.state.wheat)).toBeGreaterThanOrEqual(2);
+    const n = await page.evaluate(() => game.state.wheat);
+    // Medallas pequeñas arriba: colateral y la racha (doble kill con dos, triple con tres...)
+    await expect(page.locator('#medals')).toContainText(`COLATERAL x${n}`);
+    await expect(page.locator('#medals')).toContainText(n === 2 ? 'DOBLE KILL' : n === 3 ? 'TRIPLE KILL' : 'MULTI KILL');
     expect(errors).toEqual([]);
 });
 
@@ -211,15 +213,71 @@ test('ajustes: borrar el progreso pide confirmación y deja la granja como al em
     const errors = watchErrors(page);
     await page.goto('/');
     await expect(page.locator('.bubble:not(.hidden)')).toHaveCount(1, { timeout: 30_000 });
-    await page.evaluate(() => { game.state.wheat = 7; game.upgradeField(); });
-    expect(await page.evaluate(() => [game.state.level, game.state.wheat])).toEqual([1, 4]);
+    await page.evaluate(() => { game.state.wheat = 7; game.upgradeField('wheat'); });
+    expect(await page.evaluate(() => [game.state.fields.wheat.level, game.state.wheat])).toEqual([1, 4]);
     await page.locator('#btn-settings').click();
     // El primer toque solo arma el botón
     await page.locator('#btn-reset').click();
     await expect(page.locator('#btn-reset')).toHaveText('¿SEGURO? TOCA OTRA VEZ');
-    expect(await page.evaluate(() => game.state.level)).toBe(1);
+    expect(await page.evaluate(() => game.state.fields.wheat.level)).toBe(1);
     await page.locator('#btn-reset').click();
     await page.waitForLoadState('load');
-    await expect.poll(() => page.evaluate(() => window.game && [game.state.level, game.state.wheat])).toEqual([0, 0]);
+    await expect.poll(() => page.evaluate(() => window.game && [game.state.fields.wheat.level, game.state.wheat])).toEqual([0, 0]);
+    expect(errors).toEqual([]);
+});
+
+// Apunta con la mira asentada a un punto (que se vuelve a calcular justo antes de soltar) y dispara
+async function aimAndShoot(page, where) {
+    const look = `(() => { const p = ${where}; if (p) game.sniper.lookAt(p.x, p.y, p.z); })()`;
+    await page.evaluate(look);
+    await page.mouse.down({ button: 'right' });
+    await expect.poll(() => page.evaluate(() => game.sniper.adsK === 1 && game.sniper.spread < 0.002), { timeout: 20_000 }).toBe(true);
+    await page.evaluate(look);
+    await page.waitForTimeout(60);
+    await page.mouse.up({ button: 'right' });
+}
+
+test('tomates: con el trigo al máximo se desbloquea disparando al barril; luego se cosechan y se mejoran con trigo y tomates', async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto('/');
+    await expect(page.locator('#sign-tomato')).toBeVisible({ timeout: 30_000 });
+    // Bloqueado mientras el trigo no está al máximo
+    await expect(page.locator('#sign-tomato')).toHaveText('BLOQUEADO');
+    await page.locator('#sign-tomato').click();
+    await expect(page.locator('#panel-title')).toHaveText('TERRENO ABANDONADO');
+    await expect(page.locator('#panel-action')).toBeHidden();
+    await page.evaluate(() => { game.state.wheat = 40; for (let i = 0; i < 4; i++) game.upgradeField('wheat'); game.select(null); });
+    expect(await page.evaluate(() => game.state.maxed('wheat'))).toBe(true);
+    await expect(page.locator('#sign-tomato')).toHaveText('¡DESBLOQUEAR!');
+    // El cartel lleva directo al campo de tiro del desbloqueo: una torre, chatarra y el barril
+    await page.locator('#sign-tomato').click();
+    await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
+    expect(await page.evaluate(() => game.sniper.unlocking && !!game.sniper.field.barrel)).toBe(true);
+    await expect(page.locator('#btn-next')).toBeHidden();
+    // Desde lejos, con la mira asentada, al barril
+    await aimAndShoot(page, 'game.sniper.field.barrel');
+    await expect.poll(() => page.evaluate(() => game.sniper.field.exploded)).toBe(true);
+    expect(await page.evaluate(() => game.state.fields.tomato.unlocked)).toBe(true);
+    // Sale sola al mapa: el terreno ya está limpio, con tomates listos para recoger
+    await expect.poll(() => page.evaluate(() => game.mode), { timeout: 20_000 }).toBe('farm');
+    expect(await page.evaluate(() => game.farm.fields.tomato.locked)).toBe(false);
+    await expect(page.locator('#sign-tomato')).toHaveText('NV.1');
+    await expect(page.locator('#farm-tomato')).toBeVisible();
+    // A cosechar: matas de tomate con tomates gigantes; disparar a un tomate lo recoge
+    await page.evaluate(() => game.harvest('tomato'));
+    await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
+    await expect.poll(() => page.evaluate(() => game.sniper.field.sheaves.every((s) => s.landed)), { timeout: 20_000 }).toBe(true);
+    expect(await page.evaluate(() => game.sniper.field.remaining)).toBe(await page.evaluate(() => game.state.sheaves('tomato')));
+    await aimAndShoot(page, 'game.sniper.field.sheaves.find((x) => x.alive)');
+    await expect.poll(() => page.evaluate(() => game.state.items.tomato)).toBeGreaterThan(0);
+    await page.locator('#btn-home').click();
+    await expect.poll(() => page.evaluate(() => game.mode)).toBe('farm');
+    // La mejora pide trigo y tomates
+    await page.evaluate(() => { game.state.items.wheat = 5; game.state.items.tomato = 2; game.select({ field: 'tomato' }); });
+    await expect(page.locator('#panel-upgrade')).toBeDisabled();
+    await page.evaluate(() => { game.state.items.tomato = 3; });
+    await expect(page.locator('#panel-upgrade')).toBeEnabled();
+    await page.locator('#panel-upgrade').click();
+    expect(await page.evaluate(() => [game.state.fields.tomato.level, game.state.items.wheat, game.state.items.tomato])).toEqual([1, 0, 0]);
     expect(errors).toEqual([]);
 });

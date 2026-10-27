@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { THEME } from './content/theme.js';
 import { CROPS } from './content/crops.js';
-import { FARM, INFO } from './content/farm.js';
+import { FARM, FIELD_BY_ID, INFO } from './content/farm.js';
 import { RetroRenderer } from './render/RetroRenderer.js';
 import { CameraRig } from './render/CameraRig.js';
 import { Particles } from './render/Particles.js';
@@ -49,14 +49,14 @@ function addLights(scene) {
 const farmScene = new THREE.Scene();
 farmScene.background = new THREE.Color(THEME.sky);
 addLights(farmScene);
-const farm = new Farm(THEME, state.level);
+const farm = new Farm(THEME, state.fields);
 farmScene.add(farm.root);
-const farmParticles = new Particles(farmScene, 500);
+const farmParticles = new Particles(farmScene, 600);
 const rig = new CameraRig(M);
 rig.free = true;
 rig.setBounds(M.view, M.view);
 rig.yaw = rig.yawTarget = M.yaw;
-const home = { x: 14, z: 16 };
+const home = { x: 15, z: 18 };
 rig.focus(home.x, home.z);
 rig.snap();
 farm.onLand = (m) => {
@@ -67,13 +67,15 @@ farm.onLand = (m) => {
 };
 
 // ---------- Francotirador ----------
+let snipeField = null; // id del campo en el que se está (cosechando o desbloqueando)
+const cropOf = (id) => CROPS[FIELD_BY_ID[id].crop];
 const sniper = new Sniper(THEME, {
     sfx,
     onHit(target, nx, ny) {
-        state.collect();
+        state.collect(snipeField);
         const x = (nx * 0.5 + 0.5) * innerWidth, y = (-ny * 0.5 + 0.5) * innerHeight;
         popPlus(x, y);
-        flyWheat(x, y, $('snipe-wheat'), () => updateCounts(true));
+        flyItem(cropOf(snipeField).icon, x, y, $('snipe-wheat'), () => updateCounts(true));
         $('left-count').textContent = sniper.field.remaining;
     },
     onMedal({ collateral, streak }) {
@@ -83,6 +85,11 @@ const sniper = new Sniper(THEME, {
             medal(name, streak >= 4 ? 'multi' : '');
         }
         if (collateral > 1 || streak >= 2) vibrate('kill');
+    },
+    // El barril ha reventado: el terreno queda limpio y desbloqueado (se guarda ya)
+    onUnlock() {
+        state.unlock(snipeField);
+        setTimeout(() => banner(L('BOOM!', '¡BUM!')), 150);
     },
     onFinish() {
         setTimeout(() => banner(L('ALL IN!', '¡COSECHA COMPLETA!')), 250);
@@ -109,19 +116,26 @@ renderer.resize();
 let mode = 'farm'; // 'farm' | 'toSnipe' | 'snipe' | 'toFarm'
 let modeT = 0;
 let time = 0;
-let selected = null; // { structure } | { field }
+let selected = null; // { structure } | { field: id }
 const ray = new THREE.Raycaster();
 const ndcOf = (x, y) => {
     const r = canvas.getBoundingClientRect();
     return new THREE.Vector2(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1);
 };
+const ico = (icon) => `<span class="ico ${icon}-ico"></span>`;
 
 function updateCounts(bump = false) {
-    $('wheat-count').textContent = state.wheat;
-    $('hud-wheat').textContent = state.wheat;
-    refreshSign();
+    $('wheat-count').textContent = state.items.wheat;
+    $('tomato-count').textContent = state.items.tomato;
+    // El contador de tomates sale cuando ya hay campo de tomates
+    $('farm-tomato').classList.toggle('hidden', !state.fields.tomato.unlocked && !state.items.tomato);
+    // En el campo de tiro, el contador es el del cultivo que se recoge
+    const hud = snipeField && !sniper.unlocking ? FIELD_BY_ID[snipeField].crop : 'wheat';
+    $('hud-wheat').textContent = state.items[hud];
+    $('hud-ico').className = `ico ${CROPS[hud].icon}-ico`;
+    refreshSigns();
     if (bump) {
-        for (const id of ['farm-wheat', 'snipe-wheat']) {
+        for (const id of [hud === 'tomato' ? 'farm-tomato' : 'farm-wheat', 'snipe-wheat']) {
             const el = $(id);
             el.classList.remove('bump');
             void el.offsetWidth;
@@ -170,10 +184,10 @@ function popPlus(x, y) {
     setTimeout(() => el.remove(), 900);
 }
 
-// Una espiga pixelada vuela a saltos hasta el contador
-function flyWheat(x, y, target, done) {
+// Lo recogido (espiga o tomate pixelado) vuela a saltos hasta el contador
+function flyItem(icon, x, y, target, done) {
     const el = document.createElement('i');
-    el.className = 'fly-wheat';
+    el.className = `fly-item ${icon}-ico`;
     document.body.appendChild(el);
     const r = target.getBoundingClientRect();
     const tx = r.left + 20, ty = r.top + r.height / 2;
@@ -194,50 +208,63 @@ function showCorner(i) {
 
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.ceil(s) % 60).padStart(2, '0')}`;
 
-// Burbuja de "¡RECOGER!" encima del campo maduro (sale de la propia granja)
-const bubble = document.createElement('button');
-bubble.className = 'bubble hidden';
-bubble.innerHTML = `<span class="wheat-ico"></span><span>${L('HARVEST!', '¡RECOGER!')}</span>`;
-bubble.addEventListener('pointerdown', (e) => e.stopPropagation());
-bubble.addEventListener('click', (e) => {
-    e.stopPropagation();
-    harvest();
-});
-$('bubbles').appendChild(bubble);
+// Encima de cada campo: un cartel flotante con su nivel (tocarlo abre su ficha para mejorarlo)
+// y, cuando está maduro, la burbuja de RECOGER. En un terreno bloqueado el cartel lleva un
+// candado; cuando ya se puede desbloquear dice ¡DESBLOQUEAR! y tocarlo lleva al barril.
+const signs = {}, bubbles = {};
+const uiButton = (cls, onTap) => {
+    const b = document.createElement('button');
+    b.className = cls;
+    b.addEventListener('pointerdown', (e) => e.stopPropagation());
+    b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sfx.unlock();
+        onTap();
+    });
+    $('bubbles').appendChild(b);
+    return b;
+};
+for (const def of FARM.fields) {
+    const id = def.id;
+    bubbles[id] = uiButton('bubble hidden', () => harvest(id));
+    bubbles[id].innerHTML = `${ico(CROPS[def.crop].icon)}<span>${L('HARVEST!', '¡RECOGER!')}</span>`;
+    signs[id] = uiButton('field-sign hidden', () => (state.canUnlock(id) ? startUnlock(id) : select({ field: id })));
+    signs[id].id = `sign-${id}`;
+}
 
-// Cartel flotante con el nivel del campo, siempre encima; tocarlo abre su ficha para mejorarlo
-const sign = document.createElement('button');
-sign.id = 'field-sign';
-sign.className = 'field-sign hidden';
-sign.innerHTML = '<span class="sign-level"></span><i class="sign-up"></i>';
-sign.addEventListener('pointerdown', (e) => e.stopPropagation());
-sign.addEventListener('click', (e) => {
-    e.stopPropagation();
-    sfx.unlock();
-    select({ field: true });
-});
-$('bubbles').appendChild(sign);
-
-function refreshSign() {
-    sign.querySelector('.sign-level').textContent = `${L('LV', 'NV')}.${state.level + 1}`;
-    sign.style.setProperty('--sign', `#${FARM.field.levels[state.level].sign.toString(16).padStart(6, '0')}`);
-    sign.classList.toggle('can-up', state.canUpgrade);
+function refreshSigns() {
+    for (const def of FARM.fields) {
+        const id = def.id, el = signs[id], f = state.fields[id];
+        const can = state.canUnlock(id);
+        el.classList.toggle('locked', !f.unlocked && !can);
+        el.classList.toggle('can-unlock', can);
+        el.classList.toggle('can-up', state.canUpgrade(id));
+        const html = f.unlocked
+            ? `<span class="sign-level">${L('LV', 'NV')}.${f.level + 1}</span><i class="sign-up"></i>`
+            : can ? `${ico('barrel')}<span>${L('UNLOCK!', '¡DESBLOQUEAR!')}</span>` : `${ico('lock')}<span>${L('LOCKED', 'BLOQUEADO')}</span>`;
+        if (el.innerHTML !== html) el.innerHTML = html;
+        if (f.unlocked) el.style.setProperty('--sign', `#${def.levels[f.level].sign.toString(16).padStart(6, '0')}`);
+        else el.style.removeProperty('--sign');
+    }
 }
 
 const _b = new THREE.Vector3();
 function placeBubbles() {
     const show = mode === 'farm' && farm.introT > 1.6;
-    const on = show && state.isReady();
-    if (on && bubble.classList.contains('hidden')) {
-        bubble.classList.remove('hidden');
-        sfx.play('itemSpawn');
-    } else if (!on) bubble.classList.add('hidden');
-    sign.classList.toggle('hidden', !show);
-    if (!show) return;
-    farm.fieldTop(_b).project(rig.camera);
-    const x = `${(_b.x * 0.5 + 0.5) * innerWidth}px`, y = `${(-_b.y * 0.5 + 0.5) * innerHeight}px`;
-    sign.style.left = bubble.style.left = x;
-    sign.style.top = bubble.style.top = y;
+    for (const def of FARM.fields) {
+        const id = def.id, bubble = bubbles[id], sign = signs[id];
+        const on = show && state.isReady(id);
+        if (on && bubble.classList.contains('hidden')) {
+            bubble.classList.remove('hidden');
+            sfx.play('itemSpawn');
+        } else if (!on) bubble.classList.add('hidden');
+        sign.classList.toggle('hidden', !show);
+        if (!show) continue;
+        farm.fieldTop(id, _b).project(rig.camera);
+        const x = `${(_b.x * 0.5 + 0.5) * innerWidth}px`, y = `${(-_b.y * 0.5 + 0.5) * innerHeight}px`;
+        sign.style.left = bubble.style.left = x;
+        sign.style.top = bubble.style.top = y;
+    }
 }
 
 // Ficha del edificio o del campo tocado
@@ -257,7 +284,7 @@ function select(what) {
         m.select();
         rig.focus(m.def.x, m.def.z + 1);
     } else {
-        const f = farm.field;
+        const f = farm.fields[what.field].rect;
         rig.focus(f.cx, f.cz + 1);
     }
     refreshPanel();
@@ -269,40 +296,81 @@ function refreshPanel() {
     if (selected.structure) {
         const m = farm.byId[selected.structure];
         title.textContent = m.def.name;
-        text.textContent = selected.structure === 'barn' ? `${INFO.barn} ${L('WHEAT', 'TRIGO')}: ${state.wheat}` : INFO[selected.structure];
+        text.textContent = selected.structure === 'barn'
+            ? `${INFO.barn} ${CROPS.wheat.name}: ${state.items.wheat} · ${CROPS.tomato.name}: ${state.items.tomato}`
+            : INFO[selected.structure];
         bar.parentElement.classList.add('hidden');
         act.classList.add('hidden');
         up.classList.add('hidden');
         return;
     }
-    const p = state.progress(), ready = state.isReady();
-    title.textContent = `${L('WHEAT FIELD', 'CAMPO DE TRIGO')} ${L('LV', 'NV')}.${state.level + 1}`;
+    const id = selected.field, def = FIELD_BY_ID[id], f = state.fields[id], crop = CROPS[def.crop];
+    // Terreno bloqueado: qué falta para desbloquearlo (el otro campo al máximo) o el botón
+    if (!f.unlocked) {
+        const after = FIELD_BY_ID[def.locked.after], af = state.fields[after.id], can = state.canUnlock(id);
+        title.textContent = def.locked.name;
+        text.textContent = can
+            ? L('FULL OF RUSTY JUNK. HIT THE RED BARREL FROM FAR AWAY TO BLOW IT ALL UP!', 'LLENO DE CHATARRA OXIDADA. ¡DALE AL BARRIL ROJO DESDE LEJOS PARA VOLARLO TODO!')
+            : L(`FULL OF RUSTY JUNK. MAX OUT THE ${after.name} (LV.${after.levels.length}) TO UNLOCK IT.`, `LLENO DE CHATARRA OXIDADA. SUBE EL ${after.name} AL NIVEL MÁXIMO (NV.${after.levels.length}) PARA DESBLOQUEARLO.`);
+        bar.parentElement.classList.toggle('hidden', can);
+        bar.style.width = `${Math.round(((af.level + 1) / after.levels.length) * 20) * 5}%`;
+        act.classList.toggle('hidden', !can);
+        act.classList.add('unlock-btn');
+        $('action-ico').className = 'ico barrel-ico';
+        $('action-label').textContent = L('UNLOCK!', '¡DESBLOQUEAR!');
+        up.classList.add('hidden');
+        return;
+    }
+    const p = state.progress(id), ready = state.isReady(id);
+    title.textContent = `${def.name} ${L('LV', 'NV')}.${f.level + 1}`;
+    const what = def.crop === 'tomato' ? L('TOMATOES', 'TOMATES') : L('BUNDLES', 'MATAS');
     text.textContent = ready
-        ? L(`RIPE! ${state.plot.left} BUNDLES TO HARVEST.`, `¡MADURO! ${state.plot.left} MATAS PARA RECOGER.`)
-        : `${L('GROWING... READY IN', 'CRECIENDO... LISTO EN')} ${fmt((1 - p) * CROPS.wheat.growTime)}`;
+        ? L(`RIPE! ${f.left} ${what} TO HARVEST.`, `¡MADURO! ${f.left} ${what} PARA RECOGER.`)
+        : `${L('GROWING... READY IN', 'CRECIENDO... LISTO EN')} ${fmt((1 - p) * crop.growTime)}`;
     bar.parentElement.classList.remove('hidden');
     bar.style.width = `${Math.round(p * 20) * 5}%`;
     act.classList.toggle('hidden', !ready);
-    // Mejora: más grande y con más matas, por trigo
+    act.classList.remove('unlock-btn');
+    $('action-ico').className = `ico ${crop.icon}-ico`;
+    $('action-label').textContent = L('HARVEST!', '¡RECOGER!');
+    // Mejora: más grande y con más blancos, pagando lo que pida (trigo, tomates...)
+    const maxed = state.maxed(id);
     up.classList.remove('hidden');
-    up.disabled = !state.canUpgrade;
-    $('upgrade-label').textContent = state.maxed ? L('MAX LEVEL', 'NIVEL MÁXIMO') : L('UPGRADE', 'MEJORAR');
-    $('upgrade-cost').textContent = state.maxed ? '' : FARM.field.upgradeCost;
-    up.classList.toggle('maxed', state.maxed);
+    up.disabled = !state.canUpgrade(id);
+    $('upgrade-label').textContent = maxed ? L('MAX LEVEL', 'NIVEL MÁXIMO') : L('UPGRADE', 'MEJORAR');
+    const cost = maxed ? '' : Object.entries(def.cost).map(([c, n]) => `<span class="upgrade-cost${state.items[c] < n ? ' short' : ''}">${ico(CROPS[c].icon)}<b>${n}</b></span>`).join('');
+    if ($('upgrade-cost').innerHTML !== cost) $('upgrade-cost').innerHTML = cost;
+    up.classList.toggle('maxed', maxed);
 }
 
-function upgradeField() {
-    if (mode !== 'farm' || !state.upgrade()) return;
-    farm.setLevel(state.level);
-    const f = farm.field;
+function upgradeField(id) {
+    if (mode !== 'farm' || !state.upgrade(id)) return;
+    farm.setLevel(id, state.fields[id].level);
+    const f = farm.fields[id].rect;
     rig.focus(f.cx, f.cz + 1);
     rig.shake(0.14);
     for (let k = 0; k < 6; k++) farmParticles.burst(f.x + Math.random() * f.w, 0.2, f.z + Math.random() * f.d, 6, [THEME.dust, 0xd9b77a, 0xffe03a], { speed: 2, up: 1.6, size: 0.12, ttl: 0.5 });
     sfx.play('power');
     vibrate('pickup');
     updateCounts();
-    stage(L('FIELD UPGRADED!', '¡CAMPO MEJORADO!'), `${L('BUNDLES', 'MATAS')}: ${state.sheaves}`);
+    const what = FIELD_BY_ID[id].crop === 'tomato' ? L('TOMATOES', 'TOMATES') : L('BUNDLES', 'MATAS');
+    stage(L('FIELD UPGRADED!', '¡CAMPO MEJORADO!'), `${what}: ${state.sheaves(id)}`);
     refreshPanel();
+}
+
+// Un campo desbloqueado en el campo de tiro: en el mapa se va la chatarra y brotan las plantas
+function revealUnlocked() {
+    for (const v of farm.views) {
+        if (!v.locked || !state.fields[v.id].unlocked) continue;
+        farm.unlock(v.id);
+        const f = v.rect;
+        rig.focus(f.cx, f.cz + 1);
+        rig.shake(0.2);
+        for (let k = 0; k < 10; k++) farmParticles.burst(f.x + Math.random() * f.w, 0.2, f.z + Math.random() * f.d, 6, [THEME.dust, 0x8a5a34, 0x6f8a3a], { speed: 2.4, up: 2, size: 0.14, ttl: 0.6 });
+        setTimeout(() => stage(L('LAND CLEARED!', '¡TERRENO LIMPIO!'), `${FIELD_BY_ID[v.id].name} ${L('UNLOCKED', 'DESBLOQUEADO')}`), 300);
+        return true;
+    }
+    return false;
 }
 
 function startMusic(cfg) {
@@ -311,23 +379,37 @@ function startMusic(cfg) {
 
 // ---------- Transiciones ----------
 let snipeStart = 0;
-function harvest() {
-    if (mode !== 'farm' || !state.isReady()) return;
+// Al campo de tiro: a cosechar (harvest) o a desbloquear un terreno (startUnlock)
+function goSnipe(id, unlock) {
     sfx.unlock();
     sfx.play('go');
     vibrate('pickup');
+    snipeField = id;
+    goSnipe.unlock = unlock;
     // Con ratón, este mismo clic bloquea el cursor: al entrar ya se mira moviéndolo
     if (matchMedia('(pointer: fine)').matches) lockMouse();
     mode = 'toSnipe';
     modeT = 0;
     select(null);
-    const f = farm.field;
+    const f = farm.fields[id].rect;
     rig.focus(f.cx, f.cz);
     rig.zoomTarget = M.zoomMin * 0.8;
 }
 
+function harvest(id) {
+    if (mode === 'farm' && state.isReady(id)) goSnipe(id, false);
+}
+
+function startUnlock(id) {
+    if (mode === 'farm' && state.canUnlock(id)) goSnipe(id, true);
+}
+
+// El primer campo listo para recoger (teclado y mando)
+const readyField = () => FARM.fields.map((f) => f.id).find((id) => state.isReady(id));
+
 function enterSnipe() {
-    sniper.enter(state.plot.left);
+    const unlock = goSnipe.unlock;
+    sniper.enter(unlock ? { unlock: true } : { crop: FIELD_BY_ID[snipeField].crop, count: state.fields[snipeField].left });
     mode = 'snipe';
     snipeStart = time;
     renderer.flash(INK, 1);
@@ -335,11 +417,13 @@ function enterSnipe() {
     $('bubbles').classList.add('hidden');
     $('snipe-ui').classList.remove('hidden');
     document.body.classList.add('sniping');
+    document.body.classList.toggle('unlocking', unlock);
     $('left-count').textContent = sniper.field.remaining;
     showCorner(0);
     updateCounts();
     startMusic(THEME.sniperMusic);
-    setTimeout(() => mode === 'snipe' && banner(L('HARVEST!', '¡A COSECHAR!'), 'go'), 450);
+    const msg = unlock ? L('SHOOT THE RED BARREL!', '¡DISPARA AL BARRIL ROJO!') : L('HARVEST!', '¡A COSECHAR!');
+    setTimeout(() => mode === 'snipe' && banner(msg, 'go'), 450);
 }
 
 function goFarm(done = false) {
@@ -354,22 +438,26 @@ function goFarm(done = false) {
 }
 
 function enterFarm() {
+    const unlocking = sniper.unlocking;
     sniper.leave();
     if (document.exitPointerLock && locked()) document.exitPointerLock();
     mode = 'farm';
     renderer.flash(INK, 1);
     scope.show(false);
-    document.body.classList.remove('sniping');
+    document.body.classList.remove('sniping', 'unlocking');
     $('snipe-ui').classList.add('hidden');
     $('farm-ui').classList.remove('hidden');
     $('bubbles').classList.remove('hidden');
     rig.zoomTarget = 1;
+    const id = snipeField;
+    snipeField = null;
     updateCounts();
     startMusic(THEME.music);
-    if (goFarm.done) {
-        const f = farm.field;
+    if (revealUnlocked()) return;
+    if (goFarm.done && !unlocking) {
+        const f = farm.fields[id].rect, crop = cropOf(id);
         farm.byId.barn.select();
-        setTimeout(() => stage(L('HARVEST DONE!', '¡COSECHA HECHA!'), `${L('WHEAT', 'TRIGO')}: ${state.wheat}`), 300);
+        setTimeout(() => stage(L('HARVEST DONE!', '¡COSECHA HECHA!'), `${crop.name}: ${state.items[FIELD_BY_ID[id].crop]}`), 300);
         rig.focus(f.cx, f.cz);
     }
 }
@@ -540,7 +628,7 @@ function tapMap(x, y) {
     ray.setFromCamera(ndcOf(x, y), rig.camera);
     const hit = farm.pick(ray);
     if (!hit) return select(null);
-    if (hit.field && state.isReady() && selected && selected.field) return harvest();
+    if (hit.field && state.isReady(hit.field) && selected && selected.field === hit.field) return harvest(hit.field);
     select(hit);
 }
 
@@ -554,7 +642,7 @@ addEventListener('keydown', (e) => {
     if (e.repeat) return;
     if (mode === 'farm') {
         if (k === 'escape') select(null);
-        if (k === 'enter' || k === ' ') harvest();
+        if (k === 'enter' || k === ' ') harvest(readyField());
         return;
     }
     if (mode !== 'snipe') return;
@@ -593,7 +681,7 @@ function pollPad(dt) {
     const ax = curve(pad.axes[0] || 0) + curve(pad.axes[2] || 0), ay = curve(pad.axes[1] || 0) + curve(pad.axes[3] || 0);
     if (mode === 'farm') {
         if (ax || ay) panBy(-ax * dt * 600, -ay * dt * 600);
-        if (down(0)) harvest();
+        if (down(0)) harvest(readyField());
     } else if (mode === 'snipe') {
         if (ax || ay) sniper.look(ax, ay, S.lookPad * dt);
         if (down(6)) sniper.setAds(true);
@@ -615,8 +703,12 @@ const tapBtn = (id, fn) => $(id).addEventListener('click', (e) => {
 tapBtn('btn-home', () => goFarm());
 tapBtn('btn-prev', () => sniper.goSide(-1));
 tapBtn('btn-next', () => sniper.goSide(1));
-tapBtn('panel-action', () => selected && selected.field && harvest());
-tapBtn('panel-upgrade', upgradeField);
+tapBtn('panel-action', () => {
+    if (!selected || !selected.field) return;
+    if (state.canUnlock(selected.field)) startUnlock(selected.field);
+    else harvest(selected.field);
+});
+tapBtn('panel-upgrade', () => selected && selected.field && upgradeField(selected.field));
 tapBtn('panel-close', () => select(null));
 tapBtn('btn-settings', () => {
     sfx.play('ui');
@@ -684,7 +776,7 @@ function frame(now) {
     holdCheck();
 
     if (mode === 'farm' || mode === 'toSnipe') {
-        const progress = state.progress();
+        const progress = Object.fromEntries(FARM.fields.map((f) => [f.id, state.progress(f.id)]));
         farm.update(dt, time, progress);
         if (mode === 'toSnipe') {
             modeT += dt;
@@ -702,9 +794,10 @@ function frame(now) {
             h.root.localToWorld(_w.copy(h.chimney));
             farmParticles.spawn(_w.x, _w.y, _w.z, 0.2 + Math.random() * 0.2, 0.7, 0.1, 0.18 + Math.random() * 0.1, 2.2, Math.random() < 0.5 ? 0xe8e4dc : 0xcfc8c0, -0.1);
         }
-        // Más destellos cuanto más grande es el campo
-        const f = farm.field;
-        if (progress >= 1 && Math.random() < dt * 4 * Math.sqrt((f.w * f.d) / 20)) {
+        // Destellos sobre los campos maduros (más cuanto más grande es el campo)
+        for (const v of farm.views) {
+            const f = v.rect;
+            if (progress[v.id] < 1 || Math.random() > dt * 4 * Math.sqrt((f.w * f.d) / 20)) continue;
             weatherParticle(farmParticles, 'sparkle', f.x + Math.random() * f.w, f.z + Math.random() * f.d, Math.random() < 0.5 ? 0xffffff : 0xffe03a);
             farmParticles.y[farmParticles.n - 1] = 1.1;
         }
@@ -747,4 +840,4 @@ if ('serviceWorker' in navigator && !/^(localhost|127\.)/.test(location.hostname
 }
 
 // Para las pruebas (Playwright)
-window.game = { state, sniper, farm, rig, get mode() { return mode; }, harvest, upgradeField, goFarm, select };
+window.game = { state, sniper, farm, rig, get mode() { return mode; }, harvest, startUnlock, upgradeField, goFarm, select, updateCounts };

@@ -2,42 +2,51 @@ import * as THREE from 'three';
 import { box, toon, outline, OUTLINE } from '../render/materials.js';
 import { easeOutBack } from '../core/math.js';
 import { STRUCTURES } from '../render/structures.js';
+import { junkyard, barrelParts, JUNK } from '../render/junk.js';
 import { CROPS } from '../content/crops.js';
 import { FARM } from '../content/farm.js';
 
 const _d = new THREE.Object3D();
 const _c = new THREE.Color();
+const _c2 = new THREE.Color();
 const _p = new THREE.Vector3();
 const INTRO_TIME = 2.2;
-const PER_TILE = 3; // tallos por lado de cada casilla de campo
+const PER_TILE = 3; // tallos de trigo por lado de cada casilla de campo
 
-// Casillas que ocupa el campo de trigo en un nivel (crece desde su esquina superior derecha)
-function fieldRect(level) {
-    const F = FARM.field, { w, d } = F.levels[level];
-    const x = F.right - w, z = F.top;
+// Casillas que ocupa un campo en un nivel (crece desde su esquina fija hacia dx, dz)
+function fieldRect(def, level) {
+    const { w, d } = def.levels[level], c = def.corner;
+    const x = c.dx < 0 ? c.x - w : c.x, z = c.dz < 0 ? c.z - d : c.z;
     return { x, z, w, d, cx: x + w / 2, cz: z + d / 2 };
 }
 const inRect = (f, x, z, m = 0) => x >= f.x - m && x < f.x + f.w + m && z >= f.z - m && z < f.z + f.d + m;
+const kindKey = (k) => (!k ? '' : k.field ? (k.locked ? 'junk' : 'field') : k.path ? 'path' : 'b');
 
-// Mapa de la granja: el sitio de gestión. Césped hasta el horizonte, caminos de tierra, campos
-// de trigo y edificios que se pueden tocar. Todo se monta en ola al empezar (cae y rebota).
+// Mapa de la granja: el sitio de gestión. Césped hasta el horizonte, caminos de tierra, los
+// campos de cultivo y edificios que se pueden tocar. Todo se monta en ola al empezar (cae y rebota).
+// Un campo bloqueado es un terreno sucio lleno de chatarra con el barril rojo encima del montón.
 export class Farm {
-    constructor(theme, level = 0) {
+    // fields: { id: { level, unlocked } } (el estado guardado de cada campo)
+    constructor(theme, fields) {
         this.theme = theme;
         this.size = FARM.size;
         this.cx = this.cz = FARM.size / 2;
         this.animated = [];
         this.root = new THREE.Group();
         this.introT = 0;
-        this.clock = 0; // reloj propio para que el trigo nuevo brote al mejorar el campo
-        this.decor = []; // entradas animadas que se apartan cuando el campo crece encima
-        this.level = level;
-        this.field = fieldRect(level);
+        this.clock = 0; // reloj propio para que las plantas nuevas broten al mejorar un campo
+        this.decor = []; // entradas animadas que se apartan cuando un campo crece encima
+        this.views = FARM.fields.map((def) => {
+            const st = fields[def.id];
+            return { id: def.id, def, crop: def.crop, level: st.level, locked: !st.unlocked, rect: fieldRect(def, st.level), plants: [], meshes: [] };
+        });
+        this.fields = Object.fromEntries(this.views.map((v) => [v.id, v]));
         this.build();
     }
 
+    // Lo que hay en una casilla: un campo (bloqueado o no), un camino, un edificio o nada
     kindAt(c, r) {
-        if (inRect(this.field, c, r)) return { field: true };
+        for (const v of this.views) if (inRect(v.rect, c, r)) return { field: v.id, locked: v.locked };
         for (const [x0, z0, x1, z1] of FARM.paths) if (c >= x0 && c < x1 && r >= z0 && r < z1) return { path: true };
         for (const s of FARM.structures) if (Math.abs(c + 0.5 - s.x) < s.w / 2 + 0.3 && Math.abs(r + 0.5 - s.z) < s.d / 2 + 0.3) return { building: true };
         return null;
@@ -51,14 +60,17 @@ export class Farm {
         far.position.set(this.cx, -0.31, this.cz);
         root.add(far);
 
-        // Casillas: hierba, caminos y tierra arada en surcos
+        // Casillas: hierba, caminos, tierra arada en surcos y tierra sucia de los terrenos abandonados
         const tiles = [];
         for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) tiles.push({ c, r, k: this.kindAt(c, r) });
         const floor = new THREE.InstancedMesh(box(1, 0.3, 1), toon(0xffffff), tiles.length);
         tiles.forEach((t, i) => this.paintTile(floor, t, i));
         this.floor = { tiles, entry: this.addAnimated(floor, tiles.map(({ c, r, k }) => ({ x: c + 0.5, y: this.tileY(k), z: r + 0.5 }))) };
 
-        this.buildWheat();
+        for (const v of this.views) {
+            if (v.locked) this.buildJunk(v);
+            else this.buildPlants(v);
+        }
         this.buildFences();
         this.buildTrees();
         this.buildDecor();
@@ -84,74 +96,128 @@ export class Farm {
 
     paintTile(mesh, { c, r, k }, i) {
         const { theme } = this;
-        const col = k && k.field ? theme.soil[r & 1] : k && k.path ? theme.path[(c * 7 + r * 3) % 2] : theme.grass[(c * 5 + r * 3 + ((c * r) % 3)) % 3];
+        const col = k && k.field
+            ? (k.locked ? JUNK.ground[(c * 7 + r * 5 + ((c * r) % 3)) % JUNK.ground.length] : theme.soil[r & 1])
+            : k && k.path ? theme.path[(c * 7 + r * 3) % 2] : theme.grass[(c * 5 + r * 3 + ((c * r) % 3)) % 3];
         mesh.setColorAt(i, _c.setHex(col).offsetHSL(0, 0, (Math.random() - 0.5) * theme.grassJitter));
     }
 
-    // Trigo: tallos finos (sin contorno, para que se lean a píxel fino) con su espiga.
-    // Al mejorar el campo se conservan los tallos que ya había y los nuevos brotan en ola
-    // desde el borde del campo viejo (old: casillas del nivel anterior).
-    buildWheat(old = null) {
-        const f = this.field, n = PER_TILE;
-        const prev = new Map((this.stalks || []).map((s) => [s.key, s]));
-        this.stalks = [];
-        for (let a = 0; a < f.w * n; a++) for (let b = 0; b < f.d * n; b++) {
-            const key = `${f.x * n + a},${f.z * n + b}`;
-            const x = f.x + (a + 0.5) / n, z = f.z + (b + 0.5) / n;
-            const keep = prev.get(key);
-            if (keep) {
-                this.stalks.push(keep);
-                continue;
-            }
-            const t0 = old
-                ? this.clock + 0.1 + Math.hypot(Math.max(0, old.x - x, x - old.x - old.w), Math.max(0, z - old.z - old.d)) * 0.12
-                : 0.8 + Math.hypot(x - this.cx, z - this.cz) * 0.03;
-            this.stalks.push({
-                key,
-                t0,
-                x: x + (Math.random() - 0.5) * 0.12,
-                z: z + (Math.random() - 0.5) * 0.12,
-                h: 0.75 + Math.random() * 0.3,
-                ph: Math.random() * 6,
-                tilt: (Math.random() - 0.5) * 0.12,
-                tone: Math.random(),
-            });
-        }
-        const count = this.stalks.length;
-        if (!this.stalkMat) {
-            this.stalkMat = toon(0xffffff);
-            this.earMat = toon(0xffffff);
-        }
-        for (const m of [this.stalkMesh, this.earMesh]) {
-            if (!m) continue;
-            this.root.remove(m);
-            m.dispose();
-        }
-        this.stalkMesh = this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), this.stalkMat, count));
-        this.earMesh = this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), this.earMat, count));
-        // Las espigas no cambian de color: maduras doradas, con dos tonos
-        this.stalks.forEach((s, i) => this.earMesh.setColorAt(i, _c.setHex(s.tone < 0.5 ? CROPS.wheat.ear : CROPS.wheat.earDark)));
-    }
-
-    // El campo pasa a otro nivel: la tierra arada se extiende, la hierba alta, flores y
-    // piedras que quedan debajo se apartan y el trigo nuevo brota
-    setLevel(level) {
-        if (level === this.level) return;
-        const old = this.field;
-        this.level = level;
-        this.field = fieldRect(level);
+    // Vuelve a pintar las casillas que han cambiado (un campo crece o se limpia) y aparta la
+    // decoración que queda debajo de los campos
+    refreshGround() {
         const { tiles, entry } = this.floor;
         tiles.forEach((t, i) => {
             const k = this.kindAt(t.c, t.r);
-            if (!!(k && k.field) === !!(t.k && t.k.field)) return;
+            if (kindKey(k) === kindKey(t.k)) return;
             t.k = k;
             entry.positions[i].y = this.tileY(k);
             this.paintTile(entry.mesh, t, i);
         });
         entry.mesh.instanceColor.needsUpdate = true;
-        for (const e of this.decor) e.positions.forEach((p) => (p.hide = p.hide || inRect(this.field, p.x, p.z, 0.4)));
+        for (const e of this.decor) e.positions.forEach((p) => (p.hide = p.hide || this.views.some((v) => inRect(v.rect, p.x, p.z, 0.4))));
         for (const e of [entry, ...this.decor]) this.layout(e, this.introT);
-        this.buildWheat(old);
+    }
+
+    // Instante en que brota cada planta: al empezar, en ola desde el centro de la granja; al
+    // mejorar, en ola desde el borde del campo viejo (old); al limpiar, desde el centro del campo
+    sproutTime(v, x, z, old, fromCenter) {
+        if (fromCenter) return this.clock + 0.2 + Math.hypot(x - v.rect.cx, z - v.rect.cz) * 0.12;
+        if (!old) return 0.8 + Math.hypot(x - this.cx, z - this.cz) * 0.03;
+        const dx = Math.max(0, old.x - x, x - old.x - old.w), dz = Math.max(0, old.z - z, z - old.z - old.d);
+        return this.clock + 0.1 + Math.hypot(dx, dz) * 0.12;
+    }
+
+    // Plantas del campo v. Se conservan las que ya había (por su sitio) y las nuevas brotan.
+    //   Trigo: tallos finos (sin contorno, para que se lean a píxel fino) con su espiga.
+    //   Tomate: una mata por casilla con su tutor de madera y dos tomates (verdes hasta madurar).
+    buildPlants(v, old = null, fromCenter = false) {
+        const f = v.rect, wheat = v.crop === 'wheat', n = wheat ? PER_TILE : 1;
+        const prev = new Map(v.plants.map((s) => [s.key, s]));
+        v.plants = [];
+        for (let a = 0; a < f.w * n; a++) for (let b = 0; b < f.d * n; b++) {
+            const key = `${f.x * n + a},${f.z * n + b}`;
+            const x = f.x + (a + 0.5) / n, z = f.z + (b + 0.5) / n;
+            const keep = prev.get(key);
+            if (keep) {
+                v.plants.push(keep);
+                continue;
+            }
+            const j = wheat ? 0.12 : 0.2;
+            v.plants.push({
+                key,
+                t0: this.sproutTime(v, x, z, old, fromCenter),
+                x: x + (Math.random() - 0.5) * j,
+                z: z + (Math.random() - 0.5) * j,
+                h: wheat ? 0.75 + Math.random() * 0.3 : 0.85 + Math.random() * 0.25,
+                ph: Math.random() * 6,
+                tilt: (Math.random() - 0.5) * 0.12,
+                ry: Math.random() * Math.PI,
+                tone: Math.random(),
+            });
+        }
+        for (const m of v.meshes) {
+            this.root.remove(m);
+            m.dispose();
+        }
+        const count = v.plants.length;
+        if (!v.mats) v.mats = [toon(0xffffff), toon(0xffffff), toon(0xffffff)];
+        if (wheat) {
+            // Tallos y espigas. Las espigas no cambian de color: maduras doradas, con dos tonos
+            v.meshes = [this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), v.mats[0], count)), this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), v.mats[1], count))];
+            v.plants.forEach((s, i) => v.meshes[1].setColorAt(i, _c.setHex(s.tone < 0.5 ? CROPS.wheat.ear : CROPS.wheat.earDark)));
+        } else {
+            // Hojas (3 bloques por mata), tomates (2) y tutores (1)
+            v.meshes = [
+                this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), v.mats[0], count * 3)),
+                this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), v.mats[1], count * 2)),
+                this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), v.mats[2], count)),
+            ];
+            const T = CROPS.tomato;
+            v.plants.forEach((s, i) => {
+                for (let k = 0; k < 3; k++) v.meshes[0].setColorAt(i * 3 + k, _c.setHex(T.leaves[(k + i) % 3]).offsetHSL(0, 0, (s.tone - 0.5) * 0.06));
+                v.meshes[2].setColorAt(i, _c.setHex(T.stake));
+            });
+        }
+    }
+
+    // Terreno abandonado: chatarra oxidada por todo el campo y el montón con el barril rojo
+    buildJunk(v) {
+        const f = v.rect;
+        const { pieces, barrel } = junkyard({ x0: f.x + 0.3, z0: f.z + 0.3, x1: f.x + f.w - 0.3, z1: f.z + f.d - 0.3, px: f.cx, pz: f.cz, count: Math.round(f.w * f.d * 0.6), s: 0.42 });
+        const all = [...pieces, ...barrelParts(barrel)];
+        const n0 = this.animated.length;
+        const m = this.addHulled(0xffffff, all, 0.3);
+        all.forEach((p, i) => m.setColorAt(i, _c.setHex(p.color)));
+        v.junk = this.animated.slice(n0); // se quitan al limpiar el terreno
+        v.barrelTop = barrel.y + barrel.h;
+    }
+
+    // El campo v pasa a otro nivel: la tierra arada se extiende, lo que queda debajo se aparta
+    // y las plantas nuevas brotan
+    setLevel(id, level) {
+        const v = this.fields[id];
+        if (level === v.level) return;
+        const old = v.rect;
+        v.level = level;
+        v.rect = fieldRect(v.def, level);
+        this.refreshGround();
+        if (!v.locked) this.buildPlants(v, old);
+    }
+
+    // Terreno limpio (tras la explosión del barril): se quita la chatarra, la tierra queda arada
+    // y las plantas brotan desde el centro
+    unlock(id) {
+        const v = this.fields[id];
+        if (!v.locked) return;
+        v.locked = false;
+        for (const e of v.junk || []) {
+            this.animated.splice(this.animated.indexOf(e), 1);
+            this.root.remove(e.mesh);
+            e.mesh.dispose();
+        }
+        v.junk = null;
+        this.refreshGround();
+        this.buildPlants(v, null, true);
     }
 
     // Valla de madera alrededor de toda la granja
@@ -181,7 +247,7 @@ export class Farm {
             const a = Math.random() * Math.PI * 2, d = this.size * 0.62 + Math.random() * 10;
             spots.push([this.cx + Math.sin(a) * d * (1 + Math.random() * 0.1), this.cz + Math.cos(a) * d]);
         }
-        spots.push([3, 4], [26, 5], [25, 27], [1.6, 28.6], [27, 13]);
+        spots.push([3, 4], [26, 5], [28.6, 17.5], [1.6, 28.6], [27, 13]);
         const trunks = [], leaves = [];
         spots.forEach(([x, z], i) => {
             const s = 0.8 + Math.random() * 0.6;
@@ -201,7 +267,7 @@ export class Farm {
         for (let r = 1; r < this.size - 1; r++) for (let c = 1; c < this.size - 1; c++) {
             if (this.kindAt(c, r)) continue;
             const x = c + Math.random(), z = r + Math.random();
-            if (inRect(this.field, x, z, 0.4)) continue; // ni pegado al trigo
+            if (this.views.some((v) => inRect(v.rect, x, z, 0.4))) continue; // ni pegado a un campo
             const p = Math.random();
             if (p < 0.08) tufts.push({ x, y: 0.12, z, sx: 0.3, sy: 0.24, sz: 0.3, ry: Math.random() });
             else if (p < 0.2) flowers.push({ x, y: 0.05, z, sx: 0.09, sy: 0.1, sz: 0.09 });
@@ -272,7 +338,7 @@ export class Farm {
             const k = Math.min(1, Math.max(0, (t - delays[i]) / 0.45));
             const s = k <= 0 ? 0.0001 : easeOutBack(k);
             _d.position.set(p.x, p.y - (1 - k) * 3, p.z);
-            _d.rotation.set(0, p.ry || 0, 0);
+            _d.rotation.set(p.rx || 0, p.ry || 0, p.rz || 0);
             // Lo apartado (bajo el campo) se encoge del todo: aplanado solo, su contorno quedaría como una mancha
             if (p.hide) _d.scale.setScalar(0.0001);
             else _d.scale.set(p.sx || 1, (p.sy || 1) * s, p.sz || 1);
@@ -282,17 +348,18 @@ export class Farm {
         mesh.instanceMatrix.needsUpdate = true;
     }
 
-    // Lo que hay bajo un rayo de la cámara: un edificio, el campo o nada
+    // Lo que hay bajo un rayo de la cámara: un edificio, un campo o nada
     pick(ray) {
         const hits = ray.intersectObjects(this.structures.map((m) => m.root), true);
         if (hits.length) return { structure: hits[0].object.userData.structure };
         const t = -ray.ray.origin.y / ray.ray.direction.y;
         if (!(t > 0)) return null;
         ray.ray.at(t, _p);
-        return inRect(this.field, _p.x, _p.z, 0.2) ? { field: true } : null;
+        const v = this.views.find((w) => inRect(w.rect, _p.x, _p.z, 0.2));
+        return v ? { field: v.id } : null;
     }
 
-    // progress: crecimiento del campo de 0 a 1
+    // progress: { id: crecimiento de 0 a 1 } de cada campo
     update(dt, time, progress) {
         this.clock += dt;
         if (this.introT < INTRO_TIME + 0.5) {
@@ -313,32 +380,15 @@ export class Farm {
             m.update(dt, time);
         });
 
-        const stages = CROPS.wheat.stages;
-        this.stalks.forEach((s, i) => {
-            const p = progress;
-            const ready = p >= 1;
-            const intro = Math.min(1, Math.max(0, (this.clock - s.t0) / 0.4));
-            const g = (0.1 + 0.9 * Math.min(1, p)) * (intro <= 0 ? 0.0001 : easeOutBack(intro));
-            const h = s.h * g;
-            // El viento: una ola que recorre el campo
-            const sway = s.tilt + Math.sin(time * 1.6 - s.x * 0.5 - s.z * 0.3 + s.ph * 0.3) * (ready ? 0.12 : 0.06);
-            _d.position.set(s.x - Math.sin(sway) * h / 2, Math.cos(sway) * h / 2, s.z);
-            _d.rotation.set(0, 0, sway);
-            _d.scale.set(0.05, Math.max(0.0001, h), 0.05);
-            _d.updateMatrix();
-            this.stalkMesh.setMatrixAt(i, _d.matrix);
-            const st = ready ? 3 : p < 0.35 ? 0 : p < 0.7 ? 1 : 2;
-            this.stalkMesh.setColorAt(i, _c.setHex(stages[st]).offsetHSL(0, 0, (s.tone - 0.5) * 0.08));
-            // Espiga: aparece al final del crecimiento, en la punta
-            const e = p < 0.7 ? 0.0001 : Math.min(1, (p - 0.7) / 0.3);
-            _d.position.set(s.x - Math.sin(sway) * (h + 0.1), Math.cos(sway) * (h + 0.1), s.z);
-            _d.scale.set(0.1 * e, 0.24 * e, 0.1 * e);
-            _d.updateMatrix();
-            this.earMesh.setMatrixAt(i, _d.matrix);
-        });
-        this.stalkMesh.instanceMatrix.needsUpdate = true;
-        this.stalkMesh.instanceColor.needsUpdate = true;
-        this.earMesh.instanceMatrix.needsUpdate = true;
+        for (const v of this.views) {
+            if (v.locked) continue;
+            if (v.crop === 'wheat') this.updateWheat(v, time, progress[v.id] || 0);
+            else this.updateTomato(v, time, progress[v.id] || 0);
+            for (const m of v.meshes) {
+                m.instanceMatrix.needsUpdate = true;
+                if (m.instanceColor) m.instanceColor.needsUpdate = true;
+            }
+        }
 
         for (const c of this.clouds) {
             c.position.x += c.userData.speed * dt;
@@ -346,9 +396,74 @@ export class Farm {
         }
     }
 
-    // Punto en el mundo sobre el centro del campo (para su burbuja de RECOGER)
-    fieldTop(out = new THREE.Vector3()) {
-        const f = this.field;
-        return out.set(f.cx, 1.4, f.cz);
+    // Cuánto ha brotado una planta (con rebote) y a qué tamaño va por su crecimiento p
+    grow(s, p) {
+        const intro = Math.min(1, Math.max(0, (this.clock - s.t0) / 0.4));
+        return (0.1 + 0.9 * Math.min(1, p)) * (intro <= 0 ? 0.0001 : easeOutBack(intro));
+    }
+
+    updateWheat(v, time, p) {
+        const stages = CROPS.wheat.stages, [stalkMesh, earMesh] = v.meshes;
+        const ready = p >= 1;
+        v.plants.forEach((s, i) => {
+            const h = s.h * this.grow(s, p);
+            // El viento: una ola que recorre el campo
+            const sway = s.tilt + Math.sin(time * 1.6 - s.x * 0.5 - s.z * 0.3 + s.ph * 0.3) * (ready ? 0.12 : 0.06);
+            _d.position.set(s.x - Math.sin(sway) * h / 2, Math.cos(sway) * h / 2, s.z);
+            _d.rotation.set(0, 0, sway);
+            _d.scale.set(0.05, Math.max(0.0001, h), 0.05);
+            _d.updateMatrix();
+            stalkMesh.setMatrixAt(i, _d.matrix);
+            const st = ready ? 3 : p < 0.35 ? 0 : p < 0.7 ? 1 : 2;
+            stalkMesh.setColorAt(i, _c.setHex(stages[st]).offsetHSL(0, 0, (s.tone - 0.5) * 0.08));
+            // Espiga: aparece al final del crecimiento, en la punta
+            const e = p < 0.7 ? 0.0001 : Math.min(1, (p - 0.7) / 0.3);
+            _d.position.set(s.x - Math.sin(sway) * (h + 0.1), Math.cos(sway) * (h + 0.1), s.z);
+            _d.scale.set(0.1 * e, 0.24 * e, 0.1 * e);
+            _d.updateMatrix();
+            earMesh.setMatrixAt(i, _d.matrix);
+        });
+    }
+
+    // Matas de tomate: tres bloques de hojas, el tutor y dos tomates que salen verdes y se
+    // ponen rojos al madurar (entonces se ven bien gordos)
+    updateTomato(v, time, p) {
+        const T = CROPS.tomato, [leafMesh, fruitMesh, stakeMesh] = v.meshes;
+        const ripe = Math.min(1, Math.max(0, (p - 0.6) / 0.4));
+        v.plants.forEach((s, i) => {
+            const g = this.grow(s, p), h = s.h * g;
+            const sway = Math.sin(time * 1.4 - s.x * 0.4 - s.z * 0.3 + s.ph) * 0.04;
+            const leaves = [[0.55, 0.32, 0.25], [0.45, 0.28, 0.55], [0.3, 0.22, 0.82]];
+            leaves.forEach(([w, lh, y], k) => {
+                _d.position.set(s.x + Math.sin(sway) * y * h, y * h, s.z);
+                _d.rotation.set(0, s.ry + k * 0.5, sway);
+                _d.scale.set(w * g, Math.max(0.0001, lh * g), w * g);
+                _d.updateMatrix();
+                leafMesh.setMatrixAt(i * 3 + k, _d.matrix);
+            });
+            _d.position.set(s.x - 0.18, 0.6 * h, s.z - 0.18);
+            _d.rotation.set(0, 0, 0);
+            _d.scale.set(0.05, Math.max(0.0001, 1.2 * h), 0.05);
+            _d.updateMatrix();
+            stakeMesh.setMatrixAt(i, _d.matrix);
+            // Tomates: aparecen al 40% y engordan al madurar
+            const e = p < 0.4 ? 0.0001 : Math.min(1, (p - 0.4) / 0.2) * (0.6 + 0.4 * ripe) * g;
+            _c.setHex(T.unripe).lerp(_c2.setHex(s.tone < 0.5 ? T.fruit : T.fruitDark), ripe);
+            for (let k = 0; k < 2; k++) {
+                const a = s.ry + k * Math.PI, y = (0.38 + k * 0.22) * h;
+                _d.position.set(s.x + Math.sin(a) * 0.24 + Math.sin(sway) * y, y, s.z + Math.cos(a) * 0.24);
+                _d.rotation.set(0, a, 0);
+                _d.scale.setScalar(Math.max(0.0001, 0.26 * e));
+                _d.updateMatrix();
+                fruitMesh.setMatrixAt(i * 2 + k, _d.matrix);
+                fruitMesh.setColorAt(i * 2 + k, _c);
+            }
+        });
+    }
+
+    // Punto en el mundo sobre el centro de un campo (para su cartel y su burbuja)
+    fieldTop(id, out = new THREE.Vector3()) {
+        const v = this.fields[id], f = v.rect;
+        return out.set(f.cx, v.locked ? (v.barrelTop || 1) + 0.6 : 1.4, f.cz);
     }
 }

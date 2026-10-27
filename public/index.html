@@ -56,15 +56,18 @@
 
     <!-- Granja: mapa interactivo. Arriba los recursos; abajo la ficha de lo que se toca -->
     <div id="farm-ui" class="farm-ui">
-        <div id="farm-wheat" class="coins-badge"><span class="wheat-ico"></span><span id="wheat-count">0</span></div>
+        <div class="farm-items">
+            <div id="farm-wheat" class="coins-badge static"><span class="ico wheat-ico"></span><span id="wheat-count">0</span></div>
+            <div id="farm-tomato" class="coins-badge static hidden"><span class="ico tomato-ico"></span><span id="tomato-count">0</span></div>
+        </div>
         <button id="btn-settings" class="corner-btn" data-es="AJUSTES">SETTINGS</button>
         <div id="panel" class="panel hidden">
             <button id="panel-close" class="panel-x" aria-label="Close" data-es-aria="Cerrar">X</button>
             <div id="panel-title" class="panel-title"></div>
             <div id="panel-text" class="panel-text"></div>
             <div class="panel-track"><i id="panel-bar"></i></div>
-            <button id="panel-action" class="btn harvest-btn hidden"><span class="wheat-ico"></span><span data-es="¡RECOGER!">HARVEST!</span></button>
-            <button id="panel-upgrade" class="btn upgrade-btn hidden"><span id="upgrade-label">UPGRADE</span><span class="upgrade-cost"><span class="wheat-ico"></span><span id="upgrade-cost"></span></span></button>
+            <button id="panel-action" class="btn harvest-btn hidden"><span id="action-ico" class="ico wheat-ico"></span><span id="action-label" data-es="¡RECOGER!">HARVEST!</span></button>
+            <button id="panel-upgrade" class="btn upgrade-btn hidden"><span id="upgrade-label">UPGRADE</span><span id="upgrade-cost" class="upgrade-costs"></span></button>
         </div>
     </div>
     <div id="bubbles" class="bubbles"></div>
@@ -72,7 +75,7 @@
     <!-- Francotirador: interfaz sobre la vista en primera persona -->
     <div id="snipe-ui" class="snipe-ui hidden">
         <button id="btn-home" class="corner-btn corner-left home-corner" aria-label="Farm" data-es-aria="Granja"><span class="home-icon"></span><span data-es="GRANJA">FARM</span></button>
-        <div id="snipe-wheat" class="coins-badge coin-counter"><span class="wheat-ico"></span><span id="hud-wheat">0</span></div>
+        <div id="snipe-wheat" class="coins-badge coin-counter"><span id="hud-ico" class="ico wheat-ico"></span><span id="hud-wheat">0</span></div>
         <div class="left-badge"><span data-es="QUEDAN">LEFT</span> <b id="left-count">0</b></div>
         <div id="corners" class="corners"><i></i><i></i><i></i><i></i></div>
         <button id="btn-prev" class="arrow-btn prev" aria-label="Previous corner" data-es-aria="Esquina anterior">&lt;<span class="key-cap">Q</span></button>
