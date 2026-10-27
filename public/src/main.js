@@ -568,8 +568,9 @@ function panBy(dx, dy) {
     const u = unitsPerPx(), y = rig.yaw, sp = Math.sin((M.pitch * Math.PI) / 180);
     // Derecha de la pantalla y "hacia dentro" sobre el suelo
     const rx = Math.cos(y), rz = -Math.sin(y), fx = -Math.sin(y), fz = -Math.cos(y);
-    rig.fx = clamp(rig.fx - rx * dx * u + fx * dy * u / sp, 2, farm.size - 2);
-    rig.fz = clamp(rig.fz - rz * dx * u + fz * dy * u / sp, 2, farm.size - 2);
+    const B = FARM.bounds;
+    rig.fx = clamp(rig.fx - rx * dx * u + fx * dy * u / sp, B.x0 + 2, B.x1 - 2);
+    rig.fz = clamp(rig.fz - rz * dx * u + fz * dy * u / sp, B.z0 + 2, B.z1 - 2);
 }
 
 function zoomBy(k) {

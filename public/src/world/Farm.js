@@ -20,6 +20,9 @@ function fieldRect(def, level) {
     return { x, z, w, d, cx: x + w / 2, cz: z + d / 2 };
 }
 const inRect = (f, x, z, m = 0) => x >= f.x - m && x < f.x + f.w + m && z >= f.z - m && z < f.z + f.d + m;
+// Resto siempre positivo (la parcela de la casa tiene coordenadas negativas)
+const mod = (a, n) => ((a % n) + n) % n;
+const inParcel = (x, z, m = 0) => FARM.parcels.some(([x0, z0, x1, z1]) => x >= x0 + m && x < x1 - m && z >= z0 + m && z < z1 - m);
 const kindKey = (k) => (!k ? '' : k.field ? (k.locked ? 'junk' : 'field') : k.path ? 'path' : 'b');
 
 // Mapa de la granja: el sitio de gestión. Césped hasta el horizonte, caminos de tierra, los
@@ -30,7 +33,9 @@ export class Farm {
     constructor(theme, fields) {
         this.theme = theme;
         this.size = FARM.size;
-        this.cx = this.cz = FARM.size / 2;
+        const B = FARM.bounds;
+        this.cx = (B.x0 + B.x1) / 2;
+        this.cz = (B.z0 + B.z1) / 2;
         this.animated = [];
         this.root = new THREE.Group();
         this.introT = 0;
@@ -60,9 +65,14 @@ export class Farm {
         far.position.set(this.cx, -0.31, this.cz);
         root.add(far);
 
-        // Casillas: hierba, caminos, tierra arada en surcos y tierra sucia de los terrenos abandonados
-        const tiles = [];
-        for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) tiles.push({ c, r, k: this.kindAt(c, r) });
+        // Casillas: hierba, caminos, tierra arada en surcos y tierra sucia de los terrenos
+        // abandonados. Las de las parcelas y las de los caminos que salen de ellas
+        const tiles = [], B = FARM.bounds;
+        const xMax = Math.max(B.x1, ...FARM.paths.map((p) => p[2])), zMax = Math.max(B.z1, ...FARM.paths.map((p) => p[3]));
+        for (let r = B.z0; r < zMax; r++) for (let c = B.x0; c < xMax; c++) {
+            const k = this.kindAt(c, r);
+            if (inParcel(c, r) || (k && k.path)) tiles.push({ c, r, k });
+        }
         const floor = new THREE.InstancedMesh(box(1, 0.3, 1), toon(0xffffff), tiles.length);
         tiles.forEach((t, i) => this.paintTile(floor, t, i));
         this.floor = { tiles, entry: this.addAnimated(floor, tiles.map(({ c, r, k }) => ({ x: c + 0.5, y: this.tileY(k), z: r + 0.5 }))) };
@@ -97,8 +107,8 @@ export class Farm {
     paintTile(mesh, { c, r, k }, i) {
         const { theme } = this;
         const col = k && k.field
-            ? (k.locked ? JUNK.ground[(c * 7 + r * 5 + ((c * r) % 3)) % JUNK.ground.length] : theme.soil[r & 1])
-            : k && k.path ? theme.path[(c * 7 + r * 3) % 2] : theme.grass[(c * 5 + r * 3 + ((c * r) % 3)) % 3];
+            ? (k.locked ? JUNK.ground[mod(c * 7 + r * 5 + mod(c * r, 3), JUNK.ground.length)] : theme.soil[r & 1])
+            : k && k.path ? theme.path[mod(c * 7 + r * 3, 2)] : theme.grass[mod(c * 5 + r * 3 + mod(c * r, 3), 3)];
         mesh.setColorAt(i, _c.setHex(col).offsetHSL(0, 0, (Math.random() - 0.5) * theme.grassJitter));
     }
 
@@ -221,33 +231,42 @@ export class Farm {
     }
 
     // Valla de madera alrededor de toda la granja
+    // Vallas de madera: los tramos de FARM.fences, con sus huecos para los caminos
     buildFences() {
-        const posts = [], rails = [], S = this.size;
-        for (let i = 0; i <= S; i++) {
-            for (const [x, z] of [[i, 0], [i, S], [0, i], [S, i]]) {
-                if (x >= 14 && x <= 16 && z === S) continue; // entrada del camino
-                posts.push({ x, y: 0.35, z, sx: 0.14, sy: 0.7, sz: 0.14 });
+        const posts = [], rails = [];
+        for (const { from: [x0, z0], to: [x1, z1], gap } of FARM.fences) {
+            const alongX = z0 === z1, a0 = alongX ? x0 : z0, a1 = alongX ? x1 : z1;
+            const at = (a) => (alongX ? [a, z0] : [x0, a]);
+            // Trozos sin hueco
+            const runs = gap ? [[a0, gap[0]], [gap[1], a1]] : [[a0, a1]];
+            for (const [r0, r1] of runs) {
+                for (let a = r0; a <= r1; a++) {
+                    const [x, z] = at(a);
+                    posts.push({ x, y: 0.35, z, sx: 0.14, sy: 0.7, sz: 0.14 });
+                }
+                const [mx, mz] = at((r0 + r1) / 2), len = r1 - r0;
+                for (const y of [0.28, 0.55]) rails.push({ x: mx, y, z: mz, sx: alongX ? len : 0.06, sy: 0.08, sz: alongX ? 0.06 : len });
             }
-        }
-        for (const y of [0.28, 0.55]) {
-            rails.push({ x: S / 2, y, z: 0, sx: S, sy: 0.08, sz: 0.06 });
-            rails.push({ x: 0, y, z: S / 2, sx: 0.06, sy: 0.08, sz: S });
-            rails.push({ x: S, y, z: S / 2, sx: 0.06, sy: 0.08, sz: S });
-            rails.push({ x: 7, y, z: S, sx: 14, sy: 0.08, sz: 0.06 });
-            rails.push({ x: 23, y, z: S, sx: 14, sy: 0.08, sz: 0.06 });
         }
         this.addHulled(0x9a6a3a, posts, 0.3);
         this.addHulled(0xb07a44, rails, 0.35);
     }
 
-    // Árboles fuera de la valla y alguno dentro
+    // Árboles: un bosque alrededor de toda la valla (así el borde de lo que se ve no es césped
+    // plano), sin tapar los caminos que salen; y algunos dentro de las parcelas
     buildTrees() {
-        const spots = [];
-        for (let k = 0; k < 70; k++) {
-            const a = Math.random() * Math.PI * 2, d = this.size * 0.62 + Math.random() * 10;
-            spots.push([this.cx + Math.sin(a) * d * (1 + Math.random() * 0.1), this.cz + Math.cos(a) * d]);
+        const spots = [], B = FARM.bounds;
+        const onPath = (x, z) => FARM.paths.some(([x0, z0, x1, z1]) => x > x0 - 2.5 && x < x1 + 2.5 && z > z0 - 2.5 && z < z1 + 2.5);
+        for (let k = 0, tries = 0; k < 420 && tries < 5000; tries++) {
+            const x = B.x0 - 26 + Math.random() * (B.x1 - B.x0 + 52), z = B.z0 - 26 + Math.random() * (B.z1 - B.z0 + 52);
+            const out = Math.max(B.x0 - x, x - B.x1, B.z0 - z, z - B.z1); // distancia por fuera de la valla
+            if (out < 1.6 || onPath(x, z)) continue;
+            // Más tupido cerca de la valla
+            if (Math.random() > 1.15 - out / 30) continue;
+            spots.push([x, z]);
+            k++;
         }
-        spots.push([3, 4], [26, 5], [1.6, 28.6], [27, 13]);
+        spots.push([3, 4], [26, 5], [1.6, 28.6], [27, 13], [3, -27], [27, -27], [3, -4], [26, -5], [6, -22], [24, -23], [4, -15]);
         const trunks = [], leaves = [];
         spots.forEach(([x, z], i) => {
             const s = 0.8 + Math.random() * 0.6;
@@ -263,9 +282,9 @@ export class Farm {
 
     // Matas de hierba alta, flores y piedras sobre el césped libre
     buildDecor() {
-        const tufts = [], flowers = [], rocks = [];
-        for (let r = 1; r < this.size - 1; r++) for (let c = 1; c < this.size - 1; c++) {
-            if (this.kindAt(c, r)) continue;
+        const tufts = [], flowers = [], rocks = [], B = FARM.bounds;
+        for (let r = B.z0; r < B.z1; r++) for (let c = B.x0; c < B.x1; c++) {
+            if (!inParcel(c, r, 1) || this.kindAt(c, r)) continue;
             const x = c + Math.random(), z = r + Math.random();
             if (this.views.some((v) => inRect(v.rect, x, z, 0.4))) continue; // ni pegado a un campo
             const p = Math.random();
@@ -286,7 +305,7 @@ export class Farm {
     buildClouds() {
         const mat = toon(this.theme.clouds), hullMat = outline(this.theme.outline);
         this.clouds = [];
-        for (let i = 0; i < 8; i++) {
+        for (let i = 0; i < 12; i++) {
             const g = new THREE.Group();
             const parts = 3 + (i % 3);
             for (let k = 0; k < parts; k++) {
@@ -299,7 +318,7 @@ export class Farm {
                 o.position.copy(m.position);
                 g.add(m, o);
             }
-            g.position.set(Math.random() * 50 - 10, 9 + Math.random() * 4, Math.random() * 50 - 10);
+            g.position.set(Math.random() * 50 - 10, 9 + Math.random() * 4, Math.random() * 80 - 40);
             g.userData.speed = 0.3 + Math.random() * 0.3;
             this.root.add(g);
             this.clouds.push(g);

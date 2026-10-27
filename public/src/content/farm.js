@@ -5,11 +5,25 @@ import { L } from '../core/I18n.js';
 //   x, z      centro; w, d: huella en casillas (para tocarlo y para el camino)
 //   ry        giro en cuartos de vuelta
 export const FARM = {
-    size: 30, // casillas de lado de la parcela jugable (el césped sigue hasta el horizonte)
+    size: 30, // casillas de lado de cada parcela (el césped sigue hasta el horizonte)
+    // Parcelas valladas [x0, z0, x1, z1): la de los campos y, detrás del granero, la de la casa
+    parcels: [
+        [0, 0, 30, 30],
+        [0, -30, 30, 0],
+    ],
+    bounds: { x0: 0, z0: -30, x1: 30, z1: 30 }, // todo lo vallado (hasta aquí se mueve la cámara)
+    // Vallas: tramos rectos de [x, z] a [x, z]; gap: hueco [desde, hasta] a lo largo del tramo
+    fences: [
+        { from: [0, -30], to: [0, 30] },
+        { from: [30, -30], to: [30, 30], gap: [-16, -14] }, // salida del camino del comerciante
+        { from: [0, -30], to: [30, -30] },
+        { from: [0, 30], to: [30, 30], gap: [14, 16] },     // entrada del camino principal
+        { from: [0, 0], to: [30, 0], gap: [14, 16] },       // portón entre las dos parcelas
+    ],
     structures: [
         { id: 'barn', kind: 'barn', x: 15, z: 11, w: 5, d: 4, ry: 0, name: L('BARN', 'GRANERO') },
         { id: 'silo', kind: 'silo', x: 19.5, z: 10, w: 2, d: 2, name: L('SILO', 'SILO') },
-        { id: 'house', kind: 'house', x: 8, z: 7, w: 4, d: 4, ry: 0, name: L('FARMHOUSE', 'CASA') },
+        { id: 'house', kind: 'house', x: 15, z: -15, w: 4, d: 4, ry: 0, name: L('FARMHOUSE', 'CASA') }, // en el centro de su parcela
         { id: 'tractor', kind: 'tractor', x: 9.9, z: 13.2, w: 2, d: 3, ry: 1, name: L('TRACTOR', 'TRACTOR') }, // apartado de las cajas del granero
     ],
     // Campos de cultivo. Cada uno crece al mejorarlo desde una esquina fija (corner) hacia
@@ -59,8 +73,8 @@ export const FARM = {
     paths: [
         [14, 13, 16, 30],   // camino principal hacia el sur
         [3, 15, 25, 16],    // entre el granero y los campos
-        [8, 9, 9, 15],      // de la casa al camino
-        [9, 9, 12, 10],     // de la casa al granero
+        [14, -13, 16, 9],   // de la casa a la trasera del granero (por el portón)
+        [17, -16, 46, -14], // de la casa hacia fuera por la derecha: por aquí llegará el comerciante
     ],
 };
 
