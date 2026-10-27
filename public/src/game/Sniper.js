@@ -20,7 +20,8 @@ const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) 
 // al ojo y hace zoom hacia donde se mira; con la mira la vista va más despacio; soltar dispara.
 // Se puede mirar, apuntar y disparar también mientras se salta de una torre a otra.
 export class Sniper {
-    // hooks: { sfx, onHit(target, ndcX, ndcY), onFinish(), onDone(), onCorner(i) }
+    // hooks: { sfx, onHit(target, ndcX, ndcY, style), onFinish(), onDone(), onCorner(i) }
+    //   style: 'noscope' | 'quickscope' | null
     constructor(theme, hooks) {
         this.theme = theme;
         this.hooks = hooks;
@@ -140,6 +141,7 @@ export class Sniper {
         this.pending = false;
         if (on === this.scoped || (on && this.ending >= 0)) return;
         this.scoped = on;
+        if (on) this.adsAt = this.time;
         this.hooks.sfx.play(on ? 'scopeIn' : 'scopeOut');
     }
 
@@ -157,6 +159,12 @@ export class Sniper {
         this.scoped = false;
         if (!fire) this.hooks.sfx.play('scopeOut');
         return hit;
+    }
+
+    // Dispersión actual (radianes): toda sin mira, nada cuando la mira está casi arriba
+    get spread() {
+        const k = clamp((this.adsK - 0.35) / 0.5, 0, 1);
+        return S.hipSpread * (1 - k * k * (3 - 2 * k)) * (this.move ? 1 + S.moveSpread : 1);
     }
 
     get canFire() {
@@ -183,7 +191,17 @@ export class Sniper {
         this.camera.updateMatrixWorld();
         const origin = this.pos.clone();
         const dir = this.camera.getWorldDirection(new THREE.Vector3());
+        // Dispersión: sin la mira subida del todo la bala se va a cualquier lado del cono
+        const spread = this.spread;
+        if (spread > 0) {
+            const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * Math.tan(spread);
+            _v.set(1, 0, 0).applyQuaternion(this.camera.quaternion);
+            _o.set(0, 1, 0).applyQuaternion(this.camera.quaternion);
+            dir.addScaledVector(_v, Math.cos(a) * r).addScaledVector(_o, Math.sin(a) * r).normalize();
+        }
+        const style = this.adsK < 0.35 ? 'noscope' : this.scoped && this.time - this.adsAt < S.quickTime ? 'quickscope' : null;
         this.rifle.muzzle.getWorldPosition(_o);
+        const muzzle = _o.clone();
         this.particles.burst(_o.x, _o.y, _o.z, 10, [0xffffff, 0xffe03a, 0xff9a1f], { speed: 1.4, up: 0.6, size: 0.04, ttl: 0.16, grav: 0 });
 
         const hit = this.field.raycast(origin, dir);
@@ -204,7 +222,7 @@ export class Sniper {
             vibrate('pickup');
             sfx.play('harvest');
             _v.set(s.x, 0.9, s.z).project(this.camera);
-            this.hooks.onHit(s, _v.x, _v.y);
+            this.hooks.onHit(s, _v.x, _v.y, style);
             if (this.field.remaining === 0) this.finish();
         } else {
             const t = dir.y < -1e-3 ? -origin.y / dir.y : 80;
@@ -215,7 +233,7 @@ export class Sniper {
             }
             setTimeout(() => sfx.play('miss'), 60);
         }
-        const from = this.scoped ? origin.clone().addScaledVector(dir, 1.5).add(_v.set(0, -0.15, 0)) : _o.clone();
+        const from = this.scoped ? origin.clone().addScaledVector(dir, 1.5).add(_v.set(0, -0.15, 0)) : muzzle;
         this.tracer.position.copy(from).lerp(end, 0.5);
         this.tracer.lookAt(end);
         this.tracer.scale.set(0.03, 0.03, from.distanceTo(end));

@@ -69,8 +69,9 @@ farm.onLand = (m) => {
 // ---------- Francotirador ----------
 const sniper = new Sniper(THEME, {
     sfx,
-    onHit(target, nx, ny) {
+    onHit(target, nx, ny, style) {
         state.collect(target.plot);
+        if (style) callout(style === 'noscope' ? L('NO SCOPE!', '¡SIN MIRA!') : L('QUICKSCOPE!', '¡QUICKSCOPE!'), style);
         const x = (nx * 0.5 + 0.5) * innerWidth, y = (-ny * 0.5 + 0.5) * innerHeight;
         popPlus(x, y);
         flyWheat(x, y, $('snipe-wheat'), () => updateCounts(true));
@@ -137,6 +138,17 @@ function stage(name, sub) {
     el.classList.remove('show');
     void el.offsetWidth;
     el.classList.add('show');
+}
+
+// Cartel corto de jugada (sin mira, quickscope)
+function callout(text, cls) {
+    const el = $('callout');
+    el.className = 'callout';
+    el.textContent = text;
+    void el.offsetWidth;
+    el.className = `callout show ${cls}`;
+    sfx.play(cls === 'noscope' ? 'streak3' : 'streak2');
+    vibrate('kill');
 }
 
 function popPlus(x, y) {
@@ -262,6 +274,8 @@ function harvest(i) {
     sfx.play('go');
     vibrate('pickup');
     harvestField = i;
+    // Con ratón, este mismo clic bloquea el cursor: al entrar ya se mira moviéndolo
+    if (matchMedia('(pointer: fine)').matches) lockMouse();
     mode = 'toSnipe';
     modeT = 0;
     select(null);
@@ -299,6 +313,7 @@ function goFarm(done = false) {
 
 function enterFarm() {
     sniper.leave();
+    if (document.exitPointerLock && locked()) document.exitPointerLock();
     mode = 'farm';
     renderer.flash(INK, 1);
     scope.show(false);
@@ -375,7 +390,7 @@ addEventListener('pointerdown', (e) => {
         edge = { id: e.pointerId, x: e.clientX, y: e.clientY };
         return;
     }
-    if (!touch) touch = { id: e.pointerId, lx: e.clientX, ly: e.clientY, ax: e.clientX, ay: e.clientY, still: performance.now() };
+    if (!touch) touch = { id: e.pointerId, lx: e.clientX, ly: e.clientY, ax: e.clientX, ay: e.clientY, still: performance.now(), t: performance.now(), moved: false };
 });
 
 addEventListener('pointermove', (e) => {
@@ -422,6 +437,7 @@ addEventListener('pointermove', (e) => {
             touch.ax = e.clientX;
             touch.ay = e.clientY;
             touch.still = performance.now();
+            touch.moved = true;
         }
     }
 });
@@ -435,8 +451,12 @@ function endPointer(e, cancel) {
     }
     if (edge && e.pointerId === edge.id) edge = null;
     if (touch && e.pointerId === touch.id && !touch.mouse) {
+        const t = touch;
         touch = null;
-        if (mode === 'snipe' && sniper.scoped) sniper.release(!cancel);
+        if (mode !== 'snipe' || cancel) return sniper.release(false);
+        if (sniper.scoped) sniper.release(true);
+        // Toque rápido sin mover el dedo: disparo desde la cadera (sin mira, impreciso)
+        else if (!t.moved && performance.now() - t.t < S.tapTime) sniper.fire();
     }
 }
 addEventListener('pointerup', (e) => endPointer(e, false));
@@ -648,6 +668,9 @@ function frame(now) {
         document.body.classList.toggle('scoped', sniper.scoped);
         scope.show(sniper.fov < (S.fov + S.scopeFov) * 0.5);
         scope.setReady(sniper.canFire);
+        // La mirilla se abre con la dispersión: así se ve cuánto puede fallar el tiro
+        const spreadPx = (Math.tan(sniper.spread) / Math.tan((sniper.fov * Math.PI) / 360)) * (innerHeight / 2);
+        $('reticle').style.setProperty('--spread', `${Math.max(5, Math.round(spreadPx))}px`);
         $('snipe-hint').classList.toggle('gone', sniper.moving || sniper.scoped || time - snipeStart > 6);
         if (mode === 'toFarm') {
             modeT += dt;

@@ -29,7 +29,11 @@ export const CONFIG = {
         lookPad: 2.6,       // radianes por segundo con el stick a tope
         adsSlow: 0.3,       // con la mira la vista se mueve más despacio (además del zoom)
         adsTime: 0.2,       // segundos para subir el arma al ojo
-        holdTime: 220,      // ms con el dedo quieto para apuntar
+        holdTime: 150,      // ms con el dedo quieto para apuntar
+        tapTime: 180,       // ms: un toque más corto que esto dispara desde la cadera
+        hipSpread: 0.11,    // radianes de dispersión sin mira (no scope): falla mucho
+        moveSpread: 0.5,    // dispersión extra (proporción) mientras se salta de torre
+        quickTime: 0.55,    // s: acertar antes de esto desde que se sube el arma es un quickscope
         holdSlop: 9,        // px que puede moverse el dedo y seguir "quieto"
         edgeSwipe: 40,      // px desde el borde donde un deslizamiento cambia de torre
         flickDist: 60,      // px de ese deslizamiento
