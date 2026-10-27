@@ -11,7 +11,7 @@ const _c = new THREE.Color();
 const _w = new THREE.Color(0xffffff);
 const CLUMP = 20; // tallos por mata de trigo
 const LEAVES = 9; // bloques de hojas por mata de tomate
-const MAX = 64; // blancos como mucho
+const MAX = 96; // blancos como mucho
 
 // Punto dentro del polígono (regla del rayo)
 function inside(poly, x, z) {
@@ -53,12 +53,18 @@ function instanced(root, mat, n) {
 //   - cosecha de tomates: matas de tomate con tomates gigantes; cada tomate es un blanco
 //   - desbloqueo: el terreno está sucio y lleno de chatarra, con un barril rojo encima del
 //     montón del fondo. Un disparo al barril lo hace volar todo y deja la tierra limpia.
+// scale: tamaño del campo (1 = el normal); el cuadrilátero y sus torres crecen desde su centro,
+// y los árboles y las nubes se apartan con él. El barril y la atalaya lejana del desbloqueo
+// no se mueven (se desbloquea siempre con el campo de tamaño normal).
 export class SniperField {
-    constructor(theme) {
+    constructor(theme, scale = 1) {
         this.theme = theme;
-        this.poly = FIELD.corners;
-        this.cx = this.poly.reduce((s, p) => s + p.x, 0) / this.poly.length;
-        this.cz = this.poly.reduce((s, p) => s + p.z, 0) / this.poly.length;
+        this.scale = scale;
+        const C = FIELD.corners, ccx = C.reduce((s, p) => s + p.x, 0) / C.length, ccz = C.reduce((s, p) => s + p.z, 0) / C.length;
+        this.poly = C.map((p) => ({ x: ccx + (p.x - ccx) * scale, z: ccz + (p.z - ccz) * scale }));
+        this.cx = ccx;
+        this.cz = ccz;
+        this.radius = Math.max(...this.poly.map((p) => Math.hypot(p.x - ccx, p.z - ccz)));
         this.root = new THREE.Group();
         this.animated = [];
         this.targets = [];
@@ -139,7 +145,7 @@ export class SniperField {
         const trunks = [], leaves = [];
         const F = FIELD.farTower, P = FIELD.pile;
         for (let k = 0; k < 60; k++) {
-            const a = Math.random() * Math.PI * 2, d = 20 + Math.random() * 16, s = 0.9 + Math.random() * 0.7;
+            const a = Math.random() * Math.PI * 2, d = (20 + Math.random() * 16) * this.scale, s = 0.9 + Math.random() * 0.7;
             const x = this.cx + Math.sin(a) * d, z = this.cz + Math.cos(a) * d;
             // Ninguno entre la atalaya lejana y el barril (ni pegado a ella)
             if (segDist(x, z, F.x, F.z, P.x, P.z) < 3.5 + FIELD.pileJitter) continue;
@@ -167,7 +173,7 @@ export class SniperField {
                 g.add(m, o);
             }
             const a = (i / 10) * Math.PI * 2;
-            g.position.set(this.cx + Math.sin(a) * (30 + Math.random() * 15), 10 + Math.random() * 6, this.cz + Math.cos(a) * (30 + Math.random() * 15));
+            g.position.set(this.cx + Math.sin(a) * (30 + Math.random() * 15) * this.scale, 10 + Math.random() * 6, this.cz + Math.cos(a) * (30 + Math.random() * 15) * this.scale);
             g.userData.speed = 0.3 + Math.random() * 0.4;
             root.add(g);
             this.clouds.push(g);
@@ -263,7 +269,8 @@ export class SniperField {
                 const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * 0.38;
                 return { ox: Math.sin(a) * r, oz: Math.cos(a) * r, h: 1.2 + Math.random() * 0.45 - r * 0.6, tilt: (Math.random() - 0.5) * 0.25, dir: Math.random() * Math.PI * 2, ph: Math.random() * 6, tone: Math.random() };
             });
-            this.targets.push({ x, y: 0.9, z, stalks, alive: true, grow: -0.5 - i * 0.06, landed: false, flash: 0, dying: 0 });
+            // Brotan en ola (más deprisa cuantas más hay, para no esperar)
+            this.targets.push({ x, y: 0.9, z, stalks, alive: true, grow: -0.5 - i * Math.min(0.06, 2.4 / count), landed: false, flash: 0, dying: 0 });
         }
         this.tStalks.count = this.tEars.count = this.targets.length * CLUMP;
     }
@@ -274,7 +281,7 @@ export class SniperField {
             const n = Math.min(left, 1 + ((Math.random() * 3) | 0));
             const { x, z } = this.freeSpot(this.plants, 2.2);
             const plant = {
-                x, z, h: 1.7 + Math.random() * 0.3, ph: Math.random() * 6, grow: -0.5 - this.plants.length * 0.08, g: 0.0001, sway: 0,
+                x, z, h: 1.7 + Math.random() * 0.3, ph: Math.random() * 6, grow: -0.5 - this.plants.length * Math.min(0.08, 4.8 / count), g: 0.0001, sway: 0,
                 leaves: Array.from({ length: LEAVES }, (_, k) => ({ a: k * 2.4 + Math.random() * 0.5, y: 0.3 + (k / LEAVES) * 1.35, r: 0.22 + Math.random() * 0.16, w: 0.72 - (k / LEAVES) * 0.32, tone: Math.random() })),
             };
             this.plants.push(plant);
@@ -627,6 +634,18 @@ export class SniperField {
 
     restartIntro() {
         this.introT = 0;
+    }
+
+    // Al cambiar de tamaño se monta otro campo: este se libera (las geometrías de caja son
+    // compartidas y se quedan)
+    dispose() {
+        this.clearSheaves();
+        const mats = new Set();
+        this.root.traverse((o) => {
+            if (o.isInstancedMesh) o.dispose();
+            if (o.material) mats.add(o.material);
+        });
+        for (const m of mats) m.dispose();
     }
 }
 

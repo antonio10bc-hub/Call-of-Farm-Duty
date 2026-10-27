@@ -425,14 +425,15 @@ test('rachas de 20 y 30: bombardero que bombardea el campo y bomba nuclear que l
     await page.evaluate(() => game.sniper.addStreak(20));
     await expect.poll(() => page.evaluate(() => !!game.sniper.ks.plane)).toBe(true);
     await expect.poll(() => page.evaluate(() => game.sniper.ks.bombs.length > 0), { timeout: 8_000 }).toBe(true);
-    await expect.poll(() => page.evaluate(() => !game.sniper.ks.plane), { timeout: 12_000 }).toBe(true);
+    await expect.poll(() => page.evaluate(() => !game.sniper.ks.plane), { timeout: 25_000 }).toBe(true); // en el campo grande el avión tarda más en cruzar
     await expect.poll(() => page.evaluate(() => game.state.wheat), { timeout: 5_000 }).toBeGreaterThan(0);
     // Nuclear: cuenta atrás de 5 y lo que quede, recogido (las bombas pueden haber llevado ya
     // la racha a 30 por su cuenta)
     await page.evaluate(() => { const s = game.sniper; if (!s.ks.nuke) s.addStreak(Math.max(1, 30 - s.streak)); });
     await expect(page.locator('#nuke-count')).toBeVisible();
     await expect(page.locator('#nuke-n')).toHaveText(/^[1-5]$/);
-    await expect.poll(() => page.evaluate(() => game.sniper.field.remaining), { timeout: 10_000 }).toBe(0);
+    // (con el render por software de las pruebas el campo grande va a pocos fotogramas: más margen)
+    await expect.poll(() => page.evaluate(() => game.sniper.field.remaining), { timeout: 40_000 }).toBe(0);
     await expect(page.locator('#nuke-haze')).toHaveCSS('opacity', '1', { timeout: 5_000 }); // neblina radiactiva
     await expect.poll(() => page.evaluate(() => game.mode), { timeout: 15_000 }).toBe('farm');
     expect(await page.evaluate(() => game.state.wheat)).toBe(total);

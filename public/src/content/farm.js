@@ -17,7 +17,9 @@ export const FARM = {
     //   cost      lo que cuesta cada mejora, por recurso
     //   locked    empieza como un terreno abandonado lleno de chatarra que se desbloquea
     //             disparando al barril rojo; con `after`, solo cuando ese campo está al máximo
-    //   levels    w, d: tamaño en casillas; sheaves: blancos en el campo de tiro; sign: color del cartel
+    //   levels    w, d: tamaño en casillas (en el mapa); sheaves: blancos en el campo de tiro;
+    //             arena: tamaño del campo de tiro (1 = el normal); sign: color del cartel.
+    //             El nivel 1 apenas cambia; los altos tienen un campo de tiro mucho mayor y lleno
     fields: [
         {
             id: 'wheat',
@@ -29,11 +31,11 @@ export const FARM = {
             locked: { name: L('JUNKYARD', 'TERRENO ABANDONADO') },
             // El último llena el hueco entre el camino, la valla y los árboles (x 3..14, z 16..27)
             levels: [
-                { w: 4, d: 3, sheaves: 6, sign: 0x9a6a3a },
-                { w: 6, d: 4, sheaves: 10, sign: 0xb07a44 },
-                { w: 8, d: 6, sheaves: 16, sign: 0x5a9e32 },
-                { w: 10, d: 8, sheaves: 23, sign: 0x3a7ec8 },
-                { w: 11, d: 11, sheaves: 32, sign: 0xc8402e },
+                { w: 4, d: 3, sheaves: 8, arena: 1, sign: 0x9a6a3a },
+                { w: 6, d: 4, sheaves: 16, arena: 1.2, sign: 0xb07a44 },
+                { w: 8, d: 6, sheaves: 30, arena: 1.45, sign: 0x5a9e32 },
+                { w: 10, d: 8, sheaves: 50, arena: 1.75, sign: 0x3a7ec8 },
+                { w: 11, d: 11, sheaves: 80, arena: 2.1, sign: 0xc8402e },
             ],
         },
         {
@@ -45,11 +47,11 @@ export const FARM = {
             locked: { after: 'wheat', name: L('JUNKYARD', 'TERRENO ABANDONADO') },
             // El último llena el hueco entre el camino y la valla (x 16..28, z 16..27)
             levels: [
-                { w: 5, d: 4, sheaves: 4, sign: 0x9a6a3a },
-                { w: 7, d: 5, sheaves: 7, sign: 0xb07a44 },
-                { w: 9, d: 7, sheaves: 11, sign: 0x5a9e32 },
-                { w: 11, d: 9, sheaves: 16, sign: 0x3a7ec8 },
-                { w: 12, d: 11, sheaves: 22, sign: 0xc8402e },
+                { w: 5, d: 4, sheaves: 6, arena: 1, sign: 0x9a6a3a },
+                { w: 7, d: 5, sheaves: 12, arena: 1.2, sign: 0xb07a44 },
+                { w: 9, d: 7, sheaves: 22, arena: 1.45, sign: 0x5a9e32 },
+                { w: 11, d: 9, sheaves: 36, arena: 1.75, sign: 0x3a7ec8 },
+                { w: 12, d: 11, sheaves: 56, arena: 2.1, sign: 0xc8402e },
             ],
         },
     ],

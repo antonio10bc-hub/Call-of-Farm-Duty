@@ -492,7 +492,8 @@ function quickAction() {
 
 function enterSnipe() {
     const unlock = goSnipe.unlock;
-    sniper.enter(unlock ? { unlock: true } : { crop: FIELD_BY_ID[snipeField].crop, count: state.fields[snipeField].left, streaks: [...state.streaks] });
+    const def = FIELD_BY_ID[snipeField], arena = def.levels[state.fields[snipeField].level].arena;
+    sniper.enter(unlock ? { unlock: true } : { crop: def.crop, count: state.fields[snipeField].left, arena, streaks: [...state.streaks] });
     document.body.classList.remove('fallout');
     mode = 'snipe';
     snipeStart = time;

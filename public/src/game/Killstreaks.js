@@ -182,7 +182,8 @@ export class Killstreaks {
         const model = this.buildPlane();
         model.rotation.y = a;
         this.root.add(model);
-        this.plane = { model, dir, x0: f.cx - dir.x * 55, z0: f.cz - dir.z * 55, dist: 0, len: 110, drop: 0 };
+        const half = 40 + f.radius;
+        this.plane = { model, dir, x0: f.cx - dir.x * half, z0: f.cz - dir.z * half, dist: 0, len: half * 2, drop: 0 };
         this.sn.hooks.sfx.play('plane');
     }
 
@@ -258,7 +259,7 @@ export class Killstreaks {
             for (const pr of pl.model.userData.props) pr.rotation.z += rawDt * 40;
             // Suelta bombas mientras pasa por encima del campo (contando lo que avanzan al caer)
             const f = sn.field, ahead = KS.bomber.speed * 0.55;
-            const over = Math.hypot(x + pl.dir.x * ahead - f.cx, z + pl.dir.z * ahead - f.cz) < 15;
+            const over = Math.hypot(x + pl.dir.x * ahead - f.cx, z + pl.dir.z * ahead - f.cz) < f.radius * 0.95;
             if (over && (pl.drop -= dt) <= 0) {
                 pl.drop = KS.bomber.every;
                 const b = new THREE.Group();

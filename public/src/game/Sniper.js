@@ -87,8 +87,19 @@ export class Sniper {
         this.prevPitch = 0;
     }
 
-    // what: { crop, count } para cosechar (count blancos de ese cultivo) o { unlock: true }
+    // Campo de tiro del tamaño pedido (se monta de nuevo solo si cambia)
+    setArena(scale) {
+        if (this.field.scale === scale) return;
+        this.scene.remove(this.field.root);
+        this.field.dispose();
+        this.field = new SniperField(this.theme, scale);
+        this.scene.add(this.field.root);
+    }
+
+    // what: { crop, count, arena, streaks } para cosechar (count blancos de ese cultivo en un
+    // campo de tamaño arena) o { unlock: true }
     enter(what) {
+        this.setArena(what.arena || 1);
         this.unlocking = !!what.unlock;
         this.equipped = what.streaks || []; // rachas de bajas que valen en esta partida
         this.crop = what.crop || null;
