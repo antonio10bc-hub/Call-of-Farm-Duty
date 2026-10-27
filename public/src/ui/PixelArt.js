@@ -2,7 +2,7 @@
 // para que la UI tenga el mismo aspecto que el juego. Se pintan en canvas pequeños y se
 // escalan con image-rendering: pixelated, nunca suavizados.
 
-const INK = '#1b0b33';
+const INK = '#2a1a0e';
 const GOLD = { dark: '#c77800', mid: '#e6a400', base: '#ffd23f', light: '#fff4b0' };
 
 // Un fotograma de la moneda girando: `half` es la media anchura (7 de frente, 1 de canto).
@@ -154,6 +154,11 @@ const SPRITES = {
     round: {
         rows: ['..KK..', '.KWYK.', '.KYYK.', '.KYOK.', '.KYOK.', 'KKKKKK', 'KOOOOK', 'KOOOOK', 'KKKKKK'],
         pal: { K: INK, W: '#fff4b0', Y: '#ffd23f', O: '#e6a400' },
+    },
+    // Mirilla del francotirador (cursor y la O del título)
+    reticle: {
+        rows: ['....KKKKK....', '..KKCCRCCKK..', '.KCC..R..CCK.', '.KC...R...CK.', 'KC....R....CK', 'KC.........CK', 'KRRRR.W.RRRRK', 'KC.........CK', 'KC....R....CK', '.KC...R...CK.', '.KCC..R..CCK.', '..KKCCRCCKK..', '....KKKKK....'],
+        pal: { K: INK, C: '#fff3d6', R: '#c8402e', W: '#ffffff' },
     },
     sparkA: {
         rows: ['...W...', '...W...', '...Y...', 'WWYWYWW', '...Y...', '...W...', '...W...'],

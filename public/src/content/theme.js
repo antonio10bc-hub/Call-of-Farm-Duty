@@ -1,16 +1,17 @@
-// Tema visual de la isla (de momento solo la pradera inicial). Misma estructura que los temas
-// de Tank-less: mar, espuma, isla, contorno, suelo, luces, clima y música.
+// Tema visual de la granja: paleta de campo (hierba, tierra, madera, trigo y cielo) con tinta
+// marrón oscuro para contornos e interfaz.
 export const THEME = {
-    sky: 0x8fdcff, sea: 0x3fb8ff, foam: 0xf0fbff, island: 0x8a5a34, outline: 0x1b0b33,
-    floor: [0x9ae86e, 0x86d85e], floorJitter: 0.04,
-    soil: [0x8a5a34, 0x7a4c2a],     // tierra arada de las parcelas
-    dust: 0xf4ffd8, clouds: 0xffffff,
-    bush: [0x3fbf4a, 0x2e9e40, 0x5cd85a],
-    flowers: [0xff6fb5, 0xffe03a, 0xffffff, 0xb46bff],
-    light: { sun: 0xfff6dc, sky: 0xdaf2ff, ground: 0x5a9a3a, sunIntensity: 2.3, hemiIntensity: 1.15 },
-    ambient: { kind: 'petals', colors: [0xff9fd0, 0xffffff, 0xffe680], rate: 6 },
-    music: { root: 60, scale: 'major', tempo: 122, lead: 'triangle' },
-    // En la torreta: algo más tenso, mismo timbre
-    sniperMusic: { root: 57, scale: 'dorian', tempo: 104, lead: 'triangle', arp: 'stab' },
-    sound: { ground: 'grass' },
+    sky: 0x9fdcff, horizon: 0xd8f2ff,
+    outline: 0x2a1a0e,
+    grass: [0x8fd45a, 0x7fc84e, 0x9ad962], grassJitter: 0.05,
+    grassFar: 0x76b848,                       // la hierba que sigue hasta el horizonte
+    path: [0xd9b77a, 0xcfab6c],               // caminos de tierra
+    soil: [0x8a5a34, 0x76492a],               // tierra arada de los campos (surcos)
+    dust: 0xf4e6c0, clouds: 0xffffff,
+    leaves: [0x4caf3c, 0x3d9a34, 0x63c04a],
+    flowers: [0xffffff, 0xffe03a, 0xff8fb0],
+    light: { sun: 0xfff2d6, sky: 0xdaf2ff, ground: 0x6a8a3a, sunIntensity: 2.2, hemiIntensity: 1.1 },
+    ambient: { kind: 'leaves', colors: [0xb6e070, 0xffe680], rate: 2 },
+    music: { root: 60, scale: 'major', tempo: 118, lead: 'triangle', swing: 0.18 },
+    sniperMusic: { root: 57, scale: 'dorian', tempo: 100, lead: 'triangle', arp: 'stab' },
 };

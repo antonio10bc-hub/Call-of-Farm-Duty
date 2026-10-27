@@ -1,118 +1,183 @@
 import * as THREE from 'three';
 import { box, toon, outline, OUTLINE } from '../render/materials.js';
 import { easeOutBack } from '../core/math.js';
-import { BarnModel } from '../render/BarnModel.js';
+import { STRUCTURES } from '../render/structures.js';
 import { CROPS } from '../content/crops.js';
-import { PLOT_COUNT } from '../game/FarmState.js';
+import { FARM } from '../content/farm.js';
 
 const _d = new THREE.Object3D();
 const _c = new THREE.Color();
-const INTRO_TIME = 1.6;
-export const FARM_SIZE = 17;
-// Centros de las 8 parcelas (3x3 casillas) alrededor del granero
-const RING = [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]];
-const STALKS = 6; // tallos por lado de cada parcela
+const _p = new THREE.Vector3();
+const INTRO_TIME = 2.2;
+const PER_TILE = 3; // tallos por lado de cada casilla de campo
 
-// Vista de la granja (menú principal): isla flotante, granero en el centro y campos de trigo
-// alrededor. Todo cae desde abajo y rebota al montarse, en ola desde el centro.
+// Mapa de la granja: el sitio de gestión. Césped hasta el horizonte, caminos de tierra, campos
+// de trigo y edificios que se pueden tocar. Todo se monta en ola al empezar (cae y rebota).
 export class Farm {
     constructor(theme) {
         this.theme = theme;
-        this.cols = this.rows = FARM_SIZE;
-        this.cx = this.cz = FARM_SIZE / 2;
-        this.plots = RING.map(([dx, dz]) => ({ x: this.cx + dx * 4, z: this.cz + dz * 4 }));
+        this.size = FARM.size;
+        this.cx = this.cz = FARM.size / 2;
         this.animated = [];
-        this.trash = [];
-        this.introT = 0;
         this.root = new THREE.Group();
+        this.introT = 0;
+        this.fields = FARM.fields.map((f) => ({ ...f, cx: f.x + f.w / 2, cz: f.z + f.d / 2 }));
         this.build();
     }
 
-    isPlotTile(c, r) {
-        return this.plots.findIndex((p) => Math.abs(c + 0.5 - p.x) < 1.5 && Math.abs(r + 0.5 - p.z) < 1.5);
+    kindAt(c, r) {
+        for (let i = 0; i < this.fields.length; i++) {
+            const f = this.fields[i];
+            if (c >= f.x && c < f.x + f.w && r >= f.z && r < f.z + f.d) return { field: i };
+        }
+        for (const [x0, z0, x1, z1] of FARM.paths) if (c >= x0 && c < x1 && r >= z0 && r < z1) return { path: true };
+        for (const s of FARM.structures) if (Math.abs(c + 0.5 - s.x) < s.w / 2 + 0.3 && Math.abs(r + 0.5 - s.z) < s.d / 2 + 0.3) return { building: true };
+        return null;
     }
 
     build() {
-        const { cols, rows, cx, cz, theme, root } = this;
-        const own = (o) => (this.trash.push(o), o);
+        const { theme, root, size } = this;
+        // Césped lejano: un plano enorme bajo todo
+        const far = new THREE.Mesh(new THREE.PlaneGeometry(500, 500), toon(theme.grassFar));
+        far.rotation.x = -Math.PI / 2;
+        far.position.set(this.cx, -0.31, this.cz);
+        root.add(far);
 
-        // Mar e isla
-        const sea = new THREE.Mesh(own(new THREE.PlaneGeometry(600, 600)), own(new THREE.MeshBasicMaterial({ color: theme.sea })));
-        sea.rotation.x = -Math.PI / 2;
-        sea.position.set(cx, -0.8, cz);
-        root.add(sea);
-        const island = new THREE.Mesh(box(cols + 0.4, 2.2, rows + 0.4), own(toon(theme.island)));
-        island.position.set(cx, -1.4, cz);
-        const hull = new THREE.Mesh(box(cols + 0.4 + OUTLINE * 2, 2.2, rows + 0.4 + OUTLINE * 2), own(outline(theme.outline)));
-        hull.position.copy(island.position);
-        root.add(island, hull);
-
-        // Suelo a cuadros; en las parcelas, tierra arada a surcos
+        // Casillas: hierba, caminos y tierra arada en surcos
         const tiles = [];
-        for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) tiles.push({ c, r });
-        const floor = new THREE.InstancedMesh(box(1, 0.3, 1), own(toon(0xffffff)), tiles.length);
-        tiles.forEach(({ c, r }, i) => {
-            const soil = this.isPlotTile(c, r) >= 0;
-            const col = soil ? theme.soil[r & 1] : theme.floor[(c + r) & 1];
-            _c.setHex(col).offsetHSL(0, 0, (Math.random() - 0.5) * theme.floorJitter);
-            floor.setColorAt(i, _c);
+        for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) tiles.push({ c, r, k: this.kindAt(c, r) });
+        const floor = new THREE.InstancedMesh(box(1, 0.3, 1), toon(0xffffff), tiles.length);
+        tiles.forEach(({ c, r, k }, i) => {
+            const col = k && k.field !== undefined ? theme.soil[r & 1] : k && k.path ? theme.path[(c * 7 + r * 3) % 2] : theme.grass[(c * 5 + r * 3 + ((c * r) % 3)) % 3];
+            floor.setColorAt(i, _c.setHex(col).offsetHSL(0, 0, (Math.random() - 0.5) * theme.grassJitter));
         });
-        this.addAnimated(floor, tiles.map(({ c, r }) => ({ x: c + 0.5, y: this.isPlotTile(c, r) >= 0 ? -0.1 : -0.15, z: r + 0.5 })));
+        this.addAnimated(floor, tiles.map(({ c, r, k }) => ({ x: c + 0.5, y: k && k.field !== undefined ? -0.12 : k && k.path ? -0.17 : -0.15, z: r + 0.5 })));
 
-        // Bordillo de madera alrededor de cada parcela
-        const rims = [];
-        for (const p of this.plots) {
-            for (const s of [-1, 1]) {
-                rims.push({ x: p.x, y: 0.06, z: p.z + s * 1.55, sx: 3.2, sy: 0.12, sz: 0.1 });
-                rims.push({ x: p.x + s * 1.55, y: 0.06, z: p.z, sx: 0.1, sy: 0.12, sz: 3.0 });
-            }
-        }
-        this.addHulled(0xb8763a, rims, 0.1);
+        this.buildWheat();
+        this.buildFences();
+        this.buildTrees();
+        this.buildDecor();
+        this.buildClouds();
 
-        // Tallos de trigo y espigas (instanciados: se animan cada frame según el crecimiento)
-        const n = PLOT_COUNT * STALKS * STALKS;
+        // Edificios
+        this.structures = FARM.structures.map((s) => {
+            const model = new STRUCTURES[s.kind](theme.outline);
+            model.root.position.set(s.x, 0, s.z);
+            model.root.rotation.y = (s.ry || 0) * (Math.PI / 2);
+            model.def = s;
+            model.base = { y: 0 };
+            model.root.traverse((o) => (o.userData.structure = s.id));
+            root.add(model.root);
+            return model;
+        });
+        this.byId = Object.fromEntries(this.structures.map((m) => [m.def.id, m]));
+    }
+
+    // Trigo: tallos finos (sin contorno, para que se lean a píxel fino) con su espiga
+    buildWheat() {
         this.stalks = [];
-        this.plots.forEach((p, pi) => {
-            for (let a = 0; a < STALKS; a++) for (let b = 0; b < STALKS; b++) {
+        this.fields.forEach((f, fi) => {
+            const n = PER_TILE;
+            for (let a = 0; a < f.w * n; a++) for (let b = 0; b < f.d * n; b++) {
                 this.stalks.push({
-                    plot: pi,
-                    x: p.x - 1.25 + a * 0.5 + (Math.random() - 0.5) * 0.12,
-                    z: p.z - 1.25 + b * 0.5 + (Math.random() - 0.5) * 0.12,
-                    h: 0.85 + Math.random() * 0.3,
+                    field: fi,
+                    x: f.x + (a + 0.5) / n + (Math.random() - 0.5) * 0.12,
+                    z: f.z + (b + 0.5) / n + (Math.random() - 0.5) * 0.12,
+                    h: 0.75 + Math.random() * 0.3,
                     ph: Math.random() * 6,
+                    tilt: (Math.random() - 0.5) * 0.12,
+                    tone: Math.random(),
                 });
             }
         });
-        this.stalkMesh = this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), own(toon(0xffffff)), n));
-        this.stalkHull = this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), own(outline(theme.outline)), n));
-        this.earMesh = this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), own(toon(CROPS.wheat.ear)), n));
-        this.earHull = this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), own(outline(theme.outline)), n));
-        for (let i = 0; i < n; i++) this.stalkMesh.setColorAt(i, _c.setHex(CROPS.wheat.stages[0]));
+        const n = this.stalks.length;
+        this.stalkMesh = this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), toon(0xffffff), n));
+        this.earMesh = this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), toon(0xffffff), n));
+        // Las espigas no cambian de color: maduras doradas, con dos tonos
+        this.stalks.forEach((s, i) => this.earMesh.setColorAt(i, _c.setHex(s.tone < 0.5 ? CROPS.wheat.ear : CROPS.wheat.earDark)));
+    }
 
-        // Marcadores de "listo": cubo dorado que gira y bota sobre cada parcela madura
-        this.markers = this.plots.map((p) => {
-            const g = new THREE.Group();
-            const m = new THREE.Mesh(box(0.34, 0.34, 0.34), own(toon(0xffe03a)));
-            const o = new THREE.Mesh(box(0.44, 0.44, 0.44), own(outline(theme.outline)));
-            m.add(o);
-            m.rotation.set(0.6, 0, 0.6);
-            g.add(m);
-            g.position.set(p.x, 2, p.z);
-            g.visible = false;
-            g.userData.cube = m;
-            root.add(g);
-            return g;
+    // Valla de madera alrededor de toda la granja
+    buildFences() {
+        const posts = [], rails = [], S = this.size;
+        for (let i = 0; i <= S; i++) {
+            for (const [x, z] of [[i, 0], [i, S], [0, i], [S, i]]) {
+                if (x >= 14 && x <= 16 && z === S) continue; // entrada del camino
+                posts.push({ x, y: 0.35, z, sx: 0.14, sy: 0.7, sz: 0.14 });
+            }
+        }
+        for (const y of [0.28, 0.55]) {
+            rails.push({ x: S / 2, y, z: 0, sx: S, sy: 0.08, sz: 0.06 });
+            rails.push({ x: 0, y, z: S / 2, sx: 0.06, sy: 0.08, sz: S });
+            rails.push({ x: S, y, z: S / 2, sx: 0.06, sy: 0.08, sz: S });
+            rails.push({ x: 7, y, z: S, sx: 14, sy: 0.08, sz: 0.06 });
+            rails.push({ x: 23, y, z: S, sx: 14, sy: 0.08, sz: 0.06 });
+        }
+        this.addHulled(0x9a6a3a, posts, 0.3);
+        this.addHulled(0xb07a44, rails, 0.35);
+    }
+
+    // Árboles fuera de la valla y alguno dentro
+    buildTrees() {
+        const spots = [];
+        for (let k = 0; k < 70; k++) {
+            const a = Math.random() * Math.PI * 2, d = this.size * 0.62 + Math.random() * 10;
+            spots.push([this.cx + Math.sin(a) * d * (1 + Math.random() * 0.1), this.cz + Math.cos(a) * d]);
+        }
+        spots.push([3, 4], [26, 5], [25, 27], [2, 27], [27, 13]);
+        const trunks = [], leaves = [];
+        spots.forEach(([x, z], i) => {
+            const s = 0.8 + Math.random() * 0.6;
+            trunks.push({ x, y: 0.5 * s, z, sx: 0.3 * s, sy: 1.0 * s, sz: 0.3 * s });
+            leaves.push({ x, y: 1.35 * s, z, sx: 1.5 * s, sy: 0.9 * s, sz: 1.5 * s, ry: i * 0.7, k: 0 });
+            leaves.push({ x, y: 2.0 * s, z, sx: 1.05 * s, sy: 0.7 * s, sz: 1.05 * s, ry: i * 0.7 + 0.4, k: 1 });
+            leaves.push({ x, y: 2.5 * s, z, sx: 0.55 * s, sy: 0.4 * s, sz: 0.55 * s, ry: i * 0.7, k: 2 });
         });
+        this.addHulled(0x7a4f2a, trunks, 0.4);
+        const lm = this.addHulled(0xffffff, leaves, 0.45);
+        leaves.forEach((p, i) => lm.setColorAt(i, _c.setHex(this.theme.leaves[(p.k + i) % 3]).offsetHSL(0, 0, (Math.random() - 0.5) * 0.06)));
+    }
 
-        // Granero en el centro
-        this.barn = new BarnModel(theme.outline);
-        this.barn.root.position.set(cx, 0, cz);
-        root.add(this.barn.root);
+    // Matas de hierba alta, flores y piedras sobre el césped libre
+    buildDecor() {
+        const tufts = [], flowers = [], rocks = [];
+        for (let r = 1; r < this.size - 1; r++) for (let c = 1; c < this.size - 1; c++) {
+            if (this.kindAt(c, r)) continue;
+            const x = c + Math.random(), z = r + Math.random();
+            const p = Math.random();
+            if (p < 0.08) tufts.push({ x, y: 0.12, z, sx: 0.3, sy: 0.24, sz: 0.3, ry: Math.random() });
+            else if (p < 0.2) flowers.push({ x, y: 0.05, z, sx: 0.09, sy: 0.1, sz: 0.09 });
+            else if (p < 0.215) rocks.push({ x, y: 0.1, z, sx: 0.4, sy: 0.22, sz: 0.3, ry: Math.random() });
+        }
+        const tm = this.addHulled(0xffffff, tufts, 0.2);
+        tufts.forEach((_, i) => tm.setColorAt(i, _c.setHex(this.theme.leaves[i % 3])));
+        const fm = new THREE.InstancedMesh(box(1, 1, 1), toon(0xffffff), Math.max(1, flowers.length));
+        flowers.forEach((_, i) => fm.setColorAt(i, _c.setHex(this.theme.flowers[i % this.theme.flowers.length])));
+        this.addAnimated(fm, flowers, 0.2);
+        this.addHulled(0xa8a49c, rocks, 0.2);
+    }
 
-        this.buildTrees(own);
-        this.buildFlowers(own);
-        this.buildFoam(own);
-        this.buildClouds(own);
+    buildClouds() {
+        const mat = toon(this.theme.clouds), hullMat = outline(this.theme.outline);
+        this.clouds = [];
+        for (let i = 0; i < 8; i++) {
+            const g = new THREE.Group();
+            const parts = 3 + (i % 3);
+            for (let k = 0; k < parts; k++) {
+                const w = 1.6 + Math.random() * 1.6, h = 0.6 + Math.random() * 0.4, d = 1.2 + Math.random();
+                const m = new THREE.Mesh(box(1, 1, 1), mat);
+                m.scale.set(w, h, d);
+                m.position.set(k * 1.1 - parts * 0.55, Math.random() * 0.3, (Math.random() - 0.5) * 0.8);
+                const o = new THREE.Mesh(box(1, 1, 1), hullMat);
+                o.scale.set(w + OUTLINE * 2, h + OUTLINE * 2, d + OUTLINE * 2);
+                o.position.copy(m.position);
+                g.add(m, o);
+            }
+            g.position.set(Math.random() * 50 - 10, 9 + Math.random() * 4, Math.random() * 50 - 10);
+            g.userData.speed = 0.3 + Math.random() * 0.3;
+            this.root.add(g);
+            this.clouds.push(g);
+        }
     }
 
     dynamic(mesh) {
@@ -122,79 +187,19 @@ export class Farm {
         return mesh;
     }
 
-    // Cajas instanciadas de un color con su contorno, animadas en la entrada
     addHulled(color, pts, delay = 0) {
-        const own = (o) => (this.trash.push(o), o);
-        const mesh = new THREE.InstancedMesh(box(1, 1, 1), own(toon(color)), pts.length);
-        const hull = new THREE.InstancedMesh(box(1, 1, 1), own(outline(this.theme.outline)), pts.length);
+        const n = Math.max(1, pts.length);
+        const mesh = new THREE.InstancedMesh(box(1, 1, 1), toon(color), n);
+        const hull = new THREE.InstancedMesh(box(1, 1, 1), outline(this.theme.outline), n);
         this.addAnimated(mesh, pts, delay);
         this.addAnimated(hull, pts.map((p) => ({ ...p, sx: (p.sx || 1) + OUTLINE * 2, sy: (p.sy || 1) + OUTLINE * 2, sz: (p.sz || 1) + OUTLINE * 2 })), delay);
         return mesh;
     }
 
-    // Árboles voxel en las esquinas y arbustos sueltos
-    buildTrees() {
-        const trunks = [], leaves = [], spots = [[1.5, 1.5], [15.5, 1.5], [1.5, 15.5], [15.5, 15.5], [8.5, 1.3], [1.3, 8.5], [15.7, 8.5]];
-        spots.forEach(([x, z], i) => {
-            const big = i < 4;
-            const s = big ? 1 : 0.7;
-            if (big) trunks.push({ x, y: 0.4, z, sx: 0.32, sy: 0.8, sz: 0.32 });
-            leaves.push({ x, y: big ? 1.15 : 0.32, z, sx: 1.1 * s, sy: 0.8 * s, sz: 1.1 * s, ry: i });
-            if (big) leaves.push({ x: x + 0.05, y: 1.7, z: z - 0.05, sx: 0.66, sy: 0.5, sz: 0.66, ry: i + 0.5 });
-        });
-        this.addHulled(0x8a5a34, trunks, 0.3);
-        const lm = this.addHulled(0xffffff, leaves, 0.35);
-        leaves.forEach((_, i) => lm.setColorAt(i, _c.setHex(this.theme.bush[i % this.theme.bush.length])));
-    }
-
-    buildFlowers(own) {
-        const pts = [];
-        for (let r = 1; r < this.rows - 1; r++) for (let c = 1; c < this.cols - 1; c++) {
-            if (this.isPlotTile(c, r) >= 0 || Math.abs(c + 0.5 - this.cx) < 2 && Math.abs(r + 0.5 - this.cz) < 2 || Math.random() > 0.22) continue;
-            for (let k = 0; k < 1 + ((Math.random() * 3) | 0); k++) {
-                pts.push({ x: c + 0.15 + Math.random() * 0.7, y: 0.04, z: r + 0.15 + Math.random() * 0.7, sx: 0.1, sy: 0.08, sz: 0.1, ry: Math.random() });
-            }
-        }
-        const mesh = new THREE.InstancedMesh(box(1, 1, 1), own(toon(0xffffff)), pts.length);
-        pts.forEach((_, i) => mesh.setColorAt(i, _c.setHex(this.theme.flowers[(Math.random() * this.theme.flowers.length) | 0])));
-        this.addAnimated(mesh, pts, 0.15);
-    }
-
-    buildFoam(own) {
-        const { cols, rows } = this, pts = [];
-        const add = (x, z) => pts.push({ x, z, ph: Math.random() * 6, s: 0.12 + Math.random() * 0.16 });
-        for (let x = -0.4; x <= cols + 0.4; x += 0.45) { add(x, -0.35 - Math.random() * 0.3); add(x, rows + 0.35 + Math.random() * 0.3); }
-        for (let z = -0.4; z <= rows + 0.4; z += 0.45) { add(-0.35 - Math.random() * 0.3, z); add(cols + 0.35 + Math.random() * 0.3, z); }
-        this.foam = { mesh: this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), own(new THREE.MeshBasicMaterial({ color: this.theme.foam })), pts.length)), pts };
-    }
-
-    buildClouds(own) {
-        const mat = own(toon(this.theme.clouds)), hullMat = own(outline(this.theme.outline));
-        this.clouds = [];
-        for (let i = 0; i < 7; i++) {
-            const g = new THREE.Group();
-            const parts = 3 + (i % 3);
-            for (let k = 0; k < parts; k++) {
-                const w = 0.9 + Math.random() * 1.2, h = 0.5 + Math.random() * 0.4, d = 0.8 + Math.random() * 0.8;
-                const m = new THREE.Mesh(box(1, 1, 1), mat);
-                m.scale.set(w, h, d);
-                m.position.set(k * 0.8 - parts * 0.4, Math.random() * 0.3, (Math.random() - 0.5) * 0.6);
-                const o = new THREE.Mesh(box(1, 1, 1), hullMat);
-                o.scale.set(w + OUTLINE * 2, h + OUTLINE * 2, d + OUTLINE * 2);
-                o.position.copy(m.position);
-                g.add(m, o);
-            }
-            const side = i % 2 ? 1 : -1;
-            g.position.set(this.cx + side * (this.cols / 2 + 3 + Math.random() * 6), 1.5 + Math.random() * 1.5, Math.random() * this.rows);
-            g.userData.speed = 0.2 + Math.random() * 0.3;
-            this.root.add(g);
-            this.clouds.push(g);
-        }
-    }
-
     addAnimated(mesh, positions, extraDelay = 0) {
         mesh.frustumCulled = false;
-        const delays = positions.map((p) => Math.hypot(p.x - this.cx, p.z - this.cz) * 0.045 + extraDelay);
+        mesh.count = positions.length;
+        const delays = positions.map((p) => Math.min(1.4, Math.hypot(p.x - this.cx, p.z - this.cz) * 0.035) + extraDelay);
         const entry = { mesh, positions, delays };
         this.animated.push(entry);
         this.root.add(mesh);
@@ -215,75 +220,73 @@ export class Farm {
         mesh.instanceMatrix.needsUpdate = true;
     }
 
-    // Cosas que salen de una parcela (cuántas parcelas listas, etc.) las decide FarmState;
-    // aquí solo se dibujan: progress[i] de 0 a 1 por parcela.
+    // Lo que hay bajo un rayo de la cámara: un edificio, un campo o nada
+    pick(ray) {
+        const hits = ray.intersectObjects(this.structures.map((m) => m.root), true);
+        if (hits.length) return { structure: hits[0].object.userData.structure };
+        const t = -ray.ray.origin.y / ray.ray.direction.y;
+        if (!(t > 0)) return null;
+        ray.ray.at(t, _p);
+        const i = this.fields.findIndex((f) => _p.x >= f.x - 0.2 && _p.x <= f.x + f.w + 0.2 && _p.z >= f.z - 0.2 && _p.z <= f.z + f.d + 0.2);
+        return i >= 0 ? { field: i } : null;
+    }
+
+    // progress[i]: crecimiento de cada campo de 0 a 1
     update(dt, time, progress) {
         if (this.introT < INTRO_TIME + 0.5) {
             this.introT += dt;
             for (const a of this.animated) this.layout(a, this.introT);
         }
-        this.barn.update(dt);
-        // El granero también cae en la entrada
-        const bk = Math.min(1, Math.max(0, (this.introT - 0.05) / 0.5));
-        this.barn.root.position.y = -(1 - bk) * 4;
-        this.barn.root.scale.setScalar(1.3 * (bk <= 0 ? 0.0001 : easeOutBack(bk)));
+        // Los edificios caen del cielo, cada uno a su tiempo
+        this.structures.forEach((m, i) => {
+            const k = Math.min(1, Math.max(0, (this.introT - 0.5 - i * 0.12) / 0.5));
+            m.root.position.y = (1 - k * k) * 8;
+            if (k < 1) m.root.scale.setScalar(k <= 0 ? 0.0001 : 1);
+            else if (!m.landed) {
+                m.landed = true;
+                m.root.scale.setScalar(1);
+                m.select();
+                if (this.onLand) this.onLand(m);
+            }
+            m.update(dt, time);
+        });
 
         const stages = CROPS.wheat.stages;
         this.stalks.forEach((s, i) => {
-            const p = progress[s.plot];
+            const p = progress[s.field];
             const ready = p >= 1;
-            // Cada tallo brota con un pequeño retraso propio y crece hasta su altura
-            const intro = Math.min(1, Math.max(0, (this.introT - 0.5 - Math.hypot(s.x - this.cx, s.z - this.cz) * 0.04) / 0.4));
-            const g = (0.12 + 0.88 * Math.min(1, p * 1.05)) * (intro <= 0 ? 0.0001 : easeOutBack(intro));
+            const intro = Math.min(1, Math.max(0, (this.introT - 0.8 - Math.hypot(s.x - this.cx, s.z - this.cz) * 0.03) / 0.4));
+            const g = (0.1 + 0.9 * Math.min(1, p)) * (intro <= 0 ? 0.0001 : easeOutBack(intro));
             const h = s.h * g;
-            const sway = ready ? Math.sin(time * 2 + s.ph + s.x * 0.4) * 0.14 : Math.sin(time * 1.4 + s.ph) * 0.05;
-            _d.position.set(s.x, h / 2, s.z);
+            // El viento: una ola que recorre el campo
+            const sway = s.tilt + Math.sin(time * 1.6 - s.x * 0.5 - s.z * 0.3 + s.ph * 0.3) * (ready ? 0.12 : 0.06);
+            _d.position.set(s.x - Math.sin(sway) * h / 2, Math.cos(sway) * h / 2, s.z);
             _d.rotation.set(0, 0, sway);
-            _d.scale.set(0.12, Math.max(0.0001, h), 0.12);
+            _d.scale.set(0.05, Math.max(0.0001, h), 0.05);
             _d.updateMatrix();
             this.stalkMesh.setMatrixAt(i, _d.matrix);
-            _d.scale.set(0.12 + OUTLINE * 2, Math.max(0.0001, h) + OUTLINE * 2, 0.12 + OUTLINE * 2);
-            _d.updateMatrix();
-            this.stalkHull.setMatrixAt(i, _d.matrix);
-            this.stalkMesh.setColorAt(i, _c.setHex(stages[ready ? 3 : p < 0.3 ? 0 : p < 0.65 ? 1 : 2]));
-            // Espiga: aparece al final del crecimiento, en la punta (inclinada con el tallo)
-            const e = p < 0.65 ? 0.0001 : Math.min(1, (p - 0.65) / 0.35) * (intro <= 0 ? 0.0001 : 1);
-            _d.position.set(s.x - Math.sin(sway) * h / 2, h / 2 + Math.cos(sway) * h / 2 + 0.1 * e, s.z);
-            _d.rotation.set(0, 0, sway);
-            _d.scale.set(0.2 * e, 0.28 * e, 0.2 * e);
+            const st = ready ? 3 : p < 0.35 ? 0 : p < 0.7 ? 1 : 2;
+            this.stalkMesh.setColorAt(i, _c.setHex(stages[st]).offsetHSL(0, 0, (s.tone - 0.5) * 0.08));
+            // Espiga: aparece al final del crecimiento, en la punta
+            const e = p < 0.7 ? 0.0001 : Math.min(1, (p - 0.7) / 0.3);
+            _d.position.set(s.x - Math.sin(sway) * (h + 0.1), Math.cos(sway) * (h + 0.1), s.z);
+            _d.scale.set(0.1 * e, 0.24 * e, 0.1 * e);
             _d.updateMatrix();
             this.earMesh.setMatrixAt(i, _d.matrix);
-            _d.scale.set(0.2 * e + OUTLINE * 2 * e, 0.28 * e + OUTLINE * 2 * e, 0.2 * e + OUTLINE * 2 * e);
-            _d.updateMatrix();
-            this.earHull.setMatrixAt(i, _d.matrix);
         });
-        for (const m of [this.stalkMesh, this.stalkHull, this.earMesh, this.earHull]) m.instanceMatrix.needsUpdate = true;
+        this.stalkMesh.instanceMatrix.needsUpdate = true;
         this.stalkMesh.instanceColor.needsUpdate = true;
+        this.earMesh.instanceMatrix.needsUpdate = true;
 
-        this.markers.forEach((m, i) => {
-            m.visible = progress[i] >= 1 && this.introT > 1.2;
-            if (!m.visible) return;
-            m.position.y = 1.9 + Math.abs(Math.sin(time * 3 + i)) * 0.35;
-            m.userData.cube.rotation.y = time * 2.5 + i;
-        });
-
-        const { mesh, pts } = this.foam;
-        pts.forEach((p, i) => {
-            const s = p.s * (0.8 + Math.sin(time * 3 + p.ph) * 0.35);
-            _d.position.set(p.x, -0.78 + Math.sin(time * 2 + p.ph) * 0.05, p.z);
-            _d.rotation.set(0, p.ph + time * 0.5, 0);
-            _d.scale.set(s * 2, s * 0.5, s * 2);
-            _d.updateMatrix();
-            mesh.setMatrixAt(i, _d.matrix);
-        });
-        mesh.instanceMatrix.needsUpdate = true;
         for (const c of this.clouds) {
-            c.position.z += c.userData.speed * dt;
-            if (c.position.z > this.rows + 8) c.position.z = -8;
+            c.position.x += c.userData.speed * dt;
+            if (c.position.x > this.size + 25) c.position.x = -25;
         }
     }
 
-    restartIntro() {
-        this.introT = 0;
+    // Punto en el mundo sobre el centro de un campo (para su burbuja de RECOGER)
+    fieldTop(i, out = new THREE.Vector3()) {
+        const f = this.fields[i];
+        return out.set(f.cx, 1.4, f.cz);
     }
 }

@@ -8,13 +8,18 @@
 }
 
 :root {
-    --ink: #1b0b33;
-    --cyan: #23e0d6;
-    --pink: #ff3e8e;
-    --yellow: #ffe03a;
-    --orange: #ff9a1f;
-    --purple: #7b5cff;
-    --sea: #1fb6ff;
+    --ink: #2a1a0e;
+    --wood: #9a6a3a;
+    --wood-dark: #6a4524;
+    --cream: #fff3d6;
+    --barn: #c8402e;
+    --olive: #8a9a3a;
+    --cyan: #6fc8e8;
+    --pink: #c8402e;
+    --yellow: #ffcc33;
+    --orange: #e8902a;
+    --purple: #6a4524;
+    --sea: #9fdcff;
     --font: 'Press Start 2P', ui-monospace, monospace;
     --safe-top: max(10px, env(safe-area-inset-top));
 }
@@ -59,8 +64,8 @@ html, body {
     padding: 24px;
     text-align: center;
     background:
-        radial-gradient(ellipse at center, rgba(27, 11, 51, 0) 30%, rgba(27, 11, 51, .75) 100%),
-        repeating-conic-gradient(rgba(27, 11, 51, .28) 0 25%, transparent 0 50%) 0 0 / 6px 6px;
+        radial-gradient(ellipse at center, rgba(42, 26, 14, 0) 30%, rgba(42, 26, 14, .75) 100%),
+        repeating-conic-gradient(rgba(42, 26, 14, .28) 0 25%, transparent 0 50%) 0 0 / 6px 6px;
 }
 
 .logo {
@@ -235,7 +240,7 @@ html, body {
     cursor: pointer;
 }
 .corner-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
-.settings { z-index: 25; background-color: rgba(27, 11, 51, .92); }
+.settings { z-index: 25; background-color: rgba(42, 26, 14, .92); }
 .toggles-col { flex-direction: column; align-items: stretch; width: min(270px, 100%); gap: 12px; }
 /* Interruptores de Ajustes: el nombre a la izquierda y un piloto SÍ/NO a la derecha */
 .toggles-col .toggle {
@@ -245,7 +250,7 @@ html, body {
     font-size: 13px;
     padding: 11px 12px 11px 16px;
     background: #fff;
-    box-shadow: 0 5px 0 var(--ink), inset 0 -4px 0 #d8d2ee;
+    box-shadow: 0 5px 0 var(--ink), inset 0 -4px 0 #e6d6b4;
 }
 .toggles-col .toggle::after {
     min-width: 46px;
@@ -258,8 +263,8 @@ html, body {
     border: 3px solid var(--ink);
     box-shadow: inset 0 -3px 0 #0e9a40;
 }
-.toggles-col .toggle.off { text-decoration: none; color: #8e86a8; background: #e8e4f4; }
-.toggles-col .toggle.off::after { background: #8e86a8; box-shadow: inset 0 -3px 0 #5a5478; }
+.toggles-col .toggle.off { text-decoration: none; color: #a8957a; background: #e8e4f4; }
+.toggles-col .toggle.off::after { background: #a8957a; box-shadow: inset 0 -3px 0 #5a5478; }
 .set-col { display: flex; flex-direction: column; gap: 12px; width: min(270px, 100%); }
 .set-col .set-btn { width: 100%; font-size: 11px; }
 /* Volver: el botón que manda en esta pantalla */
@@ -293,7 +298,7 @@ html, body {
     justify-content: center;
     background: var(--ink);
     border: 3px solid #fff;
-    box-shadow: 0 4px 0 rgba(27, 11, 51, .45);
+    box-shadow: 0 4px 0 rgba(42, 26, 14, .45);
     cursor: pointer;
     pointer-events: auto;
 }
@@ -312,13 +317,13 @@ html, body {
     cursor: pointer;
 }
 .toggle::after { content: ' SÍ'; }
-.toggle.off { background: #8e86a8; text-decoration: line-through; }
+.toggle.off { background: #a8957a; text-decoration: line-through; }
 .toggle.off::after { content: ' NO'; }
 html[lang="en"] .toggle::after { content: ' ON'; }
 html[lang="en"] .toggle.off::after { content: ' OFF'; }
 
 .btn-small { font-size: 12px; padding: 12px 18px; background: #fff; animation: none; box-shadow: 0 5px 0 var(--ink); }
-.btn-danger { margin-top: 26px; font-size: 9px; padding: 10px 12px; background: #3b2d6b; color: #ff9fb0; box-shadow: 0 4px 0 var(--ink); }
+.btn-danger { margin-top: 26px; font-size: 9px; padding: 10px 12px; background: #5a3a22; color: #ff9fb0; box-shadow: 0 4px 0 var(--ink); }
 .btn-danger.armed { background: #ff2a4a; color: #fff; animation: pulse .5s steps(2) infinite; }
 
 /* ---------- NOMBRE DEL ESCENARIO ---------- */
@@ -344,7 +349,7 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
     padding: 10px 14px;
     border: 4px solid #fff;
     transform: rotate(-2deg);
-    box-shadow: 6px 6px 0 rgba(27, 11, 51, .5);
+    box-shadow: 6px 6px 0 rgba(42, 26, 14, .5);
 }
 .stage-sub {
     margin-top: 12px;
@@ -395,7 +400,7 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
     justify-content: center;
     gap: 34px;
     /* Algo más claro que la tinta: así se ve el contorno del tanquecito */
-    background: #3b2d6b;
+    background: #5a3a22;
 }
 .loader.done { animation: ldOut .45s steps(4) forwards; }
 @keyframes ldOut { to { opacity: 0; visibility: hidden; } }
@@ -409,7 +414,7 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
 .ld-logo span:nth-child(4n+2) { color: var(--pink); animation-delay: .15s; }
 .ld-logo span:nth-child(4n+3) { color: var(--cyan); animation-delay: .3s; }
 .ld-logo span:nth-child(4n+4) { color: var(--orange); animation-delay: .45s; }
-.ld-logo span.g { color: #8e86a8; }
+.ld-logo span.g { color: #a8957a; }
 @keyframes ldHop { 50% { transform: translateY(-4px); } }
 .ld-road { position: relative; width: min(260px, 70vw); padding-top: 44px; }
 .ld-rider { position: absolute; top: 0; left: 0; width: 88px; height: 44px; transform: translateX(-50%); }
@@ -473,24 +478,6 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
     padding: calc(var(--safe-top) + 62px) 12px calc(max(18px, env(safe-area-inset-bottom)) + 18px);
 }
 .farm-ui button, .farm-ui .coins-badge { pointer-events: auto; }
-.farm-ui .logo { font-size: clamp(22px, 8.2vw, 54px); text-align: center; }
-.farm-ui .logo .word + .word { margin-top: 10px; }
-.farm-bottom { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 14px; }
-.harvest-btn {
-    font-size: clamp(18px, 6vw, 26px);
-    padding: 18px 30px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-.harvest-btn .wheat-ico { width: 27px; height: 30px; }
-.harvest-btn.pop { animation: harvestIn .5s steps(4) both, pulse 1s .5s steps(2) infinite; }
-@keyframes harvestIn {
-    0% { transform: translateY(80px) scale(.6); }
-    60% { transform: translateY(-10px) scale(1.15); }
-    100% { transform: none; }
-}
-.next-tag { font-size: 10px; line-height: 1.6; }
 
 /* ---------- FRANCOTIRADOR ---------- */
 .snipe-ui { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
@@ -506,7 +493,7 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
     color: #fff;
     background: var(--ink);
     border: 3px solid #fff;
-    box-shadow: 0 4px 0 rgba(27, 11, 51, .45);
+    box-shadow: 0 4px 0 rgba(42, 26, 14, .45);
 }
 .left-badge b { color: var(--yellow); font-weight: normal; }
 /* Esquinas del campo: cuatro cuadraditos, el tuyo en amarillo */
@@ -521,7 +508,7 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
     background: var(--ink);
     border: 3px solid #fff;
 }
-.corners i { width: 10px; height: 10px; background: #3b2d6b; }
+.corners i { width: 10px; height: 10px; background: #5a3a22; }
 .corners i.on { background: var(--yellow); box-shadow: inset -2px -2px 0 #ffb300; }
 .snipe-ui .coin-counter { top: max(14px, env(safe-area-inset-top)); }
 .coin-counter .wheat-ico { margin: -2px 0; }
@@ -536,41 +523,13 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
     color: var(--ink);
     background: #fff;
     border: 4px solid var(--ink);
-    box-shadow: 0 6px 0 var(--ink), inset 0 -5px 0 #d8d2ee;
+    box-shadow: 0 6px 0 var(--ink), inset 0 -5px 0 #e6d6b4;
     cursor: pointer;
 }
 .arrow-btn:active { transform: translateY(5px); box-shadow: 0 1px 0 var(--ink); }
 .arrow-btn.prev { left: 14px; }
 .arrow-btn.next { right: 14px; }
 
-.fire-btn {
-    position: absolute;
-    right: 18px;
-    bottom: calc(max(24px, env(safe-area-inset-bottom)) + 16px);
-    width: 96px;
-    height: 96px;
-    padding: 0;
-    font-size: 14px;
-    background: var(--pink);
-    color: #fff;
-    text-shadow: 2px 2px 0 var(--ink);
-    box-shadow: 0 7px 0 var(--ink), inset 0 -7px 0 #c4245f, inset 0 5px 0 #ff8fbd;
-    animation: none;
-}
-.fire-btn.wait { background: #8e86a8; box-shadow: 0 7px 0 var(--ink), inset 0 -7px 0 #6d6589, inset 0 5px 0 #b8b1cf; }
-.unscope-btn { position: absolute; left: 18px; bottom: calc(max(24px, env(safe-area-inset-bottom)) + 26px); }
-.rounds {
-    position: absolute;
-    right: 128px;
-    bottom: calc(max(24px, env(safe-area-inset-bottom)) + 22px);
-    width: 24px;
-    height: 36px;
-    background: var(--px-round) center / 100% 100% no-repeat;
-    image-rendering: pixelated;
-}
-.rounds.wait { opacity: .25; }
-.snipe-ui.scoped .arrow-btn, .snipe-ui.scoped .hint { display: none; }
-.snipe-ui:not(.scoped) .fire-btn, .snipe-ui:not(.scoped) .unscope-btn, .snipe-ui:not(.scoped) .rounds { display: none; }
 
 /* +1 que salta donde le das y el haz que vuela al contador */
 .pop-plus {
@@ -621,3 +580,173 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
     transition: opacity .6s;
 }
 .hint.gone { opacity: 0; }
+
+/* ---------- IDENTIDAD: cartel del título ----------
+   Tablones de madera clavados; "CALL OF" estarcido en verde militar con una mira en la O y
+   "FARM DUTY" en dorado trigo con sombra de madera. */
+.title-sign {
+    position: relative;
+    padding: 16px 20px 20px;
+    background:
+        repeating-linear-gradient(180deg, transparent 0 22px, var(--wood-dark) 22px 25px),
+        linear-gradient(var(--wood), var(--wood));
+    border: 4px solid var(--ink);
+    box-shadow: 0 8px 0 var(--ink), inset 0 4px 0 #c08a52, inset 0 -6px 0 var(--wood-dark);
+    text-align: center;
+    transform: rotate(-2deg);
+    animation: signSwing 2.4s steps(4) infinite;
+}
+/* Clavos en las esquinas */
+.title-sign::before, .title-sign::after {
+    content: '';
+    position: absolute;
+    top: 7px;
+    width: 6px;
+    height: 6px;
+    background: #d8d0c0;
+    box-shadow: 0 0 0 2px var(--ink);
+}
+.title-sign::before { left: 7px; }
+.title-sign::after { right: 7px; }
+@keyframes signSwing { 50% { transform: rotate(1deg); } }
+.ts-top {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 3px;
+    font-size: clamp(14px, 4.6vw, 22px);
+    color: #c8d870;
+    letter-spacing: 2px;
+    text-shadow: 3px 3px 0 var(--ink);
+}
+/* Estarcido: una franja hueca en mitad de cada letra */
+.ts-top span { position: relative; }
+.ts-top span::after { content: ''; position: absolute; left: -2px; right: -2px; top: 44%; height: 2px; background: var(--wood); }
+.ts-scope {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    background: var(--px-reticle) center / 100% 100% no-repeat;
+    image-rendering: pixelated;
+    filter: drop-shadow(3px 3px 0 var(--ink));
+    animation: scopePulse 1.6s steps(2) infinite;
+}
+@keyframes scopePulse { 50% { transform: scale(.82); } }
+.ts-main {
+    margin-top: 12px;
+    font-size: clamp(26px, 9.4vw, 52px);
+    white-space: nowrap;
+    color: var(--yellow);
+    text-shadow: 0 4px 0 var(--orange), 0 8px 0 var(--wood-dark), 4px 0 0 var(--ink), -4px 0 0 var(--ink), 0 -4px 0 var(--ink), 0 12px 0 var(--ink);
+}
+.ts-main span { display: inline-block; animation: hop 1.6s steps(6) infinite; }
+.ts-main span:nth-child(2n) { animation-delay: .2s; color: #ffe07a; }
+.ts-main span:nth-child(3n) { animation-delay: .4s; }
+.loader {
+    gap: 44px;
+    background: #6fae48 repeating-conic-gradient(rgba(42, 26, 14, .08) 0 25%, transparent 0 50%) 0 0 / 16px 16px;
+}
+.settings .title-sign { margin-bottom: 6px; }
+
+/* ---------- MAPA: ficha inferior del edificio o campo ---------- */
+.panel {
+    position: absolute;
+    left: 50%;
+    bottom: calc(max(14px, env(safe-area-inset-bottom)) + 10px);
+    width: min(360px, calc(100vw - 24px));
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 14px 18px;
+    background: var(--cream);
+    color: var(--ink);
+    border: 4px solid var(--ink);
+    box-shadow: 0 7px 0 var(--ink), inset 0 -6px 0 #e6d6b4;
+    pointer-events: auto;
+}
+.panel.in { animation: panelIn .3s steps(3) both; }
+@keyframes panelIn { from { transform: translate(-50%, 60px); } }
+.panel-title {
+    font-size: 13px;
+    padding: 7px 10px;
+    margin-top: -34px;
+    color: var(--cream);
+    background: var(--barn);
+    border: 3px solid var(--ink);
+    box-shadow: 0 4px 0 var(--ink);
+    text-shadow: 2px 2px 0 var(--ink);
+}
+.panel-text { font-size: 9px; line-height: 1.8; text-align: center; }
+.panel-track { width: 100%; height: 16px; padding: 2px; background: var(--ink); }
+.panel-track i { display: block; height: 100%; width: 0; background: repeating-linear-gradient(90deg, var(--yellow) 0 8px, #e8a82a 8px 12px); }
+.panel-x {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    font-family: var(--font);
+    font-size: 11px;
+    color: var(--ink);
+    background: #fff;
+    border: 3px solid var(--ink);
+    cursor: pointer;
+}
+.harvest-btn { font-size: 16px; padding: 14px 22px; display: flex; align-items: center; gap: 10px; }
+.harvest-btn .wheat-ico { width: 22px; height: 24px; }
+
+/* Burbujas de RECOGER: salen de cada campo maduro y botan */
+.bubbles { position: fixed; inset: 0; z-index: 9; pointer-events: none; }
+.bubble {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    font-family: var(--font);
+    font-size: 9px;
+    color: var(--ink);
+    background: var(--yellow);
+    border: 3px solid var(--ink);
+    box-shadow: 0 4px 0 var(--ink), inset 0 -3px 0 #e8a82a;
+    transform: translate(-50%, -100%);
+    pointer-events: auto;
+    cursor: pointer;
+    white-space: nowrap;
+    animation: bubbleBob 1s steps(2) infinite;
+}
+.bubble::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -11px;
+    width: 10px;
+    height: 8px;
+    margin-left: -5px;
+    background: var(--ink);
+    clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+.bubble .wheat-ico { width: 14px; height: 16px; }
+@keyframes bubbleBob { 50% { transform: translate(-50%, calc(-100% - 5px)); } }
+
+/* ---------- FRANCOTIRADOR ---------- */
+.reticle {
+    position: fixed;
+    z-index: 12;
+    width: 36px;
+    height: 36px;
+    margin: -18px 0 0 -18px;
+    background: var(--px-reticle) center / 100% 100% no-repeat;
+    image-rendering: pixelated;
+    pointer-events: none;
+    display: none;
+}
+@media (hover: hover) and (pointer: fine) {
+    body.sniping { cursor: none; }
+    body.sniping:not(.scoped) .reticle { display: block; }
+    body.sniping button { cursor: pointer; }
+}
+.snipe-ui .hint { font-size: 8px; }

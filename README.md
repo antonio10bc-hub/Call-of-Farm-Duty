@@ -3,11 +3,11 @@
 Granja voxel con estética de consola portátil (mismo estudio y estilo que Tank-less): el trigo crece en la granja y lo cosechas desde una torreta con un rifle de francotirador en primera persona.
 
 ## Cómo se juega
-- **Granja (menú principal):** granero en el centro y 8 parcelas de trigo que crecen solas. Cuando alguna está lista aparece **¡RECOGER!**.
-- **Francotirador:** el campo es un cuadrilátero con una torreta en cada esquina.
-  - Móvil: toca para apuntar con la mira, arrastra para afinar, toca o pulsa FUEGO para disparar. Desliza a izquierda/derecha (o las flechas) para cambiar de esquina.
-  - Teclado: espacio/enter apunta y dispara, WASD/flechas afinan con la mira, A/D o Q/E cambian de esquina, Esc sale de la mira / vuelve a la granja.
-  - Mando: A/RT apuntar y disparar, stick para afinar, LB/RB esquinas, B salir.
+- **Granja:** un mapa que se gestiona tocando sus edificios (granero, silo, casa, torre de vigía, tractor) y sus 6 campos de trigo, que crecen solos. Arrastra para moverte; pellizca o usa la rueda para el zoom. Sobre cada campo maduro sale **¡RECOGER!**.
+- **Francotirador:** desde una torre en cada esquina del campo.
+  - Móvil: mantén el dedo para apuntar (zoom hacia ese punto), muévelo para mover la mira despacio y suéltalo para disparar. Un deslizamiento rápido a izquierda/derecha (o las flechas) cambia de torre; también se puede apuntar y disparar durante el salto.
+  - Ordenador: la mirilla sigue al ratón; mantén el botón derecho para apuntar y suéltalo para disparar. Q/E o A/D cambian de torre, espacio mantiene/suelta la mira, Esc vuelve a la granja.
+  - Mando: A/RT mantener y soltar, stick para la mira, LB/RB torres, B salir.
   - El botón GRANJA vuelve en cualquier momento; lo recogido se guarda.
 
 ## Desarrollo

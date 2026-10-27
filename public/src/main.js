@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { THEME } from './content/theme.js';
+import { CROPS } from './content/crops.js';
+import { INFO } from './content/farm.js';
 import { RetroRenderer } from './render/RetroRenderer.js';
 import { CameraRig } from './render/CameraRig.js';
 import { Particles } from './render/Particles.js';
@@ -15,9 +17,12 @@ import { Music } from './core/Music.js';
 import { Settings } from './core/Settings.js';
 import { L, applyHtmlTexts, switchLang } from './core/I18n.js';
 import { vibrate } from './core/Haptics.js';
+import { clamp } from './core/math.js';
 
 const $ = (id) => document.getElementById(id);
-const INK = 0x1b0b33;
+const INK = THEME.outline;
+const M = CONFIG.map;
+const S = CONFIG.sniper;
 
 Settings.load();
 applyHtmlTexts();
@@ -40,23 +45,32 @@ function addLights(scene) {
     scene.add(sun, new THREE.HemisphereLight(light.sky, light.ground, light.hemiIntensity));
 }
 
-// ---------- Granja ----------
+// ---------- Granja (mapa) ----------
 const farmScene = new THREE.Scene();
+farmScene.background = new THREE.Color(THEME.sky);
 addLights(farmScene);
 const farm = new Farm(THEME);
 farmScene.add(farm.root);
-const farmParticles = new Particles(farmScene, 400);
-const rig = new CameraRig(CONFIG.camera);
+const farmParticles = new Particles(farmScene, 500);
+const rig = new CameraRig(M);
 rig.free = true;
-rig.setBounds(farm.cols, farm.rows);
-rig.focus(farm.cx, farm.cz + 0.6);
+rig.setBounds(M.view, M.view);
+rig.yaw = rig.yawTarget = M.yaw;
+const home = { x: 14, z: 16 };
+rig.focus(home.x, home.z);
 rig.snap();
+farm.onLand = (m) => {
+    const p = m.root.position;
+    farmParticles.burst(p.x, 0.1, p.z, 18, [THEME.dust, 0xd9b77a], { speed: 2.4, up: 1.4, size: 0.14, ttl: 0.5 });
+    rig.shake(0.18);
+    sfx.play('drop');
+};
 
 // ---------- Francotirador ----------
 const sniper = new Sniper(THEME, {
     sfx,
-    onHit(sheaf, nx, ny) {
-        state.collect(sheaf.plot);
+    onHit(target, nx, ny) {
+        state.collect(target.plot);
         const x = (nx * 0.5 + 0.5) * innerWidth, y = (-ny * 0.5 + 0.5) * innerHeight;
         popPlus(x, y);
         flyWheat(x, y, $('snipe-wheat'), () => updateCounts(true));
@@ -84,10 +98,15 @@ renderer.onResize = (w, h) => {
 renderer.resize();
 
 // ---------- Interfaz ----------
-let mode = 'farm';   // 'farm' | 'toSnipe' | 'snipe' | 'toFarm'
+let mode = 'farm'; // 'farm' | 'toSnipe' | 'snipe' | 'toFarm'
 let modeT = 0;
 let time = 0;
-let lastReady = -1;
+let selected = null; // { structure } | { field }
+const ray = new THREE.Raycaster();
+const ndcOf = (x, y) => {
+    const r = canvas.getBoundingClientRect();
+    return new THREE.Vector2(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1);
+};
 
 function updateCounts(bump = false) {
     $('wheat-count').textContent = state.wheat;
@@ -112,9 +131,9 @@ function banner(text, cls = '') {
 }
 
 function stage(name, sub) {
-    const el = $('stage');
     $('stage-name').textContent = name;
     $('stage-sub').textContent = sub;
+    const el = $('stage');
     el.classList.remove('show');
     void el.offsetWidth;
     el.classList.add('show');
@@ -130,7 +149,7 @@ function popPlus(x, y) {
     setTimeout(() => el.remove(), 900);
 }
 
-// Un haz pixelado vuela a saltos hasta el contador
+// Una espiga pixelada vuela a saltos hasta el contador
 function flyWheat(x, y, target, done) {
     const el = document.createElement('i');
     el.className = 'fly-wheat';
@@ -142,61 +161,122 @@ function flyWheat(x, y, target, done) {
         { left: `${x + (tx - x) * 0.2}px`, top: `${y - 60}px`, transform: 'scale(1.3)', offset: 0.3 },
         { left: `${tx}px`, top: `${ty}px`, transform: 'scale(.8)' },
     ], { duration: 650, easing: 'steps(8)' });
-    anim.onfinish = () => { el.remove(); done(); };
+    anim.onfinish = () => {
+        el.remove();
+        done();
+    };
 }
 
 function showCorner(i) {
     [...$('corners').children].forEach((el, k) => el.classList.toggle('on', k === i));
 }
 
-function refreshFarmUi(force = false) {
-    const ready = state.readyPlots().length;
-    const btn = $('btn-harvest'), tag = $('next-tag');
-    if (ready !== lastReady || force) {
-        btn.classList.toggle('hidden', ready === 0);
-        tag.classList.toggle('hidden', ready > 0);
-        if (ready > 0 && lastReady <= 0) {
-            btn.classList.remove('pop');
-            void btn.offsetWidth;
-            btn.classList.add('pop');
-            if (lastReady === 0) sfx.play('itemSpawn');
-        }
-        lastReady = ready;
+const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.ceil(s) % 60).padStart(2, '0')}`;
+
+// Burbujas de "¡RECOGER!" encima de cada campo maduro (salen de la propia granja)
+const bubbles = [];
+for (let i = 0; i < PLOT_COUNT; i++) {
+    const b = document.createElement('button');
+    b.className = 'bubble hidden';
+    b.innerHTML = `<span class="wheat-ico"></span><span>${L('HARVEST!', '¡RECOGER!')}</span>`;
+    b.addEventListener('pointerdown', (e) => e.stopPropagation());
+    b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        harvest(i);
+    });
+    $('bubbles').appendChild(b);
+    bubbles.push(b);
+}
+
+function placeBubbles() {
+    const show = mode === 'farm' && farm.introT > 1.6;
+    const v = new THREE.Vector3();
+    for (let i = 0; i < PLOT_COUNT; i++) {
+        const b = bubbles[i];
+        const on = show && state.isReady(i);
+        if (on && b.classList.contains('hidden')) {
+            b.classList.remove('hidden');
+            sfx.play('itemSpawn');
+        } else if (!on) b.classList.add('hidden');
+        if (!on) continue;
+        farm.fieldTop(i, v).project(rig.camera);
+        b.style.left = `${(v.x * 0.5 + 0.5) * innerWidth}px`;
+        b.style.top = `${(-v.y * 0.5 + 0.5) * innerHeight}px`;
     }
-    if (ready === 0) {
-        const s = Math.ceil(state.nextReadyIn());
-        tag.innerHTML = `${L('GROWING...', 'CRECIENDO...')}<br>${L('READY IN', 'LISTO EN')} ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+// Ficha del edificio o campo tocado
+function select(what) {
+    selected = what;
+    const panel = $('panel');
+    if (!what) {
+        panel.classList.add('hidden');
+        return;
     }
+    sfx.play('ui');
+    panel.classList.remove('hidden', 'in');
+    void panel.offsetWidth;
+    panel.classList.add('in');
+    if (what.structure) {
+        const m = farm.byId[what.structure];
+        m.select();
+        rig.focus(m.def.x, m.def.z + 1);
+    } else {
+        const f = farm.fields[what.field];
+        rig.focus(f.cx, f.cz + 1);
+    }
+    refreshPanel();
+}
+
+function refreshPanel() {
+    if (!selected) return;
+    const title = $('panel-title'), text = $('panel-text'), bar = $('panel-bar'), act = $('panel-action');
+    if (selected.structure) {
+        const m = farm.byId[selected.structure];
+        title.textContent = m.def.name;
+        text.textContent = selected.structure === 'barn' ? `${INFO.barn} ${L('WHEAT', 'TRIGO')}: ${state.wheat}` : INFO[selected.structure];
+        bar.parentElement.classList.add('hidden');
+        act.classList.add('hidden');
+        return;
+    }
+    const i = selected.field, p = state.progress(i), ready = state.isReady(i);
+    title.textContent = `${L('WHEAT FIELD', 'CAMPO DE TRIGO')} ${i + 1}`;
+    text.textContent = ready
+        ? L(`RIPE! ${state.plots[i].left} BUNDLES TO HARVEST.`, `¡MADURO! ${state.plots[i].left} MATAS PARA RECOGER.`)
+        : `${L('GROWING... READY IN', 'CRECIENDO... LISTO EN')} ${fmt((1 - p) * CROPS.wheat.growTime)}`;
+    bar.parentElement.classList.remove('hidden');
+    bar.style.width = `${Math.round(p * 20) * 5}%`;
+    act.classList.toggle('hidden', !ready);
 }
 
 function startMusic(cfg) {
-    if (!Settings.music) return;
-    music.start(cfg, 7);
+    if (Settings.music) music.start(cfg, 7);
 }
 
 // ---------- Transiciones ----------
-function harvest() {
-    if (mode !== 'farm' || !state.readyPlots().length) return;
+let harvestField = -1;
+function harvest(i) {
+    if (mode !== 'farm' || !state.isReady(i)) return;
     sfx.unlock();
     sfx.play('go');
     vibrate('pickup');
+    harvestField = i;
     mode = 'toSnipe';
     modeT = 0;
-    // La cámara baja hacia una de las parcelas listas
-    const p = farm.plots[state.readyPlots()[0]];
-    rig.focus(p.x, p.z);
-    rig.zoomTarget = 0.42;
-    $('btn-harvest').classList.add('hidden');
+    select(null);
+    const f = farm.fields[i];
+    rig.focus(f.cx, f.cz);
+    rig.zoomTarget = M.zoomMin * 0.8;
 }
 
 function enterSnipe() {
-    const plots = state.readyPlots().map((plot) => ({ plot, count: state.plots[plot].left }));
-    sniper.enter(plots);
+    sniper.enter([{ plot: harvestField, count: state.plots[harvestField].left }]);
     mode = 'snipe';
     renderer.flash(INK, 1);
     $('farm-ui').classList.add('hidden');
+    $('bubbles').classList.add('hidden');
     $('snipe-ui').classList.remove('hidden');
-    $('snipe-ui').classList.remove('scoped');
+    document.body.classList.add('sniping');
     $('left-count').textContent = sniper.field.remaining;
     showCorner(0);
     updateCounts();
@@ -208,7 +288,8 @@ function goFarm(done = false) {
     if (mode !== 'snipe') return;
     mode = 'toFarm';
     modeT = 0;
-    sniper.setScoped(false);
+    aim = null;
+    sniper.release(false);
     if (!done) sfx.play('ui');
     goFarm.done = done;
 }
@@ -218,66 +299,136 @@ function enterFarm() {
     mode = 'farm';
     renderer.flash(INK, 1);
     scope.show(false);
+    document.body.classList.remove('sniping');
     $('snipe-ui').classList.add('hidden');
     $('farm-ui').classList.remove('hidden');
+    $('bubbles').classList.remove('hidden');
     rig.zoomTarget = 1;
-    rig.zoom = 0.55;
-    rig.focus(farm.cx, farm.cz + 0.6);
-    lastReady = -1;
-    refreshFarmUi(true);
     updateCounts();
     startMusic(THEME.music);
     if (goFarm.done) {
-        farm.barn.cheer();
+        const f = farm.fields[harvestField];
+        farm.byId.barn.select();
         setTimeout(() => stage(L('HARVEST DONE!', '¡COSECHA HECHA!'), `${L('WHEAT', 'TRIGO')}: ${state.wheat}`), 300);
+        rig.focus(f.cx, f.cz);
     }
 }
 
-// ---------- Entrada: toques, ratón, teclado y mando ----------
-let touch = null;
-function onCanvas(e) {
-    return e.target === canvas || e.target === $('scope') || e.target === document.body || e.target.classList.contains('snipe-ui');
+// ---------- Entrada ----------
+// Mapa: arrastrar desplaza, pellizcar o la rueda hacen zoom, tocar selecciona.
+// Francotirador: mantener apunta, mover desplaza la mira despacio, soltar dispara. Un
+// deslizamiento rápido en horizontal cambia de torre (sin disparar).
+const pointers = new Map();
+let pan = null, pinch = null, aim = null;
+
+function unitsPerPx() {
+    return (rig.halfWidth * rig.zoom * 2) / innerWidth;
 }
-const ndc = (x, y) => {
-    const r = canvas.getBoundingClientRect();
-    return [((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1];
-};
+
+function panBy(dx, dy) {
+    const u = unitsPerPx(), y = rig.yaw, sp = Math.sin((M.pitch * Math.PI) / 180);
+    // Derecha de la pantalla y "hacia dentro" sobre el suelo
+    const rx = Math.cos(y), rz = -Math.sin(y), fx = -Math.sin(y), fz = -Math.cos(y);
+    rig.fx = clamp(rig.fx - rx * dx * u + fx * dy * u / sp, 2, farm.size - 2);
+    rig.fz = clamp(rig.fz - rz * dx * u + fz * dy * u / sp, 2, farm.size - 2);
+}
+
+function zoomBy(k) {
+    rig.zoomTarget = clamp(rig.zoomTarget * k, M.zoomMin, M.zoomMax);
+}
+
+function isUi(e) {
+    return e.target.closest && e.target.closest('button, .panel, .screen');
+}
 
 addEventListener('pointerdown', (e) => {
     sfx.unlock();
     if (!music.playing && Settings.music && sfx.ctx) startMusic(mode === 'snipe' ? THEME.sniperMusic : THEME.music);
-    if (mode !== 'snipe' || !onCanvas(e)) return;
-    if (e.button === 2) {
-        sniper.scoped ? sniper.setScoped(false) : sniper.scopeAt(0, 0);
-        return;
-    }
-    touch = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, t: performance.now(), moved: false };
-});
-addEventListener('pointermove', (e) => {
-    if (!touch || e.pointerId !== touch.id || mode !== 'snipe') return;
-    const dx = e.clientX - touch.lx, dy = e.clientY - touch.ly;
-    touch.lx = e.clientX;
-    touch.ly = e.clientY;
-    if (Math.hypot(e.clientX - touch.x, e.clientY - touch.y) > 10) touch.moved = true;
-    if (sniper.scoped) sniper.aim(dx, dy);
-});
-addEventListener('pointerup', (e) => {
-    if (!touch || e.pointerId !== touch.id) return;
-    const t = touch;
-    touch = null;
-    if (mode !== 'snipe') return;
-    const dx = e.clientX - t.x, dy = e.clientY - t.y, dur = performance.now() - t.t;
-    if (sniper.scoped) {
-        if (!t.moved && dur < 350) sniper.fire();
-    } else if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.3 && dur < 700) {
-        sniper.goCorner(dx < 0 ? 1 : -1);
-    } else if (!t.moved) {
-        sniper.scopeAt(...ndc(e.clientX, e.clientY));
+    if (isUi(e)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (mode === 'farm') {
+        if (pointers.size === 2) {
+            const [a, b] = [...pointers.values()];
+            pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) };
+            pan = null;
+        } else pan = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, moved: false };
+    } else if (mode === 'snipe' && !aim) {
+        // Ratón: botón derecho (o izquierdo) mantiene la mira; dedo: cualquier toque
+        aim = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, t: performance.now() };
+        const n = ndcOf(e.clientX, e.clientY);
+        sniper.press(n.x, n.y);
     }
 });
-addEventListener('pointercancel', () => (touch = null));
-addEventListener('contextmenu', (e) => e.preventDefault());
 
+addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'mouse') moveReticle(e.clientX, e.clientY);
+    const p = pointers.get(e.pointerId);
+    if (p) {
+        p.x = e.clientX;
+        p.y = e.clientY;
+    }
+    if (mode === 'farm') {
+        if (pinch && pointers.size >= 2) {
+            const [a, b] = [...pointers.values()];
+            const d = Math.hypot(a.x - b.x, a.y - b.y);
+            zoomBy(pinch.d / d);
+            pinch.d = d;
+        } else if (pan && e.pointerId === pan.id) {
+            const dx = e.clientX - pan.lx, dy = e.clientY - pan.ly;
+            pan.lx = e.clientX;
+            pan.ly = e.clientY;
+            if (Math.hypot(e.clientX - pan.x, e.clientY - pan.y) > 8) pan.moved = true;
+            if (pan.moved) panBy(dx, dy);
+        }
+    } else if (mode === 'snipe' && aim && e.pointerId === aim.id) {
+        sniper.drag(e.clientX - aim.lx, e.clientY - aim.ly);
+        aim.lx = e.clientX;
+        aim.ly = e.clientY;
+    }
+});
+
+function endPointer(e, cancel) {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinch = null;
+    if (mode === 'farm' && pan && e.pointerId === pan.id) {
+        if (!pan.moved && !cancel) tapMap(e.clientX, e.clientY);
+        pan = null;
+    }
+    if (mode === 'snipe' && aim && e.pointerId === aim.id) {
+        const dx = e.clientX - aim.x, dy = e.clientY - aim.y, dur = performance.now() - aim.t;
+        aim = null;
+        if (cancel) sniper.release(false);
+        else if (dur < S.flickTime && Math.abs(dx) > S.flickDist && Math.abs(dx) > Math.abs(dy) * 1.3) {
+            // Deslizamiento rápido: cambio de torre, sin disparar
+            sniper.release(false);
+            sniper.goCorner(dx < 0 ? 1 : -1);
+        } else sniper.release(true);
+    }
+}
+addEventListener('pointerup', (e) => endPointer(e, false));
+addEventListener('pointercancel', (e) => endPointer(e, true));
+addEventListener('contextmenu', (e) => e.preventDefault());
+addEventListener('wheel', (e) => {
+    if (mode === 'farm') zoomBy(Math.exp(e.deltaY * 0.0012));
+}, { passive: true });
+
+function tapMap(x, y) {
+    ray.setFromCamera(ndcOf(x, y), rig.camera);
+    const hit = farm.pick(ray);
+    if (!hit) return select(null);
+    if (hit.field !== undefined && state.isReady(hit.field) && selected && selected.field === hit.field) return harvest(hit.field);
+    select(hit);
+}
+
+// Mirilla del ratón (ordenador): una cruz pixelada que sigue al cursor en primera persona
+function moveReticle(x, y) {
+    const r = $('reticle');
+    r.style.left = `${x}px`;
+    r.style.top = `${y}px`;
+}
+
+// Teclado: espacio/enter mantiene la mira (soltar dispara), WASD/flechas la mueven;
+// A/D o Q/E sin mira cambian de torre; Esc vuelve a la granja.
 const keys = new Set();
 addEventListener('keydown', (e) => {
     sfx.unlock();
@@ -285,17 +436,35 @@ addEventListener('keydown', (e) => {
     keys.add(k);
     if (e.repeat) return;
     if (mode === 'farm') {
-        if (k === 'enter' || k === ' ') harvest();
+        if (k === 'escape') select(null);
+        if (k === 'enter' || k === ' ') {
+            const i = state.readyPlots()[0];
+            if (i !== undefined) harvest(i);
+        }
         return;
     }
     if (mode !== 'snipe') return;
-    if (k === ' ' || k === 'enter') sniper.scoped ? sniper.fire() : sniper.scopeAt(0, 0);
-    else if (k === 'escape' || k === 'backspace' || k === 'shift') sniper.scoped ? sniper.setScoped(false) : goFarm();
+    if (k === ' ' || k === 'enter') sniper.press(0, 0);
+    else if (k === 'escape' || k === 'backspace') sniper.scoped ? sniper.release(false) : goFarm();
     else if (k === 'q' || (!sniper.scoped && (k === 'a' || k === 'arrowleft'))) sniper.goCorner(-1);
     else if (k === 'e' || (!sniper.scoped && (k === 'd' || k === 'arrowright'))) sniper.goCorner(1);
 });
-addEventListener('keyup', (e) => keys.delete(e.key.toLowerCase()));
+addEventListener('keyup', (e) => {
+    const k = e.key.toLowerCase();
+    keys.delete(k);
+    if (mode === 'snipe' && (k === ' ' || k === 'enter') && !aim) sniper.release(true);
+});
 
+function keyInput(dt) {
+    const x = (keys.has('d') || keys.has('arrowright') ? 1 : 0) - (keys.has('a') || keys.has('arrowleft') ? 1 : 0);
+    const y = (keys.has('s') || keys.has('arrowdown') ? 1 : 0) - (keys.has('w') || keys.has('arrowup') ? 1 : 0);
+    if (!x && !y) return;
+    if (mode === 'snipe' && sniper.scoped) sniper.drag(x * dt * 260, y * dt * 260);
+    else if (mode === 'farm') panBy(-x * dt * 500, -y * dt * 500);
+}
+
+// Mando: A/RT mantienen la mira (soltar dispara), stick izquierdo la mueve, LB/RB cambian de
+// torre, B sale. En la granja el stick desplaza el mapa y A recoge el primer campo maduro.
 const padPrev = [];
 function pollPad(dt) {
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -303,24 +472,23 @@ function pollPad(dt) {
     if (!pad) return;
     const pressed = (i) => pad.buttons[i] && pad.buttons[i].pressed;
     const down = (i) => pressed(i) && !padPrev[i];
-    if (mode === 'farm' && down(0)) harvest();
-    if (mode === 'snipe') {
-        const ax = Math.abs(pad.axes[0]) > 0.15 ? pad.axes[0] : 0, ay = Math.abs(pad.axes[1]) > 0.15 ? pad.axes[1] : 0;
-        if (sniper.scoped) sniper.aim(ax * dt * 600, ay * dt * 600);
-        if (down(0) || down(7)) sniper.scoped ? sniper.fire() : sniper.scopeAt(0, 0);
-        if (down(6)) sniper.scoped ? sniper.setScoped(false) : sniper.scopeAt(0, 0);
-        if (down(1)) sniper.scoped ? sniper.setScoped(false) : goFarm();
+    const up = (i) => !pressed(i) && padPrev[i];
+    const ax = Math.abs(pad.axes[0]) > 0.15 ? pad.axes[0] : 0, ay = Math.abs(pad.axes[1]) > 0.15 ? pad.axes[1] : 0;
+    if (mode === 'farm') {
+        if (ax || ay) panBy(-ax * dt * 600, -ay * dt * 600);
+        if (down(0)) {
+            const i = state.readyPlots()[0];
+            if (i !== undefined) harvest(i);
+        }
+    } else if (mode === 'snipe') {
+        if (sniper.scoped) sniper.drag(ax * dt * 300, ay * dt * 300);
+        if (down(0) || down(7)) sniper.press(0, 0);
+        if (up(0) || up(7)) sniper.release(true);
+        if (down(1)) sniper.scoped ? sniper.release(false) : goFarm();
         if (down(4) || down(14)) sniper.goCorner(-1);
         if (down(5) || down(15)) sniper.goCorner(1);
     }
     pad.buttons.forEach((b, i) => (padPrev[i] = b.pressed));
-}
-
-function keyAim(dt) {
-    if (mode !== 'snipe' || !sniper.scoped) return;
-    const x = (keys.has('d') || keys.has('arrowright') ? 1 : 0) - (keys.has('a') || keys.has('arrowleft') ? 1 : 0);
-    const y = (keys.has('s') || keys.has('arrowdown') ? 1 : 0) - (keys.has('w') || keys.has('arrowup') ? 1 : 0);
-    if (x || y) sniper.aim(x * dt * 500, y * dt * 500);
 }
 
 // Botones
@@ -329,12 +497,11 @@ const tapBtn = (id, fn) => $(id).addEventListener('click', (e) => {
     sfx.unlock();
     fn();
 });
-tapBtn('btn-harvest', harvest);
 tapBtn('btn-home', () => goFarm());
 tapBtn('btn-prev', () => sniper.goCorner(-1));
 tapBtn('btn-next', () => sniper.goCorner(1));
-tapBtn('btn-fire', () => sniper.fire());
-tapBtn('btn-unscope', () => sniper.setScoped(false));
+tapBtn('panel-action', () => selected && selected.field !== undefined && harvest(selected.field));
+tapBtn('panel-close', () => select(null));
 tapBtn('btn-settings', () => {
     sfx.play('ui');
     $('settings').classList.remove('hidden');
@@ -359,8 +526,6 @@ for (const el of document.querySelectorAll('.toggle')) {
         sfx.play('ui');
     });
 }
-// Botones de la interfaz: no cuentan como toque en el campo
-for (const el of document.querySelectorAll('button')) el.addEventListener('pointerdown', (e) => e.stopPropagation());
 try {
     if (sessionStorage.getItem('cofd.reopenSettings')) {
         sessionStorage.removeItem('cofd.reopenSettings');
@@ -371,57 +536,59 @@ try {
 // ---------- Bucle ----------
 let last = performance.now();
 let uiT = 0;
+const _w = new THREE.Vector3();
 function frame(now) {
     requestAnimationFrame(frame);
     const dt = Math.min(CONFIG.sim.maxFrame, (now - last) / 1000);
     last = now;
     time += dt;
     pollPad(dt);
-    keyAim(dt);
+    keyInput(dt);
 
     if (mode === 'farm' || mode === 'toSnipe') {
         const progress = [];
         for (let i = 0; i < PLOT_COUNT; i++) progress.push(state.progress(i));
         farm.update(dt, time, progress);
-        if (mode === 'farm') {
-            // La cámara pasea despacio sobre la granja
-            rig.yawTarget = Math.sin(time * 0.09) * 0.45;
-            rig.focus(farm.cx + Math.sin(time * 0.13) * 0.5, farm.cz + 0.6 + Math.cos(time * 0.1) * 0.4);
-            uiT -= dt;
-            if (uiT <= 0) {
-                uiT = 0.25;
-                refreshFarmUi();
-            }
-        } else {
+        if (mode === 'toSnipe') {
             modeT += dt;
             renderer.flash(INK, Math.max(0, (modeT - 0.35) / 0.4));
             if (modeT > 0.8) enterSnipe();
         }
-        // Destellos sobre las parcelas listas y pétalos del clima
+        uiT -= dt;
+        if (uiT <= 0) {
+            uiT = 0.25;
+            refreshPanel();
+        }
+        // Humo de la chimenea y del tractor; destellos sobre los campos maduros
+        if (Math.random() < dt * 5) {
+            const h = farm.byId.house;
+            h.root.localToWorld(_w.copy(h.chimney));
+            farmParticles.spawn(_w.x, _w.y, _w.z, 0.2 + Math.random() * 0.2, 0.7, 0.1, 0.18 + Math.random() * 0.1, 2.2, Math.random() < 0.5 ? 0xe8e4dc : 0xcfc8c0, -0.1);
+        }
         progress.forEach((p, i) => {
-            if (p >= 1 && Math.random() < dt * 6) {
-                const pl = farm.plots[i];
-                weatherParticle(farmParticles, 'sparkle', pl.x + (Math.random() - 0.5) * 3, pl.z + (Math.random() - 0.5) * 3, Math.random() < 0.5 ? 0xffffff : 0xffe03a);
+            if (p >= 1 && Math.random() < dt * 4) {
+                const f = farm.fields[i];
+                weatherParticle(farmParticles, 'sparkle', f.x + Math.random() * f.w, f.z + Math.random() * f.d, Math.random() < 0.5 ? 0xffffff : 0xffe03a);
+                farmParticles.y[farmParticles.n - 1] = 1.1;
             }
         });
         if (Math.random() < dt * THEME.ambient.rate) {
             const c = THEME.ambient.colors;
-            weatherParticle(farmParticles, THEME.ambient.kind, farm.cx + (Math.random() - 0.5) * 18, farm.cz + (Math.random() - 0.5) * 18, c[(Math.random() * c.length) | 0]);
+            weatherParticle(farmParticles, THEME.ambient.kind, rig.fx + (Math.random() - 0.5) * 20, rig.fz + (Math.random() - 0.5) * 20, c[(Math.random() * c.length) | 0]);
         }
         farmParticles.update(dt);
         farmParticles.sync();
         rig.update(dt);
+        placeBubbles();
         renderer.render(farmScene, rig.camera, dt);
     }
     if (mode === 'snipe' || mode === 'toFarm') {
         sniper.update(dt);
-        const ui = $('snipe-ui');
-        ui.classList.toggle('scoped', sniper.scoped);
-        scope.show(sniper.scoped && sniper.fov < (CONFIG.sniper.fov + CONFIG.sniper.scopeFov) * 0.5);
+        $('snipe-ui').classList.toggle('scoped', sniper.scoped);
+        document.body.classList.toggle('scoped', sniper.scoped);
+        scope.show(sniper.fov < (S.fov + S.scopeFov) * 0.5);
         scope.setReady(sniper.canFire);
-        $('btn-fire').classList.toggle('wait', !sniper.canFire);
-        $('rounds').classList.toggle('wait', !sniper.canFire);
-        $('snipe-hint').classList.toggle('gone', sniper.moving);
+        $('snipe-hint').classList.toggle('gone', sniper.moving || sniper.scoped);
         if (mode === 'toFarm') {
             modeT += dt;
             renderer.flash(INK, Math.min(1, modeT / 0.35));
@@ -432,14 +599,13 @@ function frame(now) {
 }
 
 updateCounts();
-refreshFarmUi(true);
 requestAnimationFrame(frame);
-window.__loaded = true;
+// La portada (título) se queda un momento aunque cargue rápido
+setTimeout(() => (window.__loaded = true), 900);
 
-// Service worker: en la web publicada (en local no, para no quedarse con versiones viejas)
 if ('serviceWorker' in navigator && !/^(localhost|127\.)/.test(location.hostname)) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
 // Para las pruebas (Playwright)
-window.game = { state, sniper, farm, get mode() { return mode; }, harvest, goFarm };
+window.game = { state, sniper, farm, rig, get mode() { return mode; }, harvest, goFarm, select };

@@ -2,15 +2,16 @@ import { L } from '../core/I18n.js';
 
 // Cultivos. De momento solo trigo.
 //   growTime   segundos reales desde que se siembra hasta que está listo
-//   stages     colores de los tallos en cada fase (semilla → brote → verde → dorado)
-//   sheaves    haces que aparecen en el campo de tiro por cada parcela lista
+//   stages     color de los tallos en cada fase (brote → verde → amarillando → maduro)
+//   ear        color de la espiga madura
+//   sheaves    matas maduras que aparecen en el campo de tiro por cada campo listo
 export const CROPS = {
     wheat: {
         name: L('WHEAT', 'TRIGO'),
-        growTime: 25,
-        stages: [0x6fbf3a, 0x5cc83e, 0x9ad84a, 0xffd23f],
-        ear: 0xffe680,
-        sheaves: 4,
-        sheaf: { body: 0xffc93a, dark: 0xd6962a, band: 0xc0462a, ear: 0xfff0a0 },
+        growTime: 30,
+        stages: [0x6fbf3a, 0x8fcc40, 0xc8c84a, 0xe8b830],
+        ear: 0xf6cf4a,
+        earDark: 0xd9a42e,
+        sheaves: 6,
     },
 };

@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import { box, toon, outline, OUTLINE } from '../render/materials.js';
 import { easeOutBack } from '../core/math.js';
-import { SheafModel } from '../render/SheafModel.js';
+import { Tower } from '../render/structures.js';
 import { CROPS } from '../content/crops.js';
 import { FIELD } from '../content/field.js';
 
 const _d = new THREE.Object3D();
 const _c = new THREE.Color();
-const HAY = 0xffd23f, HAY_DARK = 0xe6a400, WOOD = 0xb8763a;
+const _w = new THREE.Color(0xffffff);
+const CLUMP = 20; // tallos por mata madura
 
 // Punto dentro del polígono (regla del rayo)
 function inside(poly, x, z) {
@@ -31,97 +32,122 @@ function edgeDist(poly, x, z) {
     return best;
 }
 
-// Campo de tiro: una isla en forma de cuadrilátero de lados distintos, con una torreta de
-// paja en cada esquina y los haces de trigo repartidos dentro.
+// Campo de tiro: un campo de trigo en forma de cuadrilátero de lados distintos, con una
+// torre de vigía en cada esquina. Las matas maduras son los blancos.
 export class SniperField {
-    constructor(theme, eyeHeight) {
+    constructor(theme) {
         this.theme = theme;
         this.poly = FIELD.corners;
         this.cx = this.poly.reduce((s, p) => s + p.x, 0) / this.poly.length;
         this.cz = this.poly.reduce((s, p) => s + p.z, 0) / this.poly.length;
-        // Torretas: un poco por fuera de cada esquina
-        this.towers = this.poly.map((p) => {
-            const dx = p.x - this.cx, dz = p.z - this.cz, d = Math.hypot(dx, dz);
-            return { x: p.x + (dx / d) * FIELD.towerOut, z: p.z + (dz / d) * FIELD.towerOut, y: eyeHeight };
-        });
         this.root = new THREE.Group();
         this.animated = [];
-        this.trash = [];
-        this.sheaves = [];
+        this.targets = [];
         this.introT = 0;
+        // Torres: un poco por fuera de cada esquina, girada hacia el centro
+        this.towers = this.poly.map((p) => {
+            const dx = p.x - this.cx, dz = p.z - this.cz, d = Math.hypot(dx, dz);
+            const t = new Tower(theme.outline, true);
+            const x = p.x + (dx / d) * FIELD.towerOut, z = p.z + (dz / d) * FIELD.towerOut;
+            t.root.position.set(x, 0, z);
+            t.root.rotation.y = Math.atan2(this.cx - x, this.cz - z) + Math.PI;
+            this.root.add(t.root);
+            return { x, z, floor: 3.2, model: t };
+        });
         this.build();
-    }
-
-    own(o) {
-        this.trash.push(o);
-        return o;
     }
 
     build() {
         const { theme, root } = this;
-        const sea = new THREE.Mesh(this.own(new THREE.PlaneGeometry(800, 800)), this.own(new THREE.MeshBasicMaterial({ color: theme.sea })));
-        sea.rotation.x = -Math.PI / 2;
-        sea.position.set(this.cx, -0.8, this.cz);
-        root.add(sea);
+        const far = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), toon(theme.grassFar));
+        far.rotation.x = -Math.PI / 2;
+        far.position.set(this.cx, -0.31, this.cz);
+        root.add(far);
 
-        // Casillas del campo (y bajo las torretas): suelo a cuadros sobre columnas de isla
-        const xs = [...this.poly, ...this.towers].map((p) => p.x), zs = [...this.poly, ...this.towers].map((p) => p.z);
-        const c0 = Math.floor(Math.min(...xs)) - 2, c1 = Math.ceil(Math.max(...xs)) + 2;
-        const r0 = Math.floor(Math.min(...zs)) - 2, r1 = Math.ceil(Math.max(...zs)) + 2;
-        this.cells = [];
+        // Casillas alrededor del campo: dentro tierra arada, fuera hierba
+        const xs = this.poly.map((p) => p.x), zs = this.poly.map((p) => p.z);
+        const c0 = Math.floor(Math.min(...xs)) - 7, c1 = Math.ceil(Math.max(...xs)) + 7;
+        const r0 = Math.floor(Math.min(...zs)) - 7, r1 = Math.ceil(Math.max(...zs)) + 7;
+        const tiles = [];
+        for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) tiles.push({ c, r, soil: inside(this.poly, c + 0.5, r + 0.5) });
+        const floor = new THREE.InstancedMesh(box(1, 0.3, 1), toon(0xffffff), tiles.length);
+        tiles.forEach(({ c, r, soil }, i) => floor.setColorAt(i, _c.setHex(soil ? theme.soil[r & 1] : theme.grass[(c * 5 + r * 3) % 3]).offsetHSL(0, 0, (Math.random() - 0.5) * theme.grassJitter)));
+        this.addAnimated(floor, tiles.map(({ c, r, soil }) => ({ x: c + 0.5, y: soil ? -0.12 : -0.15, z: r + 0.5 })));
+
+        // Rastrojo: trigo bajo por todo el campo (decorado, no se dispara)
+        const stub = [];
         for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
-            const x = c + 0.5, z = r + 0.5;
-            const nearTower = this.towers.some((t) => Math.hypot(t.x - x, t.z - z) < 1.6);
-            if (inside(this.poly, x, z) || edgeDist(this.poly, x, z) < 0.9 || nearTower) this.cells.push({ c, r, x, z });
-        }
-        this.cellSet = new Set(this.cells.map(({ c, r }) => `${c},${r}`));
-        const floor = new THREE.InstancedMesh(box(1, 0.3, 1), this.own(toon(0xffffff)), this.cells.length);
-        this.cells.forEach(({ c, r }, i) => floor.setColorAt(i, _c.setHex(theme.floor[(c + r) & 1]).offsetHSL(0, 0, (Math.random() - 0.5) * theme.floorJitter)));
-        this.addAnimated(floor, this.cells.map(({ x, z }) => ({ x, y: -0.15, z })));
-        const col = new THREE.InstancedMesh(box(1, 2.2, 1), this.own(toon(theme.island)), this.cells.length);
-        this.addAnimated(col, this.cells.map(({ x, z }) => ({ x, y: -1.4, z })));
-        const colHull = new THREE.InstancedMesh(box(1 + OUTLINE * 2, 2.2, 1 + OUTLINE * 2), this.own(outline(theme.outline)), this.cells.length);
-        this.addAnimated(colHull, this.cells.map(({ x, z }) => ({ x, y: -1.4, z })));
-
-        // Matas de hierba y flores sueltas
-        const tufts = [], flowers = [];
-        for (const { x, z } of this.cells) {
-            if (Math.random() < 0.08) tufts.push({ x: x + (Math.random() - 0.5) * 0.5, y: 0.18, z: z + (Math.random() - 0.5) * 0.5, sx: 0.26, sy: 0.24, sz: 0.26, ry: Math.random() });
-            if (Math.random() < 0.18) flowers.push({ x: x + (Math.random() - 0.5) * 0.7, y: 0.04, z: z + (Math.random() - 0.5) * 0.7, sx: 0.1, sy: 0.08, sz: 0.1 });
-        }
-        const tm = this.addHulled(0xffffff, tufts);
-        tufts.forEach((_, i) => tm.setColorAt(i, _c.setHex(theme.bush[i % theme.bush.length])));
-        const fm = new THREE.InstancedMesh(box(1, 1, 1), this.own(toon(0xffffff)), Math.max(1, flowers.length));
-        flowers.forEach((_, i) => fm.setColorAt(i, _c.setHex(theme.flowers[(Math.random() * theme.flowers.length) | 0])));
-        this.addAnimated(fm, flowers);
-
-        // Torretas: pilas de balas de paja con barandilla
-        const bales = [], bands = [], posts = [];
-        for (const t of this.towers) {
-            const levels = Math.round((t.y - 1.3) / 0.6);
-            for (let k = 0; k < levels; k++) {
-                const s = 1.5 - k * 0.12, y = 0.3 + k * 0.6;
-                bales.push({ x: t.x, y, z: t.z, sx: s, sy: 0.6, sz: s, ry: k * 0.3 });
-                bands.push({ x: t.x, y, z: t.z, sx: s + 0.04, sy: 0.1, sz: s + 0.04, ry: k * 0.3 });
+            for (let k = 0; k < 3; k++) {
+                const x = c + Math.random(), z = r + Math.random();
+                if (!inside(this.poly, x, z)) continue;
+                const h = 0.1 + Math.random() * 0.18;
+                stub.push({ x, y: h / 2, z, sx: 0.05, sy: h, sz: 0.05, ry: 0, tone: Math.random() });
             }
-            const top = levels * 0.6;
-            for (const [ox, oz] of [[-0.6, -0.6], [0.6, -0.6], [0.6, 0.6], [-0.6, 0.6]]) posts.push({ x: t.x + ox, y: top + 0.25, z: t.z + oz, sx: 0.1, sy: 0.5, sz: 0.1 });
-            t.floor = top;
         }
-        const bm = this.addHulled(HAY, bales);
-        bales.forEach((_, i) => bm.setColorAt(i, _c.setHex(i % 2 ? HAY : HAY_DARK)));
-        const band = new THREE.InstancedMesh(box(1, 1, 1), this.own(toon(WOOD)), bands.length);
-        this.addAnimated(band, bands);
-        this.addHulled(WOOD, posts);
+        const sm = new THREE.InstancedMesh(box(1, 1, 1), toon(0xffffff), Math.max(1, stub.length));
+        stub.forEach((s, i) => sm.setColorAt(i, _c.setHex(s.tone < 0.7 ? 0xb8a050 : CROPS.wheat.stages[1]).offsetHSL(0, 0, (s.tone - 0.5) * 0.1)));
+        this.addAnimated(sm, stub);
 
-        this.buildFoam();
-        this.buildClouds();
+        // Valla a lo largo de los bordes del campo
+        const posts = [];
+        for (let i = 0; i < this.poly.length; i++) {
+            const a = this.poly[i], b = this.poly[(i + 1) % this.poly.length];
+            const len = Math.hypot(b.x - a.x, b.z - a.z), n = Math.ceil(len / 1.2);
+            for (let k = 0; k <= n; k++) posts.push({ x: a.x + ((b.x - a.x) * k) / n, y: 0.3, z: a.z + ((b.z - a.z) * k) / n, sx: 0.12, sy: 0.6, sz: 0.12 });
+        }
+        this.addHulled(0x9a6a3a, posts);
+
+        // Árboles alrededor, y colinas a lo lejos
+        const trunks = [], leaves = [];
+        for (let k = 0; k < 60; k++) {
+            const a = Math.random() * Math.PI * 2, d = 20 + Math.random() * 16, s = 0.9 + Math.random() * 0.7;
+            const x = this.cx + Math.sin(a) * d, z = this.cz + Math.cos(a) * d;
+            trunks.push({ x, y: 0.5 * s, z, sx: 0.3 * s, sy: s, sz: 0.3 * s });
+            leaves.push({ x, y: 1.35 * s, z, sx: 1.5 * s, sy: 0.9 * s, sz: 1.5 * s, ry: k, k: 0 });
+            leaves.push({ x, y: 2.0 * s, z, sx: 1.05 * s, sy: 0.7 * s, sz: 1.05 * s, ry: k + 0.4, k: 1 });
+        }
+        this.addHulled(0x7a4f2a, trunks);
+        const lm = this.addHulled(0xffffff, leaves);
+        leaves.forEach((p, i) => lm.setColorAt(i, _c.setHex(theme.leaves[(p.k + i) % 3])));
+        // Nubes
+        const mat = toon(theme.clouds), hullMat = outline(theme.outline);
+        this.clouds = [];
+        for (let i = 0; i < 10; i++) {
+            const g = new THREE.Group();
+            const parts = 3 + (i % 3);
+            for (let k = 0; k < parts; k++) {
+                const w = 1.8 + Math.random() * 2, h = 0.8 + Math.random() * 0.5, d = 1.4 + Math.random();
+                const m = new THREE.Mesh(box(1, 1, 1), mat);
+                m.scale.set(w, h, d);
+                m.position.set(k * 1.4 - parts * 0.7, Math.random() * 0.4, (Math.random() - 0.5) * 0.8);
+                const o = new THREE.Mesh(box(1, 1, 1), hullMat);
+                o.scale.set(w + OUTLINE * 2, h + OUTLINE * 2, d + OUTLINE * 2);
+                o.position.copy(m.position);
+                g.add(m, o);
+            }
+            const a = (i / 10) * Math.PI * 2;
+            g.position.set(this.cx + Math.sin(a) * (30 + Math.random() * 15), 10 + Math.random() * 6, this.cz + Math.cos(a) * (30 + Math.random() * 15));
+            g.userData.speed = 0.3 + Math.random() * 0.4;
+            root.add(g);
+            this.clouds.push(g);
+        }
+
+        // Matas maduras (los blancos): tallos y espigas instanciados, se rellenan en spawn()
+        const max = 64 * CLUMP;
+        this.tStalks = new THREE.InstancedMesh(box(1, 1, 1), toon(0xffffff), max);
+        this.tEars = new THREE.InstancedMesh(box(1, 1, 1), toon(0xffffff), max);
+        for (const m of [this.tStalks, this.tEars]) {
+            m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+            m.frustumCulled = false;
+            m.count = 0;
+            root.add(m);
+        }
     }
 
     addHulled(color, pts) {
         const n = Math.max(1, pts.length);
-        const mesh = new THREE.InstancedMesh(box(1, 1, 1), this.own(toon(color)), n);
-        const hull = new THREE.InstancedMesh(box(1, 1, 1), this.own(outline(this.theme.outline)), n);
+        const mesh = new THREE.InstancedMesh(box(1, 1, 1), toon(color), n);
+        const hull = new THREE.InstancedMesh(box(1, 1, 1), outline(this.theme.outline), n);
         this.addAnimated(mesh, pts);
         this.addAnimated(hull, pts.map((p) => ({ ...p, sx: (p.sx || 1) + OUTLINE * 2, sy: (p.sy || 1) + OUTLINE * 2, sz: (p.sz || 1) + OUTLINE * 2 })));
         return mesh;
@@ -130,7 +156,7 @@ export class SniperField {
     addAnimated(mesh, positions) {
         mesh.frustumCulled = false;
         mesh.count = positions.length;
-        const delays = positions.map((p) => Math.hypot(p.x - this.cx, p.z - this.cz) * 0.03);
+        const delays = positions.map((p) => Math.min(1.2, Math.hypot(p.x - this.cx, p.z - this.cz) * 0.03));
         const entry = { mesh, positions, delays };
         this.animated.push(entry);
         this.root.add(mesh);
@@ -151,137 +177,103 @@ export class SniperField {
         mesh.instanceMatrix.needsUpdate = true;
     }
 
-    buildFoam() {
-        // Espuma por fuera de las casillas del borde
-        const pts = [];
-        for (const { c, r, x, z } of this.cells) {
-            for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-                if (this.cellSet.has(`${c + dc},${r + dr}`)) continue;
-                for (let k = 0; k < 2; k++) {
-                    pts.push({ x: x + dc * (0.75 + Math.random() * 0.3) + (dr ? (Math.random() - 0.5) : 0), z: z + dr * (0.75 + Math.random() * 0.3) + (dc ? (Math.random() - 0.5) : 0), ph: Math.random() * 6, s: 0.12 + Math.random() * 0.16 });
-                }
-            }
-        }
-        const mesh = new THREE.InstancedMesh(box(1, 1, 1), this.own(new THREE.MeshBasicMaterial({ color: this.theme.foam })), pts.length);
-        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        mesh.frustumCulled = false;
-        this.root.add(mesh);
-        this.foam = { mesh, pts };
-    }
-
-    buildClouds() {
-        const mat = this.own(toon(this.theme.clouds)), hullMat = this.own(outline(this.theme.outline));
-        this.clouds = [];
-        for (let i = 0; i < 9; i++) {
-            const g = new THREE.Group();
-            const parts = 3 + (i % 3);
-            for (let k = 0; k < parts; k++) {
-                const w = 1.4 + Math.random() * 1.6, h = 0.7 + Math.random() * 0.5, d = 1.2 + Math.random();
-                const m = new THREE.Mesh(box(1, 1, 1), mat);
-                m.scale.set(w, h, d);
-                m.position.set(k * 1.2 - parts * 0.6, Math.random() * 0.4, (Math.random() - 0.5) * 0.8);
-                const o = new THREE.Mesh(box(1, 1, 1), hullMat);
-                o.scale.set(w + OUTLINE * 2, h + OUTLINE * 2, d + OUTLINE * 2);
-                o.position.copy(m.position);
-                g.add(m, o);
-            }
-            const a = (i / 9) * Math.PI * 2;
-            g.position.set(this.cx + Math.sin(a) * (24 + Math.random() * 10), 6 + Math.random() * 5, this.cz + Math.cos(a) * (24 + Math.random() * 10));
-            g.userData.speed = 0.3 + Math.random() * 0.4;
-            this.root.add(g);
-            this.clouds.push(g);
-        }
-    }
-
-    // Coloca un haz por cada uno que quede en las parcelas listas (plots: [{plot, count}])
+    // Coloca una mata por cada haz que quede (plots: [{ plot, count }])
     spawnSheaves(plots) {
-        this.clearSheaves();
-        const m = FIELD.margin, list = [];
+        this.targets.length = 0;
+        const list = [];
         for (const { plot, count } of plots) for (let k = 0; k < count; k++) list.push(plot);
         const xs = this.poly.map((p) => p.x), zs = this.poly.map((p) => p.z);
-        list.forEach((plot, i) => {
+        list.slice(0, 64).forEach((plot, i) => {
             let x = 0, z = 0;
             for (let tries = 0; tries < 80; tries++) {
                 x = Math.min(...xs) + Math.random() * (Math.max(...xs) - Math.min(...xs));
                 z = Math.min(...zs) + Math.random() * (Math.max(...zs) - Math.min(...zs));
-                if (!inside(this.poly, x, z) || edgeDist(this.poly, x, z) < m) continue;
-                if (this.sheaves.some((s) => Math.hypot(s.x - x, s.z - z) < 1.6)) continue;
+                if (!inside(this.poly, x, z) || edgeDist(this.poly, x, z) < FIELD.margin) continue;
+                if (this.targets.some((s) => Math.hypot(s.x - x, s.z - z) < 1.6)) continue;
                 break;
             }
-            const model = new SheafModel(CROPS.wheat.sheaf, this.theme.outline);
-            model.root.position.set(x, 30, z);
-            this.root.add(model.root);
-            this.sheaves.push({ model, plot, x, z, alive: true, drop: -0.6 - i * 0.12, landed: false });
+            const stalks = Array.from({ length: CLUMP }, () => {
+                const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * 0.38;
+                return { ox: Math.sin(a) * r, oz: Math.cos(a) * r, h: 1.2 + Math.random() * 0.45 - r * 0.6, tilt: (Math.random() - 0.5) * 0.25, dir: Math.random() * Math.PI * 2, ph: Math.random() * 6, tone: Math.random() };
+            });
+            this.targets.push({ plot, x, z, stalks, alive: true, grow: -0.5 - i * 0.06, landed: false, flash: 0, dying: 0 });
         });
+        this.tStalks.count = this.tEars.count = this.targets.length * CLUMP;
     }
 
     clearSheaves() {
-        for (const s of this.sheaves) {
-            this.root.remove(s.model.root);
-            s.model.dispose();
-        }
-        this.sheaves.length = 0;
+        this.targets.length = 0;
+        this.tStalks.count = this.tEars.count = 0;
+    }
+
+    get sheaves() {
+        return this.targets;
     }
 
     get remaining() {
-        return this.sheaves.reduce((n, s) => n + (s.alive ? 1 : 0), 0);
+        return this.targets.reduce((n, s) => n + (s.alive ? 1 : 0), 0);
     }
 
-    // Rayo contra las cajas de los haces vivos: devuelve el más cercano o null
+    // Rayo contra las cajas de las matas vivas: devuelve la más cercana o null
     raycast(origin, dir) {
         let best = null, bestT = Infinity;
-        for (const s of this.sheaves) {
+        for (const s of this.targets) {
             if (!s.alive || !s.landed) continue;
-            const t = rayBox(origin, dir, s.x - 0.38, 0, s.z - 0.38, s.x + 0.38, 1.25, s.z + 0.38);
+            const t = rayBox(origin, dir, s.x - 0.5, 0, s.z - 0.5, s.x + 0.5, 1.8, s.z + 0.5);
             if (t !== null && t < bestT) { bestT = t; best = s; }
         }
         return best ? { sheaf: best, t: bestT } : null;
     }
 
-    // onLand(sheaf): cuando un haz toca el suelo (polvo, sonido)
+    // onLand(target): cuando una mata termina de brotar
     update(dt, time, eye, onLand) {
-        if (this.introT < 2) {
+        if (this.introT < 2.2) {
             this.introT += dt;
             for (const a of this.animated) this.layout(a, this.introT);
         }
-        for (const s of this.sheaves) {
-            const r = s.model.root;
-            if (!s.alive) continue;
+        this.targets.forEach((s, ti) => {
             if (!s.landed) {
-                s.drop += dt;
-                const k = Math.min(1, Math.max(0, s.drop / 0.55));
-                r.position.y = 14 * (1 - k * k);
-                s.model.placeShadow(r.position.y);
+                s.grow += dt;
+                const k = Math.min(1, Math.max(0, s.grow / 0.5));
+                s.g = k <= 0 ? 0.0001 : easeOutBack(k);
                 if (k >= 1) {
                     s.landed = true;
-                    r.position.y = 0;
-                    s.model.placeShadow(0);
-                    s.squash = 1;
                     if (onLand) onLand(s);
                 }
             }
-            // Aplastamiento al aterrizar
-            if (s.squash > 0) {
-                s.squash = Math.max(0, s.squash - dt * 4);
-                const q = Math.sin(s.squash * Math.PI) * 0.3;
-                r.scale.set(1 + q, 1 - q, 1 + q);
-            }
-            // Mira hacia la torreta
-            r.rotation.y = Math.atan2(eye.x - s.x, eye.z - s.z);
-            s.model.update(dt, time);
-        }
-        const { mesh, pts } = this.foam;
-        pts.forEach((p, i) => {
-            const sc = p.s * (0.8 + Math.sin(time * 3 + p.ph) * 0.35);
-            _d.position.set(p.x, -0.78 + Math.sin(time * 2 + p.ph) * 0.05, p.z);
-            _d.rotation.set(0, p.ph + time * 0.5, 0);
-            _d.scale.set(sc * 2, sc * 0.5, sc * 2);
-            _d.updateMatrix();
-            mesh.setMatrixAt(i, _d.matrix);
+            if (s.dying > 0) s.dying = Math.max(0, s.dying - dt);
+            const gone = !s.alive && s.dying <= 0;
+            const pop = !s.alive ? 1 + (0.14 - s.dying) * 2.5 : 1;
+            s.flash = Math.max(0, s.flash - dt * 6);
+            s.stalks.forEach((st, k) => {
+                const i = ti * CLUMP + k;
+                const h = st.h * (s.g || 0.0001) * (gone ? 0.0001 : 1);
+                // Viento: se mecen en ola, más las de arriba
+                const sway = st.tilt + Math.sin(time * 1.8 - s.x * 0.4 + st.ph * 0.2) * 0.1;
+                const sx = Math.sin(st.dir) * Math.sin(sway), sz = Math.cos(st.dir) * Math.sin(sway);
+                _d.position.set(s.x + st.ox * pop + sx * h / 2, Math.cos(sway) * h / 2, s.z + st.oz * pop + sz * h / 2);
+                _d.rotation.set(Math.cos(st.dir) * sway, 0, -Math.sin(st.dir) * sway);
+                _d.scale.set(0.06 * pop, Math.max(0.0001, h), 0.06 * pop);
+                _d.updateMatrix();
+                this.tStalks.setMatrixAt(i, _d.matrix);
+                _c.setHex(CROPS.wheat.stages[3]).offsetHSL(0, 0, (st.tone - 0.5) * 0.1).lerp(_w, s.flash);
+                this.tStalks.setColorAt(i, _c);
+                const e = gone ? 0.0001 : (s.g || 0.0001) * pop;
+                _d.position.set(s.x + st.ox * pop + sx * (h + 0.12), Math.cos(sway) * (h + 0.12), s.z + st.oz * pop + sz * (h + 0.12));
+                _d.scale.set(0.11 * e, 0.28 * e, 0.11 * e);
+                _d.updateMatrix();
+                this.tEars.setMatrixAt(i, _d.matrix);
+                _c.setHex(st.tone < 0.5 ? CROPS.wheat.ear : CROPS.wheat.earDark).lerp(_w, s.flash);
+                this.tEars.setColorAt(i, _c);
+            });
         });
-        mesh.instanceMatrix.needsUpdate = true;
+        for (const m of [this.tStalks, this.tEars]) {
+            m.instanceMatrix.needsUpdate = true;
+            if (m.instanceColor) m.instanceColor.needsUpdate = true;
+        }
+        for (const t of this.towers) t.model.update(dt);
         for (const c of this.clouds) {
-            const a = Math.atan2(c.position.x - this.cx, c.position.z - this.cz) + c.userData.speed * dt * 0.02;
+            const a = Math.atan2(c.position.x - this.cx, c.position.z - this.cz) + c.userData.speed * dt * 0.015;
             const d = Math.hypot(c.position.x - this.cx, c.position.z - this.cz);
             c.position.x = this.cx + Math.sin(a) * d;
             c.position.z = this.cz + Math.cos(a) * d;

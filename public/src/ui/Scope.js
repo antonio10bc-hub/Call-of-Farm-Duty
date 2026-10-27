@@ -1,6 +1,6 @@
 // Mira telescópica: un canvas a la misma resolución baja que el juego (píxeles gordos), con
 // el círculo de la lente, la cruz y las marcas, todo en tinta. Fuera de la lente, negro tinta.
-const INK = '#1b0b33';
+const INK = '#2a1a0e';
 
 export class Scope {
     constructor(el) {
@@ -27,14 +27,14 @@ export class Scope {
         const R = Math.floor(Math.min(w, h) * 0.44);
         const img = ctx.createImageData(w, h);
         const d = img.data;
-        // Tinta #1b0b33 fuera, anillo morado y un brillo arriba a la izquierda dentro de la lente
+        // Tinta fuera, anillo de madera y un brillo arriba a la izquierda dentro de la lente
         for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
             const dx = x - cx, dy = y - cy, r = Math.sqrt(dx * dx + dy * dy);
             const i = (y * w + x) * 4;
             let c = null;
-            if (r > R + 3) c = [27, 11, 51, 255];
-            else if (r > R) c = [59, 45, 107, 255];
-            else if (r > R - 1) c = [27, 11, 51, 255];
+            if (r > R + 3) c = [42, 26, 14, 255];
+            else if (r > R) c = [90, 58, 34, 255];
+            else if (r > R - 1) c = [42, 26, 14, 255];
             else if (r > R - 4 && dx + dy < -R * 0.9) c = [255, 255, 255, 70];
             if (c) { d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = c[3]; }
         }
@@ -57,7 +57,7 @@ export class Scope {
         ctx.fillRect(cx + R - Math.floor(R * 0.3), cy - 1, Math.floor(R * 0.3), 3);
         ctx.fillRect(cx - 1, cy + R - Math.floor(R * 0.3), 3, Math.floor(R * 0.3));
         // Punto central: rosa si se puede disparar, gris mientras se recarga el cerrojo
-        ctx.fillStyle = ready ? '#ff3e8e' : '#8e86a8';
+        ctx.fillStyle = ready ? '#ff3a2a' : '#a8957a';
         ctx.fillRect(cx - 1, cy - 1, 3, 3);
         this.ready = ready;
     }

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { VoxelModel } from './VoxelModel.js';
 import { damp } from '../core/math.js';
 
-const WOOD = 0xd98a44, WOOD_DARK = 0x9a5a2a, METAL = 0x6a5ab8, METAL_DARK = 0x3b2d6b, BRASS = 0xffd23f;
+const WOOD = 0xb0703a, WOOD_DARK = 0x7a4824, METAL = 0x5c6068, METAL_DARK = 0x34373e, BRASS = 0xd9b04a;
 
 // Rifle de francotirador voxel en primera persona: va pegado a la cámara, abajo a la derecha.
 // Retrocede y se aplasta al disparar, se balancea al saltar de esquina y abre el cerrojo.

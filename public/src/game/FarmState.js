@@ -1,9 +1,10 @@
 import { CROPS } from '../content/crops.js';
+import { FARM } from '../content/farm.js';
 
 // Estado de la granja: parcelas con su hora de siembra y el trigo recogido. Se guarda en el
 // navegador; sin almacenamiento simplemente no se recuerda.
-const KEY = 'cofd.farm';
-export const PLOT_COUNT = 8;
+const KEY = 'cofd.farm.v2';
+export const PLOT_COUNT = FARM.fields.length;
 
 export class FarmState {
     constructor(now = Date.now()) {
@@ -12,7 +13,7 @@ export class FarmState {
         const grow = CROPS.wheat.growTime * 1000;
         this.plots = Array.from({ length: PLOT_COUNT }, (_, i) => ({
             crop: 'wheat',
-            plantedAt: i < 3 ? now - grow : now - grow * (i / PLOT_COUNT),
+            plantedAt: i < 2 ? now - grow : now - grow * (0.15 + 0.7 * (i / PLOT_COUNT)),
             left: CROPS.wheat.sheaves, // haces que quedan por recoger cuando está lista
         }));
         this.load();
