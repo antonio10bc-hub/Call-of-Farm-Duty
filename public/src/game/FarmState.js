@@ -33,6 +33,16 @@ export class FarmState {
         }
     }
 
+    // Borra la partida (trigo y campo); los ajustes y el idioma se quedan
+    static reset() {
+        try {
+            localStorage.removeItem(KEY);
+            localStorage.removeItem(OLD_KEY);
+        } catch {
+            /* sin almacenamiento */
+        }
+    }
+
     save() {
         try {
             localStorage.setItem(KEY, JSON.stringify({ wheat: this.wheat, level: this.level, plot: this.plot }));

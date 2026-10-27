@@ -267,6 +267,7 @@ html, body {
 .toggles-col .toggle.off::after { background: #a8957a; box-shadow: inset 0 -3px 0 #5a5478; }
 .set-col { display: flex; flex-direction: column; gap: 12px; width: min(270px, 100%); }
 .set-col .set-btn { width: 100%; font-size: 11px; }
+.set-col .btn-danger { margin-top: 0; font-size: 9px; }
 /* Volver: el botón que manda en esta pantalla */
 .home-btn { display: flex; align-items: center; justify-content: center; gap: 12px; width: min(270px, 100%); font-size: 18px; padding: 14px 16px; }
 .home-icon { width: 26px; height: 24px; background: var(--px-home) center / contain no-repeat; image-rendering: pixelated; }
@@ -388,6 +389,36 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
     35% { opacity: 1; transform: scale(1) rotate(2deg); }
     75% { opacity: 1; transform: scale(1) rotate(0); }
     100% { opacity: 0; transform: scale(.6) translateY(-30px); }
+}
+/* Medallas (colateral, doble/triple/multi kill): pequeñas, casi arriba del todo, bajo el contador */
+.medals {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: calc(var(--safe-top) + 92px);
+    z-index: 15;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    pointer-events: none;
+}
+.medal {
+    font-size: 12px;
+    padding: 5px 8px;
+    color: var(--yellow);
+    background: var(--ink);
+    border: 2px solid var(--yellow);
+    box-shadow: 0 3px 0 rgba(42, 26, 14, .6);
+    animation: medalPop 1.6s steps(8) forwards;
+}
+.medal.collateral { color: var(--cyan); border-color: var(--cyan); }
+.medal.multi { color: #fff; background: var(--barn); border-color: #fff; }
+@keyframes medalPop {
+    0% { opacity: 0; transform: scale(1.8); }
+    12% { opacity: 1; transform: scale(1); }
+    80% { opacity: 1; transform: none; }
+    100% { opacity: 0; transform: translateY(-10px); }
 }
 /* ---------- PANTALLA DE CARGA ---------- */
 .loader {

@@ -11,8 +11,10 @@ Granja voxel con estética de consola portátil (mismo estudio y estilo que Tank
   - Mando: sticks para mirar, LT apuntar (soltar dispara), RT/A disparar, LB/RB torres, B salir.
   - Precisión: sin la mira subida el tiro se dispersa mucho (no scope; en móvil, un toque rápido dispara desde la cadera). Girar la vista justo antes de disparar también abre el tiro. Al 95% de la subida desaparece la dispersión de cadera y la mira empieza a asentarse (medio segundo, con un leve temblor): un quickscope bien colocado acierta la gran mayoría de las veces. La mirilla se abre según la dispersión.
   - Colateral: la bala atraviesa todas las matas que pilla en línea hasta tocar el suelo, y las recoge todas.
+  - Medallas (pequeñas, arriba): COLATERAL xN, y DOBLE / TRIPLE / MULTI KILL al encadenar matas con menos de 3 s entre una y otra.
   - Si sueltas mientras el cerrojo recarga, el disparo sale en cuanto está listo. Se puede mirar, apuntar y disparar durante el salto entre torres.
   - El botón GRANJA vuelve en cualquier momento; lo recogido se guarda.
+- **Ajustes:** música, sonido, vibración, idioma y BORRAR PROGRESO (dos toques: borra el trigo y el campo, no los ajustes).
 
 ## Desarrollo
 ```

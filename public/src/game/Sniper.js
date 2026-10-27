@@ -20,7 +20,7 @@ const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) 
 // al ojo y hace zoom hacia donde se mira; con la mira la vista va más despacio; soltar dispara.
 // Se puede mirar, apuntar y disparar también mientras se salta de una torre a otra.
 export class Sniper {
-    // hooks: { sfx, onHit(target, ndcX, ndcY), onCollateral(n), onFinish(), onDone(), onCorner(i) }
+    // hooks: { sfx, onHit(target, ndcX, ndcY), onMedal({ collateral, streak }), onFinish(), onDone(), onCorner(i) }
     constructor(theme, hooks) {
         this.theme = theme;
         this.hooks = hooks;
@@ -93,6 +93,8 @@ export class Sniper {
         this.ending = -1;
         this.slowmo = 0;
         this.hitStop = 0;
+        this.streak = 0; // matas seguidas, cada una a menos de multiKillTime de la anterior
+        this.lastKill = -Infinity;
     }
 
     leave() {
@@ -250,7 +252,10 @@ export class Sniper {
             this.trauma = Math.min(1, this.trauma + 0.2 * hits.length);
             vibrate('pickup');
             sfx.play('harvest');
-            if (hits.length > 1 && this.hooks.onCollateral) this.hooks.onCollateral(hits.length);
+            // Medallas: colateral (varias de una bala) y racha (doble, triple, multi kill)
+            this.streak = (this.time - this.lastKill < S.multiKillTime ? this.streak : 0) + hits.length;
+            this.lastKill = this.time;
+            if (this.hooks.onMedal) this.hooks.onMedal({ collateral: hits.length, streak: this.streak });
             if (this.field.remaining === 0) this.finish();
         } else {
             const t = dir.y < -1e-3 ? -origin.y / dir.y : 80;

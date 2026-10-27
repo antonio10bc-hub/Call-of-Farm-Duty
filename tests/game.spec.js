@@ -201,6 +201,25 @@ test('colateral: una bala que atraviesa dos matas recoge las dos', async ({ page
     });
     expect(await shootNext(page)).toBe(true);
     await expect.poll(() => page.evaluate(() => game.state.wheat)).toBe(2);
-    await expect(page.locator('#banner')).toContainText('COLATERAL');
+    // Medallas pequeñas arriba: colateral y, al ser dos matas seguidas, doble kill
+    await expect(page.locator('#medals')).toContainText('COLATERAL x2');
+    await expect(page.locator('#medals')).toContainText('DOBLE KILL');
+    expect(errors).toEqual([]);
+});
+
+test('ajustes: borrar el progreso pide confirmación y deja la granja como al empezar', async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto('/');
+    await expect(page.locator('.bubble:not(.hidden)')).toHaveCount(1, { timeout: 30_000 });
+    await page.evaluate(() => { game.state.wheat = 7; game.upgradeField(); });
+    expect(await page.evaluate(() => [game.state.level, game.state.wheat])).toEqual([1, 4]);
+    await page.locator('#btn-settings').click();
+    // El primer toque solo arma el botón
+    await page.locator('#btn-reset').click();
+    await expect(page.locator('#btn-reset')).toHaveText('¿SEGURO? TOCA OTRA VEZ');
+    expect(await page.evaluate(() => game.state.level)).toBe(1);
+    await page.locator('#btn-reset').click();
+    await page.waitForLoadState('load');
+    await expect.poll(() => page.evaluate(() => window.game && [game.state.level, game.state.wheat])).toEqual([0, 0]);
     expect(errors).toEqual([]);
 });

@@ -76,9 +76,13 @@ const sniper = new Sniper(THEME, {
         flyWheat(x, y, $('snipe-wheat'), () => updateCounts(true));
         $('left-count').textContent = sniper.field.remaining;
     },
-    onCollateral(n) {
-        banner(`${L('COLLATERAL', '¡COLATERAL')} x${n}!`, 'go');
-        vibrate('kill');
+    onMedal({ collateral, streak }) {
+        if (collateral > 1) medal(`${L('COLLATERAL', 'COLATERAL')} x${collateral}`, 'collateral');
+        if (streak >= 2) {
+            const name = streak === 2 ? L('DOUBLE KILL', 'DOBLE KILL') : streak === 3 ? L('TRIPLE KILL', 'TRIPLE KILL') : `${L('MULTI KILL', 'MULTI KILL')} x${streak}`;
+            medal(name, streak >= 4 ? 'multi' : '');
+        }
+        if (collateral > 1 || streak >= 2) vibrate('kill');
     },
     onFinish() {
         setTimeout(() => banner(L('ALL IN!', '¡COSECHA COMPLETA!')), 250);
@@ -133,6 +137,18 @@ function banner(text, cls = '') {
     el.textContent = text;
     void el.offsetWidth;
     el.className = `banner show ${cls}`;
+}
+
+// Medallas de la partida (colateral, doble/triple/multi kill): pequeñas, arriba, se apilan
+function medal(text, cls = '') {
+    const feed = $('medals');
+    const el = document.createElement('div');
+    el.className = `medal ${cls}`;
+    el.textContent = text;
+    feed.prepend(el);
+    while (feed.children.length > 3) feed.lastChild.remove();
+    setTimeout(() => el.remove(), 1600);
+    sfx.play(cls === 'multi' ? 'power' : 'spot');
 }
 
 function stage(name, sub) {
@@ -611,6 +627,27 @@ tapBtn('btn-settings-close', () => {
     $('settings').classList.add('hidden');
 });
 tapBtn('btn-lang', switchLang);
+// Borrar el progreso: el primer toque arma el botón y el segundo (antes de 3 s) borra y recarga
+let resetArmed = 0;
+tapBtn('btn-reset', () => {
+    const el = $('btn-reset');
+    if (!resetArmed) {
+        sfx.play('ui');
+        el.classList.add('armed');
+        el.textContent = L('SURE? TAP AGAIN', '¿SEGURO? TOCA OTRA VEZ');
+        resetArmed = setTimeout(() => {
+            resetArmed = 0;
+            el.classList.remove('armed');
+            el.textContent = L('RESET PROGRESS', 'BORRAR PROGRESO');
+        }, 3000);
+        return;
+    }
+    clearTimeout(resetArmed);
+    FarmState.reset();
+    // Que la partida que sigue en memoria no vuelva a guardarse antes de recargar
+    state.save = () => {};
+    location.reload();
+});
 for (const el of document.querySelectorAll('.toggle')) {
     const key = el.dataset.key;
     el.classList.toggle('off', !Settings[key]);
