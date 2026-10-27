@@ -166,14 +166,14 @@ export class Sniper {
     }
 
     // Dispersión actual (radianes). Se suma:
-    //  - la de la cadera, que solo desaparece al final de la subida del arma
-    //  - la de una mira recién subida, que tarda un momento en asentarse
+    //  - la de la cadera, que desaparece al llegar al 90% de la subida del arma
+    //  - la de una mira recién subida (desde ese 90%), que tarda un momento en asentarse
     //  - la de estar girando la vista (un giro brusco justo antes de disparar falla)
     // y todo crece si se está saltando de torre.
     get spread() {
-        const k = clamp((this.adsK - 0.5) / 0.5, 0, 1);
+        const k = clamp((this.adsK - 0.4) / (S.adsReady - 0.4), 0, 1);
         const hip = S.hipSpread * (1 - k * k * (3 - 2 * k));
-        const settle = this.adsK >= 1 ? S.settleSpread * this.settle : this.adsK > 0.5 ? S.settleSpread : 0;
+        const settle = this.adsK >= S.adsReady ? S.settleSpread * this.settle : this.adsK > 0.4 ? S.settleSpread : 0;
         const turning = Math.min(S.lookSpreadMax, this.turnSpeed * S.lookSpread);
         return (hip + settle + turning) * (this.move ? 1 + S.moveSpread : 1);
     }
@@ -298,7 +298,7 @@ export class Sniper {
         // Subir/bajar el arma al ojo; el zoom sigue al arma con su propia curva
         this.adsK = Math.min(1, Math.max(0, this.adsK + (this.scoped ? 1 : -1.3) * rawDt / S.adsTime));
         // La mira recién subida tiembla y tarda en asentarse; bajarla lo reinicia
-        this.settle = this.adsK < 1 ? 1 : Math.max(0, this.settle - rawDt / S.settleTime);
+        this.settle = this.adsK < S.adsReady ? 1 : Math.max(0, this.settle - rawDt / S.settleTime);
         // Velocidad de giro de la vista (rad/s), suavizada
         if (rawDt > 0) this.turnSpeed += (this.turned / rawDt - this.turnSpeed) * (1 - Math.exp(-rawDt * 12));
         this.turned = 0;
@@ -319,7 +319,7 @@ export class Sniper {
         const shake = tr * 0.025 * (this.fov / S.fov);
         // Respiración con la mira (un ocho lento)
         const sw = S.sway * this.adsK;
-        const jitter = this.adsK >= 1 ? S.settleSway * this.settle * this.settle : 0;
+        const jitter = this.adsK >= S.adsReady ? S.settleSway * this.settle * this.settle : 0;
         const fovK = this.fov / S.fov;
         this.yaw = this.lookYaw + Math.sin(time * 0.9) * sw + Math.sin(time * 11) * jitter + this.kickYaw * this.kickP * 10 + (Math.random() * 2 - 1) * shake;
         this.pitch = clamp(this.lookPitch + Math.sin(time * 1.8) * sw * 0.6 + Math.cos(time * 13) * jitter * 0.8 + this.kickP * fovK + (Math.random() * 2 - 1) * shake, -1.5, 1.5);

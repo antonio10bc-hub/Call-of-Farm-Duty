@@ -36,8 +36,9 @@ export const CONFIG = {
         moveSpread: 0.5,    // extra (proporción) mientras se salta de torre
         lookSpread: 0.07,   // extra por cada rad/s que se está girando la vista (hay que asentarla)
         lookSpreadMax: 0.15,
-        settleTime: 0.5,    // s que tarda la mira en asentarse tras subir el arma
-        settleSpread: 0.06, // imprecisión de la mira recién subida (se va en settleTime)
+        adsReady: 0.9,      // desde este punto de la subida del arma ya no hay dispersión de cadera
+        settleTime: 0.5,    // s que tarda la mira en asentarse desde ese punto
+        settleSpread: 0.03, // imprecisión de la mira recién subida (se va en settleTime)
         settleSway: 0.012,  // temblor de la mira recién subida
         holdSlop: 9,        // px que puede moverse el dedo y seguir "quieto"
         edgeSwipe: 40,      // px desde el borde donde un deslizamiento cambia de torre
