@@ -219,7 +219,8 @@ export class SniperField {
         let best = null, bestT = Infinity;
         for (const s of this.targets) {
             if (!s.alive || !s.landed) continue;
-            const t = rayBox(origin, dir, s.x - 0.5, 0, s.z - 0.5, s.x + 0.5, 1.8, s.z + 0.5);
+            // La caja se ciñe a la silueta de la mata (tallos y espigas)
+            const t = rayBox(origin, dir, s.x - 0.36, 0, s.z - 0.36, s.x + 0.36, 1.55, s.z + 0.36);
             if (t !== null && t < bestT) { bestT = t; best = s; }
         }
         return best ? { sheaf: best, t: bestT } : null;

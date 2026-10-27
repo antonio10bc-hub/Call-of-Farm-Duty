@@ -69,9 +69,8 @@ farm.onLand = (m) => {
 // ---------- Francotirador ----------
 const sniper = new Sniper(THEME, {
     sfx,
-    onHit(target, nx, ny, style) {
+    onHit(target, nx, ny) {
         state.collect(target.plot);
-        if (style) callout(style === 'noscope' ? L('NO SCOPE!', '¡SIN MIRA!') : L('QUICKSCOPE!', '¡QUICKSCOPE!'), style);
         const x = (nx * 0.5 + 0.5) * innerWidth, y = (-ny * 0.5 + 0.5) * innerHeight;
         popPlus(x, y);
         flyWheat(x, y, $('snipe-wheat'), () => updateCounts(true));
@@ -138,17 +137,6 @@ function stage(name, sub) {
     el.classList.remove('show');
     void el.offsetWidth;
     el.classList.add('show');
-}
-
-// Cartel corto de jugada (sin mira, quickscope)
-function callout(text, cls) {
-    const el = $('callout');
-    el.className = 'callout';
-    el.textContent = text;
-    void el.offsetWidth;
-    el.className = `callout show ${cls}`;
-    sfx.play(cls === 'noscope' ? 'streak3' : 'streak2');
-    vibrate('kill');
 }
 
 function popPlus(x, y) {

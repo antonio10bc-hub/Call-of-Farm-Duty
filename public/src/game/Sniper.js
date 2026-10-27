@@ -20,8 +20,7 @@ const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) 
 // al ojo y hace zoom hacia donde se mira; con la mira la vista va más despacio; soltar dispara.
 // Se puede mirar, apuntar y disparar también mientras se salta de una torre a otra.
 export class Sniper {
-    // hooks: { sfx, onHit(target, ndcX, ndcY, style), onFinish(), onDone(), onCorner(i) }
-    //   style: 'noscope' | 'quickscope' | null
+    // hooks: { sfx, onHit(target, ndcX, ndcY), onFinish(), onDone(), onCorner(i) }
     constructor(theme, hooks) {
         this.theme = theme;
         this.hooks = hooks;
@@ -58,6 +57,9 @@ export class Sniper {
         this.dipP = 0;          // amortiguación al aterrizar en una torre
         this.dipV = 0;
         this.roll = 0;
+        this.settle = 1;        // 1 = mira recién subida (tiembla), 0 = asentada
+        this.turned = 0;        // radianes girados este frame
+        this.turnSpeed = 0;     // velocidad de giro suavizada
         this.fov = S.fov;
         this.bolt = 0;
         this.trauma = 0;
@@ -83,6 +85,8 @@ export class Sniper {
         this.yaw = this.lookYaw = this.baseYaw();
         this.pitch = this.lookPitch = this.basePitch();
         this.adsK = this.kickP = this.kickV = this.dipP = this.dipV = 0;
+        this.settle = 1;
+        this.turned = this.turnSpeed = 0;
         this.pending = false;
         this.bolt = 0;
         this.ending = -1;
@@ -127,6 +131,7 @@ export class Sniper {
         const k = rate * (this.fov / S.fov) * (1 - this.adsK * (1 - S.adsSlow));
         this.lookYaw -= dx * k;
         this.lookPitch = clamp(this.lookPitch - dy * k, S.pitchMin, S.pitchMax);
+        this.turned += Math.hypot(dx, dy) * k; // para la dispersión por girar
     }
 
     // Mirar a un punto del mundo (lo usan las pruebas)
@@ -141,7 +146,6 @@ export class Sniper {
         this.pending = false;
         if (on === this.scoped || (on && this.ending >= 0)) return;
         this.scoped = on;
-        if (on) this.adsAt = this.time;
         this.hooks.sfx.play(on ? 'scopeIn' : 'scopeOut');
     }
 
@@ -161,10 +165,17 @@ export class Sniper {
         return hit;
     }
 
-    // Dispersión actual (radianes): toda sin mira, nada cuando la mira está casi arriba
+    // Dispersión actual (radianes). Se suma:
+    //  - la de la cadera, que solo desaparece al final de la subida del arma
+    //  - la de una mira recién subida, que tarda un momento en asentarse
+    //  - la de estar girando la vista (un giro brusco justo antes de disparar falla)
+    // y todo crece si se está saltando de torre.
     get spread() {
-        const k = clamp((this.adsK - 0.35) / 0.5, 0, 1);
-        return S.hipSpread * (1 - k * k * (3 - 2 * k)) * (this.move ? 1 + S.moveSpread : 1);
+        const k = clamp((this.adsK - 0.5) / 0.5, 0, 1);
+        const hip = S.hipSpread * (1 - k * k * (3 - 2 * k));
+        const settle = this.adsK >= 1 ? S.settleSpread * this.settle : this.adsK > 0.5 ? S.settleSpread : 0;
+        const turning = Math.min(S.lookSpreadMax, this.turnSpeed * S.lookSpread);
+        return (hip + settle + turning) * (this.move ? 1 + S.moveSpread : 1);
     }
 
     get canFire() {
@@ -199,7 +210,6 @@ export class Sniper {
             _o.set(0, 1, 0).applyQuaternion(this.camera.quaternion);
             dir.addScaledVector(_v, Math.cos(a) * r).addScaledVector(_o, Math.sin(a) * r).normalize();
         }
-        const style = this.adsK < 0.35 ? 'noscope' : this.scoped && this.time - this.adsAt < S.quickTime ? 'quickscope' : null;
         this.rifle.muzzle.getWorldPosition(_o);
         const muzzle = _o.clone();
         this.particles.burst(_o.x, _o.y, _o.z, 10, [0xffffff, 0xffe03a, 0xff9a1f], { speed: 1.4, up: 0.6, size: 0.04, ttl: 0.16, grav: 0 });
@@ -222,7 +232,7 @@ export class Sniper {
             vibrate('pickup');
             sfx.play('harvest');
             _v.set(s.x, 0.9, s.z).project(this.camera);
-            this.hooks.onHit(s, _v.x, _v.y, style);
+            this.hooks.onHit(s, _v.x, _v.y);
             if (this.field.remaining === 0) this.finish();
         } else {
             const t = dir.y < -1e-3 ? -origin.y / dir.y : 80;
@@ -287,6 +297,11 @@ export class Sniper {
 
         // Subir/bajar el arma al ojo; el zoom sigue al arma con su propia curva
         this.adsK = Math.min(1, Math.max(0, this.adsK + (this.scoped ? 1 : -1.3) * rawDt / S.adsTime));
+        // La mira recién subida tiembla y tarda en asentarse; bajarla lo reinicia
+        this.settle = this.adsK < 1 ? 1 : Math.max(0, this.settle - rawDt / S.settleTime);
+        // Velocidad de giro de la vista (rad/s), suavizada
+        if (rawDt > 0) this.turnSpeed += (this.turned / rawDt - this.turnSpeed) * (1 - Math.exp(-rawDt * 12));
+        this.turned = 0;
         const zk = clamp((this.adsK - 0.3) / 0.7, 0, 1);
         this.fov = S.fov + (S.scopeFov - S.fov) * zk * zk * (3 - 2 * zk);
         this.camera.fov = this.fov;
@@ -304,9 +319,10 @@ export class Sniper {
         const shake = tr * 0.025 * (this.fov / S.fov);
         // Respiración con la mira (un ocho lento)
         const sw = S.sway * this.adsK;
+        const jitter = this.adsK >= 1 ? S.settleSway * this.settle * this.settle : 0;
         const fovK = this.fov / S.fov;
-        this.yaw = this.lookYaw + Math.sin(time * 0.9) * sw + this.kickYaw * this.kickP * 10 + (Math.random() * 2 - 1) * shake;
-        this.pitch = clamp(this.lookPitch + Math.sin(time * 1.8) * sw * 0.6 + this.kickP * fovK + (Math.random() * 2 - 1) * shake, -1.5, 1.5);
+        this.yaw = this.lookYaw + Math.sin(time * 0.9) * sw + Math.sin(time * 11) * jitter + this.kickYaw * this.kickP * 10 + (Math.random() * 2 - 1) * shake;
+        this.pitch = clamp(this.lookPitch + Math.sin(time * 1.8) * sw * 0.6 + Math.cos(time * 13) * jitter * 0.8 + this.kickP * fovK + (Math.random() * 2 - 1) * shake, -1.5, 1.5);
         this.camera.position.copy(this.pos);
         this.camera.position.y += this.dipP * 0.12 + (this.move ? 0 : Math.sin(time * 1.6) * 0.008 * (1 - this.adsK));
         this.camera.rotation.set(this.pitch, this.yaw, this.roll);

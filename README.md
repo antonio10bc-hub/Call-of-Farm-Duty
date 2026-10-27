@@ -8,7 +8,7 @@ Granja voxel con estética de consola portátil (mismo estudio y estilo que Tank
   - Móvil: arrastra para mirar; deja el dedo quieto un momento para subir el arma (zoom), muévelo para afinar (más despacio) y suéltalo para disparar. Desliza desde el borde (o usa las flechas) para cambiar de torre.
   - Ordenador: el clic de RECOGER ya bloquea el ratón; muévelo para mirar, mantén el botón derecho para apuntar y suéltalo para disparar (el izquierdo dispara al momento). Q/E cambian de torre, Esc suelta el ratón, H vuelve a la granja.
   - Mando: sticks para mirar, LT apuntar (soltar dispara), RT/A disparar, LB/RB torres, B salir.
-  - Sin la mira subida el tiro se dispersa mucho (no scope; en móvil, un toque rápido dispara desde la cadera). Soltar justo cuando llega la mira es un quickscope preciso. La mirilla se abre según la dispersión.
+  - Precisión: sin la mira subida el tiro se dispersa mucho (no scope; en móvil, un toque rápido dispara desde la cadera). Girar la vista justo antes de disparar también abre el tiro. La mira recién subida tiembla y tarda medio segundo en asentarse: un quickscope inmediato acierta más o menos la mitad de las veces. La mirilla se abre según la dispersión.
   - Si sueltas mientras el cerrojo recarga, el disparo sale en cuanto está listo. Se puede mirar, apuntar y disparar durante el salto entre torres.
   - El botón GRANJA vuelve en cualquier momento; lo recogido se guarda.
 

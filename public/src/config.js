@@ -28,18 +28,23 @@ export const CONFIG = {
         lookMouse: 0.0024,  // radianes por píxel de ratón (cursor bloqueado)
         lookPad: 2.6,       // radianes por segundo con el stick a tope
         adsSlow: 0.3,       // con la mira la vista se mueve más despacio (además del zoom)
-        adsTime: 0.2,       // segundos para subir el arma al ojo
+        adsTime: 0.24,      // segundos para subir el arma al ojo
         holdTime: 150,      // ms con el dedo quieto para apuntar
         tapTime: 180,       // ms: un toque más corto que esto dispara desde la cadera
-        hipSpread: 0.11,    // radianes de dispersión sin mira (no scope): falla mucho
-        moveSpread: 0.5,    // dispersión extra (proporción) mientras se salta de torre
-        quickTime: 0.55,    // s: acertar antes de esto desde que se sube el arma es un quickscope
+        // Precisión (radianes de dispersión). La bala sale a cualquier punto de un cono:
+        hipSpread: 0.2,     // sin mira (no scope): solo acierta de cerca o con suerte
+        moveSpread: 0.5,    // extra (proporción) mientras se salta de torre
+        lookSpread: 0.07,   // extra por cada rad/s que se está girando la vista (hay que asentarla)
+        lookSpreadMax: 0.15,
+        settleTime: 0.5,    // s que tarda la mira en asentarse tras subir el arma
+        settleSpread: 0.06, // imprecisión de la mira recién subida (se va en settleTime)
+        settleSway: 0.012,  // temblor de la mira recién subida
         holdSlop: 9,        // px que puede moverse el dedo y seguir "quieto"
         edgeSwipe: 40,      // px desde el borde donde un deslizamiento cambia de torre
         flickDist: 60,      // px de ese deslizamiento
         pitchMin: -1.25,
         pitchMax: 0.7,
-        sway: 0.0035,       // vaivén de la respiración con la mira
+        sway: 0.0055,       // vaivén de la respiración con la mira
         recoil: 0.07,       // radianes que sube la vista al disparar (sin mira)
         boltTime: 0.7,      // recarga del cerrojo entre disparos
         hitStop: 0.07,
