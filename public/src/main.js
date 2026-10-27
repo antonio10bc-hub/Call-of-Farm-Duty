@@ -3,7 +3,7 @@ import { CONFIG } from './config.js';
 import { THEME } from './content/theme.js';
 import { CROPS } from './content/crops.js';
 import { FARM, FIELD_BY_ID, INFO } from './content/farm.js';
-import { KILLSTREAKS, useDebugStreaks } from './content/killstreaks.js';
+import { KILLSTREAKS, setStreakCounts } from './content/killstreaks.js';
 import { RetroRenderer } from './render/RetroRenderer.js';
 import { CameraRig } from './render/CameraRig.js';
 import { Particles } from './render/Particles.js';
@@ -39,7 +39,7 @@ const renderer = new RetroRenderer(canvas, CONFIG.render);
 const scope = new Scope($('scope'));
 const state = new FarmState();
 state.freeCosts = Settings.freeCosts;
-useDebugStreaks(Settings.debugStreaks);
+setStreakCounts(Settings.streaks);
 
 function addLights(scene) {
     const { light } = THEME;
@@ -784,6 +784,41 @@ tapBtn('btn-settings-close', () => {
     $('settings').classList.add('hidden');
 });
 tapBtn('btn-lang', switchLang);
+// Depuración: cuántas bajas pide cada racha (- / +), y volver a las normales
+const ksRows = {};
+for (const k of KILLSTREAKS) {
+    const row = document.createElement('div');
+    row.className = 'ks-row';
+    row.innerHTML = `<span>${k.name}</span><button class="ks-step" data-d="-1">-</button><b id="ks-${k.id}"></b><button class="ks-step" data-d="1">+</button>`;
+    for (const b of row.querySelectorAll('.ks-step')) {
+        b.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setStreakCount(k, k.at + Number(b.dataset.d));
+        });
+    }
+    $('ks-rows').appendChild(row);
+    ksRows[k.id] = row.querySelector('b');
+}
+function refreshStreakRows() {
+    for (const k of KILLSTREAKS) {
+        ksRows[k.id].textContent = k.at;
+        ksRows[k.id].parentElement.classList.toggle('changed', k.at !== k.normalAt);
+    }
+}
+function setStreakCount(k, n) {
+    const counts = { ...(Settings.streaks || {}), [k.id]: Math.min(99, Math.max(1, n)) };
+    Settings.set('streaks', counts);
+    setStreakCounts(counts);
+    refreshStreakRows();
+    sfx.play('ui');
+}
+tapBtn('ks-default', () => {
+    Settings.set('streaks', null);
+    setStreakCounts(null);
+    refreshStreakRows();
+    sfx.play('ui');
+});
+refreshStreakRows();
 // Borrar el progreso: el primer toque arma el botón y el segundo (antes de 3 s) borra y recarga
 let resetArmed = 0;
 tapBtn('btn-reset', () => {
@@ -812,7 +847,6 @@ for (const el of document.querySelectorAll('.toggle')) {
         const on = Settings.toggle(key);
         el.classList.toggle('off', !on);
         if (key === 'sfx') sfx.enabled = on;
-        if (key === 'debugStreaks') useDebugStreaks(on);
         if (key === 'freeCosts') {
             state.freeCosts = on;
             updateCounts();

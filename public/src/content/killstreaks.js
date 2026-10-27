@@ -3,19 +3,18 @@ import { L } from '../core/I18n.js';
 // Rachas de bajas (como en Call of Duty): cada blanco recogido suma 1 a la racha y rellena la
 // barra, que se vacía cada vez más deprisa; si llega a vaciarse, la racha se pierde. Al llegar
 // a cada número se lanza su recompensa sola (las bajas que consigue también suman a la racha).
-//   at       bajas seguidas que hacen falta
-//   debugAt  las que hacen falta con la depuración de rachas (Ajustes → DEBUG)
+//   at     bajas seguidas que hacen falta (se puede cambiar en Ajustes → DEBUG)
 export const KILLSTREAKS = [
-    { id: 'grenade', at: 5, debugAt: 1, name: L('GRENADE', 'GRANADA') },
-    { id: 'predator', at: 10, debugAt: 2, name: L('PREDATOR MISSILE', 'MISIL PREDATOR') },
-    { id: 'bomber', at: 15, debugAt: 3, name: L('BOMBER', 'BOMBARDERO') },
-    { id: 'nuke', at: 25, debugAt: 4, name: L('NUKE', 'BOMBA NUCLEAR') },
+    { id: 'grenade', at: 5, name: L('GRENADE', 'GRANADA') },
+    { id: 'predator', at: 10, name: L('PREDATOR MISSILE', 'MISIL PREDATOR') },
+    { id: 'bomber', at: 15, name: L('BOMBER', 'BOMBARDERO') },
+    { id: 'nuke', at: 25, name: L('NUKE', 'BOMBA NUCLEAR') },
 ];
 for (const k of KILLSTREAKS) k.normalAt = k.at;
 
-// Depuración: rachas a 1, 2, 3 y 4 para probar cada recompensa enseguida
-export function useDebugStreaks(on) {
-    for (const k of KILLSTREAKS) k.at = on ? k.debugAt : k.normalAt;
+// Depuración: bajas que pide cada racha ({ id: n }); lo que no venga, su valor normal
+export function setStreakCounts(counts) {
+    for (const k of KILLSTREAKS) k.at = counts && counts[k.id] > 0 ? counts[k.id] : k.normalAt;
 }
 
 export const KS = {

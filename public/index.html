@@ -124,7 +124,12 @@
             <div class="debug-title">DEBUG</div>
             <div class="toggles toggles-col">
                 <button id="toggle-free" class="toggle" data-key="freeCosts" data-es="COSTES 0">FREE COSTS</button>
-                <button id="toggle-streaks" class="toggle" data-key="debugStreaks" data-es="RACHAS 1·2·3·4">STREAKS 1·2·3·4</button>
+            </div>
+            <!-- Bajas que pide cada racha: una fila por recompensa (las rellena main.js) -->
+            <div class="ks-debug">
+                <div class="ks-debug-title" data-es="BAJAS POR RACHA">KILLS PER STREAK</div>
+                <div id="ks-rows"></div>
+                <button id="ks-default" class="btn btn-small set-btn" data-es="RACHAS POR DEFECTO">DEFAULT STREAKS</button>
             </div>
             <button id="btn-reset" class="btn btn-danger set-btn" data-es="BORRAR PROGRESO">RESET PROGRESS</button>
         </div>

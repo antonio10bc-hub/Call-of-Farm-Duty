@@ -421,14 +421,20 @@ test('rachas de 15 y 25: bombardero que bombardea el campo y bomba nuclear que l
     expect(errors).toEqual([]);
 });
 
-test('debug: RACHAS 1·2·3·4 pone cada recompensa a 1, 2, 3 y 4 bajas', async ({ page }) => {
+test('debug: se elige cuántas bajas pide cada racha', async ({ page }) => {
     const errors = watchErrors(page);
     await enterField(page);
     await page.locator('#btn-home').click();
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('farm');
     await page.locator('#btn-settings').click();
-    await page.locator('#toggle-streaks').click();
-    await expect(page.locator('#toggle-streaks')).not.toHaveClass(/off/);
+    // La granada, de 5 a 1 bajas (cuatro veces -)
+    await expect(page.locator('#ks-grenade')).toHaveText('5');
+    for (let i = 0; i < 4; i++) await page.locator('.ks-row', { has: page.locator('#ks-grenade') }).locator('[data-d="-1"]').click();
+    await expect(page.locator('#ks-grenade')).toHaveText('1');
+    await page.locator('.ks-row', { has: page.locator('#ks-grenade') }).locator('[data-d="-1"]').click();
+    await expect(page.locator('#ks-grenade')).toHaveText('1'); // nunca menos de 1
+    await page.locator('.ks-row', { has: page.locator('#ks-nuke') }).locator('[data-d="1"]').click();
+    await expect(page.locator('#ks-nuke')).toHaveText('26');
     await page.locator('#btn-settings-close').click();
     // Con una sola baja ya sale la granada
     await page.evaluate(() => game.harvest('wheat'));
@@ -437,8 +443,12 @@ test('debug: RACHAS 1·2·3·4 pone cada recompensa a 1, 2, 3 y 4 bajas', async 
     await expect(page.locator('#streak-next')).toBeHidden();
     await shootNext(page);
     await expect(page.locator('#medals')).toContainText('GRANADA');
-    // Se recuerda al recargar
+    // Se recuerda al recargar, y RACHAS POR DEFECTO lo devuelve todo a su sitio
     await page.reload();
-    await expect.poll(() => page.evaluate(() => window.game && document.querySelector('#toggle-streaks').classList.contains('off'))).toBe(false);
+    await expect(page.locator('#ks-grenade')).toHaveText('1');
+    await page.locator('#btn-settings').click();
+    await page.locator('#ks-default').click();
+    await expect(page.locator('#ks-grenade')).toHaveText('5');
+    await expect(page.locator('#ks-nuke')).toHaveText('25');
     expect(errors).toEqual([]);
 });
