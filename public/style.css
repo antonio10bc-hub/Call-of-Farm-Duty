@@ -388,7 +388,29 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
         5px 0 0 var(--ink), -5px 0 0 var(--ink), 0 -5px 0 var(--ink);
 }
 .banner.show { animation: bannerPop .75s cubic-bezier(.2, 1.6, .4, 1) forwards; }
-.banner.go { color: var(--cyan); text-shadow: 0 5px 0 var(--purple), 0 10px 0 var(--ink), 5px 0 0 var(--ink), -5px 0 0 var(--ink), 0 -5px 0 var(--ink); }
+/* Aviso al entrar (¡A COSECHAR!, ¡DISPARA AL BARRIL ROJO!): placa oscura con letras amarillas,
+   más pequeña y que dura lo bastante para leerla */
+.banner.go {
+    top: 24%;
+    width: fit-content;
+    max-width: calc(100vw - 32px);
+    margin: 0 auto;
+    padding: 10px 14px 8px;
+    font-size: clamp(14px, 4.4vw, 24px);
+    line-height: 1.4;
+    color: var(--yellow);
+    text-shadow: 2px 2px 0 var(--ink);
+    background: var(--ink);
+    border: 3px solid var(--yellow);
+    box-shadow: 0 5px 0 rgba(42, 26, 14, .6);
+}
+.banner.go.show { animation: bannerRead 3s steps(10) forwards; }
+@keyframes bannerRead {
+    0% { opacity: 1; transform: scale(1.4); }
+    8% { opacity: 1; transform: scale(1); }
+    85% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: translateY(-12px); }
+}
 @keyframes bannerPop {
     0% { opacity: 1; transform: scale(2.6) rotate(-8deg); }
     35% { opacity: 1; transform: scale(1) rotate(2deg); }
