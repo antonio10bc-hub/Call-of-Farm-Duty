@@ -212,16 +212,18 @@ export class SniperField {
         return this.targets.reduce((n, s) => n + (s.alive ? 1 : 0), 0);
     }
 
-    // Rayo contra las cajas de las matas vivas: devuelve la más cercana o null
+    // Rayo contra las cajas de las matas vivas: la bala las atraviesa todas hasta tocar el
+    // suelo (colateral). Devuelve [{ sheaf, t }] de la más cercana a la más lejana.
     raycast(origin, dir) {
-        let best = null, bestT = Infinity;
+        const ground = dir.y < -1e-6 ? -origin.y / dir.y : Infinity;
+        const hits = [];
         for (const s of this.targets) {
             if (!s.alive || !s.landed) continue;
             // La caja se ciñe a la silueta de la mata (tallos y espigas)
             const t = rayBox(origin, dir, s.x - 0.36, 0, s.z - 0.36, s.x + 0.36, 1.55, s.z + 0.36);
-            if (t !== null && t < bestT) { bestT = t; best = s; }
+            if (t !== null && t <= ground) hits.push({ sheaf: s, t });
         }
-        return best ? { sheaf: best, t: bestT } : null;
+        return hits.sort((a, b) => a.t - b.t);
     }
 
     // onLand(target): cuando una mata termina de brotar

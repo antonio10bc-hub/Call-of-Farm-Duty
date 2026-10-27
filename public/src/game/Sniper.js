@@ -20,7 +20,7 @@ const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) 
 // al ojo y hace zoom hacia donde se mira; con la mira la vista va más despacio; soltar dispara.
 // Se puede mirar, apuntar y disparar también mientras se salta de una torre a otra.
 export class Sniper {
-    // hooks: { sfx, onHit(target, ndcX, ndcY), onFinish(), onDone(), onCorner(i) }
+    // hooks: { sfx, onHit(target, ndcX, ndcY), onCollateral(n), onFinish(), onDone(), onCorner(i) }
     constructor(theme, hooks) {
         this.theme = theme;
         this.hooks = hooks;
@@ -227,25 +227,30 @@ export class Sniper {
         const muzzle = _o.clone();
         this.particles.burst(_o.x, _o.y, _o.z, 10, [0xffffff, 0xffe03a, 0xff9a1f], { speed: 1.4, up: 0.6, size: 0.04, ttl: 0.16, grav: 0 });
 
-        const hit = this.field.raycast(origin, dir);
+        const hits = this.field.raycast(origin, dir);
         let end;
-        if (hit) {
-            const s = hit.sheaf;
-            end = origin.clone().addScaledVector(dir, hit.t);
-            s.alive = false;
-            s.dying = 0.14;
-            s.flash = 1;
-            this.hitStop = S.hitStop;
-            this.trauma = Math.min(1, this.trauma + 0.2);
-            // Grano y paja que saltan, polvo de tierra y una onda en el suelo
-            this.particles.burst(s.x, 0.9, s.z, 50, GRAIN, { speed: 3.6, up: 4.2, size: 0.09, ttl: 1.0 });
-            this.particles.burst(s.x, 0.6, s.z, 30, CHAFF, { speed: 2.4, up: 3, size: 0.06, ttl: 1.2, grav: 4 });
-            this.particles.burst(s.x, 0.1, s.z, 12, [this.theme.dust, 0x8a5a34], { speed: 1.8, up: 1, size: 0.12, ttl: 0.5 });
-            this.waves.spawn(s.x, s.z, 0xffe9a0, 1.8, 0.35);
+        if (hits.length) {
+            // La bala sigue tras la última mata hasta el suelo
+            const tEnd = dir.y < -1e-3 ? Math.min(80, -origin.y / dir.y) : hits[hits.length - 1].t;
+            end = origin.clone().addScaledVector(dir, tEnd);
+            hits.forEach(({ sheaf: s }, k) => {
+                s.alive = false;
+                s.dying = 0.14 + k * 0.05;
+                s.flash = 1;
+                // Grano y paja que saltan, polvo de tierra y una onda en el suelo
+                this.particles.burst(s.x, 0.9, s.z, 50, GRAIN, { speed: 3.6, up: 4.2, size: 0.09, ttl: 1.0 });
+                this.particles.burst(s.x, 0.6, s.z, 30, CHAFF, { speed: 2.4, up: 3, size: 0.06, ttl: 1.2, grav: 4 });
+                this.particles.burst(s.x, 0.1, s.z, 12, [this.theme.dust, 0x8a5a34], { speed: 1.8, up: 1, size: 0.12, ttl: 0.5 });
+                this.waves.spawn(s.x, s.z, 0xffe9a0, 1.8, 0.35);
+                _v.set(s.x, 0.9, s.z).project(this.camera);
+                this.hooks.onHit(s, _v.x, _v.y);
+                if (k) setTimeout(() => sfx.play('harvest'), k * 90);
+            });
+            this.hitStop = S.hitStop * Math.min(3, hits.length);
+            this.trauma = Math.min(1, this.trauma + 0.2 * hits.length);
             vibrate('pickup');
             sfx.play('harvest');
-            _v.set(s.x, 0.9, s.z).project(this.camera);
-            this.hooks.onHit(s, _v.x, _v.y);
+            if (hits.length > 1 && this.hooks.onCollateral) this.hooks.onCollateral(hits.length);
             if (this.field.remaining === 0) this.finish();
         } else {
             const t = dir.y < -1e-3 ? -origin.y / dir.y : 80;
@@ -262,7 +267,7 @@ export class Sniper {
         this.tracer.scale.set(0.03, 0.03, from.distanceTo(end));
         this.tracer.visible = true;
         this.tracerT = 0.06;
-        return !!hit;
+        return hits.length > 0;
     }
 
     finish() {

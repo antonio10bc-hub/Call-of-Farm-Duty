@@ -76,6 +76,10 @@ const sniper = new Sniper(THEME, {
         flyWheat(x, y, $('snipe-wheat'), () => updateCounts(true));
         $('left-count').textContent = sniper.field.remaining;
     },
+    onCollateral(n) {
+        banner(`${L('COLLATERAL', '¡COLATERAL')} x${n}!`, 'go');
+        vibrate('kill');
+    },
     onFinish() {
         setTimeout(() => banner(L('ALL IN!', '¡COSECHA COMPLETA!')), 250);
         vibrate('kill');
@@ -111,6 +115,7 @@ const ndcOf = (x, y) => {
 function updateCounts(bump = false) {
     $('wheat-count').textContent = state.wheat;
     $('hud-wheat').textContent = state.wheat;
+    refreshSign();
     if (bump) {
         for (const id of ['farm-wheat', 'snipe-wheat']) {
             const el = $(id);
@@ -184,17 +189,39 @@ bubble.addEventListener('click', (e) => {
 });
 $('bubbles').appendChild(bubble);
 
+// Cartel flotante con el nivel del campo, siempre encima; tocarlo abre su ficha para mejorarlo
+const sign = document.createElement('button');
+sign.id = 'field-sign';
+sign.className = 'field-sign hidden';
+sign.innerHTML = '<span class="sign-level"></span><i class="sign-up"></i>';
+sign.addEventListener('pointerdown', (e) => e.stopPropagation());
+sign.addEventListener('click', (e) => {
+    e.stopPropagation();
+    sfx.unlock();
+    select({ field: true });
+});
+$('bubbles').appendChild(sign);
+
+function refreshSign() {
+    sign.querySelector('.sign-level').textContent = `${L('LV', 'NV')}.${state.level + 1}`;
+    sign.style.setProperty('--sign', `#${FARM.field.levels[state.level].sign.toString(16).padStart(6, '0')}`);
+    sign.classList.toggle('can-up', state.canUpgrade);
+}
+
 const _b = new THREE.Vector3();
 function placeBubbles() {
-    const on = mode === 'farm' && farm.introT > 1.6 && state.isReady();
+    const show = mode === 'farm' && farm.introT > 1.6;
+    const on = show && state.isReady();
     if (on && bubble.classList.contains('hidden')) {
         bubble.classList.remove('hidden');
         sfx.play('itemSpawn');
     } else if (!on) bubble.classList.add('hidden');
-    if (!on) return;
+    sign.classList.toggle('hidden', !show);
+    if (!show) return;
     farm.fieldTop(_b).project(rig.camera);
-    bubble.style.left = `${(_b.x * 0.5 + 0.5) * innerWidth}px`;
-    bubble.style.top = `${(-_b.y * 0.5 + 0.5) * innerHeight}px`;
+    const x = `${(_b.x * 0.5 + 0.5) * innerWidth}px`, y = `${(-_b.y * 0.5 + 0.5) * innerHeight}px`;
+    sign.style.left = bubble.style.left = x;
+    sign.style.top = bubble.style.top = y;
 }
 
 // Ficha del edificio o del campo tocado

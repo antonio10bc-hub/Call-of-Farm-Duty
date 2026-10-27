@@ -106,7 +106,7 @@ test('primera persona: arrastrar mira, quieto apunta y soltar dispara; deslizar 
     // Con la mira arriba y asentada el tiro es preciso
     await expect.poll(() => page.evaluate(() => game.sniper.adsK === 1 && game.sniper.spread < 0.002), { timeout: 20_000 }).toBe(true);
     await touchPath(page, [['pointerup', 200, 400, 0]]);
-    await expect.poll(() => page.evaluate(() => game.state.wheat)).toBe(1);
+    await expect.poll(() => page.evaluate(() => game.state.wheat)).toBeGreaterThan(0);
     // Sin mira la dispersión es grande (no scope) y un toque rápido dispara desde la cadera
     await expect.poll(() => page.evaluate(() => game.sniper.canFire && game.sniper.adsK === 0), { timeout: 10_000 }).toBe(true);
     expect(await page.evaluate(() => game.sniper.spread)).toBeGreaterThan(0.05);
@@ -140,8 +140,10 @@ test('ratón: botón derecho apunta y al soltar dispara; al recoger todo se vuel
     await enterField(page);
     const total = await page.evaluate(() => game.sniper.field.remaining);
     await shootNext(page);
-    await expect.poll(() => page.evaluate(() => game.state.wheat)).toBe(1);
-    await expect(page.locator('#left-count')).toHaveText(String(total - 1));
+    // Puede caer más de una de un tiro (colateral): lo que queda cuadra con lo recogido
+    await expect.poll(() => page.evaluate(() => game.state.wheat)).toBeGreaterThan(0);
+    const got = await page.evaluate(() => game.state.wheat);
+    await expect(page.locator('#left-count')).toHaveText(String(total - got));
     // Se puede disparar mientras se salta de torre
     await page.evaluate(() => document.exitPointerLock());
     await page.locator('#btn-next').click();
@@ -160,7 +162,10 @@ test('mejorar el campo: cuesta 3 de trigo, lo hace más grande y con más matas'
     await page.goto('/');
     await expect(page.locator('.bubble:not(.hidden)')).toHaveCount(1, { timeout: 30_000 });
     const before = await page.evaluate(() => ({ w: game.farm.field.w, d: game.farm.field.d, left: game.state.plot.left, stalks: game.farm.stalks.length }));
-    await page.evaluate(() => game.select({ field: true }));
+    // El cartel flotante dice el nivel y al tocarlo abre la ficha del campo
+    await expect(page.locator('#field-sign')).toHaveText('NV.1');
+    await page.locator('#field-sign').click();
+    await expect(page.locator('#panel-title')).toHaveText('CAMPO DE TRIGO NV.1');
     // Sin trigo suficiente no se puede mejorar
     await expect(page.locator('#panel-upgrade')).toBeDisabled();
     await page.evaluate(() => { game.state.wheat = 4; });
@@ -173,6 +178,7 @@ test('mejorar el campo: cuesta 3 de trigo, lo hace más grande y con más matas'
     expect(after.stalks).toBeGreaterThan(before.stalks);
     expect(after.left).toBeGreaterThan(before.left);
     await expect(page.locator('#panel-title')).toHaveText('CAMPO DE TRIGO NV.2');
+    await expect(page.locator('#field-sign')).toHaveText('NV.2');
     // En el campo de tiro salen todas las matas del nivel nuevo
     await page.locator('.bubble:not(.hidden)').click();
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
@@ -180,5 +186,21 @@ test('mejorar el campo: cuesta 3 de trigo, lo hace más grande y con más matas'
     // Se guarda: al recargar sigue en el nivel 2
     await page.reload();
     await expect.poll(() => page.evaluate(() => window.game && game.state.level)).toBe(1);
+    expect(errors).toEqual([]);
+});
+
+test('colateral: una bala que atraviesa dos matas recoge las dos', async ({ page }) => {
+    const errors = watchErrors(page);
+    await enterField(page);
+    // Pone una segunda mata justo detrás de la primera, en la línea de tiro desde la torre
+    await page.evaluate(() => {
+        const sn = game.sniper, [a, b] = sn.field.sheaves.filter((x) => x.alive);
+        const dx = a.x - sn.pos.x, dz = a.z - sn.pos.z, d = Math.hypot(dx, dz);
+        b.x = a.x + (dx / d) * 0.9;
+        b.z = a.z + (dz / d) * 0.9;
+    });
+    expect(await shootNext(page)).toBe(true);
+    await expect.poll(() => page.evaluate(() => game.state.wheat)).toBe(2);
+    await expect(page.locator('#banner')).toContainText('COLATERAL');
     expect(errors).toEqual([]);
 });

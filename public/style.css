@@ -763,6 +763,33 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
 .bubble .wheat-ico { width: 14px; height: 16px; }
 @keyframes bubbleBob { 50% { transform: translate(-50%, calc(-100% - 5px)); } }
 
+/* Cartel flotante con el nivel del campo (tocarlo abre la ficha con MEJORAR). Va encima de la
+   burbuja de RECOGER; el color de la tabla cambia con el nivel (--sign) */
+.field-sign {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 9px 5px;
+    font-family: var(--font);
+    font-size: 10px;
+    color: var(--cream);
+    text-shadow: 2px 2px 0 var(--ink);
+    background: var(--sign, var(--wood));
+    border: 3px solid var(--ink);
+    box-shadow: 0 4px 0 var(--ink), inset 0 -3px 0 rgba(42, 26, 14, .35), inset 0 2px 0 rgba(255, 255, 255, .25);
+    transform: translate(-50%, calc(-100% - 46px));
+    pointer-events: auto;
+    cursor: pointer;
+    animation: signBob 1.6s steps(2) infinite;
+}
+.field-sign.hidden { display: none; }
+.field-sign:active { filter: brightness(.9); }
+/* Flecha verde: hay trigo para mejorar */
+.field-sign .sign-up { display: none; width: 12px; height: 12px; background: #8fd14f; clip-path: polygon(50% 0, 100% 60%, 70% 60%, 70% 100%, 30% 100%, 30% 60%, 0 60%); filter: drop-shadow(1px 1px 0 var(--ink)); }
+.field-sign.can-up .sign-up { display: block; animation: hop .6s steps(2) infinite; }
+@keyframes signBob { 50% { transform: translate(-50%, calc(-100% - 49px)); } }
+
 /* ---------- FRANCOTIRADOR ---------- */
 /* Mirilla de la cadera: cuatro rayitas y un punto en el centro. Las rayitas se separan con la
    dispersión (--spread): abiertas sin mira, cerradas cuando el tiro es preciso */

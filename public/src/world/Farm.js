@@ -143,13 +143,13 @@ export class Farm {
         const { tiles, entry } = this.floor;
         tiles.forEach((t, i) => {
             const k = this.kindAt(t.c, t.r);
-            if ((k && k.field) === (t.k && t.k.field)) return;
+            if (!!(k && k.field) === !!(t.k && t.k.field)) return;
             t.k = k;
             entry.positions[i].y = this.tileY(k);
             this.paintTile(entry.mesh, t, i);
         });
         entry.mesh.instanceColor.needsUpdate = true;
-        for (const e of this.decor) e.positions.forEach((p) => (p.hide = p.hide || inRect(this.field, p.x, p.z, 0.15)));
+        for (const e of this.decor) e.positions.forEach((p) => (p.hide = p.hide || inRect(this.field, p.x, p.z, 0.4)));
         for (const e of [entry, ...this.decor]) this.layout(e, this.introT);
         this.buildWheat(old);
     }
@@ -181,7 +181,7 @@ export class Farm {
             const a = Math.random() * Math.PI * 2, d = this.size * 0.62 + Math.random() * 10;
             spots.push([this.cx + Math.sin(a) * d * (1 + Math.random() * 0.1), this.cz + Math.cos(a) * d]);
         }
-        spots.push([3, 4], [26, 5], [25, 27], [2, 27], [27, 13]);
+        spots.push([3, 4], [26, 5], [25, 27], [1.6, 28.6], [27, 13]);
         const trunks = [], leaves = [];
         spots.forEach(([x, z], i) => {
             const s = 0.8 + Math.random() * 0.6;
@@ -201,6 +201,7 @@ export class Farm {
         for (let r = 1; r < this.size - 1; r++) for (let c = 1; c < this.size - 1; c++) {
             if (this.kindAt(c, r)) continue;
             const x = c + Math.random(), z = r + Math.random();
+            if (inRect(this.field, x, z, 0.4)) continue; // ni pegado al trigo
             const p = Math.random();
             if (p < 0.08) tufts.push({ x, y: 0.12, z, sx: 0.3, sy: 0.24, sz: 0.3, ry: Math.random() });
             else if (p < 0.2) flowers.push({ x, y: 0.05, z, sx: 0.09, sy: 0.1, sz: 0.09 });
@@ -269,10 +270,12 @@ export class Farm {
     layout({ mesh, positions, delays }, t) {
         positions.forEach((p, i) => {
             const k = Math.min(1, Math.max(0, (t - delays[i]) / 0.45));
-            const s = k <= 0 || p.hide ? 0.0001 : easeOutBack(k);
+            const s = k <= 0 ? 0.0001 : easeOutBack(k);
             _d.position.set(p.x, p.y - (1 - k) * 3, p.z);
             _d.rotation.set(0, p.ry || 0, 0);
-            _d.scale.set(p.sx || 1, (p.sy || 1) * s, p.sz || 1);
+            // Lo apartado (bajo el campo) se encoge del todo: aplanado solo, su contorno quedaría como una mancha
+            if (p.hide) _d.scale.setScalar(0.0001);
+            else _d.scale.set(p.sx || 1, (p.sy || 1) * s, p.sz || 1);
             _d.updateMatrix();
             mesh.setMatrixAt(i, _d.matrix);
         });
