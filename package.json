@@ -1,0 +1,20 @@
+{
+  "name": "call-of-farm-duty",
+  "version": "0.1.0",
+  "description": "Granja voxel con estética retro de DS: cosechas el trigo con un francotirador",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "test": "playwright test",
+    "build": "node scripts/build.mjs"
+  },
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "esbuild": "^0.25.10"
+  }
+}

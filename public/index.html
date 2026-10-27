@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#1b0b33">
+    <title>Call of Farm Duty</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/png" href="icons/favicon-64.png">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Farm Duty">
+    <link rel="preload" href="fonts/press-start-2p.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="style.css">
+    <script type="importmap">
+        { "imports": { "three": "./vendor/three.module.min.js" } }
+    </script>
+</head>
+<body>
+    <!-- Pantalla de carga: solo HTML y CSS (y este script) para que salga al instante. Un haz
+         de trigo salta sobre la barra; la termina main.js cuando todo está listo. -->
+    <div id="loader" class="loader">
+        <div class="ld-logo"><span>C</span><span>A</span><span>L</span><span>L</span> <span class="g">O</span><span class="g">F</span><br><span>F</span><span>A</span><span>R</span><span>M</span> <span>D</span><span>U</span><span>T</span><span>Y</span></div>
+        <div class="ld-road">
+            <canvas class="ld-sheaf" id="ld-sheaf" width="9" height="10"></canvas>
+            <div class="ld-bar"><i id="ld-fill"></i></div>
+        </div>
+        <div class="ld-dots"><i></i><i></i><i></i></div>
+    </div>
+    <script>
+        (function () {
+            // Haz de trigo pixelado (el mismo sprite que el contador)
+            var rows = ['.K..K..K.', 'KYKKWKKYK', 'KYYKYKYYK', '.KYYYYYK.', '..KYYOK..', '..KRRRK..', '..KYYOK..', '.KYOYOYK.', 'KYOKYKOYK', 'KKK.K.KKK'];
+            var pal = { K: '#1b0b33', Y: '#ffd23f', O: '#e6a400', W: '#fff4b0', R: '#ff3e5e' };
+            var cv = document.getElementById('ld-sheaf'), cx = cv.getContext('2d');
+            rows.forEach(function (row, y) { row.split('').forEach(function (ch, x) { if (pal[ch]) { cx.fillStyle = pal[ch]; cx.fillRect(x, y, 1, 1); } }); });
+            var k = 0, fill = document.getElementById('ld-fill');
+            function step() {
+                if (window.__loaded) k += (1 - k) * 0.25; else k += (0.9 - k) * 0.012;
+                var p = Math.round(k * 40) / 40 * 100;
+                fill.style.width = p + '%';
+                cv.style.left = p + '%';
+                if (k < 0.995) requestAnimationFrame(step);
+                else document.getElementById('loader').classList.add('done');
+            }
+            requestAnimationFrame(step);
+        })();
+    </script>
+    <canvas id="view"></canvas>
+    <canvas id="scope"></canvas>
+
+    <!-- Granja: vista principal -->
+    <div id="farm-ui" class="farm-ui">
+        <div id="farm-wheat" class="coins-badge"><span class="wheat-ico"></span><span id="wheat-count">0</span></div>
+        <button id="btn-settings" class="corner-btn" data-es="AJUSTES">SETTINGS</button>
+        <h1 class="logo" aria-label="Call of Farm Duty">
+            <span class="word"><span class="ch">C</span><span class="ch">A</span><span class="ch">L</span><span class="ch">L</span> <span class="ch">O</span><span class="ch">F</span></span>
+            <span class="word"><span class="ch">F</span><span class="ch">A</span><span class="ch">R</span><span class="ch">M</span> <span class="ch">D</span><span class="ch">U</span><span class="ch">T</span><span class="ch">Y</span></span>
+        </h1>
+        <div class="farm-bottom">
+            <button id="btn-harvest" class="btn harvest-btn hidden" data-kbd="ENTER"><span class="wheat-ico"></span><span data-es="¡RECOGER!">HARVEST!</span></button>
+            <p id="next-tag" class="tag next-tag hidden"></p>
+        </div>
+    </div>
+
+    <!-- Francotirador: interfaz sobre la vista en primera persona -->
+    <div id="snipe-ui" class="snipe-ui hidden">
+        <button id="btn-home" class="corner-btn corner-left home-corner" aria-label="Farm" data-es-aria="Granja"><span class="home-icon"></span><span data-es="GRANJA">FARM</span></button>
+        <div id="snipe-wheat" class="coins-badge coin-counter"><span class="wheat-ico"></span><span id="hud-wheat">0</span></div>
+        <div class="left-badge"><span data-es="QUEDAN">LEFT</span> <b id="left-count">0</b></div>
+        <div id="corners" class="corners"><i></i><i></i><i></i><i></i></div>
+        <button id="btn-prev" class="arrow-btn prev" aria-label="Previous corner" data-es-aria="Esquina anterior">&lt;</button>
+        <button id="btn-next" class="arrow-btn next" aria-label="Next corner" data-es-aria="Esquina siguiente">&gt;</button>
+        <div class="hint" id="snipe-hint" data-es="TOCA PARA APUNTAR&lt;br&gt;DESLIZA PARA CAMBIAR DE ESQUINA">TAP TO AIM<br>SWIPE TO CHANGE CORNER</div>
+        <button id="btn-unscope" class="btn btn-small unscope-btn" data-es="SALIR">EXIT</button>
+        <i id="rounds" class="rounds"></i>
+        <button id="btn-fire" class="btn fire-btn" data-es="¡FUEGO!">FIRE!</button>
+    </div>
+
+    <div id="banner" class="banner"></div>
+    <div id="stage" class="stage">
+        <div id="stage-name" class="stage-name"></div>
+        <div id="stage-sub" class="stage-sub"></div>
+    </div>
+    <div id="toast" class="toast"></div>
+
+    <div id="settings" class="screen settings hidden">
+        <h2 class="end-title" data-es="AJUSTES">SETTINGS</h2>
+        <div class="toggles toggles-col">
+            <button class="toggle" data-key="music" data-es="MÚSICA">MUSIC</button>
+            <button class="toggle" data-key="sfx" data-es="SONIDO">SOUND</button>
+            <button class="toggle" data-key="vibration" data-es="VIBRACIÓN">VIBRATION</button>
+        </div>
+        <div class="set-col">
+            <button id="btn-lang" class="btn btn-small set-btn" data-es="IDIOMA: ESPAÑOL">LANGUAGE: ENGLISH</button>
+        </div>
+        <button id="btn-settings-close" class="btn home-btn"><span class="home-icon"></span><span data-es="VOLVER">BACK</span></button>
+    </div>
+
+    <script type="module" src="src/main.js"></script>
+</body>
+</html>
