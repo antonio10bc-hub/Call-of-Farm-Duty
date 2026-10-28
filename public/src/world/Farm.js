@@ -25,6 +25,11 @@ const mod = (a, n) => ((a % n) + n) % n;
 const inParcel = (x, z, m = 0) => FARM.parcels.some(([x0, z0, x1, z1]) => x >= x0 + m && x < x1 - m && z >= z0 + m && z < z1 - m);
 const kindKey = (k) => (!k ? '' : k.field ? (k.locked ? 'junk' : 'field') : k.path ? 'path' : k.yard ? 'yard' : k.wild ? 'wild' : 'b');
 const rectOf = ([x0, z0, x1, z1]) => ({ x: x0, z: z0, w: x1 - x0, d: z1 - z0 });
+// Lo limpio de la parcela de la casa en un nivel (nada en el 0)
+const houseClear = (level) => {
+    const c = FARM.house.levels[level].clear;
+    return c ? rectOf(c) : { x: 0, z: 0, w: 0, d: 0 };
+};
 const YARD = [0xc4b08a, 0xb8a47e]; // tierra apisonada del recinto del granero
 
 // Tronco y tres pisos de copa por árbol (cajas para addHulled)
@@ -44,8 +49,9 @@ function treeParts(spots) {
 // campos de cultivo y edificios que se pueden tocar. Todo se monta en ola al empezar (cae y rebota).
 // Un campo bloqueado es un terreno sucio lleno de chatarra con el barril rojo encima del montón.
 export class Farm {
-    // fields: { id: { level, unlocked } } (el estado guardado de cada campo); barnLevel: nivel del granero
-    constructor(theme, fields, barnLevel = 0) {
+    // fields: { id: { level, unlocked } } (el estado guardado de cada campo); barnLevel y
+    // houseLevel: niveles del granero y de la casa
+    constructor(theme, fields, barnLevel = 0, houseLevel = 0) {
         this.theme = theme;
         this.size = FARM.size;
         const B = FARM.bounds;
@@ -65,6 +71,9 @@ export class Farm {
         this.barnLevel = barnLevel;
         this.zone = rectOf(FARM.barn.zone);
         this.yard = rectOf(FARM.barn.levels[barnLevel].yard);
+        this.houseLevel = houseLevel;
+        this.houseZone = rectOf(FARM.house.zone);
+        this.houseYard = houseClear(houseLevel);
         this.wild = []; // entradas animadas de la zona abandonada del granero (se apartan al crecer el recinto)
         this.build();
     }
@@ -77,6 +86,8 @@ export class Farm {
         for (const [x0, z0, x1, z1] of FARM.paths) if (c >= x0 && c < x1 && r >= z0 && r < z1) return { path: true };
         // La mitad del granero: su recinto (limpio) y lo que queda abandonado alrededor
         if (inRect(this.zone, c, r)) return inRect(this.yard, c, r) ? { yard: true } : { wild: true };
+        // La parcela de la casa: lo que aún no se ha limpiado está abandonado
+        if (inRect(this.houseZone, c, r) && !inRect(this.houseYard, c, r)) return { wild: true };
         for (const s of FARM.structures) if (Math.abs(c + 0.5 - s.x) < s.w / 2 + 0.3 && Math.abs(r + 0.5 - s.z) < s.d / 2 + 0.3) return { building: true };
         return null;
     }
@@ -124,6 +135,7 @@ export class Farm {
         });
         this.byId = Object.fromEntries(this.structures.map((m) => [m.def.id, m]));
         this.byId.barn.setLevel(this.barnLevel);
+        this.byId.house.setLevel(this.houseLevel);
     }
 
     tileY(k) {
@@ -170,7 +182,17 @@ export class Farm {
 
     // ¿Ya está limpio este punto? (dentro del recinto del granero o de un campo)
     cleared(x, z) {
-        return inRect(this.yard, x, z, 0.6) || this.views.some((v) => inRect(v.rect, x, z, 0.5));
+        return inRect(this.yard, x, z, 0.6) || inRect(this.houseYard, x, z, 0.4) || this.views.some((v) => inRect(v.rect, x, z, 0.5));
+    }
+
+    // La casa sube de nivel: se arregla (del 0 al 1) y se limpia más parcela
+    setHouseLevel(level) {
+        if (level === this.houseLevel) return;
+        this.houseLevel = level;
+        this.houseYard = houseClear(level);
+        this.refreshGround();
+        this.byId.house.setLevel(level);
+        this.byId.house.select();
     }
 
     // Zonas abandonadas (como un terreno con chatarra, pero en grande): la mitad del granero que
@@ -178,9 +200,9 @@ export class Farm {
     // matorral, chatarra y piedras; se apartan cuando el recinto o el campo crecen encima
     buildWild() {
         const trees = [], bush = [], pieces = [], rocks = [];
-        const zones = [{ Z: this.zone, k: 1 }, ...this.views.map((v) => ({ Z: v.zone, k: 0.55 }))];
+        const zones = [{ Z: this.zone, k: 1 }, { Z: this.houseZone, k: 0.8 }, ...this.views.map((v) => ({ Z: v.zone, k: 0.55 }))];
         for (const { Z, k } of zones) {
-            const free = (x, z, m) => inRect(Z, x, z) && !inRect(this.yard, x, z, m) && !this.views.some((v) => inRect(v.rect, x, z, m))
+            const free = (x, z, m) => inRect(Z, x, z) && !inRect(this.yard, x, z, m) && !inRect(this.houseYard, x, z, m) && !this.views.some((v) => inRect(v.rect, x, z, m))
                 && !FARM.paths.some(([x0, z0, x1, z1]) => x > x0 - m && x < x1 + m && z > z0 - m && z < z1 + m)
                 && !FARM.structures.some((st) => Math.abs(x - st.x) < st.w / 2 + m && Math.abs(z - st.z) < st.d / 2 + m);
             const spots = (n, m) => {
@@ -352,7 +374,7 @@ export class Farm {
             spots.push([x, z]);
             k++;
         }
-        spots.push([1.6, 28.6], [3, -27], [27, -27], [3, -4], [26, -5], [6, -22], [24, -23], [4, -15]);
+        spots.push([1.6, 28.6]);
         const { trunks, leaves } = treeParts(spots);
         this.addHulled(0x7a4f2a, trunks, 0.4);
         const lm = this.addHulled(0xffffff, leaves, 0.45);

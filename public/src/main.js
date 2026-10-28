@@ -52,7 +52,7 @@ function addLights(scene) {
 const farmScene = new THREE.Scene();
 farmScene.background = new THREE.Color(THEME.sky);
 addLights(farmScene);
-const farm = new Farm(THEME, state.fields, state.barn.level);
+const farm = new Farm(THEME, state.fields, state.barn.level, state.house.level);
 farmScene.add(farm.root);
 const farmParticles = new Particles(farmScene, 600);
 const rig = new CameraRig(M);
@@ -265,8 +265,17 @@ const uiButton = (cls, onTap) => {
 // Cartel del granero: es el armamento (las rachas de bajas); tocarlo abre su menú
 const armory = uiButton('field-sign armory-sign hidden', () => select({ structure: 'barn' }));
 armory.id = 'sign-barn';
-// Con el nivel del granero en piezas (5) y la flecha verde si se puede mejorar
+// Cartel de la casa: su nivel en piezas y la flecha verde si se puede mejorar; abre su ficha
+const houseSign = uiButton('field-sign house-sign hidden', () => select({ structure: 'house' }));
+houseSign.id = 'sign-house';
+
+// Con el nivel del granero (y de la casa) en piezas y la flecha verde si se puede mejorar
 function refreshArmory() {
+    const hl = state.house.level, hmax = FARM.house.levels.length - 1;
+    const hp = Array.from({ length: hmax }, (_, i) => `<i class="pip${i < hl ? ' on' : ''}"></i>`).join('');
+    const hhtml = `<span>${L('FARMHOUSE', 'CASA')}</span><span class="pips">${hp}</span><i class="sign-up"></i>`;
+    if (houseSign.innerHTML !== hhtml) houseSign.innerHTML = hhtml;
+    houseSign.classList.toggle('can-up', state.canUpgradeHouse);
     const lv = state.barn.level, max = FARM.barn.levels.length - 1;
     const pips = Array.from({ length: max }, (_, i) => `<i class="pip${i < lv ? ' on' : ''}"></i>`).join('');
     const html = `${ico('ks-grenade')}<span>${L('ARMORY', 'ARMAMENTO')}</span><span class="pips">${pips}</span><i class="sign-up"></i>`;
@@ -302,7 +311,12 @@ const _b = new THREE.Vector3();
 function placeBubbles() {
     const show = mode === 'farm' && farm.introT > 1.6;
     armory.classList.toggle('hidden', !show);
+    houseSign.classList.toggle('hidden', !show);
     if (show) {
+        const house = farm.byId.house;
+        _b.set(house.def.x, (house.level ? house.top : 1.8) - 1.2, house.def.z).project(rig.camera);
+        houseSign.style.left = `${(_b.x * 0.5 + 0.5) * innerWidth}px`;
+        houseSign.style.top = `${(-_b.y * 0.5 + 0.5) * innerHeight}px`;
         const barn = farm.byId.barn;
         // (el cartel ya sube un poco por su cuenta: con esto queda justo sobre el tejado)
         _b.set(barn.def.x, barn.top - 1.4, barn.def.z).project(rig.camera);
@@ -358,6 +372,7 @@ function select(what) {
 function refreshPanel() {
     if (!selected) return;
     const title = $('panel-title'), text = $('panel-text'), bar = $('panel-bar'), act = $('panel-action'), up = $('panel-upgrade');
+    if (selected.structure === 'house') return refreshHousePanel(title, text, bar, act, up);
     if (selected.structure) {
         const m = farm.byId[selected.structure];
         title.textContent = m.def.name;
@@ -805,7 +820,11 @@ tapBtn('panel-action', () => {
     if (state.canUnlock(selected.field)) startUnlock(selected.field);
     else harvest(selected.field);
 });
-tapBtn('panel-upgrade', () => selected && selected.field && upgradeField(selected.field));
+tapBtn('panel-upgrade', () => {
+    if (!selected) return;
+    if (selected.field) upgradeField(selected.field);
+    else if (selected.structure === 'house') upgradeHouse();
+});
 tapBtn('panel-close', () => select(null));
 tapBtn('btn-settings', () => {
     sfx.play('ui');
@@ -865,6 +884,40 @@ function refreshStreaks() {
     up.disabled = !state.canUpgradeBarn;
     const cost = Object.entries(state.barnCost()).map(([c, n]) => `<span class="upgrade-cost${state.items[c] < n ? ' short' : ''}">${ico(CROPS[c].icon)}<b>${n}</b></span>`).join('');
     if ($('barn-cost').innerHTML !== cost) $('barn-cost').innerHTML = cost;
+}
+
+// Ficha de la casa: su nivel, qué hace el siguiente y su mejora
+function refreshHousePanel(title, text, bar, act, up) {
+    const lv = state.house.level, max = FARM.house.levels.length - 1;
+    title.textContent = `${L('FARMHOUSE', 'CASA')} ${L('LV', 'NV')}.${lv}/${max}`;
+    text.textContent = [
+        L('IN RUINS, AND THE WHOLE PLOT FULL OF JUNK. FIX IT UP!', 'EN RUINAS Y CON TODA LA PARCELA LLENA DE PORQUERÍA. ¡ARRÉGLALA!'),
+        L('FIXED UP. NEXT: CLEAR MOST OF THE PLOT.', 'ARREGLADA. SIGUIENTE: LIMPIAR GRAN PARTE DE LA PARCELA.'),
+        L('NEXT: CLEAR THE WHOLE PLOT.', 'SIGUIENTE: LIMPIAR TODA LA PARCELA.'),
+        L('HOME SWEET HOME.', 'HOGAR, DULCE HOGAR.'),
+    ][lv];
+    bar.parentElement.classList.add('hidden');
+    act.classList.add('hidden');
+    up.classList.remove('hidden');
+    up.disabled = !state.canUpgradeHouse;
+    up.classList.toggle('maxed', state.houseMaxed);
+    $('upgrade-label').textContent = state.houseMaxed ? L('MAX LEVEL', 'NIVEL MÁXIMO') : lv === 0 ? L('FIX UP', 'ARREGLAR') : L('CLEAR', 'LIMPIAR');
+    const cost = Object.entries(state.houseCost()).map(([c, n]) => `<span class="upgrade-cost${state.items[c] < n ? ' short' : ''}">${ico(CROPS[c].icon)}<b>${n}</b></span>`).join('');
+    if ($('upgrade-cost').innerHTML !== cost) $('upgrade-cost').innerHTML = cost;
+}
+
+function upgradeHouse() {
+    if (mode !== 'farm' || !state.upgradeHouse()) return;
+    farm.setHouseLevel(state.house.level);
+    const h = farm.byId.house, c = FARM.house.levels[state.house.level].clear;
+    rig.focus(h.def.x, h.def.z + 1);
+    rig.shake(0.2);
+    for (let k = 0; k < 16; k++) farmParticles.burst(c[0] + Math.random() * (c[2] - c[0]), 0.2, c[1] + Math.random() * (c[3] - c[1]), 6, [THEME.dust, 0x8a5a34, 0x6f8a3a], { speed: 2.4, up: 2, size: 0.14, ttl: 0.6 });
+    sfx.play('power');
+    vibrate('pickup');
+    updateCounts();
+    stage(state.house.level === 1 ? L('HOUSE FIXED!', '¡CASA ARREGLADA!') : L('PLOT CLEARED!', '¡PARCELA LIMPIA!'), `${L('FARMHOUSE', 'CASA')} ${L('LV', 'NV')}.${state.house.level}`);
+    refreshPanel();
 }
 
 // Subir el granero: se cierra el menú para ver crecer el recinto en el mapa
@@ -1072,7 +1125,8 @@ function frame(now) {
             refreshPanel();
         }
         // Humo de la chimenea y del tractor; destellos sobre el campo maduro
-        if (Math.random() < dt * 5) {
+        // (la casa en ruinas no echa humo)
+        if (state.house.level > 0 && Math.random() < dt * 5) {
             const h = farm.byId.house;
             h.root.localToWorld(_w.copy(h.chimney));
             farmParticles.spawn(_w.x, _w.y, _w.z, 0.2 + Math.random() * 0.2, 0.7, 0.1, 0.18 + Math.random() * 0.1, 2.2, Math.random() < 0.5 ? 0xe8e4dc : 0xcfc8c0, -0.1);
@@ -1125,4 +1179,4 @@ if ('serviceWorker' in navigator && !/^(localhost|127\.)/.test(location.hostname
 }
 
 // Para las pruebas (Playwright)
-window.game = { state, sniper, farm, rig, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, upgradeBarn, goFarm, select, updateCounts };
+window.game = { state, sniper, farm, rig, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, upgradeBarn, upgradeHouse, goFarm, select, updateCounts };

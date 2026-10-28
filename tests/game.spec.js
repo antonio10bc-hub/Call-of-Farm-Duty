@@ -546,3 +546,33 @@ test('debug: desbloquear de uno en uno terrenos, rachas y el hueco extra', async
     await expect.poll(() => page.evaluate(() => window.game && [game.state.streakAvailable('nuke'), game.state.slots])).toEqual([true, 3]);
     expect(errors).toEqual([]);
 });
+
+test('casa: empieza en ruinas con la parcela sucia; 3 niveles la arreglan y limpian la parcela', async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto('/');
+    await expect.poll(() => page.evaluate(() => window.game && game.farm.introT > 2)).toBe(true);
+    expect(await page.evaluate(() => [game.state.house.level, game.farm.byId.house.ruin.visible, game.farm.byId.house.whole.visible])).toEqual([0, true, false]);
+    const wildHidden = () => page.evaluate(() => game.farm.wild.reduce((n, e) => n + e.positions.filter((q) => q.hide).length, 0));
+    const before = await wildHidden();
+    // (desde la vista de inicio la casa queda fuera de la pantalla del móvil: su ficha, directa)
+    await page.evaluate(() => game.select({ structure: 'house' }));
+    await expect(page.locator('#panel-title')).toHaveText('CASA NV.0/3');
+    await expect(page.locator('#sign-house')).toContainText('CASA');
+    await expect(page.locator('#panel-upgrade')).toBeDisabled();
+    await page.evaluate(() => { game.state.items.wheat = 100; game.state.items.tomato = 100; });
+    await expect(page.locator('#panel-upgrade')).toBeEnabled();
+    await page.locator('#panel-upgrade').click();
+    // Nivel 1: la casita arreglada y limpio alrededor
+    expect(await page.evaluate(() => [game.state.house.level, game.farm.byId.house.ruin.visible, game.farm.byId.house.whole.visible])).toEqual([1, false, true]);
+    const l1 = await wildHidden();
+    expect(l1).toBeGreaterThan(before);
+    await page.locator('#panel-upgrade').click();
+    await page.locator('#panel-upgrade').click();
+    await expect(page.locator('#panel-title')).toHaveText('CASA NV.3/3');
+    expect(await wildHidden()).toBeGreaterThan(l1);
+    // Al nivel 3 la parcela entera está limpia: nada abandonado dentro
+    expect(await page.evaluate(() => game.farm.floor.tiles.filter((t) => t.k && t.k.wild && t.r < 0).length)).toBe(0);
+    await page.reload();
+    await expect.poll(() => page.evaluate(() => window.game && game.state.house.level)).toBe(3);
+    expect(errors).toEqual([]);
+});

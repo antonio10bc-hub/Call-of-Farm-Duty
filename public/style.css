@@ -958,7 +958,10 @@ body.unlocking .arrow-btn, body.unlocking .corners, body.unlocking .left-badge {
 .barn-head span { font-size: 7px; line-height: 1.5; color: #c8b89a; }
 .barn-box .upgrade-btn.hidden { display: none; }
 /* Piezas del nivel del granero en su cartel */
-.armory-sign .pips { display: flex; gap: 2px; }
+.house-sign { --sign: #3f6fb0; }
+.armory-sign .pips, .house-sign .pips { display: flex; gap: 2px; }
+.house-sign .pip { width: 6px; height: 8px; background: rgba(0, 0, 0, .35); border: 1px solid var(--ink); }
+.house-sign .pip.on { background: var(--yellow); }
 .armory-sign .pip { width: 6px; height: 8px; background: rgba(0, 0, 0, .35); border: 1px solid var(--ink); }
 .armory-sign .pip.on { background: var(--yellow); }
 .ks-ico { flex: none; width: 40px; height: 40px; background: var(--ico) center / 100% 100% no-repeat; image-rendering: pixelated; }

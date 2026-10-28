@@ -37,6 +37,18 @@ export const FARM = {
             { yard: [1, 1, 29, 15], slots: 3, cost: { wheat: 60, tomato: 30 } },
         ],
     },
+    // La casa y su parcela: empieza en ruinas con toda la parcela abandonada (zone). Nivel 1: la
+    // casita arreglada y limpio alrededor; 2: gran parte de la parcela; 3: toda (clear).
+    //   cost   lo que cuesta llegar a ese nivel
+    house: {
+        zone: [1, -29, 29, -1],
+        levels: [
+            { clear: null },
+            { clear: [10, -20, 21, -10], cost: { wheat: 8 } },
+            { clear: [4, -26, 26, -4], cost: { wheat: 20 } },
+            { clear: [1, -29, 29, -1], cost: { wheat: 35, tomato: 10 } },
+        ],
+    },
     structures: [
         { id: 'barn', kind: 'barn', x: 15, z: 11, w: 5, d: 4, ry: 0, name: L('BARN', 'GRANERO') },
         { id: 'silo', kind: 'silo', x: 19.5, z: 10, w: 2, d: 2, name: L('SILO', 'SILO') },

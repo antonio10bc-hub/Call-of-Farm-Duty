@@ -245,11 +245,15 @@ export class Silo extends VoxelModel {
     }
 }
 
+// Casa de la granja. Nivel 0: en ruinas (paredes rotas, tejado hundido, chimenea caída,
+// ventanas tapiadas y escombros); desde el 1, la casita arreglada.
 export class House extends VoxelModel {
     constructor(outlineColor) {
         super(outlineColor);
-        const WALL = 0xfff0d8, ROOF = 0x3f6fb0, ROOF2 = 0x355f9a, WOOD = 0x8a5a34, GLASS = 0x9fdcff, b = this.root;
+        const WALL = 0xfff0d8, ROOF = 0x3f6fb0, ROOF2 = 0x355f9a, WOOD = 0x8a5a34, GLASS = 0x9fdcff;
         const W = 3.2, H = 1.9, D = 2.8;
+        const b = (this.whole = new THREE.Group());
+        this.root.add(b);
         this.part(b, W + 0.1, 0.2, D + 0.1, 0x9a948c, 0, 0.1, 0);
         this.part(b, W, H, D, WALL, 0, 0.2 + H / 2, 0);
         // Tejado a dos aguas con la cumbrera de lado a lado (escalones hacia delante y detrás)
@@ -274,6 +278,41 @@ export class House extends VoxelModel {
         }
         this.part(b, 1.2, 0.12, 0.7, WOOD, -0.5, 0.06, D / 2 + 0.35);
         this.top = top + 1.6;
+
+        // En ruinas
+        const r = (this.ruin = new THREE.Group());
+        this.root.add(r);
+        const DIRTY = 0xb8a890, DIRTY2 = 0x9a8c74, SOOT = 0x4a4038, FADED = 0x5a6a80, FADED2 = 0x4a5868, PLANK = 0x6a4a2a;
+        this.part(r, W + 0.1, 0.2, D + 0.1, 0x7a746c, 0, 0.1, 0);
+        // Paredes a trozos, de alturas distintas y con manchas de hollín
+        this.part(r, W, 1.5, 0.16, DIRTY, 0, 0.95, -D / 2 + 0.08);
+        this.part(r, 1.2, 1.1, 0.16, DIRTY2, -1.0, 0.75, D / 2 - 0.08);
+        this.part(r, 0.9, 0.6, 0.16, DIRTY, 1.15, 0.5, D / 2 - 0.08);
+        this.part(r, 0.16, 1.3, D, DIRTY2, -W / 2 + 0.08, 0.85, 0);
+        this.part(r, 0.16, 0.9, 1.4, DIRTY, W / 2 - 0.08, 0.65, -0.7);
+        this.part(r, 1.0, 0.5, 0.04, SOOT, 0.4, 1.3, -D / 2 + 0.18, false);
+        this.part(r, 0.04, 0.6, 0.9, SOOT, -W / 2 + 0.18, 1.0, 0.5, false);
+        // Ventana tapiada con tablas y hueco de la puerta
+        for (const [y, t] of [[1.1, 0.25], [1.3, -0.2]]) this.part(r, 0.7, 0.1, 0.05, PLANK, -1.0, y, D / 2 + 0.02, false).rotation.z = t;
+        this.part(r, 0.5, 0.7, 0.05, 0x2a1a0e, 0.2, 0.55, D / 2 - 0.1, false);
+        // Tejado hundido: planchas caídas e inclinadas
+        this.part(r, W * 0.8, 0.2, 1.6, FADED, -0.3, 1.2, -0.4).rotation.set(0.35, 0, 0.12);
+        this.part(r, 1.6, 0.2, 1.2, FADED2, 0.8, 0.5, 0.7).rotation.set(-0.4, 0.3, 0.2);
+        this.part(r, 1.2, 0.2, 0.9, FADED, 2.3, 0.15, 1.0).rotation.set(0.1, 0.7, -0.15);
+        // Chimenea caída y montones de escombros y tablas
+        this.part(r, 0.36, 0.5, 0.36, 0x8a4a3a, 1.0, 1.05, -0.9);
+        for (const [x, z, sx, sy, c] of [[1.7, -1.3, 0.5, 0.3, 0x8a4a3a], [1.95, -1.0, 0.3, 0.2, 0x8a4a3a], [-0.3, 0.3, 0.8, 0.35, DIRTY2], [0.4, 0.1, 0.5, 0.25, 0x7a746c], [-2.1, 1.3, 0.6, 0.25, DIRTY]]) {
+            this.part(r, sx, sy, sx * 0.8, c, x, 0.2 + sy / 2, z).rotation.y = x;
+        }
+        for (const [x, z, a] of [[-1.9, -0.4, 0.4], [2.2, 0.2, 1.2], [-0.9, 1.9, 2.0]]) this.part(r, 1.4, 0.08, 0.16, PLANK, x, 0.08, z).rotation.y = a;
+        this.setLevel(0);
+    }
+
+    // 0: en ruinas; 1 o más: arreglada
+    setLevel(n) {
+        this.level = n;
+        this.whole.visible = n >= 1;
+        this.ruin.visible = n === 0;
     }
 
     update(dt) {

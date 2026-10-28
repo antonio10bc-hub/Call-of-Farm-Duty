@@ -8,9 +8,11 @@ import { KILLSTREAKS } from '../content/killstreaks.js';
 const KEY = 'cofd.farm.v4';
 // Revisión de la partida guardada. 2: campos de tiro grandes (se rellenan los blancos que se
 // guardaron con las cifras de antes). 3: niveles del granero (las partidas de antes, que ya
-// tenían granada y misil Predator, empiezan con el granero en el nivel 2)
-const REV = 3;
+// tenían granada y misil Predator, empiezan con el granero en el nivel 2). 4: niveles de la
+// casa (las de antes, con la casa ya arreglada, empiezan en el nivel 1)
+const REV = 4;
 const BARN = FARM.barn.levels;
+const HOUSE = FARM.house.levels;
 const OLD_KEYS = ['cofd.farm.v3', 'cofd.farm.v2']; // v3: un solo campo de trigo
 const levelsOf = (id) => FIELD_BY_ID[id].levels;
 const growMs = (id) => CROPS[FIELD_BY_ID[id].crop].growTime * 1000;
@@ -21,6 +23,7 @@ export class FarmState {
         // barn.extra: rachas desbloqueadas a mano (depuración) aunque el granero no llegue;
         // barn.slot: el hueco extra, también a mano
         this.barn = { level: 0, extra: [], slot: false };
+        this.house = { level: 0 };
         this.streaks = [];
         this.items = Object.fromEntries(Object.keys(CROPS).map((c) => [c, 0]));
         // Los terrenos bloqueados se siembran al desbloquearlos (y quedan listos para recoger)
@@ -41,6 +44,7 @@ export class FarmState {
                 this.barn.level = Math.min(BARN.length - 1, Math.max(0, d.barn ? d.barn.level | 0 : (d.rev | 0) < 3 ? 2 : 0));
                 if (d.barn && Array.isArray(d.barn.extra)) this.barn.extra = d.barn.extra.filter((id) => KILLSTREAKS.some((k) => k.id === id));
                 this.barn.slot = !!(d.barn && d.barn.slot);
+                this.house.level = Math.min(HOUSE.length - 1, Math.max(0, d.house ? d.house.level | 0 : (d.rev | 0) < 4 ? 1 : 0));
                 if (Array.isArray(d.streaks)) this.streaks = d.streaks.filter((id) => this.streakAvailable(id)).slice(0, this.slots);
                 for (const [id, f] of Object.entries(this.fields)) {
                     const s = d.fields[id];
@@ -66,6 +70,7 @@ export class FarmState {
                 w.plantedAt = +v3.plot.plantedAt || 0;
                 w.left = v3.plot.left | 0;
                 this.barn.level = 2;
+                this.house.level = 1;
             }
         } catch {
             /* sin almacenamiento */
@@ -83,7 +88,7 @@ export class FarmState {
 
     save() {
         try {
-            localStorage.setItem(KEY, JSON.stringify({ rev: REV, items: this.items, fields: this.fields, barn: this.barn, streaks: this.streaks }));
+            localStorage.setItem(KEY, JSON.stringify({ rev: REV, items: this.items, fields: this.fields, barn: this.barn, house: this.house, streaks: this.streaks }));
         } catch {
             /* ignorar */
         }
@@ -98,6 +103,28 @@ export class FarmState {
     streakAvailable(id) {
         const k = KILLSTREAKS.find((s) => s.id === id);
         return !!k && (this.barn.level >= k.barn || this.barn.extra.includes(id));
+    }
+
+    // ---------- Casa ----------
+    get houseMaxed() {
+        return this.house.level >= HOUSE.length - 1;
+    }
+
+    houseCost() {
+        const c = this.houseMaxed ? {} : HOUSE[this.house.level + 1].cost;
+        return this.freeCosts ? Object.fromEntries(Object.keys(c).map((k) => [k, 0])) : c;
+    }
+
+    get canUpgradeHouse() {
+        return !this.houseMaxed && Object.entries(this.houseCost()).every(([c, n]) => this.items[c] >= n);
+    }
+
+    upgradeHouse() {
+        if (!this.canUpgradeHouse) return false;
+        for (const [c, n] of Object.entries(this.houseCost())) this.items[c] -= n;
+        this.house.level++;
+        this.save();
+        return true;
     }
 
     // Depuración: desbloquear una racha sin subir el granero (se equipa sola si hay hueco)
