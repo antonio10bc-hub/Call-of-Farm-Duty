@@ -491,3 +491,20 @@ test('debug: DESBLOQUEAR TODO limpia todos los terrenos sin requisitos', async (
     await expect(page.locator('#farm-tomato')).toBeVisible();
     expect(errors).toEqual([]);
 });
+
+test('partida guardada con las cifras de antes: los campos salen con los blancos de su nivel', async ({ page }) => {
+    const errors = watchErrors(page);
+    // Trigo en nivel 5 maduro con las 32 matas de antes y tomates en nivel 3 creciendo con 11
+    await page.addInitScript(() => {
+        if (sessionStorage.getItem('seeded')) return;
+        sessionStorage.setItem('seeded', '1');
+        localStorage.setItem('cofd.farm.v4', JSON.stringify({ items: { wheat: 50, tomato: 0 }, fields: { wheat: { unlocked: true, level: 4, plantedAt: 0, left: 32 }, tomato: { unlocked: true, level: 2, plantedAt: Date.now(), left: 11 } }, streaks: ['grenade'] }));
+    });
+    await page.goto('/');
+    await expect.poll(() => page.evaluate(() => window.game && [game.state.fields.wheat.left, game.state.fields.tomato.left]), { timeout: 30_000 }).toEqual([80, 22]);
+    // Ya guardada con la revisión nueva: lo que se haya empezado a recoger se respeta
+    await page.evaluate(() => { game.state.collect('wheat'); });
+    await page.reload();
+    await expect.poll(() => page.evaluate(() => window.game && game.state.fields.wheat.left), { timeout: 30_000 }).toBe(79);
+    expect(errors).toEqual([]);
+});

@@ -6,6 +6,9 @@ import { KILLSTREAKS, MAX_EQUIPPED, DEFAULT_EQUIPPED } from '../content/killstre
 // de siembra y blancos que quedan) y las rachas de bajas equipadas en el granero. Se guarda en el navegador; sin almacenamiento simplemente no
 // se recuerda.
 const KEY = 'cofd.farm.v4';
+// Revisión de la partida guardada. 2: campos de tiro grandes (se rellenan los blancos que se
+// guardaron con las cifras de antes)
+const REV = 2;
 const OLD_KEYS = ['cofd.farm.v3', 'cofd.farm.v2']; // v3: un solo campo de trigo
 const levelsOf = (id) => FIELD_BY_ID[id].levels;
 const growMs = (id) => CROPS[FIELD_BY_ID[id].crop].growTime * 1000;
@@ -38,6 +41,10 @@ export class FarmState {
                     f.level = Math.min(levelsOf(id).length - 1, Math.max(0, s.level | 0));
                     f.plantedAt = +s.plantedAt || 0;
                     f.left = s.left | 0;
+                    // Lo que está creciendo sale con las cifras de su nivel (si cambian en el
+                    // contenido, al cargar ya valen); lo maduro guardado antes de la revisión 2,
+                    // también, aunque ya se hubiera empezado a recoger
+                    if (f.unlocked && (!this.isReady(id) || (d.rev | 0) < 2)) f.left = Math.max(this.isReady(id) ? f.left : 0, this.sheaves(id));
                 }
                 return;
             }
@@ -67,7 +74,7 @@ export class FarmState {
 
     save() {
         try {
-            localStorage.setItem(KEY, JSON.stringify({ items: this.items, fields: this.fields, streaks: this.streaks }));
+            localStorage.setItem(KEY, JSON.stringify({ rev: REV, items: this.items, fields: this.fields, streaks: this.streaks }));
         } catch {
             /* ignorar */
         }
