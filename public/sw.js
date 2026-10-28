@@ -4,7 +4,7 @@
 // copia); sin conexión, o si la red tarda demasiado, se usa la copia guardada.
 // La primera visita guarda la estructura básica al instalarse, y la página le envía la
 // lista de todo lo que ha cargado (módulos, iconos...) para que también lo guarde.
-const CACHE = 'cofd-v26';
+const CACHE = 'cofd-v27';
 const SHELL = [
     './',
     './index.html',

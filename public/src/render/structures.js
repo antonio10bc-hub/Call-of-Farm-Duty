@@ -83,51 +83,130 @@ export class Barn extends VoxelModel {
             this.part(g, 0.62, 0.42, 0.55, OLIVE, x, 0.21 + y, z);
             this.part(g, 0.64, 0.08, 0.57, 0xffcc33, x, 0.3 + y, z, false);
         };
-        // 1: sacos terreros a los lados del portón y cajas de munición
+        // Piezas sueltas que se repiten por el recinto
+        const drum = (g, x, z, c = 0xc8402e, lying = false) => {
+            const d = this.part(g, 0.45, 0.62, 0.45, c, x, lying ? 0.24 : 0.31, z);
+            this.part(d, 0.47, 0.06, 0.47, 0x2a1a0e, 0, 0.18, 0, false);
+            if (lying) d.rotation.z = Math.PI / 2;
+        };
+        const tent = (g, x, z) => {
+            this.part(g, 3.0, 1.0, 2.4, OLIVE, x, 0.5, z);
+            [[3.1, 1.2], [2.0, 1.5], [0.9, 1.8]].forEach(([w, y]) => this.part(g, w, 0.32, 2.5, OLIVE2, x, y, z));
+            this.part(g, 0.7, 0.8, 0.06, 0x2a2a1e, x, 0.4, z + 1.22, false);
+        };
+        const lamp = (g, x, z) => {
+            this.part(g, 0.1, 1.8, 0.1, 0x3a3030, x, 0.9, z, false);
+            this.part(g, 0.4, 0.08, 0.1, 0x3a3030, x + 0.15, 1.8, z, false);
+            this.part(g, 0.24, 0.2, 0.24, 0xfff0a0, x + 0.3, 1.7, z);
+        };
+        const flag = (g, x, z, c = 0xc8402e, h = 2.6) => {
+            this.part(g, 0.08, h, 0.08, 0x3a3030, x, h / 2, z, false);
+            this.part(g, 0.8, 0.5, 0.04, c, x + 0.42, h - 0.3, z, false);
+        };
+        const legs = (g, x, z, w, h) => {
+            for (const sx of [-1, 1]) for (const sz of [-1, 1]) this.part(g, 0.12, h, 0.12, 0x6a4a2a, x + sx * w / 2, h / 2, z + sz * w / 2, false);
+        };
+
+        // 1: sacos terreros a los lados del portón, cajas de munición, bidones y la bandera
         let g = level();
         for (const s of [-1, 1]) sandbags(g, s * 1.95, D / 2 + 0.55, 3);
         for (const [x, z, y] of [[-2.75, 0.9, 0], [-2.75, 0.2, 0], [-2.75, 0.55, 0.42], [2.7, 1.1, 0]]) crate(g, x, y, z);
-        // 2: red de camuflaje en el tejado y una tienda de campaña con sus cajas
+        for (const [x, z] of [[6.4, 1.6], [6.9, 1.6], [6.4, 2.1]]) drum(g, x, z);
+        drum(g, 7.0, 2.2, OLIVE, true);
+        for (const [x, z, y] of [[5.4, -4.9, 0], [6.0, -4.9, 0], [5.7, -4.5, 0.42]]) crate(g, x, y, z);
+        flag(g, -3.2, 3.2, OLIVE);
+        // 2: red de camuflaje, dos tiendas de campaña, farolas en el camino y un jeep
         g = level();
         [[-1.2, 2, OLIVE], [0.9, 2, 0x6a5a3a], [-0.2, 3, OLIVE2], [1.1, 1, OLIVE2], [-1.6, 1, 0x6a5a3a]].forEach(([x, i, c]) => {
             this.part(g, 1.0, 0.08, D * 0.7, c, x, top + 0.33 + i * 0.3, 0, false);
         });
-        this.part(g, 3.0, 1.0, 2.4, OLIVE, -5.5, 0.5, -3);
-        [[3.1, 1.2], [2.0, 1.5], [0.9, 1.8]].forEach(([w, y]) => this.part(g, w, 0.32, 2.5, OLIVE2, -5.5, y, -3));
-        this.part(g, 0.7, 0.8, 0.06, 0x2a2a1e, -5.5, 0.4, -1.78, false);
+        tent(g, -5.5, -3);
+        tent(g, -8.4, -5.7);
         crate(g, -3.6, 0, -2.2);
         crate(g, -3.6, 0.42, -2.2);
-        // 3: búnker de hormigón con troneras y sacos encima, y una línea de sacos delante
+        for (const x of [-1.6, 1.6]) lamp(g, x, -4.5);
+        // Jeep: carrocería, capó, parabrisas, ruedas y rueda de repuesto
+        this.part(g, 2.0, 0.55, 1.1, OLIVE, 8.4, 0.55, -4.5);
+        this.part(g, 0.7, 0.3, 1.0, OLIVE2, 9.05, 0.95, -4.5);
+        this.part(g, 0.06, 0.45, 1.0, 0x3a3030, 8.6, 1.05, -4.5, false);
+        for (const [x, z] of [[7.75, -5.1], [9.05, -5.1], [7.75, -3.9], [9.05, -3.9]]) this.part(g, 0.45, 0.45, 0.22, 0x2e2a28, x, 0.25, z);
+        this.part(g, 0.14, 0.45, 0.45, 0x2e2a28, 7.32, 0.7, -4.5);
+        // 3: búnker con troneras y sacos, cañón antiaéreo entre sacos y un puesto de guardia
         g = level();
-        this.part(g, 4, 1.3, 3, CONC, 9.5, 0.65, -2.5);
-        this.part(g, 4.2, 0.16, 3.2, CONC2, 9.5, 1.38, -2.5);
-        for (const x of [8.6, 10.4]) this.part(g, 0.9, 0.18, 0.06, 0x2a2a2a, x, 0.9, -0.99, false);
-        sandbags(g, 9.5, -2.5, 6, 1);
-        sandbags(g, 9.5, 0.2, 7, 2);
-        // 4: helipuerto con su H y luces, y un radar que gira en el tejado
+        this.part(g, 4, 1.3, 3, CONC, 9.5, 0.65, -1.8);
+        this.part(g, 4.2, 0.16, 3.2, CONC2, 9.5, 1.38, -1.8);
+        for (const x of [8.6, 10.4]) this.part(g, 0.9, 0.18, 0.06, 0x2a2a2a, x, 0.9, -0.29, false);
+        sandbags(g, 9.5, -1.8, 6, 1);
+        sandbags(g, 9.5, 0.6, 7, 2);
+        for (let k = 0; k < 9; k++) {
+            const a = (k / 9) * Math.PI * 2;
+            this.part(g, 0.5, 0.3, 0.32, k % 2 ? SAND : SAND2, -11 + Math.sin(a) * 0.95, 0.15, -7 + Math.cos(a) * 0.95).rotation.y = a;
+        }
+        this.part(g, 0.7, 0.4, 0.7, 0x5a5a56, -11, 0.4, -7);
+        for (const s of [-0.15, 0.15]) this.part(g, 0.08, 0.08, 1.3, 0x3a3a3a, -11 + s, 0.85, -7.45, false).rotation.x = 0.6;
+        legs(g, 11, 2.3, 1.4, 1.8);
+        this.part(g, 1.7, 0.12, 1.7, 0x9a6a3a, 11, 1.85, 2.3);
+        sandbags(g, 11, 3.05, 3, 1);
+        this.part(g, 1.9, 0.12, 1.9, OLIVE2, 11, 2.9, 2.3);
+        // 4: helipuerto con su helicóptero, radar en el tejado, depósito de agua y mástil de radio
         g = level();
         this.part(g, 4.2, 0.08, 4.2, CONC2, -10, 0.04, -2);
         this.part(g, 3.6, 0.04, 3.6, CONC, -10, 0.1, -2, false);
         for (const x of [-11, -9]) this.part(g, 0.3, 0.05, 2.2, 0xffcc33, x, 0.14, -2, false);
         this.part(g, 2.0, 0.05, 0.3, 0xffcc33, -10, 0.14, -2, false);
         for (const [x, z] of [[-11.9, -3.9], [-8.1, -3.9], [-11.9, -0.1], [-8.1, -0.1]]) this.part(g, 0.16, 0.16, 0.16, 0xff3e1a, x, 0.12, z);
+        const heli = new THREE.Group();
+        heli.position.set(-10, 0.12, -2);
+        heli.rotation.y = 0.5;
+        g.add(heli);
+        for (const s of [-0.5, 0.5]) this.part(heli, 0.08, 0.08, 2.2, 0x3a3030, s, 0.05, 0, false);
+        this.part(heli, 1.1, 0.9, 2.2, OLIVE, 0, 0.75, 0.2);
+        this.part(heli, 0.9, 0.6, 0.6, 0x9fdcff, 0, 0.85, 1.4);
+        this.part(heli, 0.3, 0.3, 2.2, OLIVE2, 0, 0.95, -1.9);
+        this.part(heli, 0.06, 0.6, 0.4, OLIVE2, 0.12, 1.15, -2.9);
+        this.part(heli, 0.15, 0.25, 0.15, 0x3a3030, 0, 1.32, 0.2, false);
+        this.rotor = new THREE.Group();
+        this.rotor.position.set(0, 1.46, 0.2);
+        heli.add(this.rotor);
+        for (const r of [0, Math.PI / 2]) this.part(this.rotor, 4.2, 0.04, 0.18, 0x2a2a2a, 0, 0, 0, false).rotation.y = r;
         this.radar = new THREE.Group();
         this.radar.position.set(-W / 2 + 0.7, top + 0.5, -D / 2 + 0.6);
         g.add(this.radar);
         this.part(this.radar, 0.1, 0.9, 0.1, 0x3a3030, 0, 0.45, 0, false);
         this.part(this.radar, 1.1, 0.7, 0.1, 0xd8dce2, 0, 1.0, 0.1).rotation.x = -0.4;
-        // 5: hangar grande en arco, banderas y un foco
+        legs(g, -12, 2.6, 1.2, 2.4);
+        this.part(g, 1.5, 1.1, 1.5, 0x8a9aa0, -12, 3.0, 2.6);
+        this.part(g, 1.1, 0.25, 1.1, 0x6a7a80, -12, 3.66, 2.6);
+        this.part(g, 0.14, 4.6, 0.14, 0x3a3030, 12, 2.3, -5, false);
+        for (const y of [1.6, 2.8, 3.9]) this.part(g, 0.7 - y * 0.08, 0.05, 0.05, 0x3a3030, 12, y, -5, false);
+        this.mast = this.part(g, 0.18, 0.18, 0.18, 0xff2a1a, 12, 4.7, -5);
+        // 5: hangar grande en arco con su foco, un tanque, erizos antitanque, banderas en las
+        // esquinas y una torre con foco
         g = level();
         [[4.2, 0.9, 0x7a8a6a], [3.6, 1.7, 0x6a7a5a], [2.8, 2.4, 0x7a8a6a], [1.6, 2.9, 0x6a7a5a]].forEach(([d, y, c], i) => {
-            this.part(g, 7, i ? 0.6 : 1.8, d, c, 7, i ? y : 0.9, -7.5);
+            this.part(g, 7, i ? 0.6 : 1.8, d, c, 7, i ? y : 0.9, -7.8);
         });
-        this.part(g, 2.4, 1.6, 0.08, 0x2a2a1e, 7, 0.8, -5.36, false);
-        for (const [x, z] of [[-13, 2], [-12, -6], [13, 2]]) {
-            this.part(g, 0.08, 2.6, 0.08, 0x3a3030, x, 1.3, z, false);
-            this.part(g, 0.8, 0.5, 0.04, 0xc8402e, x + 0.42, 2.3, z, false);
+        this.part(g, 2.4, 1.6, 0.08, 0x2a2a1e, 7, 0.8, -5.66, false);
+        this.part(g, 0.5, 0.4, 0.5, 0x3a3a3a, 4, 3.4, -5.9);
+        this.part(g, 0.36, 0.3, 0.06, 0xfff6c0, 4, 3.4, -5.63, false);
+        this.part(g, 2.6, 0.5, 1.6, OLIVE, -4.5, 0.45, -8.4);
+        for (const s of [-1, 1]) this.part(g, 2.8, 0.4, 0.36, 0x2e2a28, -4.5, 0.2, -8.4 + s * 0.75);
+        this.part(g, 1.3, 0.45, 1.1, OLIVE2, -4.7, 0.92, -8.4);
+        this.part(g, 1.6, 0.16, 0.16, 0x3a3a34, -3.4, 0.98, -8.4, false);
+        for (let k = 0; k < 5; k++) {
+            const x = -13 + k * 1.4;
+            for (const r of [0.8, -0.8]) {
+                const bar = this.part(g, 0.1, 0.9, 0.1, 0x5a5a56, x, 0.4, -9.3, false);
+                bar.rotation.set(0, k, r);
+            }
         }
-        this.part(g, 0.5, 0.4, 0.5, 0x3a3a3a, 4, 3.4, -5.6);
-        this.part(g, 0.36, 0.3, 0.06, 0xfff6c0, 4, 3.4, -5.33, false);
+        flag(g, -13.4, -9.4);
+        flag(g, 13.4, -9.4);
+        flag(g, -13.4, 3.2);
+        legs(g, 13.2, 3, 1.0, 2.8);
+        this.part(g, 1.2, 0.1, 1.2, 0x9a6a3a, 13.2, 2.85, 3);
+        this.part(g, 0.5, 0.4, 0.5, 0x3a3a3a, 13.2, 3.15, 3);
+        this.part(g, 0.36, 0.3, 0.06, 0xfff6c0, 13.2, 3.15, 2.73, false);
         this.setLevel(0);
     }
 
@@ -140,6 +219,8 @@ export class Barn extends VoxelModel {
         this.vane.rotation.y = Math.sin(time * 0.4) * 1.2 + time * 0.15;
         this.light.visible = Math.sin(time * 5) > 0;
         if (this.radar) this.radar.rotation.y = time * 1.4;
+        if (this.rotor) this.rotor.rotation.y = time * 2.2; // el helicóptero, al ralentí
+        if (this.mast) this.mast.visible = Math.sin(time * 4 + 1) > 0;
         this.updateFx(dt);
     }
 }
