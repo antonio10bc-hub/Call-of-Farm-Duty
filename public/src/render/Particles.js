@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { box } from './materials.js';
+import { CONFIG } from '../config.js';
 
 const FIELDS = ['x', 'y', 'z', 'vx', 'vy', 'vz', 'life', 'ttl', 'size', 'grav', 'rot', 'spin', 'r', 'g', 'b'];
 const _d = new THREE.Object3D();
@@ -21,7 +22,7 @@ export class Particles {
     }
 
     spawn(x, y, z, vx, vy, vz, size, ttl, color, grav = 14) {
-        if (this.n >= this.max) return;
+        if (this.n >= this.max || CONFIG.test) return; // en modo prueba no hay partículas (solo son decorado)
         const i = this.n++;
         this.x[i] = x; this.y[i] = y; this.z[i] = z;
         this.vx[i] = vx; this.vy[i] = vy; this.vz[i] = vz;

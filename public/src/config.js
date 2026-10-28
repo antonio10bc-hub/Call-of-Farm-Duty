@@ -1,8 +1,14 @@
 // Ajustes globales del motor. Lo que pertenece a un contenido concreto (cultivos, campo,
 // tema, edificios...) vive en /content, no aquí.
+
+// Modo prueba (?test en la URL, lo usan las pruebas de Playwright): misma lógica, pero se
+// dibuja más barato (menos resolución, sin partículas y como mucho a test.fps)
+const TEST = typeof location !== 'undefined' && new URLSearchParams(location.search).has('test');
+
 export const CONFIG = {
+    test: TEST ? { fps: 30 } : null,
     render: {
-        targetPixels: 340,  // líneas aprox. en el lado corto de la pantalla: píxel fino
+        targetPixels: TEST ? 170 : 340, // líneas aprox. en el lado corto de la pantalla: píxel fino
         maxScale: 16,
         colorLevels: 31,    // niveles por canal (5 bits)
         dither: 0.8,

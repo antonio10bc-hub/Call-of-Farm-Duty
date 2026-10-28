@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "test": "playwright test",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:related": "node scripts/related-tests.mjs",
     "build": "node scripts/build.mjs"
   },
   "license": "ISC",

@@ -1307,8 +1307,12 @@ try {
 let last = performance.now();
 let uiT = 0;
 const _w = new THREE.Vector3();
+let paused = false;
 function frame(now) {
+    if (paused) return; // las pruebas lo paran al acabar
     requestAnimationFrame(frame);
+    // En modo prueba, como mucho a CONFIG.test.fps (el tiempo de juego sigue al real)
+    if (CONFIG.test && now - last < 1000 / CONFIG.test.fps - 1) return;
     const dt = Math.min(CONFIG.sim.maxFrame, (now - last) / 1000);
     last = now;
     time += dt;
@@ -1389,4 +1393,4 @@ if ('serviceWorker' in navigator && !/^(localhost|127\.)/.test(location.hostname
 }
 
 // Para las pruebas (Playwright)
-window.game = { state, sniper, farm, rig, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, upgradeBarn, upgradeHouse, openShop, get cine() { return cine; }, goFarm, select, updateCounts };
+window.game = { state, sniper, farm, rig, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, upgradeBarn, upgradeHouse, openShop, get cine() { return cine; }, goFarm, select, updateCounts, pause: () => (paused = true) };

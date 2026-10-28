@@ -32,7 +32,11 @@ Granja voxel con estética de consola portátil (mismo estudio y estilo que Tank
 ```
 npm install
 npm start          # http://localhost:3000 (sirve public/)
-npm test           # Playwright (PW_CHROMIUM=ruta para usar un Chromium ya instalado)
+npm test           # Playwright, la suite completa (PW_CHROMIUM=ruta para usar un Chromium ya instalado)
+npm run test:smoke # solo las @smoke (rápidas y críticas)
+npm run test:related  # solo los archivos de pruebas afectados por lo que ha cambiado (un worker)
 npm run build      # dist/ para Vercel
 ```
+Las pruebas están por áreas en `tests/*.spec.js` y abren el juego con `?test` (se dibuja más barato: menos resolución, sin partículas, 30 fps). En el Mac usan la GPU real (Chromium con Metal); en CI o con `PW_GPU=soft`, WebGL por software.
+
 Web estática con módulos ES y Three.js 0.160 en `public/vendor`. El contenido (tema, cultivos, campo) vive en `public/src/content/`.
