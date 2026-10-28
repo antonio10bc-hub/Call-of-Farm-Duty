@@ -41,16 +41,18 @@ export class RifleModel extends VoxelModel {
         this.swayY = 0;
     }
 
-    fire() {
+    // speed: lo deprisa que va el cerrojo (1 = el de serie; más con su mejora)
+    fire(speed = 1) {
         this.kick = 1;
         this.boltT = 0;
+        this.boltSpeed = speed;
     }
 
     // dx, dy: cuánto se ha girado la vista este frame (el rifle se queda un poco atrás, con
     // inercia); bob: balanceo vertical; ads: 0 = en la cadera, 1 = pegado al ojo para apuntar
     update(dt, dx = 0, dy = 0, bob = 0, ads = 0) {
         this.kick = Math.max(0, this.kick - dt * 5);
-        this.boltT += dt;
+        this.boltT += dt * (this.boltSpeed || 1);
         const lag = 1 - ads * 0.8;
         this.swayX = damp(this.swayX, clamp(-dx * 8, -0.6, 0.6) * lag, 9, dt);
         this.swayY = damp(this.swayY, clamp(dy * 8, -0.6, 0.6) * lag, 9, dt);

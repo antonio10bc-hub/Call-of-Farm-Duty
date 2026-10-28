@@ -190,6 +190,19 @@ const SPRITES = {
         rows: ['..KKKKKKKK..', '.KOOYYYYOOK.', 'KOYYWWWYYYOK', 'KOOYYYYYYOOK', '.KKKOYYOKKK.', '....KYYK....', '....KOYK....', '....KYOK....', '...KOYYOK...', '.KKOOYYOOKK.', 'KOOOOOOOOOOK', 'KKKKKKKKKKKK'],
         pal: { K: INK, Y: '#ffd23f', O: '#ff9a1f', W: '#fff4b0' },
     },
+    // Mejoras del rifle (menú del granero): mira, estabilidad (nivel de burbuja) y cerrojo (balas)
+    rfZoom: {
+        rows: ['...KKKKKK...', '..KBBBRBBK..', '.KBBBBRBBWK.', 'KBBBBBRBBBBK', 'KBBBBBRBBBBK', 'KRRRRR.RRRRK', 'KBBBBBRBBBBK', 'KBBBBBRBBBBK', '.KBBBBRBBBK.', '..KBBBRBBK..', '...KKKKKK...', '............'],
+        pal: { K: INK, B: '#6ab0e0', R: '#c8402e', W: '#e8f6ff' },
+    },
+    rfSteady: {
+        rows: ['............', '............', '............', 'KKKKKKKKKKKK', 'KGGGKWWKGGGK', 'KGGGKWWKGGGK', 'KDDDKDDKDDDK', 'KKKKKKKKKKKK', '..KMMMMMMK..', '..KKKKKKKK..', '............', '............'],
+        pal: { K: INK, G: '#9ad84a', W: '#ffffff', D: '#5a9e32', M: '#a8957a' },
+    },
+    rfBolt: {
+        rows: ['.K...K...K..', 'KCK.KCK.KCK.', 'KCK.KCK.KCK.', 'KKK.KKK.KKK.', 'KYK.KYK.KYK.', 'KYK.KYK.KYK.', 'KYK.KYK.KYK.', 'KYK.KYK.KYK.', 'KYK.KYK.KYK.', 'KDK.KDK.KDK.', 'KKK.KKK.KKK.', '............'],
+        pal: { K: INK, C: '#c87a3a', Y: '#ffd23f', D: '#c89a2a' },
+    },
     // El ovni: moneda alienígena, luz de alarma del cartel y el alienígena en su nave (tienda)
     alien: {
         rows: ['..KKKKKK..', '.KGGGGGGK.', 'KGWGGGGGGK', 'KGKKGGKKGK', 'KGKKGGKKGK', 'KGGGGGGGGK', 'KGGGKKGGGK', '.KGGGGGGK.', '..KKKKKK..'],

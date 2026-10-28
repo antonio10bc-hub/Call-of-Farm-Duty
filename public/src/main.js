@@ -5,6 +5,7 @@ import { CROPS } from './content/crops.js';
 import { FARM, FIELD_BY_ID, INFO } from './content/farm.js';
 import { KILLSTREAKS, setStreakCounts } from './content/killstreaks.js';
 import { UFO, SHOP, SHOP_ITEMS } from './content/ufo.js';
+import { RIFLE } from './content/rifle.js';
 import { RetroRenderer } from './render/RetroRenderer.js';
 import { CameraRig } from './render/CameraRig.js';
 import { Particles } from './render/Particles.js';
@@ -306,7 +307,7 @@ function refreshArmory() {
     const pips = Array.from({ length: max }, (_, i) => `<i class="pip${i < lv ? ' on' : ''}"></i>`).join('');
     const html = `${ico('ks-grenade')}<span>${L('ARMORY', 'ARMAMENTO')}</span><span class="pips">${pips}</span><i class="sign-up"></i>`;
     if (armory.innerHTML !== html) armory.innerHTML = html;
-    armory.classList.toggle('can-up', state.canUpgradeBarn);
+    armory.classList.toggle('can-up', state.canUpgradeBarn || RIFLE.some((r) => state.canUpgradeRifle(r.id)));
 }
 
 for (const def of FARM.fields) {
@@ -549,7 +550,7 @@ function quickAction() {
 function enterSnipe() {
     const unlock = goSnipe.unlock;
     const def = FIELD_BY_ID[snipeField], arena = def.levels[state.fields[snipeField].level].arena;
-    sniper.enter(unlock ? { unlock: true } : { crop: def.crop, count: state.fields[snipeField].left, arena, streaks: state.activeStreaks });
+    sniper.enter(unlock ? { unlock: true, rifle: state.rifle } : { crop: def.crop, count: state.fields[snipeField].left, arena, streaks: state.activeStreaks, rifle: state.rifle });
     document.body.classList.remove('fallout');
     mode = 'snipe';
     snipeStart = time;
@@ -1173,7 +1174,69 @@ tapBtn('barn-upgrade', upgradeBarn);
 function openStreaks() {
     sfx.play('ui');
     refreshStreaks();
+    refreshRifle();
     $('streaks').classList.remove('hidden');
+}
+
+// Pestañas del granero: RACHAS y RIFLE
+function barnTab(tab) {
+    for (const b of document.querySelectorAll('.barn-tab')) b.classList.toggle('on', b.dataset.tab === tab);
+    $('barn-ks').classList.toggle('hidden', tab !== 'ks');
+    $('barn-rifle').classList.toggle('hidden', tab !== 'rifle');
+}
+for (const b of document.querySelectorAll('.barn-tab')) {
+    b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sfx.play('ui');
+        barnTab(b.dataset.tab);
+    });
+}
+
+// ---------- Mejoras del rifle (pestaña RIFLE del granero) ----------
+// Cómo se lee cada valor en la tarjeta: zoom en aumentos, vaivén en % del de serie y la espera
+// del cerrojo en s
+const RIFLE_FMT = {
+    zoom: [L('ZOOM', 'ZOOM'), (v) => `x${(S.fov / v).toFixed(1)}`],
+    steady: [L('SWAY', 'VAIVÉN'), (v) => `${Math.round(v * 100)}%`],
+    bolt: [L('WAIT', 'ESPERA'), (v) => `${v.toFixed(2)} S`],
+};
+const rfCards = {};
+for (const r of RIFLE) {
+    const card = document.createElement('div');
+    card.className = 'ks-card rf-card';
+    card.id = `rf-card-${r.id}`;
+    card.innerHTML = `<i class="ks-ico" style="--ico: var(--px-${r.icon})"></i><span class="ks-info"><span class="rf-name"><b>${r.name}</b><span class="pips"></span></span><span class="rf-val"></span><small>${r.desc}</small></span>`
+        + `<button class="btn upgrade-btn" id="rf-up-${r.id}"><span class="rf-label"></span><span class="upgrade-costs"></span></button>`;
+    card.querySelector('button').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!state.upgradeRifle(r.id)) return sfx.play('miss');
+        sfx.play('reloaded');
+        vibrate('pickup');
+        updateCounts();
+        refreshRifle();
+        refreshStreaks();
+        card.classList.remove('bump');
+        void card.offsetWidth;
+        card.classList.add('bump');
+    });
+    $('rf-cards').appendChild(card);
+    rfCards[r.id] = card;
+}
+function refreshRifle() {
+    for (const r of RIFLE) {
+        const card = rfCards[r.id], lv = state.rifle[r.id], max = state.rifleMaxed(r.id), [label, fmt] = RIFLE_FMT[r.id];
+        const pips = r.cost.map((_, i) => `<i class="pip${i < lv ? ' on' : ''}"></i>`).join('');
+        const el = card.querySelector('.pips');
+        if (el.innerHTML !== pips) el.innerHTML = pips;
+        card.querySelector('.rf-val').textContent = `${label} ${fmt(r.values[lv])} ${max ? `· ${L('MAX', 'MÁX')}` : `→ ${fmt(r.values[lv + 1])}`}`;
+        const up = card.querySelector('button');
+        up.disabled = !state.canUpgradeRifle(r.id);
+        up.classList.toggle('maxed', max);
+        up.querySelector('.rf-label').textContent = max ? L('MAX', 'MÁX') : `${L('LV', 'NV')}.${lv + 1}`;
+        const cost = Object.entries(state.rifleCost(r.id)).map(([c, n]) => `<span class="upgrade-cost${state.items[c] < n ? ' short' : ''}">${ico(CROPS[c].icon)}<b>${n}</b></span>`).join('');
+        const box = up.querySelector('.upgrade-costs');
+        if (box.innerHTML !== cost) box.innerHTML = cost;
+    }
 }
 
 tapBtn('btn-streaks-close', () => {
@@ -1225,14 +1288,15 @@ tapBtn('btn-unlock-all', () => {
     const ids = FARM.fields.map((f) => f.id).filter((id) => state.unlock(id, Date.now(), true));
     const ks = KILLSTREAKS.filter((k) => state.unlockStreak(k.id));
     const slot = state.unlockSlot();
-    sfx.play(ids.length || ks.length || slot ? 'power' : 'miss');
+    const rifle = state.maxRifle();
+    sfx.play(ids.length || ks.length || slot || rifle ? 'power' : 'miss');
     refreshUnlockRows();
-    if (!ids.length && !ks.length && !slot) return;
+    if (!ids.length && !ks.length && !slot && !rifle) return;
     $('debug').classList.add('hidden');
     while (revealUnlocked());
     rig.focus(home.x, home.z);
     updateCounts();
-    const what = [...ids.map((id) => FIELD_BY_ID[id].name), ...ks.map((k) => k.name), ...(slot ? [L('+1 STREAK SLOT', '+1 HUECO DE RACHA')] : [])];
+    const what = [...ids.map((id) => FIELD_BY_ID[id].name), ...ks.map((k) => k.name), ...(slot ? [L('+1 STREAK SLOT', '+1 HUECO DE RACHA')] : []), ...(rifle ? [L('MAXED RIFLE', 'RIFLE AL MÁXIMO')] : [])];
     setTimeout(() => stage(L('ALL UNLOCKED!', '¡TODO DESBLOQUEADO!'), what.join(' · ')), 350);
 });
 
@@ -1249,6 +1313,7 @@ const unlockables = [
     })),
     ...KILLSTREAKS.map((k) => ({ id: `ks-${k.id}`, name: k.name, done: () => state.streakAvailable(k.id), run: () => state.unlockStreak(k.id) })),
     { id: 'slot', name: L('+1 STREAK SLOT', '+1 HUECO DE RACHA'), done: () => state.slots >= FARM.barn.levels[FARM.barn.levels.length - 1].slots, run: () => state.unlockSlot() },
+    { id: 'rifle', name: L('MAXED RIFLE', 'RIFLE AL MÁXIMO'), done: () => RIFLE.every((r) => state.rifleMaxed(r.id)), run: () => state.maxRifle() },
 ];
 const unlockBtns = {};
 for (const u of unlockables) {
@@ -1485,7 +1550,7 @@ function frame(now) {
         sniper.update(dt);
         $('snipe-ui').classList.toggle('scoped', sniper.scoped);
         document.body.classList.toggle('scoped', sniper.scoped);
-        scope.show(sniper.fov < (S.fov + S.scopeFov) * 0.5);
+        scope.show(sniper.fov < (S.fov + sniper.stats.zoom) * 0.5);
         scope.setReady(sniper.canFire);
         // La mirilla se abre con la dispersión: así se ve cuánto puede fallar el tiro
         const spreadPx = (Math.tan(sniper.spread) / Math.tan((sniper.fov * Math.PI) / 360)) * (innerHeight / 2);

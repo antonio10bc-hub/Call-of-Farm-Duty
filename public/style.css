@@ -1047,6 +1047,26 @@ body.unlocking .arrow-btn, body.unlocking .corners, body.unlocking .left-badge {
 .ks-card em { flex: none; font-style: normal; font-size: 7px; padding: 5px 6px; color: #fff; background: #a8957a; border: 2px solid var(--ink); }
 .ks-card.on em { background: #17d65a; text-shadow: 1px 1px 0 var(--ink); }
 
+/* Pestañas del granero: RACHAS y RIFLE */
+.barn-tabs { display: flex; gap: 8px; width: min(330px, 100%); }
+.barn-tab { flex: 1; padding: 8px 6px; font-family: var(--font); font-size: 10px; color: var(--cream); background: transparent; border: 3px solid #a8957a; cursor: pointer; }
+.barn-tab.on { color: var(--ink); background: var(--yellow); border-color: var(--ink); box-shadow: 0 3px 0 var(--ink); }
+.barn-page { display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%; }
+.barn-page.hidden { display: none; }
+/* Mejora del rifle: icono, nombre con sus piezas, lo que hace, ahora → siguiente y el botón */
+.rf-card { cursor: default; }
+.rf-card:active { transform: none; box-shadow: 0 5px 0 var(--ink), inset 0 -4px 0 #e6d6b4; }
+.rf-card .pips { display: flex; gap: 2px; }
+.rf-card .pip { width: 7px; height: 9px; background: #d6c6a4; border: 1px solid var(--ink); }
+.rf-card .pip.on { background: #17d65a; }
+.rf-name { display: flex; align-items: center; gap: 8px; }
+.rf-val { font-size: 8px; color: var(--barn); }
+.rf-card .upgrade-btn { flex: none; flex-direction: column; gap: 5px; padding: 7px 8px; font-size: 8px; }
+.rf-card .upgrade-cost { padding: 2px 4px; border-width: 2px; }
+.rf-card .upgrade-cost .ico { width: 11px; height: 12px; }
+.rf-card .upgrade-btn.maxed { background: #a8957a; }
+.rf-card.bump { animation: badgeBump .4s steps(1); }
+
 /* Lluvia radiactiva: neblina amarillenta que se queda tras la bomba nuclear */
 .nuke-haze { position: fixed; inset: 0; z-index: 9; pointer-events: none; opacity: 0; transition: opacity 1.5s; background: radial-gradient(ellipse at center, rgba(235, 215, 80, .28) 0%, rgba(170, 150, 40, .5) 100%); }
 body.fallout .nuke-haze { opacity: 1; animation: haze 3s ease-in-out infinite; }

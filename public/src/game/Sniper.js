@@ -11,6 +11,7 @@ import { CROPS } from '../content/crops.js';
 import { KILLSTREAKS, KS } from '../content/killstreaks.js';
 import { Killstreaks } from './Killstreaks.js';
 import { Flyers } from './Flyers.js';
+import { rifleStats } from '../content/rifle.js';
 
 const S = CONFIG.sniper;
 const FIRE = [0xffffff, 0xffe03a, 0xff9a1f, 0xff3e1a];
@@ -47,6 +48,8 @@ export class Sniper {
         this.rifle = new RifleModel(theme.outline);
         this.camera.add(this.rifle.root);
 
+        // Lo que dan las mejoras del rifle del granero (zoom de la mira, estabilidad y cerrojo)
+        this.stats = rifleStats();
         this.ks = new Killstreaks(this);
         this.flyers = new Flyers(this);
         this.equipped = [];
@@ -99,9 +102,10 @@ export class Sniper {
     }
 
     // what: { crop, count, arena, streaks } para cosechar (count blancos de ese cultivo en un
-    // campo de tamaño arena) o { unlock: true }
+    // campo de tamaño arena) o { unlock: true }; rifle: niveles de sus mejoras
     enter(what) {
         this.setArena(what.arena || 1);
+        this.stats = rifleStats(what.rifle);
         this.unlocking = !!what.unlock;
         this.equipped = what.streaks || []; // rachas de bajas que valen en esta partida
         this.crop = what.crop || null;
@@ -236,7 +240,8 @@ export class Sniper {
     get spread() {
         const k = clamp((this.adsK - 0.4) / (S.adsReady - 0.4), 0, 1);
         const hip = S.hipSpread * (1 - k * k * (3 - 2 * k));
-        const settle = this.adsK >= S.adsReady ? S.settleSpread * this.settle : this.adsK > 0.4 ? S.settleSpread : 0;
+        const steady = this.stats.steady;
+        const settle = (this.adsK >= S.adsReady ? S.settleSpread * this.settle : this.adsK > 0.4 ? S.settleSpread : 0) * steady;
         const turning = Math.min(S.lookSpreadMax, this.turnSpeed * S.lookSpread);
         return (hip + settle + turning) * (this.move ? 1 + S.moveSpread : 1);
     }
@@ -252,14 +257,15 @@ export class Sniper {
             return false;
         }
         const { sfx } = this.hooks;
-        this.bolt = S.boltTime;
+        this.bolt = this.stats.bolt;
         // Retroceso: la vista salta hacia arriba (y un poco de lado) y vuelve con un muelle
         this.kickV += S.recoil * (this.scoped ? 30 : 22);
         this.kickYaw = (Math.random() - 0.5) * S.recoil * 0.5;
         this.trauma = Math.min(1, this.trauma + (this.scoped ? 0.2 : 0.35));
-        this.rifle.fire();
+        // (el cerrojo se mueve y suena al ritmo de su mejora)
+        this.rifle.fire(S.boltTime / this.stats.bolt);
         sfx.play('snipe');
-        setTimeout(() => sfx.play('bolt'), 320);
+        setTimeout(() => sfx.play('bolt'), 320 * (this.stats.bolt / S.boltTime));
         vibrate('crate');
 
         // El disparo sale justo por la mirilla: el centro de lo que se ve ahora
@@ -484,12 +490,12 @@ export class Sniper {
         // Subir/bajar el arma al ojo; el zoom sigue al arma con su propia curva
         this.adsK = Math.min(1, Math.max(0, this.adsK + (this.scoped ? 1 : -1.3) * rawDt / S.adsTime));
         // La mira recién subida tiembla y tarda en asentarse; bajarla lo reinicia
-        this.settle = this.adsK < S.adsReady ? 1 : Math.max(0, this.settle - rawDt / S.settleTime);
+        this.settle = this.adsK < S.adsReady ? 1 : Math.max(0, this.settle - rawDt / (S.settleTime * (0.5 + 0.5 * this.stats.steady)));
         // Velocidad de giro de la vista (rad/s), suavizada
         if (rawDt > 0) this.turnSpeed += (this.turned / rawDt - this.turnSpeed) * (1 - Math.exp(-rawDt * 12));
         this.turned = 0;
         const zk = clamp((this.adsK - 0.3) / 0.7, 0, 1);
-        this.fov = S.fov + (S.scopeFov - S.fov) * zk * zk * (3 - 2 * zk);
+        this.fov = S.fov + (this.stats.zoom - S.fov) * zk * zk * (3 - 2 * zk);
         this.camera.fov = this.fov;
         this.camera.updateProjectionMatrix();
         this.bolt = Math.max(0, this.bolt - dt);
@@ -504,8 +510,8 @@ export class Sniper {
         this.trauma = Math.max(0, this.trauma - rawDt * 2.4);
         const shake = tr * 0.025 * (this.fov / S.fov);
         // Respiración con la mira (un ocho lento)
-        const sw = S.sway * this.adsK;
-        const jitter = this.adsK >= S.adsReady ? S.settleSway * this.settle * this.settle : 0;
+        const sw = S.sway * this.adsK * this.stats.steady;
+        const jitter = this.adsK >= S.adsReady ? S.settleSway * this.settle * this.settle * this.stats.steady : 0;
         const fovK = this.fov / S.fov;
         this.yaw = this.lookYaw + Math.sin(time * 0.9) * sw + Math.sin(time * 11) * jitter + this.kickYaw * this.kickP * 10 + (Math.random() * 2 - 1) * shake;
         this.pitch = clamp(this.lookPitch + Math.sin(time * 1.8) * sw * 0.6 + Math.cos(time * 13) * jitter * 0.8 + this.kickP * fovK + (Math.random() * 2 - 1) * shake, -1.5, 1.5);

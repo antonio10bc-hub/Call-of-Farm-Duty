@@ -130,3 +130,37 @@ test('casa: empieza en ruinas con la parcela sucia; 3 niveles la arreglan y limp
     await expect.poll(() => page.evaluate(() => window.game && game.state.house.level)).toBe(3);
     expect(errors).toEqual([]);
 });
+
+test('rifle: en el granero se mejoran la mira, la estabilidad y el cerrojo con cosecha', { tag: '@full' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await openFarm(page);
+    await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
+    await page.evaluate(() => game.select({ structure: 'barn' }));
+    await expect(page.locator('#streaks')).toBeVisible();
+    await page.locator('#barn-tab-rifle').click();
+    await expect(page.locator('#barn-rifle')).toBeVisible();
+    await expect(page.locator('#barn-ks')).toBeHidden();
+    // Sin cosecha no se mejora; con 4 de trigo, la mira sube al nivel 1
+    await expect(page.locator('#rf-up-zoom')).toBeDisabled();
+    await page.evaluate(() => { game.state.items.wheat = 4; game.select({ structure: 'barn' }); });
+    await expect(page.locator('#rf-up-zoom')).toBeEnabled();
+    await expect(page.locator('#rf-card-zoom .rf-val')).toHaveText('ZOOM x5.3 → x6.1');
+    await page.locator('#rf-up-zoom').click();
+    expect(await page.evaluate(() => [game.state.rifle.zoom, game.state.items.wheat])).toEqual([1, 0]);
+    await expect(page.locator('#rf-card-zoom .pip.on')).toHaveCount(1);
+    await expect(page.locator('#rf-up-zoom')).toBeDisabled();
+    // Los dos últimos niveles piden tomates
+    await page.evaluate(() => { game.state.items.wheat = 1000; for (let i = 0; i < 3; i++) game.state.upgradeRifle('bolt'); });
+    expect(await page.evaluate(() => [game.state.rifle.bolt, game.state.canUpgradeRifle('bolt')])).toEqual([3, false]);
+    await page.evaluate(() => { game.state.items.tomato = 1000; game.state.upgradeRifle('bolt'); game.state.upgradeRifle('bolt'); game.state.upgradeRifle('steady'); game.select({ structure: 'barn' }); });
+    await expect(page.locator('#rf-up-bolt')).toHaveText('MÁX');
+    // En el campo de tiro el rifle va con sus mejoras
+    await page.locator('#btn-streaks-close').click();
+    await page.evaluate(() => game.harvest('wheat'));
+    await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
+    expect(await page.evaluate(() => game.sniper.stats)).toEqual({ zoom: 10.5, steady: 0.8, bolt: 0.33 });
+    // Se guarda
+    await page.reload();
+    await expect.poll(() => page.evaluate(() => window.game && game.state.rifle)).toEqual({ zoom: 1, steady: 1, bolt: 5 });
+    expect(errors).toEqual([]);
+});

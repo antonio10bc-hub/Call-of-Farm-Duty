@@ -129,16 +129,28 @@
         <div id="ufo-items" class="ufo-items"></div>
     </div>
 
-    <!-- Granero: las rachas de bajas que se llevan al campo de tiro -->
+    <!-- Granero (armamento): su nivel y dos pestañas, las rachas de bajas que se llevan al campo
+         de tiro y las mejoras del rifle -->
     <div id="streaks" class="screen settings streaks-screen hidden">
-        <h2 class="end-title" data-es="RACHAS DE BAJAS">KILLSTREAKS</h2>
+        <h2 class="end-title" data-es="ARMAMENTO">ARMORY</h2>
         <!-- El granero: nivel, lo que desbloquea el siguiente y su mejora -->
         <div class="barn-box">
             <div class="barn-head"><b id="barn-level"></b><span id="barn-next"></span></div>
             <button id="barn-upgrade" class="btn upgrade-btn"><span data-es="MEJORAR">UPGRADE</span><span id="barn-cost" class="upgrade-costs"></span></button>
         </div>
-        <div id="ks-pick-info" class="ks-pick-info"></div>
-        <div id="ks-cards" class="ks-cards"></div>
+        <div class="barn-tabs">
+            <button id="barn-tab-ks" class="barn-tab on" data-tab="ks" data-es="RACHAS">STREAKS</button>
+            <button id="barn-tab-rifle" class="barn-tab" data-tab="rifle">RIFLE</button>
+        </div>
+        <div id="barn-ks" class="barn-page">
+            <div id="ks-pick-info" class="ks-pick-info"></div>
+            <div id="ks-cards" class="ks-cards"></div>
+        </div>
+        <!-- Mejoras del rifle: una tarjeta por mejora (las rellena main.js) -->
+        <div id="barn-rifle" class="barn-page hidden">
+            <div class="ks-pick-info" data-es="MEJORA TU RIFLE CON LA COSECHA">UPGRADE YOUR RIFLE WITH YOUR HARVEST</div>
+            <div id="rf-cards" class="ks-cards"></div>
+        </div>
         <button id="btn-streaks-close" class="btn home-btn"><span class="home-icon"></span><span data-es="VOLVER">BACK</span></button>
     </div>
     <!-- Neblina amarillenta tras la bomba nuclear -->
