@@ -31,7 +31,8 @@ export class FarmState {
         // El ovni (crashed: ya se ha estrellado en la parcela de la casa) y la casa personalizada
         // en su tienda: lo comprado (owned) y lo que lleva puesto en cada parte (look)
         this.ufo = { crashed: false };
-        this.home = { owned: [], look: { ...DEFAULT_LOOK } };
+        // placed: lo de la parcela que está puesto en su hueco (lo comprado se puede quitar)
+        this.home = { owned: [], look: { ...DEFAULT_LOOK }, placed: [] };
         // Los terrenos bloqueados se siembran al desbloquearlos (y quedan listos para recoger)
         this.fields = Object.fromEntries(FARM.fields.map((f) => [f.id, {
             unlocked: !f.locked,
@@ -55,6 +56,7 @@ export class FarmState {
                 if (d.home) {
                     if (Array.isArray(d.home.owned)) this.home.owned = d.home.owned.filter((id) => SHOP_ITEMS[id]);
                     for (const [slot, id] of Object.entries((d.home && d.home.look) || {})) if (slot in this.home.look && SHOP_ITEMS[id] && this.owns(id)) this.home.look[slot] = id;
+                    if (Array.isArray(d.home.placed)) this.home.placed = d.home.placed.filter((id) => this.owns(id));
                 }
                 if (Array.isArray(d.streaks)) this.streaks = d.streaks.filter((id) => this.streakAvailable(id)).slice(0, this.slots);
                 for (const [id, f] of Object.entries(this.fields)) {
@@ -149,16 +151,21 @@ export class FarmState {
         return Object.entries(cost).every(([c, n]) => this.items[c] >= n);
     }
 
-    // Comprar (si no se tenía) y ponerlo. false si no se puede (PRONTO o sin monedas)
+    // Comprar (si no se tenía) y ponerlo. Lo de la casa se pone (una opción por parte); lo de la
+    // parcela, al comprarlo se pone en su hueco y después se quita o se vuelve a poner.
+    // false si no se puede (PRONTO o sin monedas)
     buyOrWear(id) {
         const it = SHOP_ITEMS[id];
         if (!it || it.cat.soon) return false;
-        if (!this.owns(id)) {
+        const had = this.owns(id);
+        if (!had) {
             if (!this.affordableCost(it.cost)) return false;
             for (const [c, n] of Object.entries(it.cost)) this.items[c] -= n;
             this.home.owned.push(id);
         }
         if (it.cat.slot) this.home.look[it.cat.slot] = id;
+        else if (!had || !this.home.placed.includes(id)) this.home.placed.push(id);
+        else this.home.placed = this.home.placed.filter((p) => p !== id);
         this.save();
         return true;
     }

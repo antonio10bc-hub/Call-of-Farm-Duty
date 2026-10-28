@@ -946,6 +946,13 @@ function applyLook() {
     const colors = {};
     for (const [slot, id] of Object.entries(state.home.look)) colors[slot] = SHOP_ITEMS[id].color;
     farm.byId.house.setLook(colors);
+    farm.plot.setPlaced(state.home.placed);
+}
+
+// La cámara encuadra en la mitad de arriba (la tienda tapa la de abajo) un punto de la parcela
+function frameShop(x, z, zoom) {
+    rig.focus(x + 4 * zoom, z + 4 * zoom);
+    rig.zoomTarget = zoom;
 }
 
 // ---------- Tienda del ovni ----------
@@ -979,8 +986,8 @@ function openShop() {
     select(null);
     sfx.play('ufo');
     const h = farm.byId.house;
-    rig.focus(h.def.x + 4, h.def.z + 4); // la casa queda en la mitad de arriba
-    rig.zoomTarget = 0.72;
+    if (shop.tab === 'house') frameShop(h.def.x, h.def.z, 0.72);
+    else frameShop(15, -15, 1.5);
     say(ZORG.hello[(Math.random() * ZORG.hello.length) | 0]);
     renderShop();
     const el = $('ufo-shop');
@@ -997,7 +1004,7 @@ function renderShop() {
     $('ufo-cats').innerHTML = sec.cats.map((c) => `<button class="ufo-cat${c.id === shop.cat ? ' on' : ''}${c.soon ? ' soon' : ''}" data-cat="${c.id}">${c.name}</button>`).join('');
     const cat = sec.cats.find((c) => c.id === shop.cat);
     $('ufo-items').innerHTML = cat.items.map((it) => {
-        const owned = state.owns(it.id), on = cat.slot && state.home.look[cat.slot] === it.id;
+        const owned = state.owns(it.id), on = cat.slot ? state.home.look[cat.slot] === it.id : state.home.placed.includes(it.id);
         const [c1, c2] = Array.isArray(it.color) ? it.color : [it.color ?? it.ico, it.color ?? it.ico];
         const n = it.cost.alien || 0, short = !owned && !cat.soon && state.items.alien < n;
         const tag = cat.soon ? `${n}<span class="ico alien-ico"></span> · ${L('SOON', 'PRONTO')}`
@@ -1015,6 +1022,10 @@ $('ufo-shop').addEventListener('click', (e) => {
         shop.tab = t.dataset.tab;
         shop.cat = SHOP.find((x) => x.id === shop.tab).cats[0].id;
         sfx.play('ui');
+        // CASA: la casa de cerca; PARCELA: toda la parcela
+        const h = farm.byId.house;
+        if (shop.tab === 'house') frameShop(h.def.x, h.def.z, 0.72);
+        else frameShop(15, -15, 1.5);
         return renderShop();
     }
     if (t.dataset.cat) {
@@ -1027,7 +1038,11 @@ $('ufo-shop').addEventListener('click', (e) => {
     const had = state.owns(it.id);
     if (!state.buyOrWear(it.id)) return sfx.play('miss'), say(ZORG.poor, true);
     applyLook();
-    farm.byId.house.select();
+    // Lo de la parcela: la cámara va a su hueco para verlo aparecer
+    if (it.at) {
+        frameShop(it.at.x, it.at.z, 0.9);
+        if (state.home.placed.includes(it.id)) for (let k = 0; k < 4; k++) farmParticles.burst(it.at.x + (Math.random() - 0.5) * 2, 0.3, it.at.z + (Math.random() - 0.5) * 2, 8, [THEME.dust, 0x7dff4a, 0xffffff], { speed: 2.4, up: 2.4, size: 0.14, ttl: 0.6 });
+    } else farm.byId.house.select();
     sfx.play(had ? 'ui' : 'shieldGet');
     if (!had) say(ZORG.thanks);
     updateCounts();

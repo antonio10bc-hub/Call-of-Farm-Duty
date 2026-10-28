@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { box, toon, outline, OUTLINE } from '../render/materials.js';
 import { easeOutBack } from '../core/math.js';
 import { STRUCTURES, Ufo } from '../render/structures.js';
+import { Plot } from '../render/props.js';
 import { junkyard, barrelParts, JUNK } from '../render/junk.js';
 import { CROPS } from '../content/crops.js';
 import { FARM } from '../content/farm.js';
@@ -137,6 +138,9 @@ export class Farm {
         this.byId = Object.fromEntries(this.structures.map((m) => [m.def.id, m]));
         this.byId.barn.setLevel(this.barnLevel);
         this.byId.house.setLevel(this.houseLevel);
+        // Lo comprado en la tienda del ovni para la parcela de la casa, cada cosa en su hueco
+        this.plot = new Plot(theme.outline);
+        root.add(this.plot.root);
     }
 
     tileY(k) {
@@ -542,6 +546,7 @@ export class Farm {
             m.update(dt, time);
         });
         if (this.ufo) this.ufo.update(dt, time);
+        this.plot.update(dt, time);
 
         for (const v of this.views) {
             if (v.locked) continue;

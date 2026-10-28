@@ -27,12 +27,23 @@ test('ovni: con la casa al máximo cae del cielo (sin control), se estrella y ab
     expect(await page.evaluate(() => [game.state.home.look.roof, game.state.items.alien, game.state.owns('roof-red')])).toEqual(['roof-red', 3, true]);
     expect(await page.evaluate(() => game.farm.byId.house.paint.roof[0].material.color.getHex())).toBe(0xb84a32);
     // Lo de PRONTO no se compra
+    await page.locator('.ufo-cat', { hasText: 'TIPO DE CASA' }).click();
+    await page.locator('#shop-type-attic').click();
+    expect(await page.evaluate(() => [game.state.owns('type-attic'), game.state.items.alien])).toEqual([false, 3]);
+    // PARCELA: la piscina va a su hueco al comprarla; tocarla otra vez la quita (y otra, la pone)
     await page.locator('.ufo-tab', { hasText: 'PARCELA' }).click();
+    await page.evaluate(() => { game.state.items.alien = 11; });
     await page.locator('#shop-pool').click();
-    expect(await page.evaluate(() => [game.state.owns('pool'), game.state.items.alien])).toEqual([false, 3]);
-    // Se guarda: al recargar sigue el ovni y el tejado rojo
+    expect(await page.evaluate(() => [game.state.owns('pool'), game.state.items.alien, game.farm.plot.items.pool.visible])).toEqual([true, 3, true]);
+    await expect(page.locator('#shop-pool')).toHaveClass(/on/);
+    await page.locator('#shop-pool').click();
+    expect(await page.evaluate(() => [game.state.home.placed.includes('pool'), game.farm.plot.items.pool.visible, game.state.items.alien])).toEqual([false, false, 3]);
+    await page.locator('#shop-pool').click();
+    expect(await page.evaluate(() => game.farm.plot.items.pool.visible)).toBe(true);
+    // Se guarda: al recargar sigue el ovni, el tejado rojo y la piscina
     await page.reload();
     await expect.poll(() => page.evaluate(() => window.game && !!game.farm.ufo && game.farm.byId.house.paint.roof[0].material.color.getHex())).toBe(0xb84a32);
+    expect(await page.evaluate(() => game.farm.plot.items.pool.visible)).toBe(true);
     expect(errors).toEqual([]);
 });
 
