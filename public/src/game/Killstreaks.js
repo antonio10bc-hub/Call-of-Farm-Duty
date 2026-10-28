@@ -188,14 +188,42 @@ export class Killstreaks {
     }
 
     // ---------- Bomba nuclear ----------
+    // La bomba cae desde lo alto del cielo sobre el centro del campo durante la cuenta atrás (cada
+    // vez más deprisa) y la vista la sigue; explota al tocar el suelo
     startNuke() {
         if (this.nuke) return;
-        this.nuke = { t: KS.nuke.countdown, boom: -1, sec: 0 };
+        const sn = this.sn, f = sn.field, ink = this.ink;
+        const bomb = new THREE.Group();
+        const BODY = 0x6a7a5a, DARK = 0x3a4a32;
+        hulled(bomb, ink, 1.6, 3.2, 1.6, BODY);                    // cuerpo
+        hulled(bomb, ink, 1.2, 0.7, 1.2, BODY, 0, -1.9, 0);        // morro
+        hulled(bomb, ink, 0.7, 0.4, 0.7, DARK, 0, -2.4, 0);
+        hulled(bomb, ink, 1.7, 0.5, 1.7, 0xffcc33, 0, 0.3, 0);     // banda amarilla
+        for (const r of [0, Math.PI / 2]) {
+            const fin = hulled(bomb, ink, 2.6, 1.1, 0.12, DARK, 0, 2.1, 0); // aletas de cola
+            fin.rotation.y = r;
+        }
+        hulled(bomb, ink, 1.0, 0.3, 1.0, DARK, 0, 1.75, 0);
+        // Símbolo de radiación (negro sobre la banda) y luz roja que parpadea en la cola
+        for (const r of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+            const s = new THREE.Mesh(box(0.38, 0.32, 0.04), mat(0x2a1a0e));
+            s.position.set(Math.sin(r) * 0.87, 0.3, Math.cos(r) * 0.87);
+            s.rotation.y = r;
+            bomb.add(s);
+        }
+        const light = hulled(bomb, ink, 0.3, 0.3, 0.3, 0xff2a1a, 0, 2.75, 0);
+        bomb.scale.setScalar(1.3);
+        bomb.position.set(f.cx, KS.nuke.height, f.cz);
+        this.root.add(bomb);
+        sn.setAds(false);
+        this.nuke = { t: KS.nuke.countdown, boom: -1, sec: 0, bomb, light, trail: 0 };
+        sn.hooks.sfx.play('nukeFall');
     }
 
     detonate() {
         const sn = this.sn, f = sn.field, N = this.nuke;
         N.boom = 0;
+        this.root.remove(N.bomb);
         // Bola de fuego gigante en el centro del campo: cubos anidados, de blanco a rojo
         N.ball = [0xffffff, 0xffe03a, 0xff9a1f, 0xff3e1a].map((c, i) => {
             const m = new THREE.Mesh(box(1, 1, 1), new THREE.MeshBasicMaterial({ color: c, transparent: true, depthWrite: false }));
@@ -295,6 +323,23 @@ export class Killstreaks {
                     N.sec = sec;
                     if (sn.hooks.onNukeCount) sn.hooks.onNukeCount(sec);
                     if (sec > 0) sn.hooks.sfx.play('siren');
+                }
+                // La bomba: cae acelerando (llega al suelo justo a cero), se bambolea, deja humo y
+                // la vista la sigue
+                const k = 1 - Math.max(0, N.t) / KS.nuke.countdown, f = sn.field, B = N.bomb;
+                B.position.y = 2.4 + (KS.nuke.height - 2.4) * (1 - k * k);
+                B.rotation.set(Math.sin(N.t * 3) * 0.06, N.t * 0.8, Math.cos(N.t * 2.6) * 0.06);
+                N.light.visible = Math.sin(N.t * 14) > 0;
+                if ((N.trail -= rawDt) <= 0) {
+                    N.trail = 0.03;
+                    sn.particles.spawn(f.cx + (Math.random() - 0.5), B.position.y + 4, f.cz + (Math.random() - 0.5), 0, 1, 0, 0.4 + Math.random() * 0.4, 1.4, SMOKE[(Math.random() * 4) | 0], -1);
+                }
+                if (!sn.ks.predator) {
+                    const dx = f.cx - sn.pos.x, dz = f.cz - sn.pos.z, dy = B.position.y - sn.pos.y;
+                    const yaw = Math.atan2(-dx, -dz), pitch = Math.atan2(dy, Math.hypot(dx, dz));
+                    const a = 1 - Math.exp(-rawDt * 5);
+                    sn.lookYaw += Math.atan2(Math.sin(yaw - sn.lookYaw), Math.cos(yaw - sn.lookYaw)) * a;
+                    sn.lookPitch += (Math.min(1.45, pitch) - sn.lookPitch) * a;
                 }
                 if (N.t <= 0) this.detonate();
             } else {

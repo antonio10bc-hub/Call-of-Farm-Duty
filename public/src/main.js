@@ -3,7 +3,7 @@ import { CONFIG } from './config.js';
 import { THEME } from './content/theme.js';
 import { CROPS } from './content/crops.js';
 import { FARM, FIELD_BY_ID, INFO } from './content/farm.js';
-import { KILLSTREAKS, MAX_EQUIPPED, setStreakCounts } from './content/killstreaks.js';
+import { KILLSTREAKS, setStreakCounts } from './content/killstreaks.js';
 import { RetroRenderer } from './render/RetroRenderer.js';
 import { CameraRig } from './render/CameraRig.js';
 import { Particles } from './render/Particles.js';
@@ -52,7 +52,7 @@ function addLights(scene) {
 const farmScene = new THREE.Scene();
 farmScene.background = new THREE.Color(THEME.sky);
 addLights(farmScene);
-const farm = new Farm(THEME, state.fields);
+const farm = new Farm(THEME, state.fields, state.barn.level);
 farmScene.add(farm.root);
 const farmParticles = new Particles(farmScene, 600);
 const rig = new CameraRig(M);
@@ -171,6 +171,7 @@ function updateCounts(bump = false) {
     $('hud-wheat').textContent = state.items[hud];
     $('hud-ico').className = `ico ${CROPS[hud].icon}-ico`;
     refreshSigns();
+    refreshArmory();
     if (bump) {
         for (const id of [hud === 'tomato' ? 'farm-tomato' : 'farm-wheat', 'snipe-wheat']) {
             const el = $(id);
@@ -264,7 +265,14 @@ const uiButton = (cls, onTap) => {
 // Cartel del granero: es el armamento (las rachas de bajas); tocarlo abre su menú
 const armory = uiButton('field-sign armory-sign hidden', () => select({ structure: 'barn' }));
 armory.id = 'sign-barn';
-armory.innerHTML = `${ico('ks-grenade')}<span>${L('ARMORY', 'ARMAMENTO')}</span>`;
+// Con el nivel del granero en piezas (5) y la flecha verde si se puede mejorar
+function refreshArmory() {
+    const lv = state.barn.level, max = FARM.barn.levels.length - 1;
+    const pips = Array.from({ length: max }, (_, i) => `<i class="pip${i < lv ? ' on' : ''}"></i>`).join('');
+    const html = `${ico('ks-grenade')}<span>${L('ARMORY', 'ARMAMENTO')}</span><span class="pips">${pips}</span><i class="sign-up"></i>`;
+    if (armory.innerHTML !== html) armory.innerHTML = html;
+    armory.classList.toggle('can-up', state.canUpgradeBarn);
+}
 
 for (const def of FARM.fields) {
     const id = def.id;
@@ -441,7 +449,7 @@ function updateStreak() {
     el.classList.toggle('low', sniper.streakT < 1);
     // La siguiente de las equipadas en el granero
     const next = KILLSTREAKS.filter((k) => sniper.equipped.includes(k.id) && k.at > n).sort((a, b) => a.at - b.at)[0];
-    $('streak-next').textContent = next ? `${L('NEXT', 'SIGUIENTE')}: ${next.at} ${next.name}` : sniper.equipped.length ? L('MAX STREAK!', '¡RACHA MÁXIMA!') : L('NO STREAKS: EQUIP THEM IN THE BARN', 'SIN RACHAS: EQUÍPALAS EN EL GRANERO');
+    $('streak-next').textContent = next ? `${L('NEXT', 'SIGUIENTE')}: ${next.at} ${next.name}` : sniper.equipped.length ? L('MAX STREAK!', '¡RACHA MÁXIMA!') : L('NO STREAKS: UPGRADE THE BARN', 'SIN RACHAS: MEJORA EL GRANERO');
 }
 
 // Guiando el misil: altura en la interfaz
@@ -493,7 +501,7 @@ function quickAction() {
 function enterSnipe() {
     const unlock = goSnipe.unlock;
     const def = FIELD_BY_ID[snipeField], arena = def.levels[state.fields[snipeField].level].arena;
-    sniper.enter(unlock ? { unlock: true } : { crop: def.crop, count: state.fields[snipeField].left, arena, streaks: [...state.streaks] });
+    sniper.enter(unlock ? { unlock: true } : { crop: def.crop, count: state.fields[snipeField].left, arena, streaks: state.activeStreaks });
     document.body.classList.remove('fallout');
     mode = 'snipe';
     snipeStart = time;
@@ -808,7 +816,7 @@ tapBtn('btn-settings-close', () => {
     $('settings').classList.add('hidden');
 });
 
-// ---------- Granero: elegir las rachas de bajas (como mucho MAX_EQUIPPED) ----------
+// ---------- Granero: subirlo de nivel y elegir las rachas de bajas (tantas como huecos) ----------
 const ksCards = {};
 for (const k of KILLSTREAKS) {
     const card = document.createElement('button');
@@ -818,9 +826,10 @@ for (const k of KILLSTREAKS) {
     card.addEventListener('click', (e) => {
         e.stopPropagation();
         if (!state.toggleStreak(k.id)) {
-            // Ya hay dos: hay que quitar una antes
+            // Sin desbloquear (hace falta el granero a su nivel) o sin hueco: hay que quitar una antes
             sfx.play('miss');
             const info = $('ks-pick-info');
+            if (!state.streakAvailable(k.id)) info.textContent = L(`NEEDS THE BARN AT LV.${k.barn}`, `HACE FALTA EL GRANERO EN NV.${k.barn}`);
             info.classList.remove('warn');
             void info.offsetWidth;
             info.classList.add('warn');
@@ -834,16 +843,48 @@ for (const k of KILLSTREAKS) {
 }
 
 function refreshStreaks() {
-    const full = state.streaks.length >= MAX_EQUIPPED;
+    const active = state.activeStreaks, slots = state.slots, full = active.length >= slots;
     for (const k of KILLSTREAKS) {
-        const card = ksCards[k.id], on = state.streaks.includes(k.id);
+        const card = ksCards[k.id], on = active.includes(k.id), open = state.streakAvailable(k.id);
         card.classList.toggle('on', on);
-        card.classList.toggle('full', full && !on);
+        card.classList.toggle('locked', !open);
+        card.classList.toggle('full', open && full && !on);
         card.querySelector('.ks-kills').textContent = `${k.at} ${L('KILLS', 'BAJAS')}`;
-        card.querySelector('em').textContent = on ? L('EQUIPPED', 'EQUIPADA') : L('EQUIP', 'EQUIPAR');
+        card.querySelector('em').textContent = !open ? `${L('LV', 'NV')}.${k.barn}` : on ? L('EQUIPPED', 'EQUIPADA') : L('EQUIP', 'EQUIPAR');
     }
-    $('ks-pick-info').textContent = `${L(`PICK UP TO ${MAX_EQUIPPED}`, `ELIGE HASTA ${MAX_EQUIPPED}`)} · ${state.streaks.length}/${MAX_EQUIPPED}`;
+    $('ks-pick-info').textContent = `${L(`PICK UP TO ${slots}`, `ELIGE HASTA ${slots}`)} · ${active.length}/${slots}`;
+    // El granero: su nivel, lo que da el siguiente y lo que cuesta
+    const lv = state.barn.level, max = FARM.barn.levels.length - 1;
+    $('barn-level').textContent = `${L('BARN', 'GRANERO')} ${L('LV', 'NV')}.${lv}/${max}`;
+    const next = KILLSTREAKS.find((k) => k.barn === lv + 1);
+    $('barn-next').textContent = state.barnMaxed ? L('MAX LEVEL', 'NIVEL MÁXIMO')
+        : next ? `${L('UNLOCKS', 'DESBLOQUEA')}: ${next.name}`
+        : FARM.barn.levels[lv + 1].slots > slots ? L('+1 STREAK SLOT', '+1 HUECO DE RACHA') : '';
+    const up = $('barn-upgrade');
+    up.classList.toggle('hidden', state.barnMaxed);
+    up.disabled = !state.canUpgradeBarn;
+    const cost = Object.entries(state.barnCost()).map(([c, n]) => `<span class="upgrade-cost${state.items[c] < n ? ' short' : ''}">${ico(CROPS[c].icon)}<b>${n}</b></span>`).join('');
+    if ($('barn-cost').innerHTML !== cost) $('barn-cost').innerHTML = cost;
 }
+
+// Subir el granero: se cierra el menú para ver crecer el recinto en el mapa
+function upgradeBarn() {
+    const got = state.upgradeBarn();
+    if (!got) return;
+    $('streaks').classList.add('hidden');
+    farm.setBarnLevel(state.barn.level);
+    const b = farm.byId.barn;
+    rig.focus(b.def.x, b.def.z + 1);
+    rig.shake(0.2);
+    const y = FARM.barn.levels[state.barn.level].yard;
+    for (let k = 0; k < 14; k++) farmParticles.burst(y[0] + Math.random() * (y[2] - y[0]), 0.2, y[1] + Math.random() * (y[3] - y[1]), 6, [THEME.dust, 0x8a5a34, 0x6f8a3a], { speed: 2.4, up: 2, size: 0.14, ttl: 0.6 });
+    sfx.play('power');
+    vibrate('pickup');
+    updateCounts();
+    const k = KILLSTREAKS.find((s) => s.id === got);
+    stage(L('BARN UPGRADED!', '¡GRANERO MEJORADO!'), k ? `${L('UNLOCKED', 'DESBLOQUEADA')}: ${k.name}` : state.barnMaxed ? L('+1 STREAK SLOT', '+1 HUECO DE RACHA') : '');
+}
+tapBtn('barn-upgrade', upgradeBarn);
 
 function openStreaks() {
     sfx.play('ui');
@@ -1039,4 +1080,4 @@ if ('serviceWorker' in navigator && !/^(localhost|127\.)/.test(location.hostname
 }
 
 // Para las pruebas (Playwright)
-window.game = { state, sniper, farm, rig, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, goFarm, select, updateCounts };
+window.game = { state, sniper, farm, rig, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, upgradeBarn, goFarm, select, updateCounts };

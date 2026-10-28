@@ -113,6 +113,11 @@
     <!-- Granero: las rachas de bajas que se llevan al campo de tiro -->
     <div id="streaks" class="screen settings streaks-screen hidden">
         <h2 class="end-title" data-es="RACHAS DE BAJAS">KILLSTREAKS</h2>
+        <!-- El granero: nivel, lo que desbloquea el siguiente y su mejora -->
+        <div class="barn-box">
+            <div class="barn-head"><b id="barn-level"></b><span id="barn-next"></span></div>
+            <button id="barn-upgrade" class="btn upgrade-btn"><span data-es="MEJORAR">UPGRADE</span><span id="barn-cost" class="upgrade-costs"></span></button>
+        </div>
         <div id="ks-pick-info" class="ks-pick-info"></div>
         <div id="ks-cards" class="ks-cards"></div>
         <button id="btn-streaks-close" class="btn home-btn"><span class="home-icon"></span><span data-es="VOLVER">BACK</span></button>

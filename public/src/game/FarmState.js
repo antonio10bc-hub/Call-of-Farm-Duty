@@ -1,14 +1,16 @@
 import { CROPS } from '../content/crops.js';
 import { FARM, FIELD_BY_ID } from '../content/farm.js';
-import { KILLSTREAKS, MAX_EQUIPPED, DEFAULT_EQUIPPED } from '../content/killstreaks.js';
+import { KILLSTREAKS } from '../content/killstreaks.js';
 
 // Estado de la granja: lo recogido de cada cultivo, cada campo (desbloqueado o no, nivel, hora
-// de siembra y blancos que quedan) y las rachas de bajas equipadas en el granero. Se guarda en el navegador; sin almacenamiento simplemente no
-// se recuerda.
+// de siembra y blancos que quedan), el nivel del granero y las rachas de bajas equipadas en él.
+// Se guarda en el navegador; sin almacenamiento simplemente no se recuerda.
 const KEY = 'cofd.farm.v4';
 // Revisión de la partida guardada. 2: campos de tiro grandes (se rellenan los blancos que se
-// guardaron con las cifras de antes)
-const REV = 2;
+// guardaron con las cifras de antes). 3: niveles del granero (las partidas de antes, que ya
+// tenían granada y misil Predator, empiezan con el granero en el nivel 2)
+const REV = 3;
+const BARN = FARM.barn.levels;
 const OLD_KEYS = ['cofd.farm.v3', 'cofd.farm.v2']; // v3: un solo campo de trigo
 const levelsOf = (id) => FIELD_BY_ID[id].levels;
 const growMs = (id) => CROPS[FIELD_BY_ID[id].crop].growTime * 1000;
@@ -16,7 +18,8 @@ const growMs = (id) => CROPS[FIELD_BY_ID[id].crop].growTime * 1000;
 export class FarmState {
     constructor(now = Date.now()) {
         this.freeCosts = false; // depuración: todas las mejoras a 0
-        this.streaks = [...DEFAULT_EQUIPPED];
+        this.barn = { level: 0 };
+        this.streaks = [];
         this.items = Object.fromEntries(Object.keys(CROPS).map((c) => [c, 0]));
         // Los terrenos bloqueados se siembran al desbloquearlos (y quedan listos para recoger)
         this.fields = Object.fromEntries(FARM.fields.map((f) => [f.id, {
@@ -33,7 +36,8 @@ export class FarmState {
             const d = JSON.parse(localStorage.getItem(KEY) || 'null');
             if (d && d.fields) {
                 for (const c of Object.keys(this.items)) this.items[c] = (d.items && d.items[c]) | 0;
-                if (Array.isArray(d.streaks)) this.streaks = d.streaks.filter((id) => KILLSTREAKS.some((k) => k.id === id)).slice(0, MAX_EQUIPPED);
+                this.barn.level = Math.min(BARN.length - 1, Math.max(0, d.barn ? d.barn.level | 0 : (d.rev | 0) < 3 ? 2 : 0));
+                if (Array.isArray(d.streaks)) this.streaks = d.streaks.filter((id) => this.streakAvailable(id)).slice(0, this.slots);
                 for (const [id, f] of Object.entries(this.fields)) {
                     const s = d.fields[id];
                     if (!s) continue;
@@ -57,6 +61,7 @@ export class FarmState {
                 w.level = Math.min(levelsOf('wheat').length - 1, Math.max(0, v3.level | 0));
                 w.plantedAt = +v3.plot.plantedAt || 0;
                 w.left = v3.plot.left | 0;
+                this.barn.level = 2;
             }
         } catch {
             /* sin almacenamiento */
@@ -74,17 +79,60 @@ export class FarmState {
 
     save() {
         try {
-            localStorage.setItem(KEY, JSON.stringify({ rev: REV, items: this.items, fields: this.fields, streaks: this.streaks }));
+            localStorage.setItem(KEY, JSON.stringify({ rev: REV, items: this.items, fields: this.fields, barn: this.barn, streaks: this.streaks }));
         } catch {
             /* ignorar */
         }
     }
 
-    // Equipar o quitar una racha de bajas. Con MAX_EQUIPPED puestas no entra otra: false
+    // ---------- Granero y rachas de bajas ----------
+    // Huecos para llevar rachas (según el nivel del granero)
+    get slots() {
+        return BARN[this.barn.level].slots;
+    }
+
+    streakAvailable(id) {
+        const k = KILLSTREAKS.find((s) => s.id === id);
+        return !!k && this.barn.level >= k.barn;
+    }
+
+    // Las equipadas que valen ahora (las que no estén desbloqueadas no cuentan)
+    get activeStreaks() {
+        return this.streaks.filter((id) => this.streakAvailable(id)).slice(0, this.slots);
+    }
+
+    get barnMaxed() {
+        return this.barn.level >= BARN.length - 1;
+    }
+
+    // Lo que cuesta el siguiente nivel del granero (todo a 0 con la depuración de costes)
+    barnCost() {
+        const c = this.barnMaxed ? {} : BARN[this.barn.level + 1].cost;
+        return this.freeCosts ? Object.fromEntries(Object.keys(c).map((k) => [k, 0])) : c;
+    }
+
+    get canUpgradeBarn() {
+        return !this.barnMaxed && Object.entries(this.barnCost()).every(([c, n]) => this.items[c] >= n);
+    }
+
+    // Sube el granero; la racha que desbloquee se equipa sola si hay hueco. Devuelve la racha
+    // desbloqueada (o true si no desbloquea ninguna), o false si no se puede
+    upgradeBarn() {
+        if (!this.canUpgradeBarn) return false;
+        for (const [c, n] of Object.entries(this.barnCost())) this.items[c] -= n;
+        this.barn.level++;
+        const k = KILLSTREAKS.find((s) => s.barn === this.barn.level);
+        if (k && !this.streaks.includes(k.id) && this.activeStreaks.length < this.slots) this.streaks.push(k.id);
+        this.save();
+        return k ? k.id : true;
+    }
+
+    // Equipar o quitar una racha de bajas. Sin desbloquear o sin hueco no entra: false
     toggleStreak(id) {
+        this.streaks = this.activeStreaks;
         const i = this.streaks.indexOf(id);
         if (i >= 0) this.streaks.splice(i, 1);
-        else if (this.streaks.length >= MAX_EQUIPPED) return false;
+        else if (!this.streakAvailable(id) || this.streaks.length >= this.slots) return false;
         else this.streaks.push(id);
         this.save();
         return true;

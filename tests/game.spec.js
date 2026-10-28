@@ -114,7 +114,7 @@ test('el montón con el barril cambia de sitio en cada desbloqueo', async ({ pag
     expect(new Set(spots).size).toBeGreaterThan(1);
 });
 
-test('la granja es un mapa: tocar el granero abre el menú de rachas de bajas (3 como mucho)', async ({ page }) => {
+test('la granja es un mapa: el granero sube de nivel, agranda su recinto y desbloquea rachas', async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto('/');
     await expect(page.locator('#sign-wheat')).toBeVisible({ timeout: 30_000 });
@@ -122,21 +122,32 @@ test('la granja es un mapa: tocar el granero abre el menú de rachas de bajas (3
     const p = await screenOf(page, 'map', 15, 1.4, 11);
     await page.mouse.click(p.x, p.y);
     await expect(page.locator('#streaks')).toBeVisible();
-    // Por defecto: granada y misil Predator; cada una con sus bajas
-    await expect(page.locator('#ks-card-grenade')).toHaveClass(/on/);
-    await expect(page.locator('#ks-card-predator')).toHaveClass(/on/);
-    await expect(page.locator('#ks-card-bomber')).toContainText('20 BAJAS');
-    await expect(page.locator('#ks-card-nuke')).toContainText('30 BAJAS');
-    // Entra una tercera; con tres puestas no entra una cuarta; quitando una, sí
+    // Sin mejorar: todas las rachas bloqueadas y la mejora pide trigo
+    await expect(page.locator('#barn-level')).toHaveText('GRANERO NV.0/5');
+    await expect(page.locator('#barn-next')).toContainText('GRANADA');
+    for (const id of ['grenade', 'predator', 'bomber', 'nuke']) await expect(page.locator(`#ks-card-${id}`)).toHaveClass(/locked/);
+    await expect(page.locator('#barn-upgrade')).toBeDisabled();
+    await page.locator('#ks-card-grenade').click();
+    await expect(page.locator('#ks-pick-info')).toContainText('NV.1');
+    // Con 5 de trigo: nivel 1, la granada se desbloquea y se equipa sola; el recinto crece
+    const hidden0 = await page.evaluate(() => game.farm.wild.reduce((n, e) => n + e.positions.filter((q) => q.hide).length, 0));
+    await page.evaluate(() => { game.state.wheat = 5; game.select({ structure: 'barn' }); });
+    await expect(page.locator('#barn-upgrade')).toBeEnabled();
+    await page.locator('#barn-upgrade').click();
+    await expect(page.locator('#streaks')).toBeHidden();
+    expect(await page.evaluate(() => [game.state.barn.level, game.farm.barnLevel, game.state.wheat, game.state.activeStreaks])).toEqual([1, 1, 0, ['grenade']]);
+    expect(await page.evaluate(() => game.farm.wild.reduce((n, e) => n + e.positions.filter((q) => q.hide).length, 0))).toBeGreaterThan(hidden0);
+    // Los niveles 4 y 5 piden también tomates; el 5 da un hueco más (3 rachas a la vez)
+    await page.evaluate(() => { game.state.items.wheat = 1000; game.state.items.tomato = 0; for (let i = 0; i < 3; i++) game.upgradeBarn(); });
+    expect(await page.evaluate(() => [game.state.barn.level, game.state.canUpgradeBarn])).toEqual([3, false]);
+    await page.evaluate(() => { game.state.items.tomato = 1000; game.upgradeBarn(); game.upgradeBarn(); game.select({ structure: 'barn' }); });
+    expect(await page.evaluate(() => [game.state.barn.level, game.state.slots])).toEqual([5, 3]);
+    await expect(page.locator('#barn-upgrade')).toBeHidden();
+    await expect(page.locator('#barn-next')).toHaveText('NIVEL MÁXIMO');
     await page.locator('#ks-card-nuke').click();
-    await expect(page.locator('#ks-card-nuke')).toHaveClass(/on/);
     await expect(page.locator('#ks-pick-info')).toContainText('3/3');
     await page.locator('#ks-card-bomber').click();
-    await expect(page.locator('#ks-card-bomber')).not.toHaveClass(/on/);
-    await page.locator('#ks-card-predator').click();
-    await page.locator('#ks-card-bomber').click();
-    await expect(page.locator('#ks-pick-info')).toContainText('3/3');
-    expect(await page.evaluate(() => game.state.streaks)).toEqual(['grenade', 'nuke', 'bomber']);
+    await expect(page.locator('#ks-card-bomber')).not.toHaveClass(/on/); // no cabe una cuarta
     await page.locator('#btn-streaks-close').click();
     await expect(page.locator('#streaks')).toBeHidden();
     // El cartel ARMAMENTO encima del granero también abre el menú
@@ -369,9 +380,10 @@ test('debug: con COSTES 0 se mejora sin gastar nada', async ({ page }) => {
 });
 
 // Al campo de tiro con el trigo al máximo (32 matas: sitio para encadenar rachas)
-async function enterBigField(page, streaks) {
+async function enterBigField(page, streaks = ['grenade', 'predator']) {
     await openFarm(page);
-    if (streaks) await page.evaluate((s) => { game.state.streaks = s; }, streaks);
+    // Granero al máximo (todas las rachas desbloqueadas) y las pedidas equipadas
+    await page.evaluate((s) => { game.state.barn.level = 5; game.state.streaks = s; }, streaks);
     await page.evaluate(() => { game.state.wheat = 12; for (let i = 0; i < 4; i++) game.upgradeField('wheat'); game.state.wheat = 0; game.select(null); });
     const bubble = page.locator('.bubble:not(.hidden)').first();
     await bubble.click();
@@ -458,8 +470,8 @@ test('debug: se elige cuántas bajas pide cada racha', async ({ page }) => {
     await page.locator('.ks-row', { has: page.locator('#ks-nuke') }).locator('[data-d="1"]').click();
     await expect(page.locator('#ks-nuke')).toHaveText('31');
     await page.locator('#btn-debug-close').click();
-    // Con una sola baja ya sale la granada
-    await page.evaluate(() => game.harvest('wheat'));
+    // Con una sola baja ya sale la granada (granero en nivel 1, con la granada equipada)
+    await page.evaluate(() => { game.state.barn.level = 1; game.state.streaks = ['grenade']; game.harvest('wheat'); });
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
     await expect.poll(() => page.evaluate(() => game.sniper.field.sheaves.every((s) => s.landed)), { timeout: 20_000 }).toBe(true);
     await expect(page.locator('#streak-next')).toBeHidden();

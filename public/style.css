@@ -946,6 +946,18 @@ body.unlocking .arrow-btn, body.unlocking .corners, body.unlocking .left-badge {
 .ks-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--ink); }
 .ks-card.on { background: var(--yellow); box-shadow: 0 5px 0 var(--ink), inset 0 -4px 0 #e8a82a; }
 .ks-card.full { opacity: .55; }
+.ks-card.locked { opacity: .5; filter: grayscale(1); }
+.ks-card.locked em { background: var(--ink); }
+/* Granero en el menú: su nivel y la mejora */
+.barn-box { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: min(330px, 100%); padding: 8px 10px; background: rgba(255, 243, 214, .1); border: 3px solid #a8957a; }
+.barn-head { display: flex; flex-direction: column; gap: 5px; text-align: left; }
+.barn-head b { font-size: 10px; font-weight: normal; color: var(--yellow); }
+.barn-head span { font-size: 7px; line-height: 1.5; color: #c8b89a; }
+.barn-box .upgrade-btn.hidden { display: none; }
+/* Piezas del nivel del granero en su cartel */
+.armory-sign .pips { display: flex; gap: 2px; }
+.armory-sign .pip { width: 6px; height: 8px; background: rgba(0, 0, 0, .35); border: 1px solid var(--ink); }
+.armory-sign .pip.on { background: var(--yellow); }
 .ks-ico { flex: none; width: 40px; height: 40px; background: var(--ico) center / 100% 100% no-repeat; image-rendering: pixelated; }
 .ks-info { flex: 1; display: flex; flex-direction: column; gap: 4px; }
 .ks-info b { font-size: 10px; font-weight: normal; }

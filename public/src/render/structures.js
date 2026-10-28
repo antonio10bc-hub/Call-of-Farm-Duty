@@ -57,31 +57,89 @@ export class Barn extends VoxelModel {
         this.part(this.vane, 0.5, 0.05, 0.05, 0x3a3030, 0, 0.5, 0, false);
         this.part(this.vane, 0.3, 0.2, 0.04, 0x3a3030, 0.1, 0.72, 0, false);
         this.part(this.vane, 0.12, 0.12, 0.04, 0x3a3030, -0.16, 0.72, 0, false);
-        // Sacos terreros a los lados del portón
-        const SAND = 0xc8b08a, SAND2 = 0xa8906a;
-        for (const s of [-1, 1]) for (let row = 0; row < 2; row++) for (let k = 0; k < 3 - row; k++) {
-            this.part(b, 0.5, 0.26, 0.34, (k + row) % 2 ? SAND : SAND2, s * (1.45 + k * 0.48 + row * 0.24), 0.13 + row * 0.26, D / 2 + 0.55);
-        }
-        // Cajas de munición (verde militar con franja amarilla)
-        const AMMO = 0x5a6a3a;
-        for (const [x, z, y] of [[-2.75, 0.9, 0], [-2.75, 0.2, 0], [-2.75, 0.55, 0.42], [2.7, 1.1, 0]]) {
-            this.part(b, 0.62, 0.42, 0.55, AMMO, x, 0.21 + y, z);
-            this.part(b, 0.64, 0.08, 0.57, 0xffcc33, x, 0.3 + y, z, false);
-        }
-        // Red de camuflaje sobre el tejado
-        [[-1.2, 2, 0x5a6a3a], [0.9, 2, 0x6a5a3a], [-0.2, 3, 0x4a5a2e], [1.1, 1, 0x4a5a2e], [-1.6, 1, 0x6a5a3a]].forEach(([x, i, c]) => {
-            this.part(b, 1.0, 0.08, D * 0.7, c, x, top + 0.33 + i * 0.3, 0, false);
-        });
         // Antena de radio con su luz roja que parpadea
         this.part(b, 0.06, 2.2, 0.06, 0x3a3030, W / 2 - 0.5, top + 1.1, -D / 2 + 0.5, false);
         this.part(b, 0.4, 0.04, 0.04, 0x3a3030, W / 2 - 0.5, top + 1.9, -D / 2 + 0.5, false);
         this.light = this.part(b, 0.14, 0.14, 0.14, 0xff2a1a, W / 2 - 0.5, top + 2.25, -D / 2 + 0.5);
         this.top = top + 2.6;
+
+        // Lo que se construye con cada nivel (acumulado), cada vez más lejos del granero: el
+        // recinto crece a la vez (FARM.barn). Las posiciones son relativas al granero.
+        const OLIVE = 0x5a6a3a, OLIVE2 = 0x4a5a2e, SAND = 0xc8b08a, SAND2 = 0xa8906a, CONC = 0x9a948c, CONC2 = 0x847e76;
+        this.levels = [null];
+        const level = () => {
+            const g = new THREE.Group();
+            b.add(g);
+            this.levels.push(g);
+            return g;
+        };
+        const sandbags = (g, x, z, n, rows = 2, along = 'x') => {
+            for (let row = 0; row < rows; row++) for (let k = 0; k < n - row; k++) {
+                const o = (k - (n - row - 1) / 2) * 0.48;
+                this.part(g, along === 'x' ? 0.5 : 0.34, 0.26, along === 'x' ? 0.34 : 0.5, (k + row) % 2 ? SAND : SAND2, x + (along === 'x' ? o : 0), 0.13 + row * 0.26, z + (along === 'x' ? 0 : o));
+            }
+        };
+        const crate = (g, x, y, z) => {
+            this.part(g, 0.62, 0.42, 0.55, OLIVE, x, 0.21 + y, z);
+            this.part(g, 0.64, 0.08, 0.57, 0xffcc33, x, 0.3 + y, z, false);
+        };
+        // 1: sacos terreros a los lados del portón y cajas de munición
+        let g = level();
+        for (const s of [-1, 1]) sandbags(g, s * 1.95, D / 2 + 0.55, 3);
+        for (const [x, z, y] of [[-2.75, 0.9, 0], [-2.75, 0.2, 0], [-2.75, 0.55, 0.42], [2.7, 1.1, 0]]) crate(g, x, y, z);
+        // 2: red de camuflaje en el tejado y una tienda de campaña con sus cajas
+        g = level();
+        [[-1.2, 2, OLIVE], [0.9, 2, 0x6a5a3a], [-0.2, 3, OLIVE2], [1.1, 1, OLIVE2], [-1.6, 1, 0x6a5a3a]].forEach(([x, i, c]) => {
+            this.part(g, 1.0, 0.08, D * 0.7, c, x, top + 0.33 + i * 0.3, 0, false);
+        });
+        this.part(g, 3.0, 1.0, 2.4, OLIVE, -5.5, 0.5, -3);
+        [[3.1, 1.2], [2.0, 1.5], [0.9, 1.8]].forEach(([w, y]) => this.part(g, w, 0.32, 2.5, OLIVE2, -5.5, y, -3));
+        this.part(g, 0.7, 0.8, 0.06, 0x2a2a1e, -5.5, 0.4, -1.78, false);
+        crate(g, -3.6, 0, -2.2);
+        crate(g, -3.6, 0.42, -2.2);
+        // 3: búnker de hormigón con troneras y sacos encima, y una línea de sacos delante
+        g = level();
+        this.part(g, 4, 1.3, 3, CONC, 9.5, 0.65, -2.5);
+        this.part(g, 4.2, 0.16, 3.2, CONC2, 9.5, 1.38, -2.5);
+        for (const x of [8.6, 10.4]) this.part(g, 0.9, 0.18, 0.06, 0x2a2a2a, x, 0.9, -0.99, false);
+        sandbags(g, 9.5, -2.5, 6, 1);
+        sandbags(g, 9.5, 0.2, 7, 2);
+        // 4: helipuerto con su H y luces, y un radar que gira en el tejado
+        g = level();
+        this.part(g, 4.2, 0.08, 4.2, CONC2, -10, 0.04, -2);
+        this.part(g, 3.6, 0.04, 3.6, CONC, -10, 0.1, -2, false);
+        for (const x of [-11, -9]) this.part(g, 0.3, 0.05, 2.2, 0xffcc33, x, 0.14, -2, false);
+        this.part(g, 2.0, 0.05, 0.3, 0xffcc33, -10, 0.14, -2, false);
+        for (const [x, z] of [[-11.9, -3.9], [-8.1, -3.9], [-11.9, -0.1], [-8.1, -0.1]]) this.part(g, 0.16, 0.16, 0.16, 0xff3e1a, x, 0.12, z);
+        this.radar = new THREE.Group();
+        this.radar.position.set(-W / 2 + 0.7, top + 0.5, -D / 2 + 0.6);
+        g.add(this.radar);
+        this.part(this.radar, 0.1, 0.9, 0.1, 0x3a3030, 0, 0.45, 0, false);
+        this.part(this.radar, 1.1, 0.7, 0.1, 0xd8dce2, 0, 1.0, 0.1).rotation.x = -0.4;
+        // 5: hangar grande en arco, banderas y un foco
+        g = level();
+        [[4.2, 0.9, 0x7a8a6a], [3.6, 1.7, 0x6a7a5a], [2.8, 2.4, 0x7a8a6a], [1.6, 2.9, 0x6a7a5a]].forEach(([d, y, c], i) => {
+            this.part(g, 7, i ? 0.6 : 1.8, d, c, 7, i ? y : 0.9, -7.5);
+        });
+        this.part(g, 2.4, 1.6, 0.08, 0x2a2a1e, 7, 0.8, -5.36, false);
+        for (const [x, z] of [[-13, 2], [-12, -6], [13, 2]]) {
+            this.part(g, 0.08, 2.6, 0.08, 0x3a3030, x, 1.3, z, false);
+            this.part(g, 0.8, 0.5, 0.04, 0xc8402e, x + 0.42, 2.3, z, false);
+        }
+        this.part(g, 0.5, 0.4, 0.5, 0x3a3a3a, 4, 3.4, -5.6);
+        this.part(g, 0.36, 0.3, 0.06, 0xfff6c0, 4, 3.4, -5.33, false);
+        this.setLevel(0);
+    }
+
+    // Enseña lo construido hasta el nivel n (0 = el granero sin mejorar)
+    setLevel(n) {
+        this.levels.forEach((g, i) => g && (g.visible = i <= n));
     }
 
     update(dt, time) {
         this.vane.rotation.y = Math.sin(time * 0.4) * 1.2 + time * 0.15;
         this.light.visible = Math.sin(time * 5) > 0;
+        if (this.radar) this.radar.rotation.y = time * 1.4;
         this.updateFx(dt);
     }
 }

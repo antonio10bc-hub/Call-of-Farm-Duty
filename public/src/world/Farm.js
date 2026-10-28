@@ -23,14 +23,29 @@ const inRect = (f, x, z, m = 0) => x >= f.x - m && x < f.x + f.w + m && z >= f.z
 // Resto siempre positivo (la parcela de la casa tiene coordenadas negativas)
 const mod = (a, n) => ((a % n) + n) % n;
 const inParcel = (x, z, m = 0) => FARM.parcels.some(([x0, z0, x1, z1]) => x >= x0 + m && x < x1 - m && z >= z0 + m && z < z1 - m);
-const kindKey = (k) => (!k ? '' : k.field ? (k.locked ? 'junk' : 'field') : k.path ? 'path' : 'b');
+const kindKey = (k) => (!k ? '' : k.field ? (k.locked ? 'junk' : 'field') : k.path ? 'path' : k.yard ? 'yard' : k.wild ? 'wild' : 'b');
+const rectOf = ([x0, z0, x1, z1]) => ({ x: x0, z: z0, w: x1 - x0, d: z1 - z0 });
+const YARD = [0xc4b08a, 0xb8a47e]; // tierra apisonada del recinto del granero
+
+// Tronco y tres pisos de copa por árbol (cajas para addHulled)
+function treeParts(spots) {
+    const trunks = [], leaves = [];
+    spots.forEach(([x, z], i) => {
+        const s = 0.8 + Math.random() * 0.6;
+        trunks.push({ x, y: 0.5 * s, z, sx: 0.3 * s, sy: 1.0 * s, sz: 0.3 * s });
+        leaves.push({ x, y: 1.35 * s, z, sx: 1.5 * s, sy: 0.9 * s, sz: 1.5 * s, ry: i * 0.7, k: 0 });
+        leaves.push({ x, y: 2.0 * s, z, sx: 1.05 * s, sy: 0.7 * s, sz: 1.05 * s, ry: i * 0.7 + 0.4, k: 1 });
+        leaves.push({ x, y: 2.5 * s, z, sx: 0.55 * s, sy: 0.4 * s, sz: 0.55 * s, ry: i * 0.7, k: 2 });
+    });
+    return { trunks, leaves };
+}
 
 // Mapa de la granja: el sitio de gestión. Césped hasta el horizonte, caminos de tierra, los
 // campos de cultivo y edificios que se pueden tocar. Todo se monta en ola al empezar (cae y rebota).
 // Un campo bloqueado es un terreno sucio lleno de chatarra con el barril rojo encima del montón.
 export class Farm {
-    // fields: { id: { level, unlocked } } (el estado guardado de cada campo)
-    constructor(theme, fields) {
+    // fields: { id: { level, unlocked } } (el estado guardado de cada campo); barnLevel: nivel del granero
+    constructor(theme, fields, barnLevel = 0) {
         this.theme = theme;
         this.size = FARM.size;
         const B = FARM.bounds;
@@ -46,6 +61,10 @@ export class Farm {
             return { id: def.id, def, crop: def.crop, level: st.level, locked: !st.unlocked, rect: fieldRect(def, st.level), plants: [], meshes: [] };
         });
         this.fields = Object.fromEntries(this.views.map((v) => [v.id, v]));
+        this.barnLevel = barnLevel;
+        this.zone = rectOf(FARM.barn.zone);
+        this.yard = rectOf(FARM.barn.levels[barnLevel].yard);
+        this.wild = []; // entradas animadas de la zona abandonada del granero (se apartan al crecer el recinto)
         this.build();
     }
 
@@ -53,6 +72,8 @@ export class Farm {
     kindAt(c, r) {
         for (const v of this.views) if (inRect(v.rect, c, r)) return { field: v.id, locked: v.locked };
         for (const [x0, z0, x1, z1] of FARM.paths) if (c >= x0 && c < x1 && r >= z0 && r < z1) return { path: true };
+        // La mitad del granero: su recinto (limpio) y lo que queda abandonado alrededor
+        if (inRect(this.zone, c, r)) return inRect(this.yard, c, r) ? { yard: true } : { wild: true };
         for (const s of FARM.structures) if (Math.abs(c + 0.5 - s.x) < s.w / 2 + 0.3 && Math.abs(r + 0.5 - s.z) < s.d / 2 + 0.3) return { building: true };
         return null;
     }
@@ -83,6 +104,7 @@ export class Farm {
         }
         this.buildFences();
         this.buildTrees();
+        this.buildWild();
         this.buildDecor();
         this.buildClouds();
 
@@ -98,6 +120,7 @@ export class Farm {
             return model;
         });
         this.byId = Object.fromEntries(this.structures.map((m) => [m.def.id, m]));
+        this.byId.barn.setLevel(this.barnLevel);
     }
 
     tileY(k) {
@@ -108,7 +131,9 @@ export class Farm {
         const { theme } = this;
         const col = k && k.field
             ? (k.locked ? JUNK.ground[mod(c * 7 + r * 5 + mod(c * r, 3), JUNK.ground.length)] : theme.soil[r & 1])
-            : k && k.path ? theme.path[mod(c * 7 + r * 3, 2)] : theme.grass[mod(c * 5 + r * 3 + mod(c * r, 3), 3)];
+            : k && k.path ? theme.path[mod(c * 7 + r * 3, 2)]
+            : k && k.wild ? JUNK.ground[mod(c * 5 + r * 7 + mod(c * r, 3), JUNK.ground.length)]
+            : k && k.yard ? YARD[mod(c + r, 2)] : theme.grass[mod(c * 5 + r * 3 + mod(c * r, 3), 3)];
         mesh.setColorAt(i, _c.setHex(col).offsetHSL(0, 0, (Math.random() - 0.5) * theme.grassJitter));
     }
 
@@ -125,7 +150,54 @@ export class Farm {
         });
         entry.mesh.instanceColor.needsUpdate = true;
         for (const e of this.decor) e.positions.forEach((p) => (p.hide = p.hide || this.views.some((v) => inRect(v.rect, p.x, p.z, 0.4))));
-        for (const e of [entry, ...this.decor]) this.layout(e, this.introT);
+        for (const e of this.wild) e.positions.forEach((p) => (p.hide = p.hide || inRect(this.yard, p.x, p.z, 0.6)));
+        for (const e of [entry, ...this.decor, ...this.wild]) this.layout(e, this.introT);
+    }
+
+    // El granero sube de nivel: el recinto crece (lo abandonado de dentro se aparta y la tierra
+    // queda apisonada) y aparecen sus construcciones nuevas
+    setBarnLevel(level) {
+        if (level === this.barnLevel) return;
+        this.barnLevel = level;
+        this.yard = rectOf(FARM.barn.levels[level].yard);
+        this.refreshGround();
+        this.byId.barn.setLevel(level);
+        this.byId.barn.select();
+    }
+
+    // La zona abandonada del granero (como un terreno con chatarra, pero en grande): árboles a
+    // montones, matorral, chatarra y piedras por toda la mitad que aún no es recinto
+    buildWild() {
+        const Z = this.zone;
+        const free = (x, z, m) => inRect(Z, x, z) && !inRect(this.yard, x, z, m)
+            && !FARM.paths.some(([x0, z0, x1, z1]) => x > x0 - m && x < x1 + m && z > z0 - m && z < z1 + m)
+            && !FARM.structures.some((s) => Math.abs(x - s.x) < s.w / 2 + m && Math.abs(z - s.z) < s.d / 2 + m);
+        const spots = (n, m) => {
+            const out = [];
+            for (let k = 0, tries = 0; k < n && tries < n * 30; tries++) {
+                const x = Z.x + Math.random() * Z.w, z = Z.z + Math.random() * Z.d;
+                if (!free(x, z, m) || out.some(([a, b]) => Math.hypot(a - x, b - z) < m * 1.6)) continue;
+                out.push([x, z]);
+                k++;
+            }
+            return out;
+        };
+        const n0 = this.animated.length;
+        const { trunks, leaves } = treeParts(spots(70, 0.9));
+        this.addHulled(0x7a4f2a, trunks, 0.4);
+        const lm = this.addHulled(0xffffff, leaves, 0.45);
+        leaves.forEach((p, i) => lm.setColorAt(i, _c.setHex(this.theme.leaves[(p.k + i) % 3]).offsetHSL(0, 0, (Math.random() - 0.5) * 0.06)));
+        // Matorral: matas bajas y anchas de hojas oscuras
+        const bush = spots(110, 0.45).map(([x, z]) => ({ x, y: 0.22, z, sx: 0.7 + Math.random() * 0.5, sy: 0.44, sz: 0.6 + Math.random() * 0.4, ry: Math.random() * 3 }));
+        const bm = this.addHulled(0xffffff, bush, 0.35);
+        bush.forEach((_, i) => bm.setColorAt(i, _c.setHex([0x3d7a2c, 0x4a8a34, 0x5a7a2a][i % 3])));
+        // Chatarra por el suelo
+        const { pieces } = junkyard({ x0: Z.x, z0: Z.z, x1: Z.x + Z.w, z1: Z.z + Z.d, px: 9999, pz: 9999, count: 120, s: 0.42, layers: [], inside: (x, z) => free(x, z, 0.4) });
+        const jm = this.addHulled(0xffffff, pieces, 0.35);
+        pieces.forEach((p, i) => jm.setColorAt(i, _c.setHex(p.color)));
+        const rocks = spots(30, 0.3).map(([x, z]) => ({ x, y: 0.1, z, sx: 0.45, sy: 0.24, sz: 0.35, ry: Math.random() }));
+        this.addHulled(0xa8a49c, rocks, 0.3);
+        this.wild = this.animated.slice(n0);
     }
 
     // Instante en que brota cada planta: al empezar, en ola desde el centro de la granja; al
@@ -266,15 +338,8 @@ export class Farm {
             spots.push([x, z]);
             k++;
         }
-        spots.push([3, 4], [26, 5], [1.6, 28.6], [27, 13], [3, -27], [27, -27], [3, -4], [26, -5], [6, -22], [24, -23], [4, -15]);
-        const trunks = [], leaves = [];
-        spots.forEach(([x, z], i) => {
-            const s = 0.8 + Math.random() * 0.6;
-            trunks.push({ x, y: 0.5 * s, z, sx: 0.3 * s, sy: 1.0 * s, sz: 0.3 * s });
-            leaves.push({ x, y: 1.35 * s, z, sx: 1.5 * s, sy: 0.9 * s, sz: 1.5 * s, ry: i * 0.7, k: 0 });
-            leaves.push({ x, y: 2.0 * s, z, sx: 1.05 * s, sy: 0.7 * s, sz: 1.05 * s, ry: i * 0.7 + 0.4, k: 1 });
-            leaves.push({ x, y: 2.5 * s, z, sx: 0.55 * s, sy: 0.4 * s, sz: 0.55 * s, ry: i * 0.7, k: 2 });
-        });
+        spots.push([1.6, 28.6], [3, -27], [27, -27], [3, -4], [26, -5], [6, -22], [24, -23], [4, -15]);
+        const { trunks, leaves } = treeParts(spots);
         this.addHulled(0x7a4f2a, trunks, 0.4);
         const lm = this.addHulled(0xffffff, leaves, 0.45);
         leaves.forEach((p, i) => lm.setColorAt(i, _c.setHex(this.theme.leaves[(p.k + i) % 3]).offsetHSL(0, 0, (Math.random() - 0.5) * 0.06)));
