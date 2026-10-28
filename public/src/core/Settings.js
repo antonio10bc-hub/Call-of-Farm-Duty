@@ -4,9 +4,10 @@ const KEY = 'cofd.settings';
 // analytics: null mientras no ha contestado al aviso; true/false después
 // uiSize: tamaño de la interfaz en el ordenador ('small' | 'normal' | 'large')
 // pixel: tamaño del píxel del juego en el ordenador ('big' | 'normal' | 'fine'; fino por defecto)
-// freeCosts: depuración, todas las mejoras cuestan 0
+// freeCosts: depuración, las mejoras de campos y granero cuestan 0
+// freeHome: depuración, las de la casa y lo de la tienda del ovni cuestan 0
 // streaks: depuración, bajas que pide cada racha ({ grenade: 5, ... }; null = las normales)
-const DEFAULTS = { music: true, sfx: true, vibration: true, analytics: null, uiSize: 'normal', pixel: 'fine', freeCosts: false, streaks: null };
+const DEFAULTS = { music: true, sfx: true, vibration: true, analytics: null, uiSize: 'normal', pixel: 'fine', freeCosts: false, freeHome: false, streaks: null };
 
 export const Settings = {
     ...DEFAULTS,

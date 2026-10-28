@@ -269,6 +269,9 @@ html, body {
 .set-col .set-btn { width: 100%; font-size: 11px; }
 .set-col .btn-danger, .debug-box .btn-danger { margin-top: 0; font-size: 9px; }
 /* Caja de depuración: borde discontinuo, para que se vea que no es del juego */
+/* Las dos tablas una al lado de la otra (en el móvil, una debajo de otra) */
+.debug-cols { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 12px; width: 100%; }
+.debug-box-title { font-size: 11px; color: var(--yellow); }
 .debug-box { display: flex; flex-direction: column; gap: 12px; width: min(270px, 100%); padding: 14px 10px 12px; border: 3px dashed #a8957a; }
 /* Botón de depuración: discreto, abajo a la derecha de la granja */
 .debug-btn {

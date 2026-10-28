@@ -40,6 +40,7 @@ const renderer = new RetroRenderer(canvas, CONFIG.render);
 const scope = new Scope($('scope'));
 const state = new FarmState();
 state.freeCosts = Settings.freeCosts;
+state.freeHome = Settings.freeHome;
 setStreakCounts(Settings.streaks);
 
 function addLights(scene) {
@@ -1006,7 +1007,7 @@ function renderShop() {
     $('ufo-items').innerHTML = cat.items.map((it) => {
         const owned = state.owns(it.id), on = cat.slot ? state.home.look[cat.slot] === it.id : state.home.placed.includes(it.id);
         const [c1, c2] = Array.isArray(it.color) ? it.color : [it.color ?? it.ico, it.color ?? it.ico];
-        const n = it.cost.alien || 0, short = !owned && !cat.soon && state.items.alien < n;
+        const n = state.itemCost(it.id).alien || 0, short = !owned && !cat.soon && state.items.alien < n;
         const tag = cat.soon ? `${n}<span class="ico alien-ico"></span> · ${L('SOON', 'PRONTO')}`
             : on ? L('ON', 'PUESTO') : owned ? L('WEAR', 'PONER') : `${n}<span class="ico alien-ico"></span>`;
         return `<button class="shop-card${on ? ' on' : ''}${cat.soon ? ' soon' : ''}${short ? ' short' : ''}" data-id="${it.id}" id="shop-${it.id}">`
@@ -1173,6 +1174,7 @@ tapBtn('btn-lang', switchLang);
 tapBtn('btn-debug', () => {
     sfx.play('ui');
     refreshUnlockRows();
+    refreshHomeRows();
     $('debug').classList.remove('hidden');
 });
 tapBtn('btn-debug-close', () => {
@@ -1270,6 +1272,95 @@ tapBtn('ks-default', () => {
     sfx.play('ui');
 });
 refreshStreakRows();
+
+// ---------- Depuración de la casa (la tabla de la derecha) ----------
+// Lo que necesita recargar la página (bajar de nivel o repetir la cinemática del ovni: la
+// parcela vuelve a ensuciarse al construirse) se guarda, recarga y vuelve a abrir el debug
+function reloadToDebug() {
+    state.save();
+    try {
+        sessionStorage.setItem('cofd.reopenDebug', '1');
+    } catch { /* sin almacenamiento */ }
+    location.reload();
+}
+function refreshHomeRows() {
+    $('home-level').textContent = state.house.level;
+    $('home-coins').textContent = state.items.alien;
+    const b = $('home-crash');
+    b.disabled = state.ufo.crashed;
+    b.textContent = state.ufo.crashed ? L('DONE', 'YA') : L('CRASH', 'ESTRELLAR');
+}
+// La casa directamente al nivel n (subir se ve en el mapa; bajar recarga)
+function setHomeLevel(n) {
+    n = Math.min(FARM.house.levels.length - 1, Math.max(0, n));
+    if (n === state.house.level) return sfx.play('miss');
+    const down = n < state.house.level;
+    state.setHouseLevel(n);
+    if (down) return reloadToDebug();
+    farm.setHouseLevel(n);
+    sfx.play('power');
+    refreshHomeRows();
+    refreshPanel();
+}
+// El ovni estrellado ya, sin cinemática (y la casa al máximo, que es cuando cae)
+function crashNow() {
+    if (state.ufo.crashed) return false;
+    if (!state.houseMaxed) {
+        state.setHouseLevel(FARM.house.levels.length - 1);
+        farm.setHouseLevel(state.house.level);
+    }
+    state.ufo.crashed = true;
+    state.save();
+    farm.crashUfo();
+    updateCounts();
+    return true;
+}
+for (const [row, step] of [['home-level-row', (d) => setHomeLevel(state.house.level + d)], ['home-coins-row', (d) => {
+    state.items.alien = Math.min(9999, Math.max(0, state.items.alien + d));
+    state.save();
+    updateCounts();
+    refreshHomeRows();
+    sfx.play('coin');
+}]]) {
+    for (const b of $(row).querySelectorAll('.ks-step')) {
+        b.addEventListener('click', (e) => {
+            e.stopPropagation();
+            step(Number(b.dataset.d));
+        });
+    }
+}
+tapBtn('home-crash', () => {
+    if (!crashNow()) return;
+    sfx.play('ufo');
+    refreshHomeRows();
+});
+// Repetir la cinemática: la casa al máximo y el ovni sin caer; al recargar vuelve a llegar
+tapBtn('home-cine', () => {
+    state.setHouseLevel(FARM.house.levels.length - 1);
+    state.ufo.crashed = false;
+    state.save();
+    location.reload();
+});
+// Todo lo de la casa: nivel máximo, el ovni estrellado y la tienda entera comprada y puesta
+tapBtn('btn-home-all', () => {
+    const crashed = crashNow();
+    const bought = state.unlockHome();
+    applyLook();
+    updateCounts();
+    refreshHomeRows();
+    sfx.play(crashed || bought ? 'power' : 'miss');
+    if (!crashed && !bought) return;
+    $('debug').classList.add('hidden');
+    rig.focus(15, -15);
+    setTimeout(() => stage(L('ALL UNLOCKED!', '¡TODO DESBLOQUEADO!'), `${L('FARMHOUSE', 'CASA')} · ${L('UFO SHOP', 'TIENDA DEL OVNI')}`), 350);
+});
+// La casa de serie: colores de siempre y la parcela vacía (lo comprado se olvida)
+tapBtn('btn-home-reset', () => {
+    state.resetHome();
+    applyLook();
+    sfx.play('ui');
+    refreshHomeRows();
+});
 // Borrar el progreso: el primer toque arma el botón y el segundo (antes de 3 s) borra y recarga
 let resetArmed = 0;
 tapBtn('btn-reset', () => {
@@ -1298,8 +1389,8 @@ for (const el of document.querySelectorAll('.toggle')) {
         const on = Settings.toggle(key);
         el.classList.toggle('off', !on);
         if (key === 'sfx') sfx.enabled = on;
-        if (key === 'freeCosts') {
-            state.freeCosts = on;
+        if (key === 'freeCosts' || key === 'freeHome') {
+            state[key] = on;
             updateCounts();
             refreshPanel();
         }
@@ -1315,6 +1406,12 @@ try {
     if (sessionStorage.getItem('cofd.reopenSettings')) {
         sessionStorage.removeItem('cofd.reopenSettings');
         $('settings').classList.remove('hidden');
+    }
+    if (sessionStorage.getItem('cofd.reopenDebug')) {
+        sessionStorage.removeItem('cofd.reopenDebug');
+        refreshUnlockRows();
+        refreshHomeRows();
+        $('debug').classList.remove('hidden');
     }
 } catch { /* sin almacenamiento */ }
 

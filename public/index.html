@@ -144,11 +144,14 @@
     <!-- Neblina amarillenta tras la bomba nuclear -->
     <div id="nuke-haze" class="nuke-haze"></div>
 
-    <!-- Depuración (botón discreto abajo a la derecha de la granja): mejoras gratis, bajas por
-         racha, desbloquear todo y borrar la partida -->
+    <!-- Depuración (botón discreto abajo a la derecha de la granja). Dos tablas: la granja
+         (mejoras gratis, bajas por racha, desbloquear y borrar la partida) y, a la derecha, la casa
+         (sus costes, su nivel, monedas alienígenas, el ovni y la tienda) -->
     <div id="debug" class="screen settings hidden">
         <h2 class="end-title">DEBUG</h2>
+        <div class="debug-cols">
         <div class="debug-box">
+            <div class="debug-box-title" data-es="GRANJA">FARM</div>
             <div class="toggles toggles-col">
                 <button id="toggle-free" class="toggle" data-key="freeCosts" data-es="COSTES 0">FREE COSTS</button>
             </div>
@@ -165,6 +168,24 @@
             </div>
             <button id="btn-unlock-all" class="btn btn-small set-btn" data-es="DESBLOQUEAR TODO">UNLOCK EVERYTHING</button>
             <button id="btn-reset" class="btn btn-danger set-btn" data-es="BORRAR PROGRESO">RESET PROGRESS</button>
+        </div>
+        <div class="debug-box" id="debug-home">
+            <div class="debug-box-title" data-es="CASA">HOUSE</div>
+            <div class="toggles toggles-col">
+                <button id="toggle-free-home" class="toggle" data-key="freeHome" data-es="COSTES 0">FREE COSTS</button>
+            </div>
+            <div class="ks-debug">
+                <div class="ks-row" id="home-level-row"><span data-es="NIVEL DE LA CASA">HOUSE LEVEL</span><button class="ks-step" data-d="-1">-</button><b id="home-level"></b><button class="ks-step" data-d="1">+</button></div>
+                <div class="ks-row" id="home-coins-row"><span data-es="MONEDAS ALIEN">ALIEN COINS</span><button class="ks-step" data-d="-10">-</button><b id="home-coins"></b><button class="ks-step" data-d="10">+</button></div>
+            </div>
+            <div class="ks-debug">
+                <div class="ks-debug-title" data-es="OVNI">UFO</div>
+                <div class="ks-row unlock-row"><span data-es="ESTRELLARLO YA">CRASH IT NOW</span><button class="unlock-one" id="home-crash"></button></div>
+                <div class="ks-row unlock-row"><span data-es="VER LA CINEMÁTICA">PLAY CUTSCENE</span><button class="unlock-one" id="home-cine" data-es="VER">PLAY</button></div>
+            </div>
+            <button id="btn-home-all" class="btn btn-small set-btn" data-es="DESBLOQUEAR TODO">UNLOCK EVERYTHING</button>
+            <button id="btn-home-reset" class="btn btn-danger set-btn" data-es="CASA DE SERIE">DEFAULT HOUSE</button>
+        </div>
         </div>
         <button id="btn-debug-close" class="btn home-btn"><span class="home-icon"></span><span data-es="VOLVER">BACK</span></button>
     </div>

@@ -20,7 +20,8 @@ const growMs = (id) => CROPS[FIELD_BY_ID[id].crop].growTime * 1000;
 
 export class FarmState {
     constructor(now = Date.now()) {
-        this.freeCosts = false; // depuración: todas las mejoras a 0
+        this.freeCosts = false; // depuración: las mejoras de campos y granero a 0
+        this.freeHome = false; // depuración: las mejoras de la casa y la tienda del ovni a 0
         // barn.extra: rachas desbloqueadas a mano (depuración) aunque el granero no llegue;
         // barn.slot: el hueco extra, también a mano
         this.barn = { level: 0, extra: [], slot: false };
@@ -125,7 +126,7 @@ export class FarmState {
 
     houseCost() {
         const c = this.houseMaxed ? {} : HOUSE[this.house.level + 1].cost;
-        return this.freeCosts ? Object.fromEntries(Object.keys(c).map((k) => [k, 0])) : c;
+        return this.freeHome ? Object.fromEntries(Object.keys(c).map((k) => [k, 0])) : c;
     }
 
     get canUpgradeHouse() {
@@ -151,6 +152,12 @@ export class FarmState {
         return Object.entries(cost).every(([c, n]) => this.items[c] >= n);
     }
 
+    // Lo que cuesta un objeto de la tienda (todo a 0 con la depuración de la casa)
+    itemCost(id) {
+        const c = SHOP_ITEMS[id].cost;
+        return this.freeHome ? Object.fromEntries(Object.keys(c).map((k) => [k, 0])) : c;
+    }
+
     // Comprar (si no se tenía) y ponerlo. Lo de la casa se pone (una opción por parte); lo de la
     // parcela, al comprarlo se pone en su hueco y después se quita o se vuelve a poner.
     // false si no se puede (PRONTO o sin monedas)
@@ -159,8 +166,9 @@ export class FarmState {
         if (!it || it.cat.soon) return false;
         const had = this.owns(id);
         if (!had) {
-            if (!this.affordableCost(it.cost)) return false;
-            for (const [c, n] of Object.entries(it.cost)) this.items[c] -= n;
+            const cost = this.itemCost(id);
+            if (!this.affordableCost(cost)) return false;
+            for (const [c, n] of Object.entries(cost)) this.items[c] -= n;
             this.home.owned.push(id);
         }
         if (it.cat.slot) this.home.look[it.cat.slot] = id;
@@ -168,6 +176,27 @@ export class FarmState {
         else this.home.placed = this.home.placed.filter((p) => p !== id);
         this.save();
         return true;
+    }
+
+    // Depuración: la casa a un nivel cualquiera (sin pagar)
+    setHouseLevel(n) {
+        this.house.level = Math.min(HOUSE.length - 1, Math.max(0, n));
+        this.save();
+    }
+
+    // Depuración: todo lo de la tienda (menos lo que aún es PRONTO) comprado y puesto en su hueco
+    unlockHome() {
+        const ids = Object.keys(SHOP_ITEMS).filter((id) => !SHOP_ITEMS[id].cat.soon && !this.owns(id));
+        this.home.owned.push(...ids);
+        for (const id of Object.keys(SHOP_ITEMS)) if (SHOP_ITEMS[id].at && this.owns(id) && !this.home.placed.includes(id)) this.home.placed.push(id);
+        this.save();
+        return ids.length;
+    }
+
+    // Depuración: la casa como de serie y la parcela vacía (lo comprado se olvida)
+    resetHome() {
+        this.home = { owned: [], look: { ...DEFAULT_LOOK }, placed: [] };
+        this.save();
     }
 
     // Depuración: desbloquear una racha sin subir el granero (se equipa sola si hay hueco)

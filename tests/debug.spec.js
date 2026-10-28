@@ -116,3 +116,40 @@ test('debug: desbloquear de uno en uno terrenos, rachas y el hueco extra', { tag
     await expect.poll(() => page.evaluate(() => window.game && [game.state.streakAvailable('nuke'), game.state.slots])).toEqual([true, 3]);
     expect(errors).toEqual([]);
 });
+
+test('debug de la casa: costes 0, nivel, monedas, el ovni y la tienda entera', { tag: '@full' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto('/?test');
+    await expect.poll(() => page.evaluate(() => window.game && game.farm.introT > 0), { timeout: 30_000 }).toBe(true);
+    await page.locator('#btn-debug').click();
+    await expect(page.locator('#debug-home')).toBeVisible();
+    // Costes 0 solo para la casa y la tienda (los campos siguen costando)
+    await page.locator('#toggle-free-home').click();
+    expect(await page.evaluate(() => [game.state.freeHome, game.state.freeCosts, Object.values(game.state.houseCost()).every((n) => n === 0), game.state.cost('wheat').wheat > 0])).toEqual([true, false, true, true]);
+    // Nivel de la casa con + y monedas de 10 en 10
+    await expect(page.locator('#home-level')).toHaveText('0');
+    await page.locator('#home-level-row [data-d="1"]').click();
+    await expect(page.locator('#home-level')).toHaveText('1');
+    expect(await page.evaluate(() => [game.state.house.level, game.farm.byId.house.whole.visible])).toEqual([1, true]);
+    await page.locator('#home-coins-row [data-d="10"]').click();
+    await expect(page.locator('#home-coins')).toHaveText('10');
+    // El ovni estrellado ya, sin cinemática (la casa sube al máximo)
+    await page.locator('#home-crash').click();
+    await expect(page.locator('#home-crash')).toHaveText('YA');
+    expect(await page.evaluate(() => [game.state.ufo.crashed, game.state.house.level, !!game.cine])).toEqual([true, 3, false]);
+    // Toda la tienda comprada y lo de la parcela puesto
+    await page.locator('#btn-home-all').click();
+    await expect(page.locator('#debug')).toBeHidden();
+    expect(await page.evaluate(() => game.state.home.placed.length)).toBe(40);
+    await expect(page.locator('#sign-ufo')).toBeVisible();
+    // Casa de serie: la parcela vacía
+    await page.locator('#btn-debug').click();
+    await page.locator('#btn-home-reset').click();
+    expect(await page.evaluate(() => [game.state.home.placed.length, game.state.home.owned.length])).toEqual([0, 0]);
+    // Bajar de nivel recarga y vuelve a abrir el debug
+    await Promise.all([page.waitForEvent('load'), page.locator('#home-level-row [data-d="-1"]').click()]);
+    await expect(page.locator('#debug')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('#home-level')).toHaveText('2');
+    expect(await page.evaluate(() => [game.state.house.level, game.state.freeHome, game.state.items.alien])).toEqual([2, true, 10]);
+    expect(errors).toEqual([]);
+});
