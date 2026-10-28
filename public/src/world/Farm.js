@@ -58,7 +58,8 @@ export class Farm {
         this.decor = []; // entradas animadas que se apartan cuando un campo crece encima
         this.views = FARM.fields.map((def) => {
             const st = fields[def.id];
-            return { id: def.id, def, crop: def.crop, level: st.level, locked: !st.unlocked, rect: fieldRect(def, st.level), plants: [], meshes: [] };
+            // zone: lo que ocupará al máximo; lo que aún no es campo está abandonado
+            return { id: def.id, def, crop: def.crop, level: st.level, locked: !st.unlocked, rect: fieldRect(def, st.level), zone: fieldRect(def, def.levels.length - 1), plants: [], meshes: [] };
         });
         this.fields = Object.fromEntries(this.views.map((v) => [v.id, v]));
         this.barnLevel = barnLevel;
@@ -71,6 +72,8 @@ export class Farm {
     // Lo que hay en una casilla: un campo (bloqueado o no), un camino, un edificio o nada
     kindAt(c, r) {
         for (const v of this.views) if (inRect(v.rect, c, r)) return { field: v.id, locked: v.locked };
+        // Lo que un campo aún no ocupa de su zona: abandonado (se limpia al crecer el campo)
+        for (const v of this.views) if (inRect(v.zone, c, r)) return { wild: true };
         for (const [x0, z0, x1, z1] of FARM.paths) if (c >= x0 && c < x1 && r >= z0 && r < z1) return { path: true };
         // La mitad del granero: su recinto (limpio) y lo que queda abandonado alrededor
         if (inRect(this.zone, c, r)) return inRect(this.yard, c, r) ? { yard: true } : { wild: true };
@@ -150,7 +153,7 @@ export class Farm {
         });
         entry.mesh.instanceColor.needsUpdate = true;
         for (const e of this.decor) e.positions.forEach((p) => (p.hide = p.hide || this.views.some((v) => inRect(v.rect, p.x, p.z, 0.4))));
-        for (const e of this.wild) e.positions.forEach((p) => (p.hide = p.hide || inRect(this.yard, p.x, p.z, 0.6)));
+        for (const e of this.wild) e.positions.forEach((p) => (p.hide = p.hide || this.cleared(p.x, p.z)));
         for (const e of [entry, ...this.decor, ...this.wild]) this.layout(e, this.introT);
     }
 
@@ -165,37 +168,48 @@ export class Farm {
         this.byId.barn.select();
     }
 
-    // La zona abandonada del granero (como un terreno con chatarra, pero en grande): árboles a
-    // montones, matorral, chatarra y piedras por toda la mitad que aún no es recinto
+    // ¿Ya está limpio este punto? (dentro del recinto del granero o de un campo)
+    cleared(x, z) {
+        return inRect(this.yard, x, z, 0.6) || this.views.some((v) => inRect(v.rect, x, z, 0.5));
+    }
+
+    // Zonas abandonadas (como un terreno con chatarra, pero en grande): la mitad del granero que
+    // aún no es recinto y lo que cada campo aún no ocupa de su zona. Árboles a montones,
+    // matorral, chatarra y piedras; se apartan cuando el recinto o el campo crecen encima
     buildWild() {
-        const Z = this.zone;
-        const free = (x, z, m) => inRect(Z, x, z) && !inRect(this.yard, x, z, m)
-            && !FARM.paths.some(([x0, z0, x1, z1]) => x > x0 - m && x < x1 + m && z > z0 - m && z < z1 + m)
-            && !FARM.structures.some((s) => Math.abs(x - s.x) < s.w / 2 + m && Math.abs(z - s.z) < s.d / 2 + m);
-        const spots = (n, m) => {
-            const out = [];
-            for (let k = 0, tries = 0; k < n && tries < n * 30; tries++) {
-                const x = Z.x + Math.random() * Z.w, z = Z.z + Math.random() * Z.d;
-                if (!free(x, z, m) || out.some(([a, b]) => Math.hypot(a - x, b - z) < m * 1.6)) continue;
-                out.push([x, z]);
-                k++;
-            }
-            return out;
-        };
+        const trees = [], bush = [], pieces = [], rocks = [];
+        const zones = [{ Z: this.zone, k: 1 }, ...this.views.map((v) => ({ Z: v.zone, k: 0.55 }))];
+        for (const { Z, k } of zones) {
+            const free = (x, z, m) => inRect(Z, x, z) && !inRect(this.yard, x, z, m) && !this.views.some((v) => inRect(v.rect, x, z, m))
+                && !FARM.paths.some(([x0, z0, x1, z1]) => x > x0 - m && x < x1 + m && z > z0 - m && z < z1 + m)
+                && !FARM.structures.some((st) => Math.abs(x - st.x) < st.w / 2 + m && Math.abs(z - st.z) < st.d / 2 + m);
+            const spots = (n, m) => {
+                const out = [];
+                for (let j = 0, tries = 0; j < n && tries < n * 30; tries++) {
+                    const x = Z.x + Math.random() * Z.w, z = Z.z + Math.random() * Z.d;
+                    if (!free(x, z, m) || out.some(([a, b]) => Math.hypot(a - x, b - z) < m * 1.6)) continue;
+                    out.push([x, z]);
+                    j++;
+                }
+                return out;
+            };
+            // Cantidades según el tamaño de la zona (k: en los campos, algo menos de árbol)
+            const area = Z.w * Z.d;
+            trees.push(...spots(Math.round(area * 0.18 * k), 0.9));
+            bush.push(...spots(Math.round(area * 0.28), 0.45).map(([x, z]) => ({ x, y: 0.22, z, sx: 0.7 + Math.random() * 0.5, sy: 0.44, sz: 0.6 + Math.random() * 0.4, ry: Math.random() * 3 })));
+            pieces.push(...junkyard({ x0: Z.x, z0: Z.z, x1: Z.x + Z.w, z1: Z.z + Z.d, px: 9999, pz: 9999, count: Math.round(area * 0.3), s: 0.42, layers: [], inside: (x, z) => free(x, z, 0.4) }).pieces);
+            rocks.push(...spots(Math.round(area * 0.08), 0.3).map(([x, z]) => ({ x, y: 0.1, z, sx: 0.45, sy: 0.24, sz: 0.35, ry: Math.random() })));
+        }
         const n0 = this.animated.length;
-        const { trunks, leaves } = treeParts(spots(70, 0.9));
+        const { trunks, leaves } = treeParts(trees);
         this.addHulled(0x7a4f2a, trunks, 0.4);
         const lm = this.addHulled(0xffffff, leaves, 0.45);
         leaves.forEach((p, i) => lm.setColorAt(i, _c.setHex(this.theme.leaves[(p.k + i) % 3]).offsetHSL(0, 0, (Math.random() - 0.5) * 0.06)));
         // Matorral: matas bajas y anchas de hojas oscuras
-        const bush = spots(110, 0.45).map(([x, z]) => ({ x, y: 0.22, z, sx: 0.7 + Math.random() * 0.5, sy: 0.44, sz: 0.6 + Math.random() * 0.4, ry: Math.random() * 3 }));
         const bm = this.addHulled(0xffffff, bush, 0.35);
         bush.forEach((_, i) => bm.setColorAt(i, _c.setHex([0x3d7a2c, 0x4a8a34, 0x5a7a2a][i % 3])));
-        // Chatarra por el suelo
-        const { pieces } = junkyard({ x0: Z.x, z0: Z.z, x1: Z.x + Z.w, z1: Z.z + Z.d, px: 9999, pz: 9999, count: 120, s: 0.42, layers: [], inside: (x, z) => free(x, z, 0.4) });
         const jm = this.addHulled(0xffffff, pieces, 0.35);
         pieces.forEach((p, i) => jm.setColorAt(i, _c.setHex(p.color)));
-        const rocks = spots(30, 0.3).map(([x, z]) => ({ x, y: 0.1, z, sx: 0.45, sy: 0.24, sz: 0.35, ry: Math.random() }));
         this.addHulled(0xa8a49c, rocks, 0.3);
         this.wild = this.animated.slice(n0);
     }
