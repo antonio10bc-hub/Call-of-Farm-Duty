@@ -29,9 +29,10 @@ export class FarmState {
         this.streaks = [];
         // Lo recogido de cada cultivo y las monedas alienígenas (alien)
         this.items = Object.fromEntries([...Object.keys(CROPS), 'alien'].map((c) => [c, 0]));
-        // El ovni (crashed: ya se ha estrellado en la parcela de la casa) y la casa personalizada
-        // en su tienda: lo comprado (owned) y lo que lleva puesto en cada parte (look)
-        this.ufo = { crashed: false };
+        // El ovni (crashed: ya se ha estrellado en la parcela de la casa; met: ya se ha abierto su
+        // tienda alguna vez) y la casa personalizada en su tienda: lo comprado (owned) y lo que
+        // lleva puesto en cada parte (look)
+        this.ufo = { crashed: false, met: false };
         // placed: lo de la parcela que está puesto en su hueco (lo comprado se puede quitar)
         this.home = { owned: [], look: { ...DEFAULT_LOOK }, placed: [] };
         // Los terrenos bloqueados se siembran al desbloquearlos (y quedan listos para recoger)
@@ -54,6 +55,7 @@ export class FarmState {
                 this.barn.slot = !!(d.barn && d.barn.slot);
                 this.house.level = Math.min(HOUSE.length - 1, Math.max(0, d.house ? d.house.level | 0 : (d.rev | 0) < 4 ? 1 : 0));
                 this.ufo.crashed = !!(d.ufo && d.ufo.crashed);
+                this.ufo.met = !!(d.ufo && d.ufo.met);
                 if (d.home) {
                     if (Array.isArray(d.home.owned)) this.home.owned = d.home.owned.filter((id) => SHOP_ITEMS[id]);
                     for (const [slot, id] of Object.entries((d.home && d.home.look) || {})) if (slot in this.home.look && SHOP_ITEMS[id] && this.owns(id)) this.home.look[slot] = id;

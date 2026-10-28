@@ -14,9 +14,14 @@ test('ovni: con la casa al máximo cae del cielo (sin control), se estrella y ab
     await expect.poll(() => page.evaluate(() => !game.cine), { timeout: 20_000 }).toBe(true);
     await expect(page.locator('body')).not.toHaveClass(/cine/);
     // Su cartel de alarma abre la tienda: CASA y PARCELA
+    // (hasta abrirla, una admiración; después, la cara del alienígena)
     await expect(page.locator('#sign-ufo')).toBeVisible();
+    await expect(page.locator('#sign-ufo')).toHaveText('!');
+    await page.screenshot({ path: test.info().outputPath('sign-alarm.png') });
     await page.locator('#sign-ufo').click();
     await expect(page.locator('#ufo-shop')).toBeVisible();
+    await expect(page.locator('#sign-ufo')).toHaveClass(/met/);
+    await expect(page.locator('#sign-ufo .alien-ico')).toHaveCount(1);
     await expect(page.locator('.ufo-tab')).toHaveText(['CASA', 'PARCELA']);
     await expect(page.locator('#shop-roof-blue')).toHaveClass(/on/);
     // Sin monedas no se compra; con ellas, el tejado rojo se pone en la casa
@@ -44,6 +49,8 @@ test('ovni: con la casa al máximo cae del cielo (sin control), se estrella y ab
     await page.reload();
     await expect.poll(() => page.evaluate(() => window.game && !!game.farm.ufo && game.farm.byId.house.paint.roof[0].material.color.getHex())).toBe(0xb84a32);
     expect(await page.evaluate(() => game.farm.plot.items.pool.visible)).toBe(true);
+    await expect(page.locator('#sign-ufo')).toHaveClass(/met/);
+    await page.screenshot({ path: test.info().outputPath('sign-alien.png') });
     expect(errors).toEqual([]);
 });
 

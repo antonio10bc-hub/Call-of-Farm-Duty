@@ -284,10 +284,15 @@ const armory = uiButton('field-sign armory-sign hidden', () => select({ structur
 armory.id = 'sign-barn';
 // Cartel de la casa: su nivel en piezas y la flecha verde si se puede mejorar; abre su ficha
 const houseSign = uiButton('field-sign house-sign hidden', () => select({ structure: 'house' }));
-// Cartel de alarma encima del ovni estrellado: abre su tienda
+// Cartel encima del ovni estrellado: abre su tienda. Hasta abrirla la primera vez es una
+// alarma (una admiración blanca grande); después, la cara del alienígena
 const ufoSign = uiButton('field-sign ufo-sign hidden', () => openShop());
 ufoSign.id = 'sign-ufo';
-ufoSign.innerHTML = `${ico('alarm')}<span>!</span>`;
+function refreshUfoSign() {
+    ufoSign.classList.toggle('met', state.ufo.met);
+    ufoSign.innerHTML = state.ufo.met ? ico('alien') : '<span>!</span>';
+}
+refreshUfoSign();
 houseSign.id = 'sign-house';
 
 // Con el nivel del granero (y de la casa) en piezas y la flecha verde si se puede mejorar
@@ -984,6 +989,11 @@ function say(text, warn = false) {
 
 function openShop() {
     if (mode !== 'farm' || inCine() || !state.ufo.crashed) return;
+    if (!state.ufo.met) {
+        state.ufo.met = true;
+        state.save();
+        refreshUfoSign();
+    }
     select(null);
     sfx.play('ufo');
     const h = farm.byId.house;
@@ -1337,7 +1347,7 @@ tapBtn('home-crash', () => {
 // Repetir la cinemática: la casa al máximo y el ovni sin caer; al recargar vuelve a llegar
 tapBtn('home-cine', () => {
     state.setHouseLevel(FARM.house.levels.length - 1);
-    state.ufo.crashed = false;
+    state.ufo.crashed = state.ufo.met = false;
     state.save();
     location.reload();
 });

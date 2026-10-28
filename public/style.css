@@ -575,9 +575,11 @@ body.cine .letterbox { pointer-events: auto; }
 body.cine .letterbox i { height: 11vh; }
 body.cine .farm-ui, body.cine .bubbles { visibility: hidden; }
 
-/* Cartel de alarma del ovni: rojo, latiendo */
-.ufo-sign { --sign: #c8402e; animation: signBob 1.6s steps(2) infinite, signGlow .4s steps(2) infinite; }
-.ufo-sign .ico { width: 16px; height: 13px; }
+/* Cartel del ovni: alarma roja latiendo con una admiración blanca grande hasta abrir su tienda;
+   después, morado y tranquilo con la cara del alienígena */
+.field-sign.ufo-sign { --sign: #c8402e; justify-content: center; min-width: 40px; padding: 7px 10px 4px; font-size: 26px; line-height: 1; color: #fff; animation: signBob 1.6s steps(2) infinite, signGlow .4s steps(2) infinite; }
+.field-sign.ufo-sign.met { --sign: #6a4a9a; min-width: 0; padding: 6px 8px; animation: signBob 1.6s steps(2) infinite; }
+.field-sign.ufo-sign .ico { width: 26px; height: 24px; }
 
 /* Tienda del ovni: hoja abajo con la casa visible arriba */
 .ufo-shop {
