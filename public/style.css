@@ -295,6 +295,9 @@ html, body {
 .ks-row.changed b { color: var(--yellow); }
 .ks-step { width: 28px; height: 26px; padding: 0; font-family: var(--font); font-size: 12px; color: var(--ink); background: #fff; border: 3px solid var(--ink); box-shadow: 0 3px 0 rgba(0, 0, 0, .4); cursor: pointer; }
 .ks-step:active { transform: translateY(2px); box-shadow: none; }
+/* Desbloquear de uno en uno: el botón pasa a YA cuando ya está */
+.unlock-one { padding: 5px 6px; font-family: var(--font); font-size: 7px; color: var(--ink); background: var(--yellow); border: 2px solid var(--ink); box-shadow: 0 2px 0 rgba(0, 0, 0, .4); cursor: pointer; }
+.unlock-one:disabled { color: #c8b89a; background: transparent; border-color: #a8957a; box-shadow: none; cursor: default; }
 .debug-box .set-btn { font-size: 9px; padding: 8px 10px; }
 /* Volver: el botón que manda en esta pantalla */
 .home-btn { display: flex; align-items: center; justify-content: center; gap: 12px; width: min(270px, 100%); font-size: 18px; padding: 14px 16px; }

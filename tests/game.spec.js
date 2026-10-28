@@ -520,3 +520,29 @@ test('partida guardada con las cifras de antes: los campos salen con los blancos
     await expect.poll(() => page.evaluate(() => window.game && game.state.fields.wheat.left), { timeout: 30_000 }).toBe(79);
     expect(errors).toEqual([]);
 });
+
+test('debug: desbloquear de uno en uno terrenos, rachas y el hueco extra', async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto('/');
+    await expect(page.locator('#sign-wheat')).toHaveText('¡DESBLOQUEAR!', { timeout: 30_000 });
+    await page.locator('#btn-debug').click();
+    // Solo los tomates: el trigo sigue con su chatarra
+    await expect(page.locator('#unlock-field-tomato')).toHaveText('DESBLOQUEAR');
+    await page.locator('#unlock-field-tomato').click();
+    await expect(page.locator('#debug')).toBeHidden();
+    expect(await page.evaluate(() => [game.state.fields.tomato.unlocked, game.farm.fields.tomato.locked, game.state.fields.wheat.unlocked])).toEqual([true, false, false]);
+    await expect(page.locator('#sign-tomato')).toHaveText('NV.1');
+    await expect(page.locator('#sign-wheat')).toHaveText('¡DESBLOQUEAR!');
+    // La bomba nuclear sin subir el granero (se equipa sola) y el hueco extra
+    await page.locator('#btn-debug').click();
+    await expect(page.locator('#unlock-field-tomato')).toHaveText('YA');
+    await page.locator('#unlock-ks-nuke').click();
+    await expect(page.locator('#unlock-ks-nuke')).toHaveText('YA');
+    expect(await page.evaluate(() => [game.state.barn.level, game.state.streakAvailable('nuke'), game.state.activeStreaks, game.state.streakAvailable('grenade')])).toEqual([0, true, ['nuke'], false]);
+    await page.locator('#unlock-slot').click();
+    expect(await page.evaluate(() => game.state.slots)).toBe(3);
+    // Se guarda
+    await page.reload();
+    await expect.poll(() => page.evaluate(() => window.game && [game.state.streakAvailable('nuke'), game.state.slots])).toEqual([true, 3]);
+    expect(errors).toEqual([]);
+});

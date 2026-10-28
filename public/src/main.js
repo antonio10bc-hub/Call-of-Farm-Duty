@@ -899,6 +899,7 @@ tapBtn('btn-streaks-close', () => {
 tapBtn('btn-lang', switchLang);
 tapBtn('btn-debug', () => {
     sfx.play('ui');
+    refreshUnlockRows();
     $('debug').classList.remove('hidden');
 });
 tapBtn('btn-debug-close', () => {
@@ -937,13 +938,57 @@ function setStreakCount(k, n) {
 // Depuración: todos los terrenos bloqueados, limpios y sembrados de golpe (sin requisitos)
 tapBtn('btn-unlock-all', () => {
     const ids = FARM.fields.map((f) => f.id).filter((id) => state.unlock(id, Date.now(), true));
-    sfx.play(ids.length ? 'power' : 'miss');
-    if (!ids.length) return;
+    const ks = KILLSTREAKS.filter((k) => state.unlockStreak(k.id));
+    const slot = state.unlockSlot();
+    sfx.play(ids.length || ks.length || slot ? 'power' : 'miss');
+    refreshUnlockRows();
+    if (!ids.length && !ks.length && !slot) return;
     $('debug').classList.add('hidden');
     while (revealUnlocked());
     rig.focus(home.x, home.z);
-    setTimeout(() => stage(L('ALL UNLOCKED!', '¡TODO DESBLOQUEADO!'), ids.map((id) => FIELD_BY_ID[id].name).join(' · ')), 350);
+    updateCounts();
+    const what = [...ids.map((id) => FIELD_BY_ID[id].name), ...ks.map((k) => k.name), ...(slot ? [L('+1 STREAK SLOT', '+1 HUECO DE RACHA')] : [])];
+    setTimeout(() => stage(L('ALL UNLOCKED!', '¡TODO DESBLOQUEADO!'), what.join(' · ')), 350);
 });
+
+// Depuración: desbloquear de uno en uno cada terreno, cada racha y el hueco extra
+const unlockables = [
+    ...FARM.fields.filter((f) => f.locked).map((f) => ({
+        id: `field-${f.id}`, name: f.name,
+        done: () => state.fields[f.id].unlocked,
+        run: () => {
+            state.unlock(f.id, Date.now(), true);
+            $('debug').classList.add('hidden');
+            revealUnlocked();
+        },
+    })),
+    ...KILLSTREAKS.map((k) => ({ id: `ks-${k.id}`, name: k.name, done: () => state.streakAvailable(k.id), run: () => state.unlockStreak(k.id) })),
+    { id: 'slot', name: L('+1 STREAK SLOT', '+1 HUECO DE RACHA'), done: () => state.slots >= FARM.barn.levels[FARM.barn.levels.length - 1].slots, run: () => state.unlockSlot() },
+];
+const unlockBtns = {};
+for (const u of unlockables) {
+    const row = document.createElement('div');
+    row.className = 'ks-row unlock-row';
+    row.innerHTML = `<span>${u.name}</span><button class="unlock-one" id="unlock-${u.id}"></button>`;
+    const b = row.querySelector('button');
+    b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (u.done()) return;
+        u.run();
+        sfx.play('power');
+        updateCounts();
+        refreshUnlockRows();
+    });
+    $('unlock-rows').appendChild(row);
+    unlockBtns[u.id] = b;
+}
+function refreshUnlockRows() {
+    for (const u of unlockables) {
+        const b = unlockBtns[u.id], done = u.done();
+        b.disabled = done;
+        b.textContent = done ? L('DONE', 'YA') : L('UNLOCK', 'DESBLOQUEAR');
+    }
+}
 tapBtn('ks-default', () => {
     Settings.set('streaks', null);
     setStreakCounts(null);

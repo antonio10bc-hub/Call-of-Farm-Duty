@@ -18,7 +18,9 @@ const growMs = (id) => CROPS[FIELD_BY_ID[id].crop].growTime * 1000;
 export class FarmState {
     constructor(now = Date.now()) {
         this.freeCosts = false; // depuración: todas las mejoras a 0
-        this.barn = { level: 0 };
+        // barn.extra: rachas desbloqueadas a mano (depuración) aunque el granero no llegue;
+        // barn.slot: el hueco extra, también a mano
+        this.barn = { level: 0, extra: [], slot: false };
         this.streaks = [];
         this.items = Object.fromEntries(Object.keys(CROPS).map((c) => [c, 0]));
         // Los terrenos bloqueados se siembran al desbloquearlos (y quedan listos para recoger)
@@ -37,6 +39,8 @@ export class FarmState {
             if (d && d.fields) {
                 for (const c of Object.keys(this.items)) this.items[c] = (d.items && d.items[c]) | 0;
                 this.barn.level = Math.min(BARN.length - 1, Math.max(0, d.barn ? d.barn.level | 0 : (d.rev | 0) < 3 ? 2 : 0));
+                if (d.barn && Array.isArray(d.barn.extra)) this.barn.extra = d.barn.extra.filter((id) => KILLSTREAKS.some((k) => k.id === id));
+                this.barn.slot = !!(d.barn && d.barn.slot);
                 if (Array.isArray(d.streaks)) this.streaks = d.streaks.filter((id) => this.streakAvailable(id)).slice(0, this.slots);
                 for (const [id, f] of Object.entries(this.fields)) {
                     const s = d.fields[id];
@@ -88,12 +92,29 @@ export class FarmState {
     // ---------- Granero y rachas de bajas ----------
     // Huecos para llevar rachas (según el nivel del granero)
     get slots() {
-        return BARN[this.barn.level].slots;
+        return Math.max(BARN[this.barn.level].slots, this.barn.slot ? BARN[BARN.length - 1].slots : 0);
     }
 
     streakAvailable(id) {
         const k = KILLSTREAKS.find((s) => s.id === id);
-        return !!k && this.barn.level >= k.barn;
+        return !!k && (this.barn.level >= k.barn || this.barn.extra.includes(id));
+    }
+
+    // Depuración: desbloquear una racha sin subir el granero (se equipa sola si hay hueco)
+    unlockStreak(id) {
+        if (this.streakAvailable(id)) return false;
+        this.barn.extra.push(id);
+        if (this.activeStreaks.length < this.slots) this.streaks = [...this.activeStreaks, id];
+        this.save();
+        return true;
+    }
+
+    // Depuración: el hueco extra para llevar más rachas
+    unlockSlot() {
+        if (this.slots >= BARN[BARN.length - 1].slots) return false;
+        this.barn.slot = true;
+        this.save();
+        return true;
     }
 
     // Las equipadas que valen ahora (las que no estén desbloqueadas no cuentan)
