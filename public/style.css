@@ -719,32 +719,33 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
 .title-sign::before { left: 7px; }
 .title-sign::after { right: 7px; }
 @keyframes signSwing { 50% { transform: rotate(1deg); } }
+/* CALL OF: igual que FARM DUTY (mismo tamaño, color, sombra y letras que saltan); lo único
+   distinto es la O, que es la diana */
 .ts-top {
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 3px;
-    font-size: clamp(18px, 6.2vw, 30px);
-    color: #c8d870;
-    letter-spacing: 2px;
-    text-shadow: 3px 3px 0 var(--ink);
+    font-size: clamp(26px, 9.4vw, 52px);
+    white-space: nowrap;
+    color: var(--yellow);
+    text-shadow: 0 4px 0 var(--orange), 0 8px 0 var(--wood-dark), 4px 0 0 var(--ink), -4px 0 0 var(--ink), 0 -4px 0 var(--ink), 0 12px 0 var(--ink);
 }
-/* Estarcido: una franja hueca en mitad de cada letra */
-.ts-top span { position: relative; }
-.ts-top span::after { content: ''; position: absolute; left: -2px; right: -2px; top: 44%; height: 2px; background: var(--wood); }
+.ts-top span { display: inline-block; animation: hop 1.6s steps(6) infinite; }
+.ts-top span:nth-child(2n) { animation-delay: .2s; color: #ffe07a; }
+.ts-top span:nth-child(3n) { animation-delay: .4s; }
 .ts-scope {
     display: inline-block;
-    width: 1.6em;
-    height: 1.6em;
-    margin: -0.3em 0.1em;
+    width: 1.05em;
+    height: 1.05em;
+    margin: 0 0.04em;
     background: var(--px-target) center / 100% 100% no-repeat;
     image-rendering: pixelated;
-    filter: drop-shadow(3px 3px 0 var(--ink));
+    filter: drop-shadow(0 4px 0 var(--orange)) drop-shadow(0 4px 0 var(--wood-dark)) drop-shadow(0 4px 0 var(--ink));
     animation: scopePulse 1.6s steps(2) infinite;
 }
 @keyframes scopePulse { 50% { transform: scale(.9); } }
 .ts-main {
-    margin-top: 12px;
+    margin-top: 16px;
     font-size: clamp(26px, 9.4vw, 52px);
     white-space: nowrap;
     color: var(--yellow);
