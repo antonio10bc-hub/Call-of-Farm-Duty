@@ -114,7 +114,7 @@ test('el montón con el barril cambia de sitio en cada desbloqueo', async ({ pag
     expect(new Set(spots).size).toBeGreaterThan(1);
 });
 
-test('la granja es un mapa: tocar el granero abre el menú de rachas de bajas (2 como mucho)', async ({ page }) => {
+test('la granja es un mapa: tocar el granero abre el menú de rachas de bajas (3 como mucho)', async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto('/');
     await expect(page.locator('#sign-wheat')).toBeVisible({ timeout: 30_000 });
@@ -127,13 +127,16 @@ test('la granja es un mapa: tocar el granero abre el menú de rachas de bajas (2
     await expect(page.locator('#ks-card-predator')).toHaveClass(/on/);
     await expect(page.locator('#ks-card-bomber')).toContainText('20 BAJAS');
     await expect(page.locator('#ks-card-nuke')).toContainText('30 BAJAS');
-    // Con dos puestas no entra una tercera; quitando una, sí
+    // Entra una tercera; con tres puestas no entra una cuarta; quitando una, sí
     await page.locator('#ks-card-nuke').click();
-    await expect(page.locator('#ks-card-nuke')).not.toHaveClass(/on/);
+    await expect(page.locator('#ks-card-nuke')).toHaveClass(/on/);
+    await expect(page.locator('#ks-pick-info')).toContainText('3/3');
+    await page.locator('#ks-card-bomber').click();
+    await expect(page.locator('#ks-card-bomber')).not.toHaveClass(/on/);
     await page.locator('#ks-card-predator').click();
-    await page.locator('#ks-card-nuke').click();
-    await expect(page.locator('#ks-pick-info')).toContainText('2/2');
-    expect(await page.evaluate(() => game.state.streaks)).toEqual(['grenade', 'nuke']);
+    await page.locator('#ks-card-bomber').click();
+    await expect(page.locator('#ks-pick-info')).toContainText('3/3');
+    expect(await page.evaluate(() => game.state.streaks)).toEqual(['grenade', 'nuke', 'bomber']);
     await page.locator('#btn-streaks-close').click();
     await expect(page.locator('#streaks')).toBeHidden();
     // El cartel ARMAMENTO encima del granero también abre el menú

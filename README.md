@@ -13,7 +13,7 @@ Granja voxel con estética de consola portátil (mismo estudio y estilo que Tank
   - Mando: sticks para mirar, LT apuntar (soltar dispara), RT/A disparar, LB/RB torres, B salir.
   - Precisión: sin la mira subida el tiro se dispersa mucho (no scope; en móvil, un toque rápido dispara desde la cadera). Girar la vista justo antes de disparar también abre el tiro. Al 95% de la subida desaparece la dispersión de cadera y la mira empieza a asentarse (medio segundo, con un leve temblor): un quickscope bien colocado acierta la gran mayoría de las veces. La mirilla se abre según la dispersión.
   - Colateral: la bala atraviesa todas las matas que pilla en línea hasta tocar el suelo, y las recoge todas.
-  - Racha de bajas: cada blanco recogido rellena una barra (arriba) que se vacía cada vez más deprisa; si se vacía, la racha se pierde. Medallas pequeñas: COLATERAL xN y DOBLE / TRIPLE / MULTI KILL. Solo valen las rachas equipadas en el **granero** (tócalo en el mapa; 2 como mucho):
+  - Racha de bajas: cada blanco recogido rellena una barra (arriba) que se vacía cada vez más deprisa; si se vacía, la racha se pierde. Medallas pequeñas: COLATERAL xN y DOBLE / TRIPLE / MULTI KILL. Solo valen las rachas equipadas en el **granero** (tócalo en el mapa; 3 como mucho):
     - 5: **granada**, sale delante de la cámara con brillo y estela hacia el grupo de blancos más gordo de los que se ven, y recoge lo de alrededor.
     - 10: **misil Predator**, la vista pasa a ser cenital; el misil baja solo, se guía moviendo la vista y el gatillo (o un toque) lo acelera. Al llegar al suelo explota y recoge lo que pilla.
     - 20: **bombardero**, un avión enorme cruza el campo soltando bombas mientras sigues disparando.

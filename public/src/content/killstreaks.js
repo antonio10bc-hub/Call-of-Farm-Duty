@@ -12,7 +12,7 @@ export const KILLSTREAKS = [
     { id: 'bomber', at: 20, icon: 'ks-bomber', name: L('BOMBER', 'BOMBARDERO'), desc: L('A HUGE PLANE BOMBS THE FIELD.', 'UN AVIÓN ENORME BOMBARDEA EL CAMPO.') },
     { id: 'nuke', at: 30, icon: 'ks-nuke', name: L('NUKE', 'BOMBA NUCLEAR'), desc: L('COUNTDOWN... AND IT HARVESTS EVERYTHING.', 'CUENTA ATRÁS... Y LO RECOGE TODO.') },
 ];
-export const MAX_EQUIPPED = 2;
+export const MAX_EQUIPPED = 3;
 export const DEFAULT_EQUIPPED = ['grenade', 'predator'];
 for (const k of KILLSTREAKS) k.normalAt = k.at;
 
