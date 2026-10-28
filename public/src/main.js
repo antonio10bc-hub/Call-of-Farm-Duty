@@ -4,6 +4,7 @@ import { THEME } from './content/theme.js';
 import { CROPS } from './content/crops.js';
 import { FARM, FIELD_BY_ID, INFO } from './content/farm.js';
 import { KILLSTREAKS, setStreakCounts } from './content/killstreaks.js';
+import { UFO, SHOP, SHOP_ITEMS } from './content/ufo.js';
 import { RetroRenderer } from './render/RetroRenderer.js';
 import { CameraRig } from './render/CameraRig.js';
 import { Particles } from './render/Particles.js';
@@ -121,6 +122,17 @@ const sniper = new Sniper(THEME, {
         setTimeout(() => banner(L('NUKE!', '¡NUCLEAR!')), 300);
     },
     // El barril ha reventado: el terreno queda limpio y desbloqueado (se guarda ya)
+    // Ovni pequeño derribado: sus monedas vuelan al contador
+    onUfoCoin(n, nx, ny) {
+        state.items.alien += n;
+        state.save();
+        updateCounts();
+        const x = (nx * 0.5 + 0.5) * innerWidth, y = (-ny * 0.5 + 0.5) * innerHeight;
+        popPlus(x, y);
+        flyItem('alien', x, y, $('snipe-alien'), () => sfx.play('coin'));
+        medal(L('UFO DOWN!', '¡OVNI DERRIBADO!'), 'reward');
+        vibrate('kill');
+    },
     onUnlock() {
         state.unlock(snipeField);
         // Fogonazo blanco a toda pantalla y, al poco, el ¡BUM!
@@ -164,6 +176,10 @@ const ico = (icon) => `<span class="ico ${icon}-ico"></span>`;
 function updateCounts(bump = false) {
     $('wheat-count').textContent = state.items.wheat;
     $('tomato-count').textContent = state.items.tomato;
+    // Monedas alienígenas: salen en cuanto hay alguna (o en cuanto ha caído el ovni)
+    $('alien-count').textContent = $('hud-alien').textContent = state.items.alien;
+    $('farm-alien').classList.toggle('hidden', !state.items.alien && !state.ufo.crashed);
+    $('snipe-alien').classList.toggle('hidden', !state.items.alien);
     // El contador de tomates sale cuando ya hay campo de tomates
     $('farm-tomato').classList.toggle('hidden', !state.fields.tomato.unlocked && !state.items.tomato);
     // En el campo de tiro, el contador es el del cultivo que se recoge
@@ -267,6 +283,10 @@ const armory = uiButton('field-sign armory-sign hidden', () => select({ structur
 armory.id = 'sign-barn';
 // Cartel de la casa: su nivel en piezas y la flecha verde si se puede mejorar; abre su ficha
 const houseSign = uiButton('field-sign house-sign hidden', () => select({ structure: 'house' }));
+// Cartel de alarma encima del ovni estrellado: abre su tienda
+const ufoSign = uiButton('field-sign ufo-sign hidden', () => openShop());
+ufoSign.id = 'sign-ufo';
+ufoSign.innerHTML = `${ico('alarm')}<span>!</span>`;
 houseSign.id = 'sign-house';
 
 // Con el nivel del granero (y de la casa) en piezas y la flecha verde si se puede mejorar
@@ -312,6 +332,13 @@ function placeBubbles() {
     const show = mode === 'farm' && farm.introT > 1.6;
     armory.classList.toggle('hidden', !show);
     houseSign.classList.toggle('hidden', !show);
+    const ufoOn = show && state.ufo.crashed && !cine && !!farm.ufo;
+    ufoSign.classList.toggle('hidden', !ufoOn);
+    if (ufoOn) {
+        _b.set(UFO.spot.x, 2.6, UFO.spot.z).project(rig.camera);
+        ufoSign.style.left = `${(_b.x * 0.5 + 0.5) * innerWidth}px`;
+        ufoSign.style.top = `${(-_b.y * 0.5 + 0.5) * innerHeight}px`;
+    }
     if (show) {
         const house = farm.byId.house;
         _b.set(house.def.x, (house.level ? house.top : 1.8) - 1.2, house.def.z).project(rig.camera);
@@ -601,7 +628,7 @@ function zoomBy(k) {
 }
 
 function isUi(e) {
-    return e.target.closest && e.target.closest('button, .panel, .screen');
+    return e.target.closest && e.target.closest('button, .panel, .screen, .ufo-shop');
 }
 
 const locked = () => document.pointerLockElement === canvas;
@@ -617,7 +644,7 @@ document.addEventListener('pointerlockchange', () => document.body.classList.tog
 addEventListener('pointerdown', (e) => {
     sfx.unlock();
     if (!music.playing && Settings.music && sfx.ctx) startMusic(mode === 'snipe' ? THEME.sniperMusic : THEME.music);
-    if (isUi(e)) return;
+    if (isUi(e) || inCine()) return;
     if (mode === 'farm') {
         pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
         if (pointers.size === 2) {
@@ -728,7 +755,7 @@ addEventListener('mouseup', (e) => {
 });
 addEventListener('contextmenu', (e) => e.preventDefault());
 addEventListener('wheel', (e) => {
-    if (mode === 'farm') zoomBy(Math.exp(e.deltaY * 0.0012));
+    if (mode === 'farm' && !inCine()) zoomBy(Math.exp(e.deltaY * 0.0012));
 }, { passive: true });
 
 // Dedo quieto un momento: sube el arma
@@ -740,6 +767,7 @@ function tapMap(x, y) {
     ray.setFromCamera(ndcOf(x, y), rig.camera);
     const hit = farm.pick(ray);
     if (!hit) return select(null);
+    if (hit.ufo) return openShop();
     if (hit.field && state.isReady(hit.field) && selected && selected.field === hit.field) return harvest(hit.field);
     select(hit);
 }
@@ -749,6 +777,7 @@ function tapMap(x, y) {
 const keys = new Set();
 addEventListener('keydown', (e) => {
     sfx.unlock();
+    if (inCine()) return;
     const k = e.key.toLowerCase();
     keys.add(k);
     if (e.repeat) return;
@@ -784,6 +813,7 @@ function keyInput(dt) {
 const padPrev = [];
 const curve = (v) => (Math.abs(v) < 0.15 ? 0 : Math.sign(v) * ((Math.abs(v) - 0.15) / 0.85) ** 2);
 function pollPad(dt) {
+    if (inCine()) return;
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     const pad = [...pads].find((p) => p);
     if (!pad) return;
@@ -833,6 +863,181 @@ tapBtn('btn-settings', () => {
 tapBtn('btn-settings-close', () => {
     sfx.play('ui');
     $('settings').classList.add('hidden');
+});
+
+// ---------- El ovni ----------
+// Cinemática al dejar la casa al máximo: un momento de calma, se bloquea el control, el ovni
+// cae del cielo dando bandazos y echando humo y se estrella en un rincón de la parcela; tras
+// asentarse vuelve el control y sale su cartel de alarma.
+let cine = null; // { t, locked, crashT }
+const inCine = () => !!(cine && cine.locked);
+const _u = new THREE.Vector3();
+
+function updateCine(dt) {
+    // Empieza sola en cuanto la casa está al máximo y el ovni aún no ha caído
+    if (!cine && mode === 'farm' && state.houseMaxed && !state.ufo.crashed && farm.introT > 2.2) cine = { t: 0, locked: false, crashT: -1 };
+    if (!cine) return;
+    cine.t += dt;
+    const S = UFO.spot, F = { x: S.x + UFO.from.x, y: UFO.from.y, z: S.z + UFO.from.z };
+    if (!cine.locked) {
+        if (cine.t < UFO.wait) return;
+        cine.locked = true;
+        cine.t = UFO.wait;
+        select(null);
+        for (const id of ['streaks', 'settings', 'debug', 'ufo-shop']) $(id).classList.add('hidden');
+        document.body.classList.add('cine');
+        touch = pan = pinch = null;
+        rig.focus(S.x + 3, S.z + 3);
+        rig.zoomTarget = 1.7; // de lejos, para verlo entero mientras cae
+        farm.showUfo();
+        sfx.play('ufo');
+        setTimeout(() => sfx.play('ufo'), 1500);
+    }
+    const u = farm.ufo;
+    if (cine.crashT < 0) {
+        // Cayendo: se acerca en línea y baja cada vez más deprisa, girando y bamboleándose
+        const k = Math.min(1, (cine.t - UFO.wait) / UFO.flight);
+        u.root.position.set(F.x + (S.x - F.x) * k, 0.2 + (F.y - 0.2) * (1 - k * k), F.z + (S.z - F.z) * k);
+        // La cámara lo sigue: con esta vista inclinada algo alto se ve más arriba en pantalla, como
+        // si estuviera más al fondo (-x, -z), así que se centra donde se ve, no donde cae
+        const up = u.root.position.y * 0.55;
+        rig.focus(u.root.position.x - up + 1.5, u.root.position.z - up + 1.5);
+        u.root.rotation.set(Math.sin(cine.t * 7) * 0.3, cine.t * 6, Math.cos(cine.t * 5) * 0.3 + 0.2);
+        u.root.localToWorld(_u.set(0, 1, 0));
+        farmParticles.burst(_u.x, _u.y, _u.z, 2, [0x5a5048, 0x7a7068, 0xffe03a, 0xff9a1f], { speed: 0.6, up: 0.4, size: 0.3, ttl: 1.2, grav: -1 });
+        if (k < 1) return;
+        // ¡Pum! Polvo, fuego, chapas, temblor y fogonazo (y la cámara se acerca)
+        cine.crashT = cine.t;
+        rig.focus(S.x + 1, S.z + 1);
+        rig.zoomTarget = 1.1;
+        farm.crashUfo();
+        state.ufo.crashed = true;
+        state.save();
+        farmParticles.burst(S.x, 0.4, S.z, 120, [THEME.dust, 0x8a5a34, 0x6f8a3a], { speed: 6, up: 3, size: 0.28, ttl: 1.2, grav: 3 });
+        farmParticles.burst(S.x, 0.8, S.z, 80, [0xffffff, 0xffe03a, 0xff9a1f, 0xff3e1a], { speed: 5, up: 6, size: 0.24, ttl: 0.8 });
+        farmParticles.burst(S.x, 0.6, S.z, 40, [0x9aa8b8, 0x7a8898], { speed: 7, up: 7, size: 0.16, ttl: 1.4, grav: 14 });
+        rig.shake(1);
+        renderer.flash(0xfff6dc, 0.7);
+        sfx.play('boom');
+        setTimeout(() => sfx.play('crateBreak'), 120);
+        vibrate('kill');
+        return;
+    }
+    if (cine.t - cine.crashT < UFO.settle) return;
+    // Vuelve el control
+    cine = null;
+    document.body.classList.remove('cine');
+    updateCounts();
+    stage(L('WHAT WAS THAT?!', '¿¡QUÉ HA SIDO ESO!?'), L('SOMETHING CRASHED NEAR THE HOUSE', 'ALGO SE HA ESTRELLADO JUNTO A LA CASA'));
+}
+
+// El ovni estrellado echa humo de vez en cuando
+function ufoSmoke(dt) {
+    // Sin nubes delante durante la cinemática ni con la tienda abierta
+    const clear = !!cine || !$('ufo-shop').classList.contains('hidden');
+    for (const c of farm.clouds) c.visible = !clear;
+    if (!state.ufo.crashed || !farm.ufo || Math.random() > dt * 3) return;
+    farm.ufo.root.localToWorld(_u.set(0.6, 1.2, 0.3));
+    farmParticles.spawn(_u.x, _u.y, _u.z, 0.1, 0.6, 0.1, 0.22 + Math.random() * 0.12, 2, Math.random() < 0.5 ? 0x7a7068 : 0x5a5048, -0.2);
+}
+
+// La casa con lo que lleva puesto de la tienda (colores de tejado, fachada, puerta y marcos)
+function applyLook() {
+    const colors = {};
+    for (const [slot, id] of Object.entries(state.home.look)) colors[slot] = SHOP_ITEMS[id].color;
+    farm.byId.house.setLook(colors);
+}
+
+// ---------- Tienda del ovni ----------
+// Hoja abajo con el alienígena y sus monedas; arriba se ve la casa (la cámara la encuadra) y
+// cada cambio se ve en directo. Secciones CASA y PARCELA, categorías y tarjetas.
+const shop = { tab: SHOP[0].id, cat: SHOP[0].cats[0].id };
+const ZORG = {
+    hello: [
+        L('BLORP! I CRASHED MY SHIP. TRADE YOU STUFF FOR COINS.', '¡BLORP! ESTRELLÉ MI NAVE. TE CAMBIO COSAS POR MONEDAS.'),
+        L('SHOOT DOWN MY LITTLE SHIPS AND BRING ME THEIR COINS.', 'DERRIBA MIS NAVES PEQUEÑAS Y TRÁEME SUS MONEDAS.'),
+        L('YOUR HOUSE IS... CUTE. LET ME FIX IT.', 'TU CASA ES... MONA. DÉJAME ARREGLARLA.'),
+    ],
+    poor: L('NOT ENOUGH COINS, EARTHLING.', 'TE FALTAN MONEDAS, TERRÍCOLA.'),
+    soon: L('STILL BUILDING THAT ONE... COME BACK SOON.', 'ESO AÚN LO ESTOY FABRICANDO... VUELVE PRONTO.'),
+    thanks: L('ZORG APPROVES!', '¡ZORG APRUEBA!'),
+};
+const hex = (c) => `#${c.toString(16).padStart(6, '0')}`;
+
+function say(text, warn = false) {
+    $('ufo-line').textContent = text;
+    const t = $('ufo-line').parentElement;
+    t.classList.remove('warn');
+    if (warn) {
+        void t.offsetWidth;
+        t.classList.add('warn');
+    }
+}
+
+function openShop() {
+    if (mode !== 'farm' || inCine() || !state.ufo.crashed) return;
+    select(null);
+    sfx.play('ufo');
+    const h = farm.byId.house;
+    rig.focus(h.def.x + 4, h.def.z + 4); // la casa queda en la mitad de arriba
+    rig.zoomTarget = 0.72;
+    say(ZORG.hello[(Math.random() * ZORG.hello.length) | 0]);
+    renderShop();
+    const el = $('ufo-shop');
+    el.classList.remove('hidden', 'in');
+    void el.offsetWidth;
+    el.classList.add('in');
+}
+
+function renderShop() {
+    $('ufo-coins').textContent = state.items.alien;
+    const sec = SHOP.find((x) => x.id === shop.tab);
+    if (!sec.cats.some((c) => c.id === shop.cat)) shop.cat = sec.cats[0].id;
+    $('ufo-tabs').innerHTML = SHOP.map((x) => `<button class="ufo-tab${x.id === shop.tab ? ' on' : ''}" data-tab="${x.id}">${x.name}</button>`).join('');
+    $('ufo-cats').innerHTML = sec.cats.map((c) => `<button class="ufo-cat${c.id === shop.cat ? ' on' : ''}${c.soon ? ' soon' : ''}" data-cat="${c.id}">${c.name}</button>`).join('');
+    const cat = sec.cats.find((c) => c.id === shop.cat);
+    $('ufo-items').innerHTML = cat.items.map((it) => {
+        const owned = state.owns(it.id), on = cat.slot && state.home.look[cat.slot] === it.id;
+        const [c1, c2] = Array.isArray(it.color) ? it.color : [it.color ?? it.ico, it.color ?? it.ico];
+        const n = it.cost.alien || 0, short = !owned && !cat.soon && state.items.alien < n;
+        const tag = cat.soon ? `${n}<span class="ico alien-ico"></span> · ${L('SOON', 'PRONTO')}`
+            : on ? L('ON', 'PUESTO') : owned ? L('WEAR', 'PONER') : `${n}<span class="ico alien-ico"></span>`;
+        return `<button class="shop-card${on ? ' on' : ''}${cat.soon ? ' soon' : ''}${short ? ' short' : ''}" data-id="${it.id}" id="shop-${it.id}">`
+            + `<i class="swatch" style="--c1:${hex(c1)};--c2:${hex(c2)}"></i><b>${it.name}</b><em>${tag}</em></button>`;
+    }).join('');
+}
+
+$('ufo-shop').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const t = e.target.closest('[data-tab], [data-cat], [data-id]');
+    if (!t) return;
+    if (t.dataset.tab) {
+        shop.tab = t.dataset.tab;
+        shop.cat = SHOP.find((x) => x.id === shop.tab).cats[0].id;
+        sfx.play('ui');
+        return renderShop();
+    }
+    if (t.dataset.cat) {
+        shop.cat = t.dataset.cat;
+        sfx.play('ui');
+        return renderShop();
+    }
+    const it = SHOP_ITEMS[t.dataset.id];
+    if (it.cat.soon) return sfx.play('miss'), say(ZORG.soon, true);
+    const had = state.owns(it.id);
+    if (!state.buyOrWear(it.id)) return sfx.play('miss'), say(ZORG.poor, true);
+    applyLook();
+    farm.byId.house.select();
+    sfx.play(had ? 'ui' : 'shieldGet');
+    if (!had) say(ZORG.thanks);
+    updateCounts();
+    renderShop();
+});
+$('ufo-shop').addEventListener('pointerdown', (e) => e.stopPropagation());
+tapBtn('ufo-close', () => {
+    sfx.play('ui');
+    $('ufo-shop').classList.add('hidden');
+    rig.zoomTarget = 1;
 });
 
 // ---------- Granero: subirlo de nivel y elegir las rachas de bajas (tantas como huecos) ----------
@@ -1145,6 +1350,8 @@ function frame(now) {
         farmParticles.update(dt);
         farmParticles.sync();
         rig.update(dt);
+        updateCine(dt);
+        ufoSmoke(dt);
         placeBubbles();
         renderer.render(farmScene, rig.camera, dt);
     }
@@ -1169,6 +1376,9 @@ function frame(now) {
     }
 }
 
+// La casa como se dejó en la tienda del ovni, y el ovni estrellado si ya cayó
+applyLook();
+if (state.ufo.crashed) farm.crashUfo();
 updateCounts();
 requestAnimationFrame(frame);
 // La portada (título) se queda un momento aunque cargue rápido
@@ -1179,4 +1389,4 @@ if ('serviceWorker' in navigator && !/^(localhost|127\.)/.test(location.hostname
 }
 
 // Para las pruebas (Playwright)
-window.game = { state, sniper, farm, rig, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, upgradeBarn, upgradeHouse, goFarm, select, updateCounts };
+window.game = { state, sniper, farm, rig, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, upgradeBarn, upgradeHouse, openShop, get cine() { return cine; }, goFarm, select, updateCounts };

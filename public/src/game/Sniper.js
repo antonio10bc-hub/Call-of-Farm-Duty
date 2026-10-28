@@ -10,6 +10,7 @@ import { vibrate } from '../core/Haptics.js';
 import { CROPS } from '../content/crops.js';
 import { KILLSTREAKS, KS } from '../content/killstreaks.js';
 import { Killstreaks } from './Killstreaks.js';
+import { Flyers } from './Flyers.js';
 
 const S = CONFIG.sniper;
 const FIRE = [0xffffff, 0xffe03a, 0xff9a1f, 0xff3e1a];
@@ -47,6 +48,7 @@ export class Sniper {
         this.camera.add(this.rifle.root);
 
         this.ks = new Killstreaks(this);
+        this.flyers = new Flyers(this);
         this.equipped = [];
         this.streak = 0;
         this.streakT = 0; // lo que le queda a la barra de la racha (s) y lo que duraba llena
@@ -127,10 +129,12 @@ export class Sniper {
         this.hitStop = 0;
         this.streak = this.streakT = 0;
         this.ks.clear();
+        this.flyers.reset();
     }
 
     leave() {
         this.ks.clear();
+        this.flyers.reset();
         this.field.clearSheaves();
         this.particles.clear();
     }
@@ -276,6 +280,15 @@ export class Sniper {
 
         if (this.unlocking) return this.fireAtJunk(origin, dir, muzzle);
         const hits = this.field.raycast(origin, dir);
+        // Un ovni pequeño en la línea de tiro, antes que los blancos: derribado (para la bala)
+        const ufo = this.flyers.hit(origin, dir);
+        if (ufo && (!hits.length || ufo.t < hits[0].t)) {
+            this.flyers.shoot(ufo.flyer);
+            this.hitStop = S.hitStop;
+            this.trauma = Math.min(1, this.trauma + 0.3);
+            this.drawTracer(origin, dir, muzzle, origin.clone().addScaledVector(dir, ufo.t));
+            return true;
+        }
         let end;
         if (hits.length) {
             // La bala sigue tras la última mata hasta el suelo
@@ -442,6 +455,7 @@ export class Sniper {
         // La barra de la racha se vacía (no mientras se guía el misil o cuenta la nuclear)
         if (this.streak > 0 && !this.ks.paused && this.ending < 0 && (this.streakT -= dt) <= 0) this.streak = this.streakT = 0;
         this.ks.update(dt, rawDt);
+        this.flyers.update(dt, time);
 
         if (this.move) {
             const m = this.move;

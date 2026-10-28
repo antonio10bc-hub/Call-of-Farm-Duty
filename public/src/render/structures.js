@@ -255,25 +255,27 @@ export class House extends VoxelModel {
         const b = (this.whole = new THREE.Group());
         this.root.add(b);
         this.part(b, W + 0.1, 0.2, D + 0.1, 0x9a948c, 0, 0.1, 0);
-        this.part(b, W, H, D, WALL, 0, 0.2 + H / 2, 0);
+        // Las partes que se pueden pintar en la tienda del ovni (setLook)
+        this.paint = { roof: [], walls: [], door: [], frames: [] };
+        this.paint.walls.push(this.part(b, W, H, D, WALL, 0, 0.2 + H / 2, 0));
         // Tejado a dos aguas con la cumbrera de lado a lado (escalones hacia delante y detrás)
         const top = 0.2 + H;
         [D + 0.4, D - 0.2, D - 0.9, D - 1.6, D - 2.3].forEach((d, i) => {
-            this.part(b, W + 0.4, 0.26, d, i % 2 ? ROOF2 : ROOF, 0, top + 0.13 + i * 0.26, 0);
+            this.paint.roof.push(this.part(b, W + 0.4, 0.26, d, i % 2 ? ROOF2 : ROOF, 0, top + 0.13 + i * 0.26, 0));
         });
         // Chimenea
         this.part(b, 0.36, 1.2, 0.36, 0xb0503a, 0.9, top + 0.7, -0.3);
         this.chimney = new THREE.Vector3(0.9, top + 1.35, -0.3);
         // Puerta, ventanas y porche
-        this.part(b, 0.6, 1.1, 0.06, WOOD, -0.5, 0.75, D / 2 + 0.03);
+        this.paint.door.push(this.part(b, 0.6, 1.1, 0.06, WOOD, -0.5, 0.75, D / 2 + 0.03));
         this.part(b, 0.06, 0.06, 0.04, 0xffe03a, -0.32, 0.75, D / 2 + 0.07, false);
         for (const x of [0.75]) {
-            this.part(b, 0.7, 0.6, 0.05, 0xffffff, x, 1.25, D / 2 + 0.03);
+            this.paint.frames.push(this.part(b, 0.7, 0.6, 0.05, 0xffffff, x, 1.25, D / 2 + 0.03));
             this.part(b, 0.56, 0.46, 0.05, GLASS, x, 1.25, D / 2 + 0.05, false);
             this.part(b, 0.8, 0.12, 0.2, 0x7fbf4a, x, 0.9, D / 2 + 0.1, false); // jardinera
         }
         for (const z of [-0.6, 0.6]) {
-            this.part(b, 0.05, 0.6, 0.6, 0xffffff, W / 2 + 0.03, 1.25, z);
+            this.paint.frames.push(this.part(b, 0.05, 0.6, 0.6, 0xffffff, W / 2 + 0.03, 1.25, z));
             this.part(b, 0.05, 0.46, 0.46, GLASS, W / 2 + 0.05, 1.25, z, false);
         }
         this.part(b, 1.2, 0.12, 0.7, WOOD, -0.5, 0.06, D / 2 + 0.35);
@@ -308,6 +310,15 @@ export class House extends VoxelModel {
         this.setLevel(0);
     }
 
+    // Pinta cada parte con su color (colors: { roof: [c, c2], walls, door, frames })
+    setLook(colors) {
+        for (const [part, c] of Object.entries(colors)) {
+            const list = this.paint[part];
+            if (!list) continue;
+            list.forEach((m, i) => (m.material = this.mat(Array.isArray(c) ? c[i % c.length] : c)));
+        }
+    }
+
     // 0: en ruinas; 1 o más: arreglada
     setLevel(n) {
         this.level = n;
@@ -316,6 +327,39 @@ export class House extends VoxelModel {
     }
 
     update(dt) {
+        this.updateFx(dt);
+    }
+}
+
+// Ovni: platillo de cajas con su cúpula de cristal y el alienígena verde dentro, luces que
+// parpadean alrededor y patas. small: el pequeño que cruza el cielo del campo de tiro.
+export class Ufo extends VoxelModel {
+    constructor(outlineColor, small = false) {
+        super(outlineColor);
+        const METAL = 0x9aa8b8, METAL2 = 0x7a8898, DARK = 0x4a5868, b = this.root;
+        this.part(b, 3.6, 0.3, 3.6, METAL2, 0, 0.55, 0);
+        this.part(b, 4.2, 0.22, 4.2, METAL, 0, 0.8, 0);
+        this.part(b, 3.0, 0.3, 3.0, METAL, 0, 1.05, 0);
+        this.part(b, 2.0, 0.24, 2.0, DARK, 0, 0.3, 0);
+        this.part(b, 1.7, 0.9, 1.7, 0x9fdcff, 0, 1.6, 0);
+        this.part(b, 1.1, 0.2, 1.1, 0xc4ecff, 0, 2.12, 0, false);
+        // El alienígena: cabeza verde y dos ojos negros grandes
+        this.part(b, 0.6, 0.6, 0.55, 0x7dff4a, 0, 1.55, 0.15, false);
+        for (const x of [-0.15, 0.15]) this.part(b, 0.16, 0.2, 0.06, 0x111111, x, 1.6, 0.44, false);
+        this.lights = [];
+        for (let k = 0; k < 8; k++) {
+            const a = (k / 8) * Math.PI * 2;
+            this.lights.push(this.part(b, 0.22, 0.16, 0.22, k % 2 ? 0xffe03a : 0xff3e5e, Math.sin(a) * 1.95, 0.8, Math.cos(a) * 1.95, false));
+        }
+        if (!small) for (let k = 0; k < 3; k++) {
+            const a = (k / 3) * Math.PI * 2 + 0.5, leg = this.part(b, 0.12, 0.7, 0.12, DARK, Math.sin(a) * 1.3, 0.1, Math.cos(a) * 1.3, false);
+            leg.rotation.set(Math.cos(a) * 0.4, 0, -Math.sin(a) * 0.4);
+        }
+        this.top = 2.4;
+    }
+
+    update(dt, time) {
+        this.lights.forEach((l, i) => (l.visible = Math.sin(time * 8 + i * 0.8) > -0.2));
         this.updateFx(dt);
     }
 }

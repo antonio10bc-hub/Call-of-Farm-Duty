@@ -133,6 +133,7 @@ export class Sfx {
             case 'boost': this.noise(0.5, 0.4, 3200); this.tone('sawtooth', 300, 900, 0.5, 0.1); break;
             case 'plane': this.tone('sawtooth', 62, 70, 4.5, 0.09); this.tone('sawtooth', 93, 88, 4.5, 0.06); this.noise(4.5, 0.12, 500); break;
             case 'siren': this.tone('square', 880, 660, 0.45, 0.12); break;
+            case 'ufo': for (let i = 0; i < 6; i++) this.tone('sine', i % 2 ? 520 : 880, i % 2 ? 880 : 520, 0.25, 0.08, 0, i * 0.25); break;
             case 'nukeFall': this.tone('sine', 1600, 160, 5, 0.06); this.noise(5, 0.08, 1200); break;
             case 'nuke': this.noise(3, 1, 700); this.tone('sine', 70, 18, 3, 0.9); this.tone('square', 140, 30, 1.2, 0.3); break;
             case 'bolt': this.tone('square', 260, 180, 0.04, 0.1, pan); this.tone('square', 420, 300, 0.05, 0.1, pan, 0.12); this.noise(0.04, 0.15, 6000, pan, 0.12); break;

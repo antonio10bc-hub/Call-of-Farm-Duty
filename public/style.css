@@ -556,6 +556,75 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
 .barrel-ico { --ico: var(--px-barrel); }
 .lock-ico { --ico: var(--px-lock); }
 .ks-grenade-ico { --ico: var(--px-ks-grenade); }
+.alien-ico { --ico: var(--px-alien); }
+.alarm-ico { --ico: var(--px-alarm); }
+/* Monedas alienígenas: insignia verde */
+.alien-badge { background: #7dff4a; }
+.alien-badge.hidden, .farm-items .alien-badge.hidden { display: none; }
+.snipe-alien { position: absolute; left: 14px; top: calc(var(--safe-top) + 58px); font-size: 12px; padding: 5px 9px 5px 6px; }
+
+/* Cinemática: bandas negras y nada de interfaz encima */
+.letterbox { position: fixed; inset: 0; z-index: 30; pointer-events: none; }
+.letterbox i { position: absolute; left: 0; right: 0; height: 0; background: var(--ink); transition: height .5s steps(5); }
+.letterbox i:first-child { top: 0; }
+.letterbox i:last-child { bottom: 0; }
+body.cine .letterbox { pointer-events: auto; }
+body.cine .letterbox i { height: 11vh; }
+body.cine .farm-ui, body.cine .bubbles { visibility: hidden; }
+
+/* Cartel de alarma del ovni: rojo, latiendo */
+.ufo-sign { --sign: #c8402e; animation: signBob 1.6s steps(2) infinite, signGlow .4s steps(2) infinite; }
+.ufo-sign .ico { width: 16px; height: 13px; }
+
+/* Tienda del ovni: hoja abajo con la casa visible arriba */
+.ufo-shop {
+    position: fixed;
+    left: 50%;
+    bottom: 0;
+    z-index: 22;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: min(520px, 100vw);
+    height: min(58vh, 520px);
+    padding: 10px 10px max(10px, env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    color: var(--cream);
+    background: #1e2a33;
+    border: 4px solid var(--ink);
+    border-bottom: 0;
+    box-shadow: 0 -6px 0 rgba(42, 26, 14, .4), inset 0 4px 0 #2e4250;
+}
+.ufo-shop.hidden { display: none; }
+.ufo-shop.in { animation: shopIn .3s steps(3) both; }
+@keyframes shopIn { from { transform: translate(-50%, 60px); } }
+.ufo-head { position: relative; display: flex; align-items: center; gap: 10px; padding-right: 34px; }
+.ufo-portrait { flex: none; width: 60px; height: 44px; background: var(--px-ufo-alien) center / 100% 100% no-repeat; image-rendering: pixelated; animation: hop 1.2s steps(4) infinite; }
+.ufo-talk { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 6px 8px; font-size: 7px; line-height: 1.6; color: var(--ink); background: #d8ffb0; border: 3px solid var(--ink); }
+.ufo-talk b { font-size: 9px; font-weight: normal; color: #2f6a1a; }
+.ufo-talk.warn { animation: ksWarn .6s steps(2) 2; }
+.ufo-head .panel-x { top: 0; right: 0; }
+.ufo-tabs { display: flex; gap: 6px; }
+.ufo-tab { flex: 1; padding: 8px 6px; font-family: var(--font); font-size: 11px; color: var(--cream); background: #2e4250; border: 3px solid var(--ink); cursor: pointer; }
+.ufo-tab.on { color: var(--ink); background: #7dff4a; }
+.ufo-cats { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.ufo-cat { flex: none; padding: 6px 7px; font-family: var(--font); font-size: 7px; color: var(--cream); background: transparent; border: 2px solid #4a6270; cursor: pointer; }
+.ufo-cat.on { color: var(--ink); background: var(--cream); border-color: var(--ink); }
+.ufo-cat.soon { opacity: .6; }
+.ufo-items { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 7px; overflow-y: auto; align-content: start; }
+.shop-card { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 5px; font-family: var(--font); color: var(--ink); background: var(--cream); border: 3px solid var(--ink); box-shadow: 0 4px 0 var(--ink); cursor: pointer; }
+.shop-card:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+.shop-card.on { background: #d8ffb0; }
+.shop-card.soon { opacity: .6; cursor: default; }
+.shop-card .swatch { width: 40px; height: 30px; border: 3px solid var(--ink); background: var(--c1); box-shadow: inset 0 -10px 0 var(--c2, var(--c1)); }
+.shop-card.soon .swatch { background: repeating-linear-gradient(45deg, var(--c1) 0 6px, #e8e0d0 6px 9px); box-shadow: none; }
+.shop-card b { min-height: 2.4em; font-size: 7px; font-weight: normal; line-height: 1.5; text-align: center; }
+.shop-card em { font-style: normal; font-size: 7px; padding: 4px 5px; display: flex; align-items: center; gap: 3px; color: #fff; background: #2e4250; border: 2px solid var(--ink); }
+.shop-card em .ico { width: 10px; height: 10px; }
+.shop-card.on em { background: #17d65a; }
+.shop-card.short em { background: var(--barn); }
+.shop-card.soon em { background: #a8957a; }
+.shop-card.flash { animation: ksWarn .5s steps(2) 1; }
 
 /* ---------- GRANJA (menú principal) ---------- */
 .farm-ui {

@@ -59,6 +59,7 @@
         <div class="farm-items">
             <div id="farm-wheat" class="coins-badge static"><span class="ico wheat-ico"></span><span id="wheat-count">0</span></div>
             <div id="farm-tomato" class="coins-badge static hidden"><span class="ico tomato-ico"></span><span id="tomato-count">0</span></div>
+            <div id="farm-alien" class="coins-badge static alien-badge hidden"><span class="ico alien-ico"></span><span id="alien-count">0</span></div>
         </div>
         <button id="btn-settings" class="corner-btn" data-es="AJUSTES">SETTINGS</button>
         <button id="btn-debug" class="debug-btn">DEBUG</button>
@@ -76,6 +77,7 @@
     <!-- Francotirador: interfaz sobre la vista en primera persona -->
     <div id="snipe-ui" class="snipe-ui hidden">
         <button id="btn-home" class="corner-btn corner-left home-corner" aria-label="Farm" data-es-aria="Granja"><span class="home-icon"></span><span data-es="GRANJA">FARM</span></button>
+        <div id="snipe-alien" class="coins-badge alien-badge snipe-alien hidden"><span class="ico alien-ico"></span><span id="hud-alien">0</span></div>
         <div id="snipe-wheat" class="coins-badge coin-counter"><span id="hud-ico" class="ico wheat-ico"></span><span id="hud-wheat">0</span></div>
         <div class="left-badge"><span data-es="QUEDAN">LEFT</span> <b id="left-count">0</b></div>
         <div id="corners" class="corners"><i></i><i></i><i></i><i></i></div>
@@ -109,6 +111,23 @@
     </div>
     <div id="toast" class="toast"></div>
     <div id="medals" class="medals"></div>
+
+    <!-- Cinemática: bandas negras arriba y abajo (el jugador no puede tocar nada) -->
+    <div id="letterbox" class="letterbox"><i></i><i></i></div>
+
+    <!-- Tienda del ovni: hoja abajo (arriba se ve la casa cambiar en directo). Dos secciones
+         (CASA y PARCELA), sus categorías y las tarjetas de cada una -->
+    <div id="ufo-shop" class="ufo-shop hidden">
+        <div class="ufo-head">
+            <i class="ufo-portrait"></i>
+            <div class="ufo-talk"><b>ZORG</b><span id="ufo-line"></span></div>
+            <div class="coins-badge static alien-badge"><span class="ico alien-ico"></span><span id="ufo-coins">0</span></div>
+            <button id="ufo-close" class="panel-x" aria-label="Close" data-es-aria="Cerrar">X</button>
+        </div>
+        <div id="ufo-tabs" class="ufo-tabs"></div>
+        <div id="ufo-cats" class="ufo-cats"></div>
+        <div id="ufo-items" class="ufo-items"></div>
+    </div>
 
     <!-- Granero: las rachas de bajas que se llevan al campo de tiro -->
     <div id="streaks" class="screen settings streaks-screen hidden">

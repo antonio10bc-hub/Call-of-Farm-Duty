@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { box, toon, outline, OUTLINE } from '../render/materials.js';
 import { easeOutBack } from '../core/math.js';
-import { STRUCTURES } from '../render/structures.js';
+import { STRUCTURES, Ufo } from '../render/structures.js';
 import { junkyard, barrelParts, JUNK } from '../render/junk.js';
 import { CROPS } from '../content/crops.js';
 import { FARM } from '../content/farm.js';
+import { UFO } from '../content/ufo.js';
 
 const _d = new THREE.Object3D();
 const _c = new THREE.Color();
@@ -178,6 +179,46 @@ export class Farm {
         this.refreshGround();
         this.byId.barn.setLevel(level);
         this.byId.barn.select();
+    }
+
+    // El ovni: se crea al empezar su cinemática (o ya estrellado al cargar una partida en la
+    // que cayó). Volando lo mueve main.js; estrellado queda inclinado y medio hundido, con una
+    // mancha de quemado y trozos alrededor
+    showUfo() {
+        if (this.ufo) return this.ufo;
+        this.ufo = new Ufo(this.theme.outline);
+        this.ufo.crashed = false;
+        this.root.add(this.ufo.root);
+        const g = (this.scorch = new THREE.Group());
+        g.visible = false;
+        const S = UFO.spot;
+        for (let k = 0; k < 14; k++) {
+            const a = (k / 14) * Math.PI * 2 + Math.random() * 0.4, d = 0.6 + Math.random() * 2.2, s = 0.6 + Math.random() * 0.9;
+            const m = new THREE.Mesh(box(1, 1, 1), toon(k % 3 ? 0x3a3028 : 0x5a4a38));
+            m.scale.set(s, 0.03, s * 0.8);
+            m.position.set(S.x + Math.sin(a) * d, 0.02, S.z + Math.cos(a) * d);
+            m.rotation.y = a;
+            g.add(m);
+        }
+        // Trozos de chapa del ovni desperdigados
+        for (let k = 0; k < 6; k++) {
+            const a = Math.random() * Math.PI * 2, d = 2.5 + Math.random() * 1.8;
+            const m = new THREE.Mesh(box(1, 1, 1), toon(k % 2 ? 0x9aa8b8 : 0x7a8898));
+            m.scale.set(0.5, 0.08, 0.35);
+            m.position.set(S.x + Math.sin(a) * d, 0.06, S.z + Math.cos(a) * d);
+            m.rotation.set(0.2, a, 0.3);
+            g.add(m);
+        }
+        this.root.add(g);
+        return this.ufo;
+    }
+
+    crashUfo() {
+        const u = this.showUfo(), S = UFO.spot;
+        u.crashed = true;
+        u.root.position.set(S.x, -0.25, S.z);
+        u.root.rotation.set(0.38, 0.6, -0.24);
+        this.scorch.visible = true;
     }
 
     // ¿Ya está limpio este punto? (dentro del recinto del granero o de un campo)
@@ -470,6 +511,7 @@ export class Farm {
 
     // Lo que hay bajo un rayo de la cámara: un edificio, un campo o nada
     pick(ray) {
+        if (this.ufo && this.ufo.crashed && ray.intersectObject(this.ufo.root, true).length) return { ufo: true };
         const hits = ray.intersectObjects(this.structures.map((m) => m.root), true);
         if (hits.length) return { structure: hits[0].object.userData.structure };
         const t = -ray.ray.origin.y / ray.ray.direction.y;
@@ -499,6 +541,7 @@ export class Farm {
             }
             m.update(dt, time);
         });
+        if (this.ufo) this.ufo.update(dt, time);
 
         for (const v of this.views) {
             if (v.locked) continue;

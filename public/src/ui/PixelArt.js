@@ -190,6 +190,19 @@ const SPRITES = {
         rows: ['..KKKKKKKK..', '.KOOYYYYOOK.', 'KOYYWWWYYYOK', 'KOOYYYYYYOOK', '.KKKOYYOKKK.', '....KYYK....', '....KOYK....', '....KYOK....', '...KOYYOK...', '.KKOOYYOOKK.', 'KOOOOOOOOOOK', 'KKKKKKKKKKKK'],
         pal: { K: INK, Y: '#ffd23f', O: '#ff9a1f', W: '#fff4b0' },
     },
+    // El ovni: moneda alienígena, luz de alarma del cartel y el alienígena en su nave (tienda)
+    alien: {
+        rows: ['..KKKKKK..', '.KGGGGGGK.', 'KGWGGGGGGK', 'KGKKGGKKGK', 'KGKKGGKKGK', 'KGGGGGGGGK', 'KGGGKKGGGK', '.KGGGGGGK.', '..KKKKKK..'],
+        pal: { K: INK, G: '#7dff4a', W: '#d8ffb0' },
+    },
+    alarm: {
+        rows: ['...KKKK...', '..KRRWRK..', '.KRRRWRRK.', '.KRRRRRRK.', '.KRRRRRRK.', 'KKKKKKKKKK', 'KGGGGGGGGK', 'KKKKKKKKKK'],
+        pal: { K: INK, R: '#ff2a1a', W: '#ffd0c0', G: '#9aa8b8' },
+    },
+    ufoAlien: {
+        rows: ['.....KKKKK.....', '....KCCCCCK....', '...KCCGGGCCK...', '...KCGKGKGCK...', '...KCGGGGGCK...', '..KKKKKKKKKKK..', '.KMMMMMMMMMMMK.', 'KMYMMRMMYMMRMMK', '.KMMMMMMMMMMMK.', '..KKDDDDDDDKK..', '....KK...KK....'],
+        pal: { K: INK, C: '#9fdcff', G: '#7dff4a', M: '#9aa8b8', D: '#4a5868', Y: '#ffe03a', R: '#ff3e5e' },
+    },
     // Diana del logo (la O de CALL OF): anillos rojo y crema, sencilla para que se lea en grande
     target: {
         rows: ['....KKKKK....', '..KKRRRRRKK..', '.KRRRRRRRRRK.', '.KRRCCCCCRRK.', 'KRRCCRRRCCRRK', 'KRRCRRRRRCRRK', 'KRRCRRWRRCRRK',

@@ -1,6 +1,7 @@
 import { CROPS } from '../content/crops.js';
 import { FARM, FIELD_BY_ID } from '../content/farm.js';
 import { KILLSTREAKS } from '../content/killstreaks.js';
+import { SHOP_ITEMS, DEFAULT_LOOK } from '../content/ufo.js';
 
 // Estado de la granja: lo recogido de cada cultivo, cada campo (desbloqueado o no, nivel, hora
 // de siembra y blancos que quedan), el nivel del granero y las rachas de bajas equipadas en él.
@@ -25,7 +26,12 @@ export class FarmState {
         this.barn = { level: 0, extra: [], slot: false };
         this.house = { level: 0 };
         this.streaks = [];
-        this.items = Object.fromEntries(Object.keys(CROPS).map((c) => [c, 0]));
+        // Lo recogido de cada cultivo y las monedas alienígenas (alien)
+        this.items = Object.fromEntries([...Object.keys(CROPS), 'alien'].map((c) => [c, 0]));
+        // El ovni (crashed: ya se ha estrellado en la parcela de la casa) y la casa personalizada
+        // en su tienda: lo comprado (owned) y lo que lleva puesto en cada parte (look)
+        this.ufo = { crashed: false };
+        this.home = { owned: [], look: { ...DEFAULT_LOOK } };
         // Los terrenos bloqueados se siembran al desbloquearlos (y quedan listos para recoger)
         this.fields = Object.fromEntries(FARM.fields.map((f) => [f.id, {
             unlocked: !f.locked,
@@ -45,6 +51,11 @@ export class FarmState {
                 if (d.barn && Array.isArray(d.barn.extra)) this.barn.extra = d.barn.extra.filter((id) => KILLSTREAKS.some((k) => k.id === id));
                 this.barn.slot = !!(d.barn && d.barn.slot);
                 this.house.level = Math.min(HOUSE.length - 1, Math.max(0, d.house ? d.house.level | 0 : (d.rev | 0) < 4 ? 1 : 0));
+                this.ufo.crashed = !!(d.ufo && d.ufo.crashed);
+                if (d.home) {
+                    if (Array.isArray(d.home.owned)) this.home.owned = d.home.owned.filter((id) => SHOP_ITEMS[id]);
+                    for (const [slot, id] of Object.entries((d.home && d.home.look) || {})) if (slot in this.home.look && SHOP_ITEMS[id] && this.owns(id)) this.home.look[slot] = id;
+                }
                 if (Array.isArray(d.streaks)) this.streaks = d.streaks.filter((id) => this.streakAvailable(id)).slice(0, this.slots);
                 for (const [id, f] of Object.entries(this.fields)) {
                     const s = d.fields[id];
@@ -88,7 +99,7 @@ export class FarmState {
 
     save() {
         try {
-            localStorage.setItem(KEY, JSON.stringify({ rev: REV, items: this.items, fields: this.fields, barn: this.barn, house: this.house, streaks: this.streaks }));
+            localStorage.setItem(KEY, JSON.stringify({ rev: REV, items: this.items, fields: this.fields, barn: this.barn, house: this.house, ufo: this.ufo, home: this.home, streaks: this.streaks }));
         } catch {
             /* ignorar */
         }
@@ -123,6 +134,31 @@ export class FarmState {
         if (!this.canUpgradeHouse) return false;
         for (const [c, n] of Object.entries(this.houseCost())) this.items[c] -= n;
         this.house.level++;
+        this.save();
+        return true;
+    }
+
+    // ---------- Tienda del ovni ----------
+    // ¿Se tiene ya? (lo de serie, sí)
+    owns(id) {
+        const it = SHOP_ITEMS[id];
+        return !!it && (!Object.keys(it.cost).length || this.home.owned.includes(id));
+    }
+
+    affordableCost(cost) {
+        return Object.entries(cost).every(([c, n]) => this.items[c] >= n);
+    }
+
+    // Comprar (si no se tenía) y ponerlo. false si no se puede (PRONTO o sin monedas)
+    buyOrWear(id) {
+        const it = SHOP_ITEMS[id];
+        if (!it || it.cat.soon) return false;
+        if (!this.owns(id)) {
+            if (!this.affordableCost(it.cost)) return false;
+            for (const [c, n] of Object.entries(it.cost)) this.items[c] -= n;
+            this.home.owned.push(id);
+        }
+        if (it.cat.slot) this.home.look[it.cat.slot] = id;
         this.save();
         return true;
     }
