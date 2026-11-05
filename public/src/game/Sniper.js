@@ -13,7 +13,7 @@ import { Killstreaks } from './Killstreaks.js';
 import { Flyers } from './Flyers.js';
 import { Walkers } from './Walkers.js';
 import { Turrets } from './Turrets.js';
-import { rifleStats } from '../content/rifle.js';
+import { loadoutStats } from '../content/arsenal.js';
 
 const S = CONFIG.sniper;
 const FIRE = [0xffffff, 0xffe03a, 0xff9a1f, 0xff3e1a];
@@ -53,8 +53,11 @@ export class Sniper {
         this.rifle = new RifleModel(theme.outline);
         this.camera.add(this.rifle.root);
 
-        // Lo que dan las mejoras del rifle del granero (zoom de la mira, estabilidad y cerrojo)
-        this.stats = rifleStats();
+        // Lo que da el equipo de la armería del granero (mirilla, rifle y cargador)
+        this.stats = loadoutStats();
+        this.ammo = this.stats.size; // balas en el cargador
+        this.reloadT = 0;            // lo que le queda a la recarga (s)
+        this.regenT = 0;
         this.ks = new Killstreaks(this);
         this.flyers = new Flyers(this);
         this.walkers = new Walkers(this);
@@ -156,11 +159,15 @@ export class Sniper {
 
 
     // what: { crop, count, arena, turrets } para cosechar (count blancos de ese cultivo en un
-    // campo de tamaño arena, con o sin sus torretas automáticas) o { unlock: true }; rifle:
-    // niveles de sus mejoras
+    // campo de tamaño arena, con o sin sus torretas automáticas) o { unlock: true }; loadout:
+    // el equipo de la armería ({ scope, rifle, mag })
     enter(what) {
         this.setArena(what.arena || 1);
-        this.stats = rifleStats(what.rifle);
+        this.stats = loadoutStats(what.loadout);
+        this.rifle.setLoadout(what.loadout);
+        this.tracer.material.color.setHex(this.stats.tracer);
+        this.ammo = this.stats.size;
+        this.reloadT = this.regenT = 0;
         this.unlocking = !!what.unlock;
         this.crop = what.crop || null;
         this.field.restartIntro();
@@ -280,7 +287,7 @@ export class Sniper {
     release(fire = true) {
         if (this.ks.predator) return false;
         if (!this.scoped) return false;
-        if (fire && this.bolt > 0 && this.ending < 0) {
+        if (fire && (this.bolt > 0 || this.reloadT > 0 || this.ammo <= 0) && this.ending < 0) {
             this.pending = true;
             return false;
         }
@@ -298,7 +305,7 @@ export class Sniper {
     // y todo crece si se está saltando de torre.
     get spread() {
         const k = clamp((this.adsK - 0.4) / (S.adsReady - 0.4), 0, 1);
-        const hip = S.hipSpread * (1 - k * k * (3 - 2 * k));
+        const hip = S.hipSpread * this.stats.hip * (1 - k * k * (3 - 2 * k));
         const steady = this.stats.steady;
         const settle = (this.adsK >= S.adsReady ? S.settleSpread * this.settle : this.adsK > 0.4 ? S.settleSpread : 0) * steady;
         const turning = Math.min(S.lookSpreadMax, this.turnSpeed * S.lookSpread);
@@ -306,7 +313,17 @@ export class Sniper {
     }
 
     get canFire() {
-        return this.bolt <= 0 && this.ending < 0;
+        return this.bolt <= 0 && this.reloadT <= 0 && this.ammo > 0 && this.ending < 0;
+    }
+
+    // Recargar (solo, al vaciar el cargador; o a mano con R). La célula alienígena no recarga: se
+    // regenera sola
+    reload() {
+        if (this.stats.regen || this.reloadT > 0 || this.ammo >= this.stats.size || this.unlocking) return false;
+        this.reloadT = this.stats.reload;
+        this.hooks.sfx.play('reload');
+        this.rifle.reload(this.stats.reload);
+        return true;
     }
 
     fire() {
@@ -317,9 +334,10 @@ export class Sniper {
         }
         const { sfx } = this.hooks;
         this.bolt = this.stats.bolt;
+        if (!this.unlocking && --this.ammo <= 0) setTimeout(() => this.reload(), 1000 * Math.min(0.3, this.stats.bolt));
         // Retroceso: la vista salta hacia arriba (y un poco de lado) y vuelve con un muelle
-        this.kickV += S.recoil * (this.scoped ? 30 : 22);
-        this.kickYaw = (Math.random() - 0.5) * S.recoil * 0.5;
+        this.kickV += S.recoil * this.stats.recoil * (this.scoped ? 30 : 22);
+        this.kickYaw = (Math.random() - 0.5) * S.recoil * this.stats.recoil * 0.5;
         this.trauma = Math.min(1, this.trauma + (this.scoped ? 0.2 : 0.35));
         // (el cerrojo se mueve y suena al ritmo de su mejora)
         this.rifle.fire(S.boltTime / this.stats.bolt);
@@ -345,6 +363,7 @@ export class Sniper {
 
         if (this.unlocking) return this.fireAtJunk(origin, dir, muzzle);
         const hits = this.field.raycast(origin, dir);
+        hits.length = Math.min(hits.length, this.stats.pierce); // lo que atraviesa este rifle
         // Un alienígena (a pie o en ovni pequeño) en la línea de tiro para la bala: cae él y lo
         // que la bala haya atravesado antes (colateral)
         const ufo = this.flyers.hit(origin, dir), alien = this.walkers.hit(origin, dir);
@@ -369,7 +388,7 @@ export class Sniper {
             const s = hits[solid].sheaf;
             end = origin.clone().addScaledVector(dir, hits[solid].t);
             hits.length = solid;
-            if (--s.hp <= 0) hits.push({ sheaf: s, t: 0 });
+            if ((s.hp -= this.stats.damage) <= 0) hits.push({ sheaf: s, t: 0 });
             else this.damage(s);
         }
         if (hits.length) {
@@ -605,7 +624,7 @@ export class Sniper {
         }
 
         // Subir/bajar el arma al ojo; el zoom sigue al arma con su propia curva
-        this.adsK = Math.min(1, Math.max(0, this.adsK + (this.scoped ? 1 : -1.3) * rawDt / S.adsTime));
+        this.adsK = Math.min(1, Math.max(0, this.adsK + (this.scoped ? 1 : -1.3) * rawDt / this.stats.ads));
         // La mira recién subida tiembla y tarda en asentarse; bajarla lo reinicia
         this.settle = this.adsK < S.adsReady ? 1 : Math.max(0, this.settle - rawDt / (S.settleTime * (0.5 + 0.5 * this.stats.steady)));
         // Velocidad de giro de la vista (rad/s), suavizada
@@ -616,7 +635,17 @@ export class Sniper {
         this.camera.fov = this.fov;
         this.camera.updateProjectionMatrix();
         this.bolt = Math.max(0, this.bolt - dt);
-        if (this.pending && this.bolt <= 0) this.release(true);
+        // El cargador: la recarga corre; la célula alienígena va regenerando balas
+        if (this.reloadT > 0 && (this.reloadT -= dt) <= 0) {
+            this.reloadT = 0;
+            this.ammo = this.stats.size;
+            this.hooks.sfx.play('reloaded');
+        }
+        if (this.stats.regen && this.ammo < this.stats.size && (this.regenT += dt) >= this.stats.regen) {
+            this.regenT = 0;
+            this.ammo++;
+        }
+        if (this.pending && this.canFire) this.release(true);
 
         // Muelles del retroceso y del aterrizaje
         this.kickV += (-170 * this.kickP - 20 * this.kickV) * rawDt;

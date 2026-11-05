@@ -93,7 +93,7 @@ test('debug: DESBLOQUEAR TODO limpia todos los terrenos sin requisitos', { tag: 
     expect(errors).toEqual([]);
 });
 
-test('debug: desbloquear de uno en uno los terrenos y el rifle', { tag: '@full' }, async ({ page }) => {
+test('debug: desbloquear de uno en uno los terrenos y la armería', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto('/?test');
     await expect(page.locator('#sign-wheat')).toHaveText('¡DESBLOQUEAR!', { timeout: 30_000 });
@@ -105,14 +105,14 @@ test('debug: desbloquear de uno en uno los terrenos y el rifle', { tag: '@full' 
     expect(await page.evaluate(() => [game.state.fields.tomato.unlocked, game.farm.fields.tomato.locked, game.state.fields.wheat.unlocked])).toEqual([true, false, false]);
     await expect(page.locator('#sign-tomato')).toHaveText('NV.1');
     await expect(page.locator('#sign-wheat')).toHaveText('¡DESBLOQUEAR!');
-    // El rifle al máximo
+    // Toda la armería
     await page.locator('#btn-debug').click();
     await expect(page.locator('#unlock-field-tomato')).toHaveText('YA');
-    await page.locator('#unlock-rifle').click();
-    await expect(page.locator('#unlock-rifle')).toHaveText('YA');
+    await page.locator('#unlock-arsenal').click();
+    await expect(page.locator('#unlock-arsenal')).toHaveText('YA');
     // Se guarda
     await page.reload();
-    await expect.poll(() => page.evaluate(() => window.game && [game.state.fields.tomato.unlocked, game.state.rifle.zoom])).toEqual([true, 5]);
+    await expect.poll(() => page.evaluate(() => window.game && [game.state.fields.tomato.unlocked, game.state.ownsGear('rifle', 'alien')])).toEqual([true, true]);
     expect(errors).toEqual([]);
 });
 

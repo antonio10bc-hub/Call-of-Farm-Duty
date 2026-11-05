@@ -1,11 +1,11 @@
 import { CROPS } from '../content/crops.js';
 import { FARM, FIELD_BY_ID, LAND_BY_ID } from '../content/farm.js';
 import { SHOP_ITEMS, DEFAULT_LOOK } from '../content/ufo.js';
-import { RIFLE, RIFLE_BY_ID, RIFLE_MAX } from '../content/rifle.js';
+import { ARSENAL, ARSENAL_KINDS, DEFAULT_LOADOUT, arsenalItem } from '../content/arsenal.js';
 import { MERCHANT } from '../content/merchant.js';
 
 // Estado de la granja: lo recogido de cada cultivo, cada campo (desbloqueado o no, nivel, hora
-// de siembra y blancos que quedan), el nivel del granero y las mejoras del rifle.
+// de siembra y blancos que quedan), el nivel del granero y el equipo del fusil.
 // Se guarda en el navegador; sin almacenamiento simplemente no se recuerda.
 const KEY = 'cofd.farm.v4';
 // Revisión de la partida guardada. 2: campos de tiro grandes (se rellenan los blancos que se
@@ -26,8 +26,8 @@ export class FarmState {
         this.freeHome = false; // depuración: las mejoras de la casa y la tienda del ovni a 0
         this.barn = { level: 0 };
         this.house = { level: 0 };
-        // Nivel de cada mejora del rifle (content/rifle.js)
-        this.rifle = Object.fromEntries(RIFLE.map((r) => [r.id, 0]));
+        // Armería (content/arsenal.js): lo comprado ('scope:tac'...) y lo que lleva montado el fusil
+        this.arsenal = { owned: [], loadout: { ...DEFAULT_LOADOUT } };
         // Lo recogido de cada cultivo, las monedas alienígenas (alien) y las de oro (gold, del
         // comerciante)
         this.items = Object.fromEntries([...Object.keys(CROPS), 'alien', 'gold'].map((c) => [c, 0]));
@@ -63,7 +63,10 @@ export class FarmState {
                 for (const c of Object.keys(this.items)) this.items[c] = (d.items && d.items[c]) | 0;
                 this.barn.level = Math.min(BARN.length - 1, Math.max(0, d.barn ? d.barn.level | 0 : (d.rev | 0) < 3 ? 2 : 0));
                 this.house.level = Math.min(HOUSE.length - 1, Math.max(0, d.house ? d.house.level | 0 : (d.rev | 0) < 4 ? 1 : 0));
-                for (const r of RIFLE) this.rifle[r.id] = Math.min(RIFLE_MAX, Math.max(0, d.rifle ? d.rifle[r.id] | 0 : 0));
+                if (d.arsenal) {
+                    if (Array.isArray(d.arsenal.owned)) this.arsenal.owned = d.arsenal.owned.filter((k) => { const [kind, id] = k.split(':'); return ARSENAL[kind] && ARSENAL[kind].some((x) => x.id === id); });
+                    for (const kind of ARSENAL_KINDS) if (d.arsenal.loadout && this.ownsGear(kind, d.arsenal.loadout[kind])) this.arsenal.loadout[kind] = d.arsenal.loadout[kind];
+                }
                 this.ufo.crashed = !!(d.ufo && d.ufo.crashed);
                 for (const id of Object.keys(this.lands)) this.lands[id] = !!(d.lands && d.lands[id]);
                 this.village.level = Math.min(VILLAGE.length - 1, Math.max(0, d.village ? d.village.level | 0 : 0));
@@ -117,7 +120,7 @@ export class FarmState {
 
     save() {
         try {
-            localStorage.setItem(KEY, JSON.stringify({ rev: REV, items: this.items, fields: this.fields, barn: this.barn, house: this.house, rifle: this.rifle, ufo: this.ufo, home: this.home, merchant: this.merchant, lands: this.lands, village: this.village }));
+            localStorage.setItem(KEY, JSON.stringify({ rev: REV, items: this.items, fields: this.fields, barn: this.barn, house: this.house, arsenal: this.arsenal, ufo: this.ufo, home: this.home, merchant: this.merchant, lands: this.lands, village: this.village }));
         } catch {
             /* ignorar */
         }
@@ -227,33 +230,35 @@ export class FarmState {
         return true;
     }
 
-    // ---------- Mejoras del rifle (en el granero) ----------
-    rifleMaxed(id) {
-        return this.rifle[id] >= RIFLE_MAX;
+    // ---------- Armería (en el granero) ----------
+    // ¿Se tiene ya? (lo de serie, sí)
+    ownsGear(kind, id) {
+        const it = ARSENAL[kind] && ARSENAL[kind].find((x) => x.id === id);
+        return !!it && (!it.price || this.arsenal.owned.includes(`${kind}:${id}`));
     }
 
-    // Lo que cuesta el siguiente nivel de la mejora id (todo a 0 con la depuración de costes)
-    rifleCost(id) {
-        const c = this.rifleMaxed(id) ? {} : RIFLE_BY_ID[id].cost[this.rifle[id]];
-        return this.freeCosts ? Object.fromEntries(Object.keys(c).map((k) => [k, 0])) : c;
+    gearPrice(kind, id) {
+        return this.freeCosts ? 0 : arsenalItem(kind, id).price;
     }
 
-    canUpgradeRifle(id) {
-        return !this.rifleMaxed(id) && this.affordableCost(this.rifleCost(id));
-    }
-
-    upgradeRifle(id) {
-        if (!this.canUpgradeRifle(id)) return false;
-        for (const [c, n] of Object.entries(this.rifleCost(id))) this.items[c] -= n;
-        this.rifle[id]++;
+    // Comprarlo (si no se tenía, con oro) y montarlo en el fusil; false si no llega el oro
+    equipGear(kind, id) {
+        if (!this.ownsGear(kind, id)) {
+            const price = this.gearPrice(kind, id);
+            if (this.items.gold < price) return false;
+            this.items.gold -= price;
+            this.arsenal.owned.push(`${kind}:${id}`);
+        }
+        this.arsenal.loadout[kind] = id;
         this.save();
         return true;
     }
 
-    // Depuración: todas las mejoras del rifle al máximo
-    maxRifle() {
-        if (RIFLE.every((r) => this.rifleMaxed(r.id))) return false;
-        for (const r of RIFLE) this.rifle[r.id] = RIFLE_MAX;
+    // Depuración: toda la armería comprada
+    ownAllGear() {
+        const all = ARSENAL_KINDS.flatMap((kind) => ARSENAL[kind].filter((x) => x.price && !this.ownsGear(kind, x.id)).map((x) => `${kind}:${x.id}`));
+        if (!all.length) return false;
+        this.arsenal.owned.push(...all);
         this.save();
         return true;
     }

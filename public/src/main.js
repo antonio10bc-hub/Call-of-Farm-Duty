@@ -5,7 +5,8 @@ import { CROPS } from './content/crops.js';
 import { FARM, FIELD_BY_ID, INFO, TURRETS } from './content/farm.js';
 import { KILLSTREAKS, setStreakCounts, streakOf } from './content/killstreaks.js';
 import { UFO, SHOP, SHOP_ITEMS } from './content/ufo.js';
-import { RIFLE } from './content/rifle.js';
+import { ARSENAL, ARSENAL_KINDS } from './content/arsenal.js';
+import { gearArt } from './ui/GearArt.js';
 import { MERCHANT, MerchantClock } from './content/merchant.js';
 import { RetroRenderer } from './render/RetroRenderer.js';
 import { CameraRig } from './render/CameraRig.js';
@@ -64,8 +65,10 @@ const dayNight = new DayNight(Settings.daytime || (CONFIG.test ? 'day' : null));
 const _cDay = new THREE.Color(), _cNight = new THREE.Color();
 let nightApplied = -1, clockT = 0;
 function applyNight() {
-    const k = dayNight.k, { light, night } = THEME;
-    sniper.nightK = farm.nightK = k;
+    // (con la mirilla de visión nocturna puesta, de noche se ve casi como de día)
+    const nv = mode === 'snipe' && sniper.stats.lens === 'night' && sniper.adsK > 0.6;
+    const k = dayNight.k * (nv ? 0.15 : 1), { light, night } = THEME;
+    sniper.nightK = farm.nightK = dayNight.k; // (los alienígenas brillan igual)
     if (Math.abs(k - nightApplied) < 0.002) return;
     nightApplied = k;
     const mix = (out, a, b) => out.copy(_cDay.setHex(a)).lerp(_cNight.setHex(b), k);
@@ -408,7 +411,7 @@ function refreshArmory() {
     const pips = Array.from({ length: max }, (_, i) => `<i class="pip${i < lv ? ' on' : ''}"></i>`).join('');
     const html = `${ico('ks-grenade')}<span>${L('ARMORY', 'ARMAMENTO')}</span><span class="pips">${pips}</span><i class="sign-up"></i>`;
     if (armory.innerHTML !== html) armory.innerHTML = html;
-    armory.classList.toggle('can-up', state.canUpgradeBarn || RIFLE.some((r) => state.canUpgradeRifle(r.id)));
+    armory.classList.toggle('can-up', state.canUpgradeBarn || ARSENAL_KINDS.some((k) => ARSENAL[k].some((x) => !state.ownsGear(k, x.id) && state.items.gold >= state.gearPrice(k, x.id))));
 }
 
 for (const def of FARM.fields) {
@@ -771,7 +774,7 @@ function quickAction() {
 function enterSnipe() {
     const unlock = goSnipe.unlock;
     const def = FIELD_BY_ID[snipeField], arena = def.levels[state.fields[snipeField].level].arena;
-    sniper.enter(unlock ? { unlock: true, rifle: state.rifle } : { crop: def.crop, count: state.fields[snipeField].left, arena, rifle: state.rifle, turrets: state.fields[snipeField].turrets });
+    sniper.enter(unlock ? { unlock: true, loadout: state.arsenal.loadout } : { crop: def.crop, count: state.fields[snipeField].left, arena, loadout: state.arsenal.loadout, turrets: state.fields[snipeField].turrets });
     document.body.classList.remove('fallout');
     mode = 'snipe';
     snipeStart = time;
@@ -1047,6 +1050,7 @@ addEventListener('keydown', (e) => {
     else if (k === 'h') goFarm();
     else if (k === 'q') sniper.goSide(-1);
     else if (k === 'e') sniper.goSide(1);
+    else if (k === 'r') sniper.reload();
 });
 addEventListener('keyup', (e) => {
     const k = e.key.toLowerCase();
@@ -1550,6 +1554,7 @@ function barnTab(tab) {
     for (const b of document.querySelectorAll('.barn-tab')) b.classList.toggle('on', b.dataset.tab === tab);
     $('barn-ks').classList.toggle('hidden', tab !== 'ks');
     $('barn-rifle').classList.toggle('hidden', tab !== 'rifle');
+    if (tab === 'rifle') refreshRifle(true);
 }
 for (const b of document.querySelectorAll('.barn-tab')) {
     b.addEventListener('click', (e) => {
@@ -1559,52 +1564,76 @@ for (const b of document.querySelectorAll('.barn-tab')) {
     });
 }
 
-// ---------- Mejoras del rifle (pestaña RIFLE del granero) ----------
-// Cómo se lee cada valor en la tarjeta: zoom en aumentos, vaivén en % del de serie y la espera
-// del cerrojo en s
-const RIFLE_FMT = {
-    zoom: [L('ZOOM', 'ZOOM'), (v) => `x${(S.fov / v).toFixed(1)}`],
-    steady: [L('SWAY', 'VAIVÉN'), (v) => `${Math.round(v * 100)}%`],
-    bolt: [L('WAIT', 'ESPERA'), (v) => `${v.toFixed(2)} S`],
+// ---------- Armería (pestaña FUSIL del granero) ----------
+// Tres carruseles (mirilla, rifle y cargador). Cada ficha: su dibujo, su nombre, sus
+// características en barritas de 1 a 5 y, abajo, MONTADO, USAR o su precio en oro. Tocarla la
+// compra (si hace falta) y la monta en el fusil.
+const pips = (n) => Array.from({ length: 5 }, (_, i) => `<i class="pip${i < n ? ' on' : ''}"></i>`).join('');
+const clampPip = (v) => Math.max(1, Math.min(5, Math.round(v)));
+const GEAR = {
+    scope: { title: L('SCOPE', 'MIRILLA'), stats: (x) => [[L('ZOOM', 'ZOOM'), clampPip(S.fov / x.fov / 2.5)], [L('SPEED', 'RAPIDEZ'), clampPip((0.42 - x.ads) / 0.065)], [L('STEADY', 'PULSO'), clampPip((1.35 - x.sway) / 0.18)]] },
+    rifle: { title: L('RIFLE', 'RIFLE'), stats: (x) => [[L('FIRE RATE', 'CADENCIA'), clampPip(1.2 / x.bolt)], [L('PIERCE', 'PERFORA'), [1, 2, 4, 6, 99].indexOf(x.pierce) + 1], [L('DAMAGE', 'DAÑO'), clampPip(x.damage * 2 - 1)]] },
+    mag: { title: L('MAGAZINE', 'CARGADOR'), stats: (x) => [[L('ROUNDS', 'BALAS'), x.size <= 6 ? 1 : x.size <= 10 ? 2 : x.size <= 18 ? 3 : 5], [L('RELOAD', 'RECARGA'), x.regen ? 5 : clampPip((4.1 - x.reload) / 0.75)]] },
 };
-const rfCards = {};
-for (const r of RIFLE) {
-    const card = document.createElement('div');
-    card.className = 'ks-card rf-card';
-    card.id = `rf-card-${r.id}`;
-    card.innerHTML = `<i class="ks-ico" style="--ico: var(--px-${r.icon})"></i><span class="ks-info"><span class="rf-name"><b>${r.name}</b><span class="pips"></span></span><span class="rf-val"></span><small>${r.desc}</small></span>`
-        + `<button class="btn upgrade-btn" id="rf-up-${r.id}"><span class="rf-label"></span><span class="upgrade-costs"></span></button>`;
-    card.querySelector('button').addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (!state.upgradeRifle(r.id)) return sfx.play('miss');
-        sfx.play('reloaded');
-        vibrate('pickup');
-        updateCounts();
-        refreshRifle();
-        refreshStreaks();
-        card.classList.remove('bump');
-        void card.offsetWidth;
-        card.classList.add('bump');
-    });
-    $('rf-cards').appendChild(card);
-    rfCards[r.id] = card;
-}
-function refreshRifle() {
-    for (const r of RIFLE) {
-        const card = rfCards[r.id], lv = state.rifle[r.id], max = state.rifleMaxed(r.id), [label, fmt] = RIFLE_FMT[r.id];
-        const pips = r.cost.map((_, i) => `<i class="pip${i < lv ? ' on' : ''}"></i>`).join('');
-        const el = card.querySelector('.pips');
-        if (el.innerHTML !== pips) el.innerHTML = pips;
-        card.querySelector('.rf-val').textContent = `${label} ${fmt(r.values[lv])} ${max ? `· ${L('MAX', 'MÁX')}` : `→ ${fmt(r.values[lv + 1])}`}`;
-        const up = card.querySelector('button');
-        up.disabled = !state.canUpgradeRifle(r.id);
-        up.classList.toggle('maxed', max);
-        up.querySelector('.rf-label').textContent = max ? L('MAX', 'MÁX') : `${L('LV', 'NV')}.${lv + 1}`;
-        const cost = Object.entries(state.rifleCost(r.id)).map(([c, n]) => `<span class="upgrade-cost${state.items[c] < n ? ' short' : ''}">${ico(CROPS[c].icon)}<b>${n}</b></span>`).join('');
-        const box = up.querySelector('.upgrade-costs');
-        if (box.innerHTML !== cost) box.innerHTML = cost;
+const gearCards = {};
+for (const kind of ARSENAL_KINDS) {
+    const row = document.createElement('div');
+    row.className = 'gear-row';
+    row.innerHTML = `<div class="gear-title">${GEAR[kind].title}</div><div class="gear-strip" id="gear-${kind}"></div>`;
+    $('gear-rows').appendChild(row);
+    for (const it of ARSENAL[kind]) {
+        const card = document.createElement('button');
+        card.className = 'gear';
+        card.id = `gear-${kind}-${it.id}`;
+        card.innerHTML = `<img alt="" src="${gearArt(kind, it)}"><b>${it.name}</b><span class="gear-stats">${GEAR[kind].stats(it).map(([n, v]) => `<span class="gear-stat"><span>${n}</span><span class="pips">${pips(v)}</span></span>`).join('')}</span><em></em>`;
+        card.title = it.desc;
+        card.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (state.arsenal.loadout[kind] === it.id) return;
+            const had = state.ownsGear(kind, it.id);
+            if (!state.equipGear(kind, it.id)) {
+                sfx.play('miss');
+                card.classList.remove('bump');
+                void card.offsetWidth;
+                card.classList.add('bump');
+                return;
+            }
+            sfx.play(had ? 'reloaded' : 'coin');
+            vibrate('pickup');
+            updateCounts();
+            refreshRifle();
+            refreshStreaks();
+            card.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+        });
+        $(`gear-${kind}`).appendChild(card);
+        gearCards[`${kind}:${it.id}`] = card;
     }
 }
+function refreshRifle(center = false) {
+    $('gear-gold').textContent = state.items.gold;
+    for (const kind of ARSENAL_KINDS) {
+        for (const it of ARSENAL[kind]) {
+            const card = gearCards[`${kind}:${it.id}`], on = state.arsenal.loadout[kind] === it.id, owned = state.ownsGear(kind, it.id), price = state.gearPrice(kind, it.id);
+            card.classList.toggle('on', on);
+            card.classList.toggle('owned', owned && !on);
+            card.classList.toggle('short', !owned && state.items.gold < price);
+            const em = on ? L('EQUIPPED', 'MONTADO') : owned ? L('USE', 'USAR') : `${ico('gold')}${price}`;
+            if (card.querySelector('em').innerHTML !== em) card.querySelector('em').innerHTML = em;
+            if (on && center) requestAnimationFrame(() => card.scrollIntoView({ inline: 'center', block: 'nearest' }));
+        }
+    }
+}
+
+// Balas del cargador en el campo de tiro (y la barra de la recarga)
+function updateAmmo() {
+    const el = $('ammo'), st = sniper.stats, reloading = sniper.reloadT > 0;
+    el.classList.toggle('reloading', reloading);
+    el.classList.toggle('low', sniper.ammo <= Math.max(1, st.size * 0.25));
+    $('ammo-n').textContent = sniper.ammo;
+    $('ammo-max').textContent = `/${st.size}`;
+    if (reloading) $('ammo-fill').style.width = `${Math.round((1 - sniper.reloadT / st.reload) * 10) * 10}%`;
+}
+tapBtn('ammo', () => sniper.reload());
 
 tapBtn('btn-streaks-close', () => {
     sfx.play('ui');
@@ -1693,7 +1722,7 @@ function setStreakCount(k, n) {
 // rifle al máximo
 tapBtn('btn-unlock-all', () => {
     const ids = FARM.fields.map((f) => f.id).filter((id) => state.unlock(id, Date.now(), true));
-    const rifle = state.maxRifle();
+    const rifle = state.ownAllGear();
     sfx.play(ids.length || rifle ? 'power' : 'miss');
     refreshUnlockRows();
     if (!ids.length && !rifle) return;
@@ -1701,7 +1730,7 @@ tapBtn('btn-unlock-all', () => {
     while (revealUnlocked());
     rig.focus(home.x, home.z);
     updateCounts();
-    const what = [...ids.map((id) => FIELD_BY_ID[id].name), ...(rifle ? [L('MAXED RIFLE', 'RIFLE AL MÁXIMO')] : [])];
+    const what = [...ids.map((id) => FIELD_BY_ID[id].name), ...(rifle ? [L('FULL ARMORY', 'ARMERÍA COMPLETA')] : [])];
     setTimeout(() => stage(L('ALL UNLOCKED!', '¡TODO DESBLOQUEADO!'), what.join(' · ')), 350);
 });
 
@@ -1717,7 +1746,7 @@ const unlockables = [
         },
     })),
     { id: 'village', name: L('MAXED VILLAGE', 'POBLADO AL MÁXIMO'), done: () => state.villageMaxed, run: () => { while (!state.villageMaxed) { state.village.level++; farm.setVillageLevel(state.village.level); } state.save(); } },
-    { id: 'rifle', name: L('MAXED RIFLE', 'RIFLE AL MÁXIMO'), done: () => RIFLE.every((r) => state.rifleMaxed(r.id)), run: () => state.maxRifle() },
+    { id: 'arsenal', name: L('FULL ARMORY', 'ARMERÍA COMPLETA'), done: () => ARSENAL_KINDS.every((k) => ARSENAL[k].every((x) => state.ownsGear(k, x.id))), run: () => state.ownAllGear() },
     // Torreta de cada campo: lo desbloquea y lo sube al máximo si hace falta
     ...FARM.fields.map((f) => ({
         id: `turrets-${f.id}`, name: `${L('TURRET', 'TORRETA')}: ${CROPS[f.crop].name || f.name}`,
@@ -1981,7 +2010,9 @@ function frame(now) {
         $('snipe-ui').classList.toggle('scoped', sniper.scoped);
         document.body.classList.toggle('scoped', sniper.scoped);
         scope.show(sniper.fov < (S.fov + sniper.stats.zoom) * 0.5);
+        scope.setLens(sniper.stats.lens);
         scope.setReady(sniper.canFire);
+        updateAmmo();
         // La mirilla se abre con la dispersión: así se ve cuánto puede fallar el tiro
         const spreadPx = (Math.tan(sniper.spread) / Math.tan((sniper.fov * Math.PI) / 360)) * (innerHeight / 2);
         $('reticle').style.setProperty('--spread', `${Math.max(5, Math.round(spreadPx))}px`);

@@ -178,6 +178,11 @@ const SPRITES = {
         rows: ['............', '....KKKK....', '...KHHHHK...', '.KKKHRRHKKK.', 'KHHHHHHHHHHK', '.KKKSSSSKKK.', '...KSSSSK...', '..KCCCCCCK..', '.KCCGCCGCCK.', '.KCCCCCCCCK.', '.KCCGCCGCCK.', '.KKKKKKKKKK.'],
         pal: { K: INK, H: '#6a3a22', R: '#c8402e', S: '#e8b48a', C: '#2e7a8a', G: '#ffd23f' },
     },
+    // Una bala (contador del cargador)
+    ammo: {
+        rows: ['...KK...', '..KYYK..', '..KYYK..', '.KKKKKK.', '.KBBBBK.', '.KBWBBK.', '.KBWBBK.', '.KBBBBK.', '.KBBBBK.', '.KKKKKK.'],
+        pal: { K: INK, Y: '#c87a3a', B: '#ffd23f', W: '#fff6b0' },
+    },
     // Botón MAPA: un plano doblado con sus parcelas
     map: {
         rows: ['KKKKKKKKKK', 'KGGKYYKGGK', 'KGGKYYKGGK', 'KKKKKKKKKK', 'KGGKBBKOOK', 'KGGKBBKOOK', 'KKKKKKKKKK', 'KGGKYYKGGK', 'KGGKYYKGGK', 'KKKKKKKKKK'],

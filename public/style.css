@@ -1172,6 +1172,45 @@ body.unlocking .arrow-btn, body.unlocking .corners, body.unlocking .left-badge {
 .rf-card .upgrade-btn.maxed { background: #a8957a; }
 .rf-card.bump { animation: badgeBump .4s steps(1); }
 
+/* Armería: una fila por pieza (mirilla, rifle, cargador), cada una un carrusel horizontal que se
+   centra en la ficha (la montada, marcada en amarillo) */
+.gear-gold { display: flex; align-items: center; justify-content: space-between; width: min(560px, 100%); font-size: 8px; color: #c8b89a; }
+.gear-gold .coins-badge { font-size: 11px; }
+.gear-rows { display: flex; flex-direction: column; gap: 12px; width: min(560px, 100%); }
+.gear-row { display: flex; flex-direction: column; gap: 6px; }
+.gear-title { font-size: 10px; color: var(--yellow); text-align: left; }
+.gear-strip { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px calc(50% - 72px) 10px; scrollbar-width: none; }
+.gear-strip::-webkit-scrollbar { display: none; }
+.gear { flex: none; scroll-snap-align: center; display: flex; flex-direction: column; align-items: center; gap: 5px; width: 144px; height: 176px; padding: 8px 6px; font-family: var(--font); color: var(--ink); background: var(--cream); border: 3px solid var(--ink); box-shadow: 0 4px 0 var(--ink); cursor: pointer; }
+.gear:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--ink); }
+.gear img { width: 128px; height: 64px; image-rendering: pixelated; background: #e8dcc0; border: 2px solid rgba(42, 26, 14, .25); }
+.gear b { font-size: 8px; font-weight: normal; line-height: 1.3; min-height: 21px; display: flex; align-items: center; text-align: center; }
+.gear-stats { display: flex; flex-direction: column; gap: 3px; width: 100%; }
+.gear-stat { display: flex; align-items: center; justify-content: space-between; font-size: 6px; color: #6a5440; }
+.gear-stat .pips { display: flex; gap: 2px; }
+.gear-stat .pip { width: 6px; height: 6px; background: #d6c6a4; border: 1px solid var(--ink); }
+.gear-stat .pip.on { background: #17d65a; }
+.gear em { margin-top: auto; display: flex; align-items: center; gap: 4px; font-style: normal; font-size: 7px; padding: 4px 6px; color: #fff; background: #a8957a; border: 2px solid var(--ink); }
+.gear em .ico { width: 11px; height: 11px; }
+.gear.owned em { background: #3a7ec8; }
+.gear.on { background: var(--yellow); box-shadow: 0 4px 0 var(--ink), inset 0 0 0 3px #fff; }
+.gear.on em { background: #17d65a; text-shadow: 1px 1px 0 var(--ink); }
+.gear.short em { background: var(--barn); }
+.gear.bump { animation: badgeBump .4s steps(1); }
+
+/* Balas del cargador: abajo en el centro; recargando, la barra se llena */
+.ammo { position: absolute; left: 50%; bottom: calc(max(24px, env(safe-area-inset-bottom)) + 84px); transform: translateX(-50%); display: flex; align-items: center; gap: 4px; padding: 5px 8px; font-family: var(--font); font-size: 12px; color: #fff; background: rgba(42, 26, 14, .82); border: 3px solid var(--ink); cursor: pointer; }
+.ammo span:not(.ico) { font-size: 8px; color: #c8b89a; }
+.ammo b { font-weight: normal; }
+.ammo .ico { width: 12px; height: 16px; }
+.ammo.low b { color: #ff6a4a; }
+.ammo-bar { display: none; width: 46px; height: 6px; background: #5a3a22; }
+.ammo-bar i { display: block; height: 100%; width: 0; background: var(--yellow); }
+.ammo.reloading .ammo-bar { display: block; }
+.ammo.reloading b, .ammo.reloading span:not(.ico) { display: none; }
+body.unlocking .ammo, body.predator .ammo { display: none; }
+.ammo-ico { --ico: var(--px-ammo); }
+
 /* Lluvia radiactiva: neblina amarillenta que se queda tras la bomba nuclear */
 .nuke-haze { position: fixed; inset: 0; z-index: 9; pointer-events: none; opacity: 0; transition: opacity 1.5s; background: radial-gradient(ellipse at center, rgba(235, 215, 80, .28) 0%, rgba(170, 150, 40, .5) 100%); }
 body.fallout .nuke-haze { opacity: 1; animation: haze 3s ease-in-out infinite; }
