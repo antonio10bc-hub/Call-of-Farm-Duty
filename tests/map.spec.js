@@ -160,3 +160,36 @@ test('rifle: en el granero se mejoran la mira, la estabilidad y el cerrojo con c
     await expect.poll(() => page.evaluate(() => window.game && game.state.rifle)).toEqual({ zoom: 1, steady: 1, bolt: 5 });
     expect(errors).toEqual([]);
 });
+
+test('torretas: con el campo al máximo, la mejora extra pone 4 torretas que recogen solas (sin sumar a la racha)', { tag: '@full' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await openFarm(page);
+    await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
+    // Al nivel 5 la mejora pasa a ser TORRETAS, con su precio
+    await page.evaluate(() => { game.state.wheat = 12; for (let i = 0; i < 4; i++) game.upgradeField('wheat'); game.state.wheat = 0; game.select({ field: 'wheat' }); });
+    await expect(page.locator('#upgrade-label')).toHaveText('TORRETAS');
+    await expect(page.locator('#panel-upgrade')).toBeDisabled();
+    await page.evaluate(() => { game.state.wheat = 40; });
+    await expect(page.locator('#panel-upgrade')).toBeEnabled();
+    await page.locator('#panel-upgrade').click();
+    expect(await page.evaluate(() => [game.state.fields.wheat.turrets, game.farm.fields.wheat.turrets.length, game.state.wheat])).toEqual([true, 4, 0]);
+    await expect(page.locator('#upgrade-label')).toHaveText('AUTOMÁTICO');
+    await expect(page.locator('#sign-wheat .turret-ico')).toHaveCount(1);
+    // En el mapa recogen solas lo maduro
+    const left = await page.evaluate(() => game.state.fields.wheat.left);
+    await expect.poll(() => page.evaluate(() => game.state.wheat), { timeout: 12_000 }).toBeGreaterThan(0);
+    expect(await page.evaluate(() => game.state.fields.wheat.left)).toBeLessThan(left);
+    // En el campo de tiro, una en cada torre, recogiendo matas sin sumar a la racha
+    await page.evaluate(() => { game.select(null); game.harvest('wheat'); });
+    await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
+    await page.evaluate(() => { game.sniper.flyers.next = Infinity; game.sniper.walkers.reset(); game.sniper.walkers.next = Infinity; });
+    expect(await page.evaluate(() => game.sniper.turrets.list.length)).toBe(4);
+    await expect.poll(() => page.evaluate(() => game.sniper.field.sheaves.every((s) => s.landed)), { timeout: 20_000 }).toBe(true);
+    const total = await page.evaluate(() => game.sniper.field.remaining);
+    await expect.poll(() => page.evaluate(() => game.sniper.field.remaining), { timeout: 15_000 }).toBeLessThan(total - 1);
+    expect(await page.evaluate(() => game.sniper.streak)).toBe(0);
+    // Se guarda
+    await page.reload();
+    await expect.poll(() => page.evaluate(() => window.game && game.farm.fields.wheat.turrets && game.farm.fields.wheat.turrets.length)).toBe(4);
+    expect(errors).toEqual([]);
+});

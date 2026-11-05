@@ -12,6 +12,7 @@ import { KS, streakOf } from '../content/killstreaks.js';
 import { Killstreaks } from './Killstreaks.js';
 import { Flyers } from './Flyers.js';
 import { Walkers } from './Walkers.js';
+import { Turrets } from './Turrets.js';
 import { rifleStats } from '../content/rifle.js';
 
 const S = CONFIG.sniper;
@@ -34,7 +35,7 @@ const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) 
 // bombardero y bomba nuclear).
 export class Sniper {
     // hooks: { sfx, onHit(target, ndcX, ndcY), onMedal({ collateral, streak, reward }), onUnlock(),
-    //          onAlien(ndcX, ndcY), onUfoCoin(n, ndcX, ndcY),
+    //          onAlien(ndcX, ndcY), onHitMarker(), onUfoCoin(n, ndcX, ndcY),
     //          onPredator(on), onNukeCount(s), onNuke(), onFinish(), onDone(), onCorner(i) }
     constructor(theme, hooks) {
         this.theme = theme;
@@ -57,6 +58,7 @@ export class Sniper {
         this.ks = new Killstreaks(this);
         this.flyers = new Flyers(this);
         this.walkers = new Walkers(this);
+        this.turrets = new Turrets(this);
         this.aliens = 0;        // racha alienígena: abatidos en esta partida (no se pierde)
         this.streak = 0;        // racha de granadas: lo recogido seguido
         this.streakT = 0; // lo que le queda a la barra de la racha (s) y lo que duraba llena
@@ -106,8 +108,9 @@ export class Sniper {
         this.scene.add(this.field.root);
     }
 
-    // what: { crop, count, arena } para cosechar (count blancos de ese cultivo en un campo de
-    // tamaño arena) o { unlock: true }; rifle: niveles de sus mejoras
+    // what: { crop, count, arena, turrets } para cosechar (count blancos de ese cultivo en un
+    // campo de tamaño arena, con o sin sus torretas automáticas) o { unlock: true }; rifle:
+    // niveles de sus mejoras
     enter(what) {
         this.setArena(what.arena || 1);
         this.stats = rifleStats(what.rifle);
@@ -140,10 +143,12 @@ export class Sniper {
         this.ks.clear();
         this.flyers.reset();
         this.walkers.reset();
+        this.turrets.set(!this.unlocking && !!what.turrets);
     }
 
     leave() {
         this.ks.clear();
+        this.turrets.clear();
         this.flyers.reset();
         this.walkers.reset();
         this.field.clearSheaves();
@@ -299,6 +304,7 @@ export class Sniper {
         const stop = ufo && (!alien || ufo.t < alien.t) ? ufo : alien;
         if (stop) {
             const before = hits.filter((h) => h.t < stop.t);
+            if (this.hooks.onHitMarker) this.hooks.onHitMarker();
             if (stop.flyer) this.flyers.shoot(stop.flyer);
             else this.walkers.shoot(stop.walker);
             if (before.length && this.hooks.onMedal) this.hooks.onMedal({ collateral: before.length + 1 });
@@ -332,8 +338,9 @@ export class Sniper {
     }
 
     // Blancos recogidos (por una bala, una granada, bombas...): saltan, cuentan para la racha
-    // (doble, triple, multi kill y las recompensas) y, si no queda nada, se acaba el campo
-    harvest(list) {
+    // (doble, triple, multi kill y las recompensas) y, si no queda nada, se acaba el campo.
+    // auto: los recogen las torretas automáticas (no cuentan para la racha)
+    harvest(list, auto = false) {
         const { sfx } = this.hooks, C = CROPS[this.crop];
         list.forEach((s, k) => {
             s.alive = false;
@@ -348,9 +355,11 @@ export class Sniper {
             this.hooks.onHit(s, _v.x, _v.y);
             if (k && k < 6) setTimeout(() => sfx.play('harvest'), k * 90);
         });
-        vibrate('pickup');
         sfx.play('harvest');
-        this.addStreak(list.length);
+        if (!auto) {
+            vibrate('pickup');
+            this.addStreak(list.length);
+        }
         if (this.field.remaining === 0 && !this.ks.holdsEnd && this.ending < 0) this.finish();
     }
 
@@ -491,6 +500,7 @@ export class Sniper {
         this.ks.update(dt, rawDt);
         this.flyers.update(dt, time);
         this.walkers.update(dt, time);
+        this.turrets.update(dt);
 
         if (this.move) {
             const m = this.move;

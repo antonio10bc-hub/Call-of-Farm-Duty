@@ -139,7 +139,7 @@ export class Walkers {
         sn.waves.spawn(p.x, p.z, 0x7dff4a, 1.4, 0.35);
         sn.hooks.sfx.play('crateHit');
         if (sn.hooks.onAlien) {
-            _v.set(p.x, 1.2, p.z).project(sn.camera);
+            _v.set(p.x, 1.9, p.z).project(sn.camera); // en su cabeza (el +1 sube desde ahí)
             sn.hooks.onAlien(_v.x, _v.y);
         }
         sn.addAlien(1);

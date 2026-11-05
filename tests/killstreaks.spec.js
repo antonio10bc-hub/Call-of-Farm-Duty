@@ -42,7 +42,9 @@ test('alienígenas a pie: cruzan el campo a distintas velocidades, se van por el
     // La racha alienígena se ve desde el principio, a la izquierda, con sus 3 recompensas
     await expect(page.locator('#alien-streak')).toBeVisible();
     await expect(page.locator('#as-n')).toHaveText('0');
-    await expect(page.locator('.as-step')).toHaveCount(3);
+    await expect(page.locator('.as-mile')).toHaveCount(3);
+    await expect(page.locator('.as-seg')).toHaveCount(10); // una raya por alienígena hasta la nuclear
+    await expect(page.locator('.as-seg.on')).toHaveCount(0);
     // Van saliendo solos, cada uno a su paso
     await page.evaluate(() => { game.sniper.walkers.next = 0; });
     await expect.poll(() => page.evaluate(() => game.sniper.walkers.list.length)).toBeGreaterThan(0);
@@ -56,6 +58,9 @@ test('alienígenas a pie: cruzan el campo a distintas velocidades, se van por el
     await aimAndShoot(page, '(() => { const w = game.sniper.walkers.list.find((x) => x.alive); return w && { x: w.g.position.x, y: 1, z: w.g.position.z }; })()');
     await expect.poll(() => page.evaluate(() => game.sniper.aliens)).toBe(1);
     await expect(page.locator('#as-n')).toHaveText('1');
+    await expect(page.locator('.as-seg.on')).toHaveCount(1);
+    await expect(page.locator('.kill-pop')).toHaveCount(1); // su +1 encima de la cabeza
+    await expect(page.locator('#hitmarker')).toHaveClass(/on/);
     await expect(page.locator('#medals')).toContainText('ALIEN ABATIDO');
     // Los ovnis pequeños también cuentan; a los 3, el misil Predator
     await page.evaluate(() => { const f = game.sniper.flyers.spawn(); game.sniper.flyers.shoot(f); game.sniper.addAlien(1); });

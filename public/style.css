@@ -560,6 +560,7 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
 .tomato-ico { --ico: var(--px-tomato); }
 .barrel-ico { --ico: var(--px-barrel); }
 .lock-ico { --ico: var(--px-lock); }
+.turret-ico { --ico: var(--px-turret); }
 .ks-grenade-ico { --ico: var(--px-ks-grenade); }
 .alien-ico { --ico: var(--px-alien); }
 .alarm-ico { --ico: var(--px-alarm); }
@@ -899,6 +900,10 @@ body.cine .farm-ui, body.cine .bubbles { visibility: hidden; }
 .upgrade-btn:active { box-shadow: 0 1px 0 var(--ink), inset 0 -2px 0 #5a9e32; }
 .upgrade-btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
 .upgrade-btn.maxed .upgrade-costs { display: none; }
+#upgrade-label { display: flex; align-items: center; gap: 6px; }
+#upgrade-label .ico { width: 16px; height: 16px; }
+/* La mejora extra (torretas): verde militar */
+.upgrade-btn.turret-up { color: #fff; text-shadow: 2px 2px 0 var(--ink); background: #6a7a5a; }
 .upgrade-cost { display: flex; align-items: center; gap: 4px; padding: 3px 6px; background: var(--cream); border: 3px solid var(--ink); }
 .upgrade-costs { display: flex; gap: 6px; }
 .upgrade-cost .ico { width: 14px; height: 16px; }
@@ -1137,17 +1142,37 @@ body.fallout .nuke-haze { opacity: 1; animation: haze 3s ease-in-out infinite; }
 .as-head { display: flex; align-items: center; gap: 4px; font-size: 12px; }
 .as-head b { color: #7dff4a; font-weight: normal; }
 .as-head .ico { width: 16px; height: 15px; }
-.as-track { position: relative; width: 50px; height: 150px; margin: 10px 0 2px; }
-.as-bar { position: absolute; left: 4px; top: 0; bottom: 0; width: 8px; padding: 1px; background: #3e2a5e; display: flex; align-items: flex-end; }
-.as-bar i { display: block; width: 100%; background: #7dff4a; transition: height .2s steps(3); }
-.as-steps { position: absolute; inset: 0; }
-.as-step { position: absolute; left: 14px; display: flex; align-items: center; gap: 2px; transform: translateY(50%); opacity: .45; filter: grayscale(1); }
-.as-step .ks-ico { width: 20px; height: 20px; }
-.as-step b { font-size: 7px; font-weight: normal; }
-.as-step.next { opacity: .85; filter: none; }
-.as-step.done { opacity: 1; filter: none; }
-.as-step.done b { color: #7dff4a; }
+/* Torre de rayas: una por alienígena, se encienden de abajo a arriba de una en una; en las
+   rayas de una recompensa, su icono (encendido al llegar, parpadeando la que viene) */
+.as-tower { display: flex; flex-direction: column; gap: 3px; width: 54px; height: 160px; margin-top: 4px; }
+.as-row { position: relative; flex: 1; display: flex; align-items: center; min-height: 2px; }
+.as-seg { display: block; width: 18px; height: 100%; max-height: 9px; background: #3e2a5e; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
+.as-seg.on { background: #7dff4a; box-shadow: 0 0 0 1px var(--ink), 0 0 6px #7dff4a; animation: segOn .3s steps(2); }
+@keyframes segOn { 0% { background: #fff; transform: scaleX(1.4); } }
+.as-mile .as-seg { width: 22px; max-height: 11px; background: #5a3e86; }
+.as-mile .as-seg.on { background: #b8ff8a; }
+.as-mile .ks-ico { position: absolute; left: 26px; top: 50%; width: 18px; height: 18px; transform: translateY(-50%); opacity: .45; filter: grayscale(1); }
+.as-mile b { position: absolute; left: 45px; top: 50%; transform: translateY(-50%); font-size: 7px; font-weight: normal; color: #c8b89a; }
+.as-mile.next .ks-ico { opacity: 1; filter: none; animation: blink .5s steps(2) infinite; }
+.as-mile.done .ks-ico { opacity: 1; filter: none; }
+.as-mile.done b { color: #7dff4a; }
 body.predator .alien-streak { display: none; }
+
+/* Hitmarker: aspa de cuatro rayas blancas alrededor del centro, que salta y se va */
+.hitmarker { position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; margin: -17px 0 0 -17px; pointer-events: none; opacity: 0; z-index: 6; }
+.hitmarker i { position: absolute; left: 50%; top: 50%; width: 10px; height: 3px; margin: -1.5px 0 0 -5px; background: #fff; box-shadow: 0 0 0 1px var(--ink); }
+.hitmarker i:nth-child(1) { transform: rotate(45deg) translateX(-11px); }
+.hitmarker i:nth-child(2) { transform: rotate(135deg) translateX(-11px); }
+.hitmarker i:nth-child(3) { transform: rotate(225deg) translateX(-11px); }
+.hitmarker i:nth-child(4) { transform: rotate(315deg) translateX(-11px); }
+.hitmarker.on { animation: hitmark .32s steps(4) forwards; }
+@keyframes hitmark { 0% { opacity: 1; transform: scale(1.5); } 40% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1); } }
+/* +1 del alienígena abatido encima de su cabeza (como el +100 de Call of Duty) */
+/* (por encima de la mira, que también se ve con ella puesta) */
+.kill-pop { position: fixed; z-index: 23; display: flex; align-items: center; gap: 6px; transform: translate(-50%, -100%); pointer-events: none; font-size: 22px; color: #7dff4a; text-shadow: 0 4px 0 #3ec82a, 0 7px 0 var(--ink), 3px 0 0 var(--ink), -3px 0 0 var(--ink), 0 -3px 0 var(--ink); animation: killPop 1s steps(8) forwards; }
+.kill-pop b { font-weight: normal; }
+.kill-pop .ico { width: 28px; height: 26px; filter: drop-shadow(2px 2px 0 var(--ink)) drop-shadow(-2px -2px 0 var(--ink)); }
+@keyframes killPop { 0% { transform: translate(-50%, -60%) scale(.6); opacity: 1; } 20% { transform: translate(-50%, -120%) scale(1.15); } 70% { opacity: 1; } 100% { transform: translate(-50%, -260%) scale(1); opacity: 0; } }
 
 /* Misil Predator: vista verdosa con líneas, recuadro de impacto en el centro y su altura */
 .predator-hud { display: none; position: fixed; inset: 0; z-index: 12; pointer-events: none; color: #c8ffb0; text-shadow: 2px 2px 0 var(--ink); }

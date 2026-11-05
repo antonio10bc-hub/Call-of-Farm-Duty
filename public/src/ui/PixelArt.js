@@ -160,6 +160,11 @@ const SPRITES = {
         rows: ['.KKKKKK.', 'KRRRRRRK', 'KKKKKKKK', 'KRWRRRRK', 'KYYYYYYK', 'KRWRRRRK', 'KKKKKKKK', 'KRRRRRDK', '.KKKKKK.'],
         pal: { K: INK, R: '#d8302a', D: '#a8201a', W: '#ff9a8a', Y: '#ffcc33' },
     },
+    // Torretas automáticas de un campo (la mejora extra con el campo al máximo)
+    turret: {
+        rows: ['..KKKKK...', '.KGGGGGK..', '.KGLGGGKKK', '.KGGGGGMMK', '.KGGGGGKKK', '..KKKKK...', '...KMMK...', '..KMKKMK..', '.KMK..KMK.', 'KKK....KKK'],
+        pal: { K: INK, G: '#6a7a5a', L: '#8a9a7a', M: '#4a4a4a' },
+    },
     lock: {
         rows: ['..KKKK..', '.KWKKWK.', '.KK..KK.', 'KKKKKKKK', 'KYYYYYYK', 'KYWKKYOK', 'KYYKKYOK', 'KYYYYOOK', 'KKKKKKKK'],
         pal: { K: INK, Y: '#ffd23f', O: '#e6a400', W: '#fff4b0' },

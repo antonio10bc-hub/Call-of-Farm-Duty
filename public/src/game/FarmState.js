@@ -34,9 +34,11 @@ export class FarmState {
         this.ufo = { crashed: false, met: false };
         // placed: lo de la parcela que está puesto en su hueco (lo comprado se puede quitar)
         this.home = { owned: [], look: { ...DEFAULT_LOOK }, placed: [] };
-        // Los terrenos bloqueados se siembran al desbloquearlos (y quedan listos para recoger)
+        // Los terrenos bloqueados se siembran al desbloquearlos (y quedan listos para recoger).
+        // turrets: con sus torretas automáticas (la mejora extra con el campo al máximo)
         this.fields = Object.fromEntries(FARM.fields.map((f) => [f.id, {
             unlocked: !f.locked,
+            turrets: false,
             level: 0,
             plantedAt: now - growMs(f.id),
             left: f.levels[0].sheaves,
@@ -66,6 +68,7 @@ export class FarmState {
                     f.level = Math.min(levelsOf(id).length - 1, Math.max(0, s.level | 0));
                     f.plantedAt = +s.plantedAt || 0;
                     f.left = s.left | 0;
+                    f.turrets = f.unlocked && !!s.turrets;
                     // Lo que está creciendo sale con las cifras de su nivel (si cambian en el
                     // contenido, al cargar ya valen); lo maduro guardado antes de la revisión 2,
                     // también, aunque ya se hubiera empezado a recoger
@@ -272,6 +275,26 @@ export class FarmState {
 
     canUpgrade(id) {
         return this.fields[id].unlocked && !this.maxed(id) && this.affordable(id);
+    }
+
+    // ---------- Torretas automáticas (la mejora extra con el campo al máximo) ----------
+    turretCost(id) {
+        const c = FIELD_BY_ID[id].turrets;
+        return this.freeCosts ? Object.fromEntries(Object.keys(c).map((k) => [k, 0])) : c;
+    }
+
+    canBuyTurrets(id) {
+        const f = this.fields[id];
+        return f.unlocked && this.maxed(id) && !f.turrets && this.affordableCost(this.turretCost(id));
+    }
+
+    buyTurrets(id, force = false) {
+        if (!force && !this.canBuyTurrets(id)) return false;
+        if (this.fields[id].turrets) return false;
+        if (!force) for (const [c, n] of Object.entries(this.turretCost(id))) this.items[c] -= n;
+        this.fields[id].turrets = true;
+        this.save();
+        return true;
     }
 
     // Un terreno bloqueado se puede desbloquear ya, o cuando el campo del que depende (after)

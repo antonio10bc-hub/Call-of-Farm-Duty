@@ -62,6 +62,8 @@ export const FARM = {
     //   levels    w, d: tamaño en casillas (en el mapa); sheaves: blancos en el campo de tiro;
     //             arena: tamaño del campo de tiro (1 = el normal); sign: color del cartel.
     //             El nivel 1 apenas cambia; los altos tienen un campo de tiro mucho mayor y lleno
+    //   turrets   lo que cuestan las torretas automáticas, la mejora extra con el campo al
+    //             máximo: 4 torretas, una en cada esquina, que lo recogen solas (ver TURRETS)
     fields: [
         {
             id: 'wheat',
@@ -69,6 +71,7 @@ export const FARM = {
             name: L('WHEAT FIELD', 'CAMPO DE TRIGO'),
             corner: { x: 14, z: 16, dx: -1, dz: 1 }, // junto al cruce de caminos
             cost: { wheat: 3 },
+            turrets: { wheat: 40 },
             // Lo primero del juego: limpiar este terreno para poder sembrar trigo
             locked: { name: L('JUNKYARD', 'TERRENO ABANDONADO') },
             // El último llena el hueco entre el camino, la valla y los árboles (x 3..14, z 16..27)
@@ -86,6 +89,7 @@ export const FARM = {
             name: L('TOMATO FIELD', 'CAMPO DE TOMATES'),
             corner: { x: 16, z: 16, dx: 1, dz: 1 }, // la otra esquina del cruce, frente al trigo
             cost: { wheat: 5, tomato: 3 },
+            turrets: { wheat: 40, tomato: 25 },
             locked: { after: 'wheat', name: L('JUNKYARD', 'TERRENO ABANDONADO') },
             // El último llena el hueco entre el camino y la valla (x 16..28, z 16..27)
             levels: [
@@ -105,6 +109,12 @@ export const FARM = {
         [17, -16, 46, -14], // de la casa hacia fuera por la derecha: por aquí llegará el comerciante
     ],
 };
+
+// Torretas automáticas de un campo (mejora extra con el campo al máximo). En el mapa recogen
+// solas lo que esté maduro, una mata cada every s (mientras el juego está abierto). En el campo
+// de tiro, cada una (desde su torre, menos la tuya) dispara a una mata cada shoot s, para
+// recoger más deprisa. Lo que recogen no suma a las rachas.
+export const TURRETS = { every: 4, shoot: 2.4, aim: 0.35 };
 
 // Fichas de los edificios: un texto corto debajo del nombre
 export const INFO = {

@@ -429,4 +429,87 @@ export class Tractor extends VoxelModel {
     }
 }
 
+// Torreta automática de un campo: trípode, caja con la munición y una cabeza que gira con dos
+// cañones. aimAt(x, z, drop) la gira hacia un punto (en coordenadas de su padre; drop: cuánto
+// más abajo está, para bajar los cañones); fire() da un fogonazo con retroceso. Sin blanco,
+// vigila girando despacio de un lado a otro. pedestal: alto del parapeto de sacos sobre el que
+// va (en el mapa, para que asome por encima del trigo)
+export class Turret extends VoxelModel {
+    constructor(outlineColor, pedestal = 0) {
+        super(outlineColor);
+        const OL = 0x6a7a5a, DK = 0x3a4a32, METAL = 0x4a4a4a, SACK = 0xc8b48a, b = new THREE.Group();
+        b.position.y = pedestal;
+        this.root.add(b);
+        if (pedestal) {
+            // Sacos terreros apilados en dos filas, un poco desordenados
+            for (let k = 0; k < 4; k++) {
+                const a = (k / 4) * Math.PI * 2 + Math.PI / 4;
+                this.part(this.root, 0.5, pedestal / 2, 0.32, k % 2 ? SACK : 0xb8a47a, Math.sin(a) * 0.28, pedestal / 4, Math.cos(a) * 0.28).rotation.y = a;
+                this.part(this.root, 0.46, pedestal / 2, 0.3, k % 2 ? 0xb8a47a : SACK, Math.sin(a + 0.8) * 0.22, pedestal * 0.75, Math.cos(a + 0.8) * 0.22).rotation.y = a + 0.8;
+            }
+        }
+        for (let k = 0; k < 3; k++) {
+            const a = (k / 3) * Math.PI * 2, leg = this.part(b, 0.1, 0.5, 0.1, METAL, Math.sin(a) * 0.22, 0.22, Math.cos(a) * 0.22);
+            leg.rotation.set(Math.cos(a) * 0.45, 0, -Math.sin(a) * 0.45);
+        }
+        this.part(b, 0.22, 0.2, 0.22, METAL, 0, 0.5, 0);
+        this.head = new THREE.Group();
+        this.head.position.y = 0.68;
+        b.add(this.head);
+        this.part(this.head, 0.46, 0.3, 0.5, OL, 0, 0, 0);
+        this.part(this.head, 0.2, 0.22, 0.28, DK, -0.32, -0.04, -0.04); // caja de munición
+        this.part(this.head, 0.36, 0.06, 0.06, 0xffe03a, 0, 0.17, -0.12, false);
+        this.guns = new THREE.Group();
+        this.head.add(this.guns);
+        for (const x of [-0.08, 0.08]) this.part(this.guns, 0.07, 0.07, 0.62, METAL, x, 0.03, 0.5);
+        this.muzzle = new THREE.Object3D();
+        this.muzzle.position.set(0, 0.03, 0.84);
+        this.guns.add(this.muzzle);
+        this.flash = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), new THREE.MeshBasicMaterial({ color: 0xffe03a }));
+        this.own(this.flash.material);
+        this.flash.position.copy(this.muzzle.position);
+        this.flash.visible = false;
+        this.guns.add(this.flash);
+        this.pitch = 0;
+        this.wantPitch = 0;
+        this.yaw = Math.random() * Math.PI * 2;
+        this.want = null;
+        this.flashT = 0;
+        this.kick = 0;
+        this.idle = Math.random() * 10;
+    }
+
+    aimAt(x, z, drop = 0) {
+        const p = this.root.position;
+        this.want = Math.atan2(x - p.x, z - p.z) - this.root.rotation.y;
+        this.wantPitch = Math.atan2(drop, Math.hypot(x - p.x, z - p.z));
+        this.idle = 0;
+    }
+
+    fire() {
+        this.flashT = 0.07;
+        this.kick = 1;
+    }
+
+    // ¿Ya mira hacia donde se le pidió?
+    get aimed() {
+        return this.want === null || Math.abs(Math.atan2(Math.sin(this.want - this.yaw), Math.cos(this.want - this.yaw))) < 0.08;
+    }
+
+    update(dt) {
+        this.idle += dt;
+        if (this.idle > 2.5) this.want = Math.sin(this.idle * 0.5) * 1.2 + this.t; // vigilando
+        if (this.want !== null) this.yaw += Math.atan2(Math.sin(this.want - this.yaw), Math.cos(this.want - this.yaw)) * Math.min(1, dt * 12);
+        this.head.rotation.y = this.yaw;
+        this.pitch += (this.wantPitch - this.pitch) * Math.min(1, dt * 10);
+        this.guns.rotation.x = this.pitch;
+        this.kick = Math.max(0, this.kick - dt * 8);
+        this.guns.position.z = -this.kick * 0.1;
+        this.flashT -= dt;
+        this.flash.visible = this.flashT > 0;
+        if (this.flash.visible) this.flash.rotation.z += 1.3;
+        this.updateFx(dt);
+    }
+}
+
 export const STRUCTURES = { barn: Barn, silo: Silo, house: House, tower: Tower, tractor: Tractor };

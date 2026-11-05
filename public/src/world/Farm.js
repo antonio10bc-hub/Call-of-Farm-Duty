@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { box, toon, outline, OUTLINE } from '../render/materials.js';
 import { easeOutBack } from '../core/math.js';
-import { STRUCTURES, Ufo } from '../render/structures.js';
+import { STRUCTURES, Ufo, Turret } from '../render/structures.js';
 import { Plot } from '../render/props.js';
 import { junkyard, barrelParts, JUNK } from '../render/junk.js';
 import { CROPS } from '../content/crops.js';
@@ -77,7 +77,9 @@ export class Farm {
         this.houseZone = rectOf(FARM.house.zone);
         this.houseYard = houseClear(houseLevel);
         this.wild = []; // entradas animadas de la zona abandonada del granero (se apartan al crecer el recinto)
+        this.shots = []; // disparos de las torretas automáticas: esperando a apuntar o con su trazada
         this.build();
+        for (const v of this.views) if (fields[v.id].turrets) this.setTurrets(v.id, false);
     }
 
     // Lo que hay en una casilla: un campo (bloqueado o no), un camino, un edificio o nada
@@ -367,6 +369,56 @@ export class Farm {
         if (!v.locked) this.buildPlants(v, old);
     }
 
+    // Torretas automáticas del campo: una en cada esquina, por dentro (pop: aparecen con un bote)
+    setTurrets(id, pop = true) {
+        const v = this.fields[id];
+        if (v.turrets) return;
+        const f = v.rect, m = 0.5;
+        v.turrets = [[f.x + m, f.z + m], [f.x + f.w - m, f.z + m], [f.x + f.w - m, f.z + f.d - m], [f.x + m, f.z + f.d - m]].map(([x, z]) => {
+            const t = new Turret(this.theme.outline, 0.7);
+            t.root.position.set(x, 0, z);
+            t.root.scale.setScalar(1.35);
+            t.yaw = Math.atan2(f.cx - x, f.cz - z);
+            this.root.add(t.root);
+            if (pop) t.select();
+            return t;
+        });
+        v.nextTurret = 0;
+    }
+
+    // Una de las torretas (por turnos) apunta a una mata al azar del campo y, al tenerla, dispara:
+    // trazada y onTurretHit(x, z) para el fogonazo donde da
+    turretShot(id) {
+        const v = this.fields[id];
+        if (!v.turrets || !v.plants.length) return;
+        const t = v.turrets[v.nextTurret++ % v.turrets.length], s = v.plants[(Math.random() * v.plants.length) | 0];
+        t.aimAt(s.x, s.z);
+        this.shots.push({ t, x: s.x, z: s.z, wait: 0.6, beam: null });
+    }
+
+    updateShots(dt) {
+        this.shots = this.shots.filter((sh) => {
+            if (!sh.beam) {
+                if (!sh.t.aimed && (sh.wait -= dt) > 0) return true;
+                sh.t.fire();
+                const from = sh.t.muzzle.getWorldPosition(new THREE.Vector3()), to = new THREE.Vector3(sh.x, 0.5, sh.z);
+                const beam = new THREE.Mesh(box(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xfff6dc }));
+                beam.position.copy(from).lerp(to, 0.5);
+                beam.lookAt(to);
+                beam.scale.set(0.06, 0.06, from.distanceTo(to));
+                this.root.add(beam);
+                sh.beam = beam;
+                sh.life = 0.08;
+                if (this.onTurretHit) this.onTurretHit(sh.x, sh.z);
+                return true;
+            }
+            if ((sh.life -= dt) > 0) return true;
+            this.root.remove(sh.beam);
+            sh.beam.material.dispose();
+            return false;
+        });
+    }
+
     // Terreno limpio (tras la explosión del barril): se quita la chatarra, la tierra queda arada
     // y las plantas brotan desde el centro
     unlock(id) {
@@ -547,9 +599,11 @@ export class Farm {
         });
         if (this.ufo) this.ufo.update(dt, time);
         this.plot.update(dt, time);
+        this.updateShots(dt);
 
         for (const v of this.views) {
             if (v.locked) continue;
+            if (v.turrets) for (const t of v.turrets) t.update(dt);
             if (v.crop === 'wheat') this.updateWheat(v, time, progress[v.id] || 0);
             else this.updateTomato(v, time, progress[v.id] || 0);
             for (const m of v.meshes) {

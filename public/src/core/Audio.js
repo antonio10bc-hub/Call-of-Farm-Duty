@@ -195,6 +195,8 @@ export class Sfx {
             case 'secret': this.seq('square', [523, 659, 784, 988, 1175, 1319, 1568, 2093], 0.09, 0.12, 0.18); this.seq('triangle', [262, 330, 392, 494, 587, 659, 784, 1047], 0.09, 0.12, 0.18); break;
             case 'step': this.tone('square', 330, 200, 0.04, 0.06); break;
             case 'tick': this.tone('square', 440, 440, 0.12, 0.14); break;
+            // Hitmarker: chasquido seco y agudo al dar a un alienígena
+            case 'hitmark': this.noise(0.04, 0.4, 5000, pan); this.tone('square', 1500, 1300, 0.035, 0.12, pan); break;
             case 'go': this.seq('square', [880, 1175, 1760], 0.07, 0.14, 0.2); break;
             case 'ui': this.tone('square', 660, 1320, 0.09, 0.14); break;
             case 'win': this.seq('square', [523, 659, 784, 1047, 784, 1047], 0.1, 0.14, 0.16); break;

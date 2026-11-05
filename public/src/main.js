@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { THEME } from './content/theme.js';
 import { CROPS } from './content/crops.js';
-import { FARM, FIELD_BY_ID, INFO } from './content/farm.js';
+import { FARM, FIELD_BY_ID, INFO, TURRETS } from './content/farm.js';
 import { KILLSTREAKS, setStreakCounts, streakOf } from './content/killstreaks.js';
 import { UFO, SHOP, SHOP_ITEMS } from './content/ufo.js';
 import { RIFLE } from './content/rifle.js';
@@ -65,6 +65,11 @@ rig.yaw = rig.yawTarget = M.yaw;
 const home = { x: 15, z: 18 };
 rig.focus(home.x, home.z);
 rig.snap();
+// Disparo de una torreta automática en el mapa: polvo y paja donde da
+farm.onTurretHit = (x, z) => {
+    farmParticles.burst(x, 0.5, z, 10, [0xffe9a0, 0xd9b77a, THEME.dust], { speed: 1.8, up: 2.4, size: 0.1, ttl: 0.5 });
+    if (mode === 'farm') sfx.play('shotEnemy');
+};
 farm.onLand = (m) => {
     const p = m.root.position;
     farmParticles.burst(p.x, 0.1, p.z, 18, [THEME.dust, 0xd9b77a], { speed: 2.4, up: 1.4, size: 0.14, ttl: 0.5 });
@@ -124,15 +129,24 @@ const sniper = new Sniper(THEME, {
         setTimeout(() => banner(L('NUKE!', '¡NUCLEAR!')), 300);
     },
     // El barril ha reventado: el terreno queda limpio y desbloqueado (se guarda ya)
-    // Alienígena a pie abatido: su medalla y la racha alienígena da un salto
+    // Alienígena a pie abatido: encima de su cabeza sale su +1 (como el +100 de Call of Duty), su
+    // medalla y la racha alienígena da un salto
     onAlien(nx, ny) {
-        popPlus((nx * 0.5 + 0.5) * innerWidth, (-ny * 0.5 + 0.5) * innerHeight);
+        killPop((nx * 0.5 + 0.5) * innerWidth, (-ny * 0.5 + 0.5) * innerHeight);
         medal(L('ALIEN DOWN!', '¡ALIEN ABATIDO!'), 'alien');
         vibrate('kill');
         const el = $('alien-streak');
         el.classList.remove('bump');
         void el.offsetWidth;
         el.classList.add('bump');
+    },
+    // Bala que da a un alienígena (a pie o en ovni): aspa en el centro y su chasquido
+    onHitMarker() {
+        const el = $('hitmarker');
+        el.classList.remove('on');
+        void el.offsetWidth;
+        el.classList.add('on');
+        sfx.play('hitmark');
     },
     // Ovni pequeño derribado: sus monedas vuelan al contador
     onUfoCoin(n, nx, ny) {
@@ -250,6 +264,18 @@ function popPlus(x, y) {
     setTimeout(() => el.remove(), 900);
 }
 
+// +1 de un alienígena abatido, con su cara, encima de su cabeza; sube y se va
+function killPop(x, y) {
+    const el = document.createElement('div');
+    el.className = 'kill-pop';
+    el.innerHTML = `${ico('alien')}<b>+1</b>`;
+    // (con la mira el zoom deja la cabeza fuera: que no se salga de la pantalla)
+    el.style.left = `${Math.min(innerWidth - 50, Math.max(50, x))}px`;
+    el.style.top = `${Math.min(innerHeight - 60, Math.max(140, y))}px`;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1000);
+}
+
 // Lo recogido (espiga o tomate pixelado) vuela a saltos hasta el contador
 function flyItem(icon, x, y, target, done) {
     const el = document.createElement('i');
@@ -334,9 +360,9 @@ function refreshSigns() {
         const can = state.canUnlock(id);
         el.classList.toggle('locked', !f.unlocked && !can);
         el.classList.toggle('can-unlock', can);
-        el.classList.toggle('can-up', state.canUpgrade(id));
+        el.classList.toggle('can-up', state.canUpgrade(id) || state.canBuyTurrets(id));
         const html = f.unlocked
-            ? `<span class="sign-level">${L('LV', 'NV')}.${f.level + 1}</span><i class="sign-up"></i>`
+            ? `${f.turrets ? ico('turret') : ''}<span class="sign-level">${L('LV', 'NV')}.${f.level + 1}</span><i class="sign-up"></i>`
             : can ? `${ico('barrel')}<span>${L('UNLOCK!', '¡DESBLOQUEAR!')}</span>` : `${ico('lock')}<span>${L('LOCKED', 'BLOQUEADO')}</span>`;
         if (el.innerHTML !== html) el.innerHTML = html;
         if (f.unlocked) el.style.setProperty('--sign', `#${def.levels[f.level].sign.toString(16).padStart(6, '0')}`);
@@ -448,23 +474,57 @@ function refreshPanel() {
     const p = state.progress(id), ready = state.isReady(id);
     title.textContent = `${def.name} ${L('LV', 'NV')}.${f.level + 1}`;
     const what = def.crop === 'tomato' ? L('TOMATOES', 'TOMATES') : L('BUNDLES', 'MATAS');
-    text.textContent = ready
+    text.textContent = (ready
         ? L(`RIPE! ${f.left} ${what} TO HARVEST.`, `¡MADURO! ${f.left} ${what} PARA RECOGER.`)
-        : `${L('GROWING... READY IN', 'CRECIENDO... LISTO EN')} ${fmt((1 - p) * crop.growTime)}`;
+        : `${L('GROWING... READY IN', 'CRECIENDO... LISTO EN')} ${fmt((1 - p) * crop.growTime)}`)
+        + (f.turrets ? ` ${L('THE TURRETS HARVEST IT BY THEMSELVES.', 'LAS TORRETAS LO RECOGEN SOLAS.')}` : '');
     bar.parentElement.classList.remove('hidden');
     bar.style.width = `${Math.round(p * 20) * 5}%`;
     act.classList.toggle('hidden', !ready);
     act.classList.remove('unlock-btn');
     $('action-ico').className = `ico ${crop.icon}-ico`;
     $('action-label').textContent = L('HARVEST!', '¡RECOGER!');
-    // Mejora: más grande y con más blancos, pagando lo que pida (trigo, tomates...)
-    const maxed = state.maxed(id);
+    // Mejora: más grande y con más blancos, pagando lo que pida (trigo, tomates...). Con el
+    // campo al máximo, la mejora extra: sus torretas automáticas
+    const maxed = state.maxed(id), turrets = maxed && !f.turrets, done = maxed && f.turrets;
     up.classList.remove('hidden');
-    up.disabled = !state.canUpgrade(id);
-    $('upgrade-label').textContent = maxed ? L('MAX LEVEL', 'NIVEL MÁXIMO') : L('UPGRADE', 'MEJORAR');
-    const cost = maxed ? '' : Object.entries(state.cost(id)).map(([c, n]) => `<span class="upgrade-cost${state.items[c] < n ? ' short' : ''}">${ico(CROPS[c].icon)}<b>${n}</b></span>`).join('');
+    up.classList.toggle('turret-up', turrets);
+    up.disabled = turrets ? !state.canBuyTurrets(id) : !state.canUpgrade(id);
+    $('upgrade-label').innerHTML = done ? `${ico('turret')}${L('AUTOMATED', 'AUTOMÁTICO')}` : turrets ? `${ico('turret')}${L('TURRETS', 'TORRETAS')}` : L('UPGRADE', 'MEJORAR');
+    const cost = done ? '' : Object.entries(turrets ? state.turretCost(id) : state.cost(id)).map(([c, n]) => `<span class="upgrade-cost${state.items[c] < n ? ' short' : ''}">${ico(CROPS[c].icon)}<b>${n}</b></span>`).join('');
     if ($('upgrade-cost').innerHTML !== cost) $('upgrade-cost').innerHTML = cost;
-    up.classList.toggle('maxed', maxed);
+    up.classList.toggle('maxed', done);
+}
+
+// Torretas automáticas: aparecen en las 4 esquinas del campo y desde ya lo recogen solas
+function buyTurrets(id, force = false) {
+    if (mode !== 'farm' || !state.buyTurrets(id, force)) return;
+    farm.setTurrets(id);
+    const f = farm.fields[id].rect;
+    rig.focus(f.cx, f.cz + 1);
+    rig.shake(0.18);
+    for (const t of farm.fields[id].turrets) farmParticles.burst(t.root.position.x, 0.3, t.root.position.z, 14, [THEME.dust, 0x6a7a5a, 0xffe03a], { speed: 2.4, up: 2.4, size: 0.12, ttl: 0.5 });
+    sfx.play('power');
+    vibrate('pickup');
+    updateCounts();
+    stage(L('TURRETS ONLINE!', '¡TORRETAS EN MARCHA!'), L('THEY HARVEST THE FIELD BY THEMSELVES', 'RECOGEN EL CAMPO SOLAS'));
+    refreshPanel();
+}
+
+// Recogida automática en el mapa: cada campo con torretas, mientras está maduro, recoge una mata
+// cada poco (lo de las torretas no suma a las rachas). El campo en el que estás disparando lo
+// recogen sus torretas en el campo de tiro.
+const autoT = {};
+function autoHarvest(dt) {
+    for (const def of FARM.fields) {
+        const id = def.id;
+        if (!state.fields[id].turrets || (mode !== 'farm' && id === snipeField) || !state.isReady(id)) continue;
+        if ((autoT[id] = (autoT[id] || 0) + dt) < TURRETS.every) continue;
+        autoT[id] = 0;
+        state.collect(id);
+        if (mode === 'farm') farm.turretShot(id);
+        updateCounts();
+    }
 }
 
 function upgradeField(id) {
@@ -511,25 +571,38 @@ function updateStreak() {
         $('streak-next').textContent = next ? `${L('NEXT', 'SIGUIENTE')}: ${next.at} ${next.short}` : L('MAX STREAK!', '¡RACHA MÁXIMA!');
     }
     $('alien-streak').classList.toggle('hidden', sniper.unlocking);
-    const a = sniper.aliens, steps = streakOf('alien'), top = steps[steps.length - 1].at;
+    const a = sniper.aliens, steps = streakOf('alien');
     $('as-n').textContent = a;
-    $('as-fill').style.height = `${Math.round(Math.min(1, a / top) * 100)}%`;
-    renderAlienSteps(steps, top);
-    for (const k of steps) {
-        const row = $(`as-${k.id}`);
-        row.classList.toggle('done', a >= k.at);
-        row.classList.toggle('next', k === steps.find((x) => x.at > a));
+    renderAlienTower(steps);
+    // Las rayas se encienden de una en una; la recompensa que viene, parpadeando
+    if (alienLit !== a) {
+        alienLit = a;
+        alienSegs.forEach((seg, i) => seg.classList.toggle('on', i < a));
+        const next = steps.find((x) => x.at > a);
+        for (const k of steps) {
+            const row = $(`as-${k.id}`);
+            row.classList.toggle('done', a >= k.at);
+            row.classList.toggle('next', k === next);
+        }
     }
 }
 
-// Las recompensas de la racha alienígena, en su sitio a lo largo de la barra (se rehacen solo
-// si cambian los números en DEBUG)
-let alienStepsKey = '';
-function renderAlienSteps(steps, top) {
+// Torre de la racha alienígena: una raya por alienígena hasta la última recompensa, de abajo a
+// arriba, con el icono de cada recompensa junto a su raya (se rehace solo si DEBUG cambia los
+// números)
+let alienTowerKey = '', alienSegs = [], alienLit = -1;
+function renderAlienTower(steps) {
     const key = steps.map((k) => `${k.id}${k.at}`).join();
-    if (key === alienStepsKey) return;
-    alienStepsKey = key;
-    $('as-steps').innerHTML = steps.map((k) => `<div class="as-step" id="as-${k.id}" style="bottom:${(k.at / top) * 100}%"><i class="ks-ico" style="--ico: var(--px-${k.icon})"></i><b>${k.at}</b></div>`).join('');
+    if (key === alienTowerKey) return;
+    alienTowerKey = key;
+    alienLit = -1;
+    const top = steps[steps.length - 1].at, rows = [];
+    for (let n = 1; n <= top; n++) {
+        const k = steps.find((x) => x.at === n);
+        rows.push(`<div class="as-row${k ? ' as-mile' : ''}"${k ? ` id="as-${k.id}"` : ''}><i class="as-seg"></i>${k ? `<i class="ks-ico" style="--ico: var(--px-${k.icon})"></i><b>${k.at}</b>` : ''}</div>`);
+    }
+    $('as-tower').innerHTML = rows.reverse().join('');
+    alienSegs = [...$('as-tower').querySelectorAll('.as-seg')].reverse();
 }
 
 // Guiando el misil: altura en la interfaz
@@ -581,7 +654,7 @@ function quickAction() {
 function enterSnipe() {
     const unlock = goSnipe.unlock;
     const def = FIELD_BY_ID[snipeField], arena = def.levels[state.fields[snipeField].level].arena;
-    sniper.enter(unlock ? { unlock: true, rifle: state.rifle } : { crop: def.crop, count: state.fields[snipeField].left, arena, rifle: state.rifle });
+    sniper.enter(unlock ? { unlock: true, rifle: state.rifle } : { crop: def.crop, count: state.fields[snipeField].left, arena, rifle: state.rifle, turrets: state.fields[snipeField].turrets });
     document.body.classList.remove('fallout');
     mode = 'snipe';
     snipeStart = time;
@@ -890,7 +963,10 @@ tapBtn('panel-action', () => {
 });
 tapBtn('panel-upgrade', () => {
     if (!selected) return;
-    if (selected.field) upgradeField(selected.field);
+    if (selected.field) {
+        if (state.maxed(selected.field)) buyTurrets(selected.field);
+        else upgradeField(selected.field);
+    }
     else if (selected.structure === 'house') upgradeHouse();
 });
 tapBtn('panel-close', () => select(null));
@@ -1323,6 +1399,23 @@ const unlockables = [
         },
     })),
     { id: 'rifle', name: L('MAXED RIFLE', 'RIFLE AL MÁXIMO'), done: () => RIFLE.every((r) => state.rifleMaxed(r.id)), run: () => state.maxRifle() },
+    // Torretas de cada campo: lo desbloquea y lo sube al máximo si hace falta
+    ...FARM.fields.map((f) => ({
+        id: `turrets-${f.id}`, name: `${L('TURRETS', 'TORRETAS')}: ${CROPS[f.crop].name || f.name}`,
+        done: () => state.fields[f.id].turrets,
+        run: () => {
+            $('debug').classList.add('hidden');
+            if (!state.fields[f.id].unlocked) {
+                state.unlock(f.id, Date.now(), true);
+                revealUnlocked();
+            }
+            const st = state.fields[f.id];
+            st.level = f.levels.length - 1;
+            st.left = Math.max(st.left, state.sheaves(f.id));
+            farm.setLevel(f.id, st.level);
+            buyTurrets(f.id, true);
+        },
+    })),
 ];
 const unlockBtns = {};
 for (const u of unlockables) {
@@ -1516,6 +1609,7 @@ function frame(now) {
     keyInput(dt);
     holdCheck();
 
+    autoHarvest(dt);
     if (mode === 'farm' || mode === 'toSnipe') {
         const progress = Object.fromEntries(FARM.fields.map((f) => [f.id, state.progress(f.id)]));
         farm.update(dt, time, progress);

@@ -29,8 +29,9 @@ export function setStreakCounts(counts) {
 }
 
 export const KS = {
-    // Barra de la racha: segundos para vaciarse = time * decay^(racha - 1), nunca menos de min
-    bar: { time: 4, decay: 0.93, min: 1.5 },
+    // Barra de la racha de granadas: segundos para vaciarse = time * decay^(racha - 1), nunca
+    // menos de min (permisiva: da tiempo a buscar la siguiente mata)
+    bar: { time: 6, decay: 0.95, min: 2.6 },
     // Granadas: salen delante de la cámara (para verlas salir) y vuelan en arco hasta el blanco
     // con más vecinos. Fragmentación: recoge lo que pille en radius. Racimo: revienta pequeña y
     // suelta bombs mini granadas que saltan hacia fuera (spread m/s) y revientan con radius cada
