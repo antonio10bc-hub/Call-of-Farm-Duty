@@ -15,7 +15,7 @@ export const MERCHANT = {
     size: [0.25, 0.6],
     step: 5,
     min: 5,
-    rate: { wheat: 0.12, tomato: 0.35 },
+    rate: { wheat: 0.12, tomato: 0.35, pumpkin: 0.9, corn: 0.2, carrot: 0.4 },
     clearing: [33, -22, 41, -16],
     stall: { x: 37, z: -19.6 },
     wagon: { x: 39.6, z: -20.6, from: 54, road: -15 },

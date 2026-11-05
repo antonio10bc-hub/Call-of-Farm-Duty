@@ -19,14 +19,21 @@ test('racha de granadas: la barra sale al recoger y se vacía; a las 5, 10 y 15 
     await page.evaluate(() => game.sniper.addStreak(5));
     await expect(page.locator('#medals')).toContainText('FRAGMENTACIÓN');
     await expect.poll(() => page.evaluate(() => game.state.wheat), { timeout: 5_000 }).toBeGreaterThan(before);
-    // A las 10: racimo, que al caer suelta mini granadas
-    await page.evaluate(() => { const s = game.sniper; s.addStreak(10 - s.streak); });
+    // Las siguientes, a las 10 y a las 15 (con el campo tan lleno, la de fragmentación puede
+    // pasar ella sola de las 10: cada granada se lanza aquí a mano)
+    await page.evaluate(() => { game.sniper.streak = 6; game.sniper.streakT = 99; });
+    await expect(page.locator('#streak-next')).toHaveText('SIGUIENTE: 10 RACIMO');
+    await page.evaluate(() => { game.sniper.streak = 11; });
+    await expect(page.locator('#streak-next')).toHaveText('SIGUIENTE: 15 INCENDIARIA');
+    await page.evaluate(() => { game.sniper.streak = 0; });
+    // Racimo: al caer suelta mini granadas
+    await page.evaluate(() => game.sniper.ks.trigger('cluster'));
     await expect(page.locator('#medals')).toContainText('RACIMO');
     await expect.poll(() => page.evaluate(() => game.sniper.ks.bomblets.length), { timeout: 5_000 }).toBeGreaterThan(0);
-    // A las 15: incendiaria; su fuego quema lo de alrededor y a un alienígena que pase por él
-    await page.evaluate(() => { const s = game.sniper; s.streakT = 99; s.addStreak(15 - s.streak); });
+    // Incendiaria: su fuego quema lo de alrededor y a un alienígena que pase por él
+    await page.evaluate(() => game.sniper.ks.trigger('fire'));
     await expect(page.locator('#medals')).toContainText('INCENDIARIA');
-    await expect.poll(() => page.evaluate(() => game.sniper.ks.fires.length), { timeout: 5_000 }).toBe(1);
+    await expect.poll(() => page.evaluate(() => game.sniper.ks.fires.length), { timeout: 5_000 }).toBeGreaterThan(0);
     before = await page.evaluate(() => game.sniper.aliens);
     await page.evaluate(() => {
         const f = game.sniper.ks.fires[0], W = game.sniper.walkers, w = W.spawn();

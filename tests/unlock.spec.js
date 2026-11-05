@@ -83,3 +83,35 @@ test('tomates: con el trigo al máximo se desbloquea disparando al barril; luego
     expect(await page.evaluate(() => [game.state.fields.tomato.level, game.state.items.wheat, game.state.items.tomato])).toEqual([1, 0, 0]);
     expect(errors).toEqual([]);
 });
+
+test('parcelas en venta: se compran con el oro del comerciante, se desbloquean con su barril y traen su cultivo', { tag: '@full' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await openFarm(page);
+    await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
+    // EN VENTA, con su precio en oro; sin oro no se compra
+    await expect(page.locator('#sign-pumpkin')).toHaveText('15');
+    await expect(page.locator('#sign-pumpkin')).toHaveClass(/for-sale/);
+    await page.evaluate(() => game.select({ field: 'pumpkin' }));
+    await expect(page.locator('#panel-title')).toHaveText('PARCELA OESTE');
+    await expect(page.locator('#action-label')).toHaveText('COMPRAR 15');
+    await expect(page.locator('#panel-action')).toBeDisabled();
+    await page.evaluate(() => { game.state.items.gold = 20; });
+    await expect(page.locator('#panel-action')).toBeEnabled();
+    await page.locator('#panel-action').click();
+    expect(await page.evaluate(() => [game.state.lands.west, game.state.items.gold, game.state.fields.pumpkin.unlocked])).toEqual([true, 5, false]);
+    // Comprada: ahora se vuela su barril, como cualquier terreno
+    await expect(page.locator('#sign-pumpkin')).toHaveText('¡DESBLOQUEAR!');
+    await page.evaluate(() => game.startUnlock('pumpkin'));
+    await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
+    await aimAndShoot(page, 'game.sniper.field.barrel');
+    await expect.poll(() => page.evaluate(() => game.sniper.field.exploded)).toBe(true);
+    await expect.poll(() => page.evaluate(() => game.mode), { timeout: 20_000 }).toBe('farm');
+    // Parcela limpia con su campo de calabazas listo para recoger
+    expect(await page.evaluate(() => [game.state.fields.pumpkin.unlocked, game.farm.fields.pumpkin.locked])).toEqual([true, false]);
+    await expect(page.locator('#sign-pumpkin')).toHaveText('NV.1');
+    await expect(page.locator('#farm-pumpkin')).toBeVisible();
+    // Se guarda
+    await page.reload();
+    await expect.poll(() => page.evaluate(() => window.game && [game.state.lands.west, game.state.fields.pumpkin.unlocked])).toEqual([true, true]);
+    expect(errors).toEqual([]);
+});

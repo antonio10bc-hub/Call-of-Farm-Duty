@@ -1,5 +1,5 @@
 import { CROPS } from '../content/crops.js';
-import { FARM, FIELD_BY_ID } from '../content/farm.js';
+import { FARM, FIELD_BY_ID, LAND_BY_ID } from '../content/farm.js';
 import { SHOP_ITEMS, DEFAULT_LOOK } from '../content/ufo.js';
 import { RIFLE, RIFLE_BY_ID, RIFLE_MAX } from '../content/rifle.js';
 import { MERCHANT } from '../content/merchant.js';
@@ -33,6 +33,8 @@ export class FarmState {
         // El comerciante: la visita de la que son los encargos que hay (cada uno: cultivo, cuánto,
         // cuánto oro paga y si ya se ha entregado)
         this.merchant = { visit: -1, orders: [] };
+        // Parcelas compradas con oro (content/farm.js: lands)
+        this.lands = Object.fromEntries(FARM.lands.map((l) => [l.id, false]));
         // El ovni (crashed: ya se ha estrellado en la parcela de la casa; met: ya se ha abierto su
         // tienda alguna vez) y la casa personalizada en su tienda: lo comprado (owned) y lo que
         // lleva puesto en cada parte (look)
@@ -60,6 +62,7 @@ export class FarmState {
                 this.house.level = Math.min(HOUSE.length - 1, Math.max(0, d.house ? d.house.level | 0 : (d.rev | 0) < 4 ? 1 : 0));
                 for (const r of RIFLE) this.rifle[r.id] = Math.min(RIFLE_MAX, Math.max(0, d.rifle ? d.rifle[r.id] | 0 : 0));
                 this.ufo.crashed = !!(d.ufo && d.ufo.crashed);
+                for (const id of Object.keys(this.lands)) this.lands[id] = !!(d.lands && d.lands[id]);
                 if (d.merchant && Array.isArray(d.merchant.orders)) this.merchant = { visit: d.merchant.visit | 0, orders: d.merchant.orders.filter((o) => o && CROPS[o.crop]) };
                 this.ufo.met = !!(d.ufo && d.ufo.met);
                 if (d.home) {
@@ -110,7 +113,7 @@ export class FarmState {
 
     save() {
         try {
-            localStorage.setItem(KEY, JSON.stringify({ rev: REV, items: this.items, fields: this.fields, barn: this.barn, house: this.house, rifle: this.rifle, ufo: this.ufo, home: this.home, merchant: this.merchant }));
+            localStorage.setItem(KEY, JSON.stringify({ rev: REV, items: this.items, fields: this.fields, barn: this.barn, house: this.house, rifle: this.rifle, ufo: this.ufo, home: this.home, merchant: this.merchant, lands: this.lands }));
         } catch {
             /* ignorar */
         }
@@ -337,17 +340,43 @@ export class FarmState {
         return true;
     }
 
-    // Un terreno bloqueado se puede desbloquear ya, o cuando el campo del que depende (after)
-    // está al máximo
+    // Un terreno bloqueado se puede desbloquear ya, cuando el campo del que depende (after) está al
+    // máximo o cuando se ha comprado su parcela (land)
     canUnlock(id) {
         const lock = FIELD_BY_ID[id].locked;
-        return !!lock && !this.fields[id].unlocked && (!lock.after || this.maxed(lock.after));
+        return !!lock && !this.fields[id].unlocked && (!lock.after || this.maxed(lock.after)) && (!lock.land || this.lands[lock.land]);
+    }
+
+    // ---------- Parcelas en venta ----------
+    // La parcela del campo id (si es de las que se compran)
+    landOf(id) {
+        const lock = FIELD_BY_ID[id].locked;
+        return lock && lock.land ? LAND_BY_ID[lock.land] : null;
+    }
+
+    landPrice(landId) {
+        return this.freeCosts ? 0 : LAND_BY_ID[landId].price;
+    }
+
+    canBuyLand(landId) {
+        return !this.lands[landId] && this.items.gold >= this.landPrice(landId);
+    }
+
+    // Comprar una parcela con oro (luego su campo se desbloquea con el barril)
+    buyLand(landId) {
+        if (!this.canBuyLand(landId)) return false;
+        this.items.gold -= this.landPrice(landId);
+        this.lands[landId] = true;
+        this.save();
+        return true;
     }
 
     // Terreno limpio: queda sembrado y listo para recoger la primera vez. force: sin mirar lo
     // que pide (depuración)
     unlock(id, now = Date.now(), force = false) {
         if (this.fields[id].unlocked || (!force && !this.canUnlock(id))) return false;
+        const land = this.landOf(id);
+        if (land) this.lands[land.id] = true; // (a la fuerza en DEBUG: también queda comprada)
         const f = this.fields[id];
         f.unlocked = true;
         f.plantedAt = now - growMs(id);

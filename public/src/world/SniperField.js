@@ -51,6 +51,10 @@ function instanced(root, mat, n) {
 // en cada esquina. Según a qué se entra:
 //   - cosecha de trigo: las matas maduras son los blancos
 //   - cosecha de tomates: matas de tomate con tomates gigantes; cada tomate es un blanco
+//   - cosecha de calabazas: calabazas enormes entre hojas; aguantan varios tiros y paran la bala
+//   - cosecha de maíz: matas altas en hileras con dos mazorcas cada una (los blancos)
+//   - cosecha de zanahorias: enterradas; cada poco asoma alguna un momento (solo entonces se
+//     le puede dar)
 //   - desbloqueo: el terreno está sucio y lleno de chatarra, con un barril rojo encima del
 //     montón del fondo. Un disparo al barril lo hace volar todo y deja la tierra limpia.
 // scale: tamaño del campo (1 = el normal); el cuadrilátero y sus torres crecen desde su centro,
@@ -68,7 +72,7 @@ export class SniperField {
         this.root = new THREE.Group();
         this.animated = [];
         this.targets = [];
-        this.plants = []; // matas de tomate (cada una con sus tomates en targets)
+        this.plants = []; // matas (de tomate, de maíz...), cada una con sus blancos en targets
         this.junk = null;
         this.introT = 0;
         // Torres: un poco por fuera de cada esquina, girada hacia el centro
@@ -235,7 +239,8 @@ export class SniperField {
         this.floor.instanceColor.needsUpdate = true;
         const T = CROPS.tomato;
         this.stub.forEach((s, i) => {
-            const col = kind === 'junk' ? (s.tone < 0.6 ? 0x8a7a4a : 0x6f8a3a) : kind === 'tomato' ? T.leaves[i % 3] : s.tone < 0.7 ? 0xb8a050 : CROPS.wheat.stages[1];
+            const own = CROPS[kind] && CROPS[kind].stub;
+            const col = kind === 'junk' ? (s.tone < 0.6 ? 0x8a7a4a : 0x6f8a3a) : own ? own[i % own.length] : kind === 'tomato' ? T.leaves[i % 3] : s.tone < 0.7 ? 0xb8a050 : CROPS.wheat.stages[1];
             this.stubMesh.setColorAt(i, _c.setHex(col).offsetHSL(0, 0, (s.tone - 0.5) * 0.1));
         });
         this.stubMesh.instanceColor.needsUpdate = true;
@@ -263,6 +268,9 @@ export class SniperField {
         this.crop = crop;
         count = Math.min(count, MAX);
         if (crop === 'tomato') return this.spawnTomatoes(count);
+        if (crop === 'pumpkin') return this.spawnPumpkins(count);
+        if (crop === 'corn') return this.spawnCorn(count);
+        if (crop === 'carrot') return this.spawnCarrots(count);
         for (let i = 0; i < count; i++) {
             const { x, z } = this.freeSpot(this.targets, count > 90 ? 1.2 : 1.6); // (más juntas si hay muchas)
             const stalks = Array.from({ length: CLUMP }, () => {
@@ -298,12 +306,92 @@ export class SniperField {
         this.tStems.count = this.plants.length * 2;
         this.tFruit.count = this.tFruitHull.count = this.tCalyx.count = this.targets.length;
         const T = CROPS.tomato;
+        this.tCalyx.material.color.setHex(T.calyx);
         this.plants.forEach((p, pi) => {
             p.leaves.forEach((l, k) => this.tLeaves.setColorAt(pi * LEAVES + k, _c.setHex(T.leaves[(k + pi) % 3]).offsetHSL(0, 0, (l.tone - 0.5) * 0.08)));
             this.tStems.setColorAt(pi * 2, _c.setHex(T.leaves[2]));
             this.tStems.setColorAt(pi * 2 + 1, _c.setHex(T.stake));
         });
         this.tLeaves.instanceColor.needsUpdate = this.tStems.instanceColor.needsUpdate = true;
+    }
+
+    // Matas (sus hojas y tallos) recién creadas: colores de cada bloque
+    paintPlants(C, stems) {
+        this.tLeaves.count = this.plants.length * LEAVES;
+        this.tStems.count = this.plants.length * 2;
+        this.tFruit.count = this.tFruitHull.count = this.tCalyx.count = this.targets.length;
+        this.plants.forEach((p, pi) => {
+            p.leaves.forEach((l, k) => this.tLeaves.setColorAt(pi * LEAVES + k, _c.setHex(C.leaves[(k + pi) % 3]).offsetHSL(0, 0, (l.tone - 0.5) * 0.08)));
+            this.tStems.setColorAt(pi * 2, _c.setHex(stems[0]));
+            this.tStems.setColorAt(pi * 2 + 1, _c.setHex(stems[1]));
+        });
+        this.tLeaves.instanceColor.needsUpdate = this.tStems.instanceColor.needsUpdate = true;
+        this.tCalyx.material.color.setHex(C.calyx);
+    }
+
+    // Calabazas: cada una con su mata de hojas grandes alrededor, en el suelo
+    spawnPumpkins(count) {
+        const C = CROPS.pumpkin;
+        for (let i = 0; i < count; i++) {
+            const { x, z } = this.freeSpot(this.plants, 2.6);
+            const grow = -0.5 - i * Math.min(0.12, 4 / count);
+            const plant = { x, z, h: 0, ph: Math.random() * 6, grow, g: 0.0001, sway: 0, flat: true,
+                leaves: Array.from({ length: LEAVES }, (_, k) => ({ a: k * 0.7 + Math.random() * 0.4, y: 0.05 + (k % 3) * 0.04, r: 0.7 + (k % 3) * 0.25, w: 0.55 + Math.random() * 0.2, tone: Math.random() })) };
+            this.plants.push(plant);
+            const size = 1.0 + Math.random() * 0.3;
+            this.targets.push({ plant, kind: 'pumpkin', x, y: size * 0.4, z, size, hp: C.hp, ry: Math.random() * Math.PI, tone: Math.random(), alive: true, grow: grow - 0.15, landed: false, flash: 0, dying: 0 });
+        }
+        this.paintPlants(C, [C.calyx, C.calyx]);
+    }
+
+    // Maíz: matas altas en hileras (todas en la misma dirección, al azar en cada partida), con
+    // dos mazorcas cada una a media altura
+    spawnCorn(count) {
+        const C = CROPS.corn, a = Math.random() * Math.PI, ux = Math.cos(a), uz = Math.sin(a);
+        const xs = this.poly.map((p) => p.x), zs = this.poly.map((p) => p.z), R = Math.max(...xs) - Math.min(...xs) + Math.max(...zs) - Math.min(...zs);
+        const spots = [];
+        for (let i = -R; i <= R; i += 1.9) for (let j = -R; j <= R; j += 1.05) {
+            const x = this.cx + ux * j - uz * i, z = this.cz + uz * j + ux * i;
+            if (inside(this.poly, x, z) && edgeDist(this.poly, x, z) > FIELD.margin) spots.push({ x, z });
+        }
+        // Las que caben, repartidas por todo el campo (saltándose algunas)
+        const want = Math.min(Math.ceil(count / 2), spots.length);
+        for (let i = spots.length - 1; i > 0; i--) {
+            const j = (Math.random() * (i + 1)) | 0;
+            [spots[i], spots[j]] = [spots[j], spots[i]];
+        }
+        let left = count;
+        spots.slice(0, want).forEach(({ x, z }, i) => {
+            const grow = -0.5 - i * Math.min(0.06, 3 / want), h = 2.4 + Math.random() * 0.5;
+            const plant = { x, z, h, ph: Math.random() * 6, grow, g: 0.0001, sway: 0, tall: true,
+                leaves: Array.from({ length: LEAVES }, (_, k) => ({ a: k * 2.4 + Math.random() * 0.5, y: 0.3 + (k / LEAVES) * (h - 0.6), r: 0.18, w: 0.7 - (k / LEAVES) * 0.3, tone: Math.random() })) };
+            this.plants.push(plant);
+            for (let k = 0; k < 2 && left > 0; k++, left--) {
+                const ca = Math.random() * Math.PI * 2;
+                this.targets.push({ plant, kind: 'corn', x: x + Math.sin(ca) * 0.2, y: 1.15 + k * 0.45 + Math.random() * 0.15, z: z + Math.cos(ca) * 0.2, size: 0.42, ry: ca, tone: Math.random(), alive: true, grow: grow - 0.15 - k * 0.08, landed: false, flash: 0, dying: 0 });
+            }
+        });
+        this.paintPlants(C, [C.stalk, 0xe8d08a]);
+    }
+
+    // Zanahorias: cada una con su penacho; bajo tierra hasta que asoma un rato
+    spawnCarrots(count) {
+        const C = CROPS.carrot;
+        for (let i = 0; i < count; i++) {
+            const { x, z } = this.freeSpot(this.plants, 1.4);
+            const grow = -0.5 - i * Math.min(0.08, 3 / count);
+            const plant = { x, z, h: 0, ph: Math.random() * 6, grow, g: 0.0001, sway: 0, tuft: true,
+                leaves: Array.from({ length: LEAVES }, (_, k) => ({ a: (k / LEAVES) * Math.PI * 2, y: 0, r: 0.08, w: 0.08, tone: Math.random() })) };
+            this.plants.push(plant);
+            plant.target = { plant, kind: 'carrot', x, y: 0, z, size: 0.36, up: 0, lift: 0, out: 0, next: 1 + Math.random() * 4, ry: Math.random() * Math.PI, tone: Math.random(), alive: true, grow: grow - 0.1, landed: false, flash: 0, dying: 0 };
+            this.targets.push(plant.target);
+        }
+        this.paintPlants(C, [C.calyx, C.calyx]);
+    }
+
+    // ¿Se le puede dar? (las zanahorias, solo mientras asoman)
+    hittable(s) {
+        return s.alive && s.landed && (s.kind !== 'carrot' || s.up > 0.55);
     }
 
     // Terreno abandonado: chatarra a montones por todo el campo y por la hierba hasta la atalaya
@@ -440,7 +528,7 @@ export class SniperField {
         const ground = dir.y < -1e-6 ? -origin.y / dir.y : Infinity;
         const hits = [];
         for (const s of this.targets) {
-            if (!s.alive || !s.landed) continue;
+            if (!this.hittable(s)) continue;
             const t = rayBox(origin, dir, ...hitBox(s));
             if (t !== null && t <= ground) hits.push({ sheaf: s, t });
         }
@@ -478,6 +566,7 @@ export class SniperField {
         }
         if (this.crop === 'wheat') this.drawWheat(time);
         else if (this.crop === 'tomato') this.drawTomatoes(dt, time);
+        else if (this.crop) this.drawPlants(dt, time);
         if (this.junk) this.updateJunk(dt);
         for (const t of this.towers) t.model.update(dt);
         for (const c of this.clouds) {
@@ -575,6 +664,104 @@ export class SniperField {
         }
     }
 
+    // Calabazas, maíz y zanahorias: sus matas (hojas y tallos) y sus blancos
+    drawPlants(dt, time) {
+        const C = CROPS[this.crop], P = C.pop;
+        this.plants.forEach((p, pi) => {
+            p.grow += dt;
+            const k = Math.min(1, Math.max(0, p.grow / 0.5));
+            p.g = k <= 0 ? 0.0001 : easeOutBack(k);
+            p.sway = Math.sin(time * 1.4 - p.x * 0.4 + p.ph) * (p.tall ? 0.05 : 0.03);
+            const h = p.h * p.g;
+            p.leaves.forEach((l, k2) => {
+                if (p.tall) {
+                    // Hojas largas que salen de la caña hacia fuera y cuelgan
+                    const y = l.y * p.g;
+                    _d.position.set(p.x + Math.sin(l.a) * 0.3 + p.sway * y, y, p.z + Math.cos(l.a) * 0.3);
+                    _d.rotation.set(Math.cos(l.a) * 0.9, 0, -Math.sin(l.a) * 0.9 + p.sway);
+                    _d.scale.set(0.16 * p.g, l.w * p.g, 0.06);
+                } else if (p.flat) {
+                    // Hojas anchas tumbadas alrededor de la calabaza
+                    _d.position.set(p.x + Math.sin(l.a) * l.r * p.g, l.y, p.z + Math.cos(l.a) * l.r * p.g);
+                    _d.rotation.set(p.sway, l.a, 0);
+                    _d.scale.set(l.w * p.g, 0.06, l.w * 0.8 * p.g);
+                } else {
+                    // Penacho de la zanahoria: sube con ella cuando asoma
+                    const t = p.target, lift = t ? t.lift : 0;
+                    _d.position.set(p.x + Math.sin(l.a) * 0.08, 0.25 * p.g + lift, p.z + Math.cos(l.a) * 0.08);
+                    _d.rotation.set(Math.cos(l.a) * (0.35 + p.sway), l.a, Math.sin(l.a) * 0.35);
+                    _d.scale.set(0.07, Math.max(0.0001, 0.5 * p.g * (t && !t.alive && t.dying <= 0 ? 0.0001 : 1)), 0.07);
+                }
+                _d.updateMatrix();
+                this.tLeaves.setMatrixAt(pi * LEAVES + k2, _d.matrix);
+            });
+            // Caña y penacho de arriba (maíz); nada en las demás
+            _d.position.set(p.x + p.sway * h * 0.5, h / 2, p.z);
+            _d.rotation.set(0, 0, p.sway);
+            _d.scale.set(p.tall ? 0.14 : 0.0001, Math.max(0.0001, h), p.tall ? 0.14 : 0.0001);
+            _d.updateMatrix();
+            this.tStems.setMatrixAt(pi * 2, _d.matrix);
+            _d.position.set(p.x + p.sway * h, h + 0.15, p.z);
+            _d.scale.set(p.tall ? 0.2 : 0.0001, p.tall ? 0.35 * p.g : 0.0001, p.tall ? 0.2 : 0.0001);
+            _d.updateMatrix();
+            this.tStems.setMatrixAt(pi * 2 + 1, _d.matrix);
+        });
+        this.targets.forEach((s, i) => {
+            const gone = !s.alive && s.dying <= 0;
+            const pop = !s.alive ? 1 + (0.14 - s.dying) * 3 : 1;
+            const e = gone ? 0.0001 : (s.g || 0.0001) * pop;
+            let w = s.size, hh = s.size, d = s.size, x = s.x, y = s.y, z = s.z;
+            if (s.kind === 'pumpkin') {
+                // Achatada y ancha; con cada tiro se encoge un poco y se oscurece (resquebrajada)
+                const hurt = 1 - (C.hp - s.hp) * 0.08;
+                w = d = s.size * 1.25 * hurt;
+                hh = s.size * 0.8 * hurt;
+                y = hh / 2;
+            } else if (s.kind === 'corn') {
+                const sw = s.plant.sway * s.y;
+                x += sw;
+                w = d = s.size * 0.5;
+                hh = s.size * 1.15;
+            } else if (s.kind === 'carrot') {
+                // Asoma: sube, se queda un rato y vuelve a bajar
+                if (s.alive && s.landed) {
+                    if (s.out > 0) {
+                        if ((s.out -= dt) <= 0) s.next = P.every[0] + Math.random() * (P.every[1] - P.every[0]);
+                    } else if ((s.next -= dt) <= 0) {
+                        s.out = P.up;
+                        if (this.onPop) this.onPop(s);
+                    }
+                }
+                s.up += ((s.out > 0 ? 1 : 0) - s.up) * Math.min(1, dt * 9);
+                s.lift = s.up * 0.55;
+                w = d = s.size * 0.62;
+                hh = s.size * 1.7;
+                y = -0.32 + s.lift + hh / 2;
+                s.y = y;
+            }
+            _d.position.set(x, y, z);
+            _d.rotation.set(0, s.ry, s.kind === 'corn' ? 0.15 : 0);
+            _d.scale.set(w * e, hh * e, d * e);
+            _d.updateMatrix();
+            this.tFruit.setMatrixAt(i, _d.matrix);
+            _d.scale.set(gone ? 0.0001 : w * e + OUTLINE * 2, gone ? 0.0001 : hh * e + OUTLINE * 2, gone ? 0.0001 : d * e + OUTLINE * 2);
+            _d.updateMatrix();
+            this.tFruitHull.setMatrixAt(i, _d.matrix);
+            const dark = s.kind === 'pumpkin' ? (C.hp - s.hp) * 0.08 : 0;
+            _c.setHex(s.tone < 0.5 ? C.fruit : C.fruitDark).offsetHSL(0, 0, -dark).lerp(_w, s.flash);
+            this.tFruit.setColorAt(i, _c);
+            // Rabito (calabaza), farfolla (maíz) o el cuello verde (zanahoria)
+            _d.position.set(x, s.kind === 'corn' ? y - hh * 0.35 * e : y + hh * 0.5 * e, z);
+            _d.scale.set(w * (s.kind === 'pumpkin' ? 0.18 : 0.75) * e, (s.kind === 'pumpkin' ? 0.22 : 0.12) * e, d * (s.kind === 'pumpkin' ? 0.18 : 0.75) * e);
+            _d.updateMatrix();
+            this.tCalyx.setMatrixAt(i, _d.matrix);
+        });
+        for (const m of [this.tLeaves, this.tStems, this.tFruit, this.tFruitHull, this.tCalyx]) {
+            m.instanceMatrix.needsUpdate = true;
+            if (m.instanceColor) m.instanceColor.needsUpdate = true;
+        }
+    }
+
     // Tras la explosión: las piezas vuelan, giran, rebotan y se encogen. La tierra se va
     // limpiando en un anillo que sale del barril.
     updateJunk(dt) {
@@ -660,6 +847,12 @@ function segDist(x, z, ax, az, bx, bz) {
 // al tomate (algo más grande que él, que se ve enorme pero es lo que hay que darle)
 function hitBox(s) {
     if (!s.plant) return [s.x - 0.36, 0, s.z - 0.36, s.x + 0.36, 1.55, s.z + 0.36];
+    if (s.kind === 'pumpkin') {
+        const r = s.size * 0.66;
+        return [s.x - r, 0, s.z - r, s.x + r, s.size * 0.85, s.z + r];
+    }
+    if (s.kind === 'corn') return [s.x - 0.2, s.y - 0.3, s.z - 0.2, s.x + 0.2, s.y + 0.3, s.z + 0.2];
+    if (s.kind === 'carrot') return [s.x - 0.26, Math.max(0, s.y - 0.4), s.z - 0.26, s.x + 0.26, s.y + 0.55, s.z + 0.26];
     const r = s.size * 0.62;
     return [s.x - r, s.y - r, s.z - r, s.x + r, s.y + r, s.z + r];
 }

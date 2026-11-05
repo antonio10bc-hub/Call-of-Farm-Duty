@@ -160,6 +160,19 @@ const SPRITES = {
         rows: ['.KKKKKK.', 'KRRRRRRK', 'KKKKKKKK', 'KRWRRRRK', 'KYYYYYYK', 'KRWRRRRK', 'KKKKKKKK', 'KRRRRRDK', '.KKKKKK.'],
         pal: { K: INK, R: '#d8302a', D: '#a8201a', W: '#ff9a8a', Y: '#ffcc33' },
     },
+    // Cultivos de las parcelas que se compran: calabaza, mazorca y zanahoria
+    pumpkin: {
+        rows: ['....KK....', '....KGK...', '..KKKKKK..', '.KOOYOOOK.', 'KOOYOOOODK', 'KOYOOOOODK', 'KOOOOOODDK', 'KOOOOODDDK', '.KODODDDK.', '..KKKKKK..'],
+        pal: { K: INK, G: '#5a7a2a', O: '#f08a1e', D: '#d06a10', Y: '#ffc070' },
+    },
+    corn: {
+        rows: ['....KK....', '...KYYK...', '..KYWYYK..', '..KYYYYK..', '..KYYYOK..', '.GKYYYYKG.', 'GGKYYYOKGG', '.GGKYOKGG.', '..GGKKGG..', '...GGGG...'],
+        pal: { K: INK, Y: '#ffd23f', O: '#e8b830', W: '#fff3a0', G: '#7ab83a' },
+    },
+    carrot: {
+        rows: ['..G.G.G...', '...GGG....', '..KKKKK...', '..KOWOK...', '..KOOOK...', '...KOOK...', '...KODK...', '....KOK...', '....KK....', '..........'],
+        pal: { K: INK, G: '#4caf3c', O: '#f07a1e', D: '#d8601a', W: '#ffb070' },
+    },
     // El comerciante: doblón de oro y su retrato (sombrero de ala ancha y abrigo con botones)
     gold: {
         rows: ['..KKKKK..', '.KYYYYYK.', 'KYWYOYYYK', 'KYYOOOYYK', 'KYOOOOOYK', 'KYYOOOYYK', 'KYYYOYYYK', '.KYYYYYK.', '..KKKKK..'],

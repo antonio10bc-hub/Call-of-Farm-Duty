@@ -43,6 +43,7 @@ export class Sniper {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(theme.sky);
         this.field = new SniperField(theme);
+        this.wireField();
         this.scene.add(this.field.root);
         this.particles = new Particles(this.scene, 3200);
         this.waves = new Shockwaves(this.scene);
@@ -151,7 +152,16 @@ export class Sniper {
         this.scene.remove(this.field.root);
         this.field.dispose();
         this.field = new SniperField(this.theme, scale);
+        this.wireField();
         this.scene.add(this.field.root);
+    }
+
+    // Lo que el campo avisa: una zanahoria que asoma (salta la tierra)
+    wireField() {
+        this.field.onPop = (s) => {
+            this.particles.burst(s.x, 0.15, s.z, 14, [0x8a5a34, 0x76492a, this.theme.dust], { speed: 1.8, up: 3, size: 0.09, ttl: 0.5 });
+            if (Math.random() < 0.35) this.hooks.sfx.play('pop');
+        };
     }
 
     // what: { crop, count, arena, turrets } para cosechar (count blancos de ese cultivo en un
@@ -361,15 +371,28 @@ export class Sniper {
             return true;
         }
         let end;
+        // Lo que aguanta varios tiros (calabazas) para la bala: se lleva un tiro y, si era el
+        // último, se recoge con lo que la bala haya atravesado antes
+        const solid = hits.findIndex((h) => h.sheaf.hp > 0);
+        if (solid >= 0) {
+            const s = hits[solid].sheaf;
+            end = origin.clone().addScaledVector(dir, hits[solid].t);
+            hits.length = solid;
+            if (--s.hp <= 0) hits.push({ sheaf: s, t: 0 });
+            else this.damage(s);
+        }
         if (hits.length) {
             // La bala sigue tras la última mata hasta el suelo
             const tEnd = dir.y < -1e-3 ? Math.min(80, -origin.y / dir.y) : hits[hits.length - 1].t;
-            end = origin.clone().addScaledVector(dir, tEnd);
+            end = end || origin.clone().addScaledVector(dir, tEnd);
             this.hitStop = S.hitStop * Math.min(3, hits.length);
             this.trauma = Math.min(1, this.trauma + 0.2 * hits.length);
             // Colateral: varias de una bala
             if (hits.length > 1 && this.hooks.onMedal) this.hooks.onMedal({ collateral: hits.length });
             this.harvest(hits.map((h) => h.sheaf));
+        } else if (solid >= 0) {
+            this.hitStop = S.hitStop;
+            this.trauma = Math.min(1, this.trauma + 0.15);
         } else {
             const t = dir.y < -1e-3 ? -origin.y / dir.y : 80;
             end = origin.clone().addScaledVector(dir, Math.min(t, 80));
@@ -380,7 +403,18 @@ export class Sniper {
             setTimeout(() => sfx.play('miss'), 60);
         }
         this.drawTracer(origin, dir, muzzle, end);
-        return hits.length > 0;
+        return hits.length > 0 || solid >= 0;
+    }
+
+    // Un tiro a algo que aguanta más (calabaza): se resquebraja, salta un trozo y el hitmarker
+    damage(s) {
+        const C = CROPS[this.crop];
+        s.flash = 1;
+        this.particles.burst(s.x, s.size * 0.6, s.z, 26, C.burst, { speed: 3, up: 3.5, size: 0.1, ttl: 0.7 });
+        this.waves.spawn(s.x, s.z, 0xffe9a0, 1.2, 0.25);
+        this.hooks.sfx.play('crateHit');
+        if (this.hooks.onHitMarker) this.hooks.onHitMarker();
+        vibrate('pickup');
     }
 
     // Blancos recogidos (por una bala, una granada, bombas...): saltan, cuentan para la racha

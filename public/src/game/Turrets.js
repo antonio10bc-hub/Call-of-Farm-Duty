@@ -117,7 +117,7 @@ export class Turrets {
             return;
         }
         if (!t.target && (t.cool -= dt) <= 0) {
-            const free = f.targets.filter((s) => s.alive && s.landed);
+            const free = f.targets.filter((s) => f.hittable(s));
             if (!free.length) return;
             t.target = free[(Math.random() * free.length) | 0];
             t.aimAt(t.target.x, t.target.z, t.root.position.y + 0.8 * S - t.target.y);

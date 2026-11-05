@@ -25,7 +25,7 @@ function fieldRect(def, level) {
 const inRect = (f, x, z, m = 0) => x >= f.x - m && x < f.x + f.w + m && z >= f.z - m && z < f.z + f.d + m;
 // Resto siempre positivo (la parcela de la casa tiene coordenadas negativas)
 const mod = (a, n) => ((a % n) + n) % n;
-const inParcel = (x, z, m = 0) => FARM.parcels.some(([x0, z0, x1, z1]) => x >= x0 + m && x < x1 - m && z >= z0 + m && z < z1 - m);
+const inParcel = (x, z, m = 0) => [...FARM.parcels, ...FARM.lands.map((l) => l.rect)].some(([x0, z0, x1, z1]) => x >= x0 + m && x < x1 - m && z >= z0 + m && z < z1 - m);
 const kindKey = (k) => (!k ? '' : k.field ? (k.locked ? 'junk' : 'field') : k.path ? 'path' : k.yard ? 'yard' : k.wild ? 'wild' : 'b');
 const rectOf = ([x0, z0, x1, z1]) => ({ x: x0, z: z0, w: x1 - x0, d: z1 - z0 });
 // Lo limpio de la parcela de la casa en un nivel (nada en el 0)
@@ -93,6 +93,8 @@ export class Farm {
         if (inRect(this.zone, c, r)) return inRect(this.yard, c, r) ? { yard: true } : { wild: true };
         // La parcela de la casa: lo que aún no se ha limpiado está abandonado
         if (inRect(this.houseZone, c, r) && !inRect(this.houseYard, c, r)) return { wild: true };
+        // Las parcelas en venta: abandonadas hasta que se desbloquea su campo
+        for (const l of FARM.lands) if (inRect(rectOf(l.rect), c, r)) return this.fields[l.field].locked ? { wild: true } : null;
         for (const s of FARM.structures) if (Math.abs(c + 0.5 - s.x) < s.w / 2 + 0.3 && Math.abs(r + 0.5 - s.z) < s.d / 2 + 0.3) return { building: true };
         return null;
     }
@@ -234,7 +236,9 @@ export class Farm {
 
     // ¿Ya está limpio este punto? (dentro del recinto del granero o de un campo)
     cleared(x, z) {
-        return inRect(this.yard, x, z, 0.6) || inRect(this.houseYard, x, z, 0.4) || this.views.some((v) => inRect(v.rect, x, z, 0.5));
+        return inRect(this.yard, x, z, 0.6) || inRect(this.houseYard, x, z, 0.4) || this.views.some((v) => inRect(v.rect, x, z, 0.5))
+            // Una parcela comprada y desbloqueada: limpia, menos lo que su campo aún no ocupa
+            || FARM.lands.some((l) => !this.fields[l.field].locked && inRect(rectOf(l.rect), x, z) && !inRect(this.fields[l.field].zone, x, z, 0.3));
     }
 
     // La casa sube de nivel: se arregla (del 0 al 1) y se limpia más parcela
@@ -252,7 +256,7 @@ export class Farm {
     // matorral, chatarra y piedras; se apartan cuando el recinto o el campo crecen encima
     buildWild() {
         const trees = [], bush = [], pieces = [], rocks = [];
-        const zones = [{ Z: this.zone, k: 1 }, { Z: this.houseZone, k: 0.8 }, ...this.views.map((v) => ({ Z: v.zone, k: 0.55 }))];
+        const zones = [{ Z: this.zone, k: 1 }, { Z: this.houseZone, k: 0.8 }, ...this.views.map((v) => ({ Z: v.zone, k: 0.55 })), ...FARM.lands.map((l) => ({ Z: rectOf(l.rect), k: 1 }))];
         for (const { Z, k } of zones) {
             const free = (x, z, m) => inRect(Z, x, z) && !inRect(this.yard, x, z, m) && !inRect(this.houseYard, x, z, m) && !this.views.some((v) => inRect(v.rect, x, z, m))
                 && !FARM.paths.some(([x0, z0, x1, z1]) => x > x0 - m && x < x1 + m && z > z0 - m && z < z1 + m)
@@ -300,8 +304,11 @@ export class Farm {
     // Plantas del campo v. Se conservan las que ya había (por su sitio) y las nuevas brotan.
     //   Trigo: tallos finos (sin contorno, para que se lean a píxel fino) con su espiga.
     //   Tomate: una mata por casilla con su tutor de madera y dos tomates (verdes hasta madurar).
+    //   Calabaza: una por casilla, tumbada entre dos hojas grandes.
+    //   Maíz: dos por casilla, altas, con su hoja y la mazorca.
+    //   Zanahoria: cuatro por casilla, solo el penacho de hojas (y la punta naranja al madurar).
     buildPlants(v, old = null, fromCenter = false) {
-        const f = v.rect, wheat = v.crop === 'wheat', n = wheat ? PER_TILE : 1;
+        const f = v.rect, wheat = v.crop === 'wheat', n = { wheat: PER_TILE, corn: 2, carrot: 2 }[v.crop] || 1;
         const prev = new Map(v.plants.map((s) => [s.key, s]));
         v.plants = [];
         for (let a = 0; a < f.w * n; a++) for (let b = 0; b < f.d * n; b++) {
@@ -312,7 +319,7 @@ export class Farm {
                 v.plants.push(keep);
                 continue;
             }
-            const j = wheat ? 0.12 : 0.2;
+            const j = wheat ? 0.12 : n > 1 ? 0.15 : 0.2;
             v.plants.push({
                 key,
                 t0: this.sproutTime(v, x, z, old, fromCenter),
@@ -335,6 +342,37 @@ export class Farm {
             // Tallos y espigas. Las espigas no cambian de color: maduras doradas, con dos tonos
             v.meshes = [this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), v.mats[0], count)), this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), v.mats[1], count))];
             v.plants.forEach((s, i) => v.meshes[1].setColorAt(i, _c.setHex(s.tone < 0.5 ? CROPS.wheat.ear : CROPS.wheat.earDark)));
+        } else if (v.crop === 'pumpkin') {
+            // Hojas (2 por planta), la calabaza y su rabo
+            v.meshes = [
+                this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), v.mats[0], count * 2)),
+                this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), v.mats[1], count)),
+                this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), v.mats[2], count)),
+            ];
+            const P = CROPS.pumpkin;
+            v.plants.forEach((s, i) => {
+                for (let k = 0; k < 2; k++) v.meshes[0].setColorAt(i * 2 + k, _c.setHex(P.leaves[(k + i) % 3]).offsetHSL(0, 0, (s.tone - 0.5) * 0.06));
+                v.meshes[2].setColorAt(i, _c.setHex(P.calyx));
+            });
+        } else if (v.crop === 'corn') {
+            // Caña, hojas (2) y mazorca
+            v.meshes = [
+                this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), v.mats[0], count)),
+                this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), v.mats[1], count * 2)),
+                this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), v.mats[2], count)),
+            ];
+            v.plants.forEach((s, i) => {
+                for (let k = 0; k < 2; k++) v.meshes[1].setColorAt(i * 2 + k, _c.setHex(CROPS.corn.leaves[(k + i) % 3]).offsetHSL(0, 0, (s.tone - 0.5) * 0.06));
+            });
+        } else if (v.crop === 'carrot') {
+            // Penacho de hojas (3) y la punta naranja
+            v.meshes = [
+                this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), v.mats[0], count * 3)),
+                this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), v.mats[1], count)),
+            ];
+            v.plants.forEach((s, i) => {
+                for (let k = 0; k < 3; k++) v.meshes[0].setColorAt(i * 3 + k, _c.setHex(CROPS.carrot.leaves[(k + i) % 3]).offsetHSL(0, 0, (s.tone - 0.5) * 0.06));
+            });
         } else {
             // Hojas (3 bloques por mata), tomates (2) y tutores (1)
             v.meshes = [
@@ -648,8 +686,12 @@ export class Farm {
         for (const v of this.views) {
             if (v.locked) continue;
             if (v.turret) this.updateTurrets(v, dt, (progress[v.id] || 0) >= 1);
-            if (v.crop === 'wheat') this.updateWheat(v, time, progress[v.id] || 0);
-            else this.updateTomato(v, time, progress[v.id] || 0);
+            const p = progress[v.id] || 0;
+            if (v.crop === 'wheat') this.updateWheat(v, time, p);
+            else if (v.crop === 'pumpkin') this.updatePumpkin(v, time, p);
+            else if (v.crop === 'corn') this.updateCorn(v, time, p);
+            else if (v.crop === 'carrot') this.updateCarrot(v, time, p);
+            else this.updateTomato(v, time, p);
             for (const m of v.meshes) {
                 m.instanceMatrix.needsUpdate = true;
                 if (m.instanceColor) m.instanceColor.needsUpdate = true;
@@ -724,6 +766,89 @@ export class Farm {
                 fruitMesh.setMatrixAt(i * 2 + k, _d.matrix);
                 fruitMesh.setColorAt(i * 2 + k, _c);
             }
+        });
+    }
+
+    // Calabazas: dos hojas grandes en el suelo y la calabaza, que sale verde y se pone naranja
+    updatePumpkin(v, time, p) {
+        const P = CROPS.pumpkin, [leafMesh, fruitMesh, stemMesh] = v.meshes;
+        const ripe = Math.min(1, Math.max(0, (p - 0.5) / 0.5));
+        v.plants.forEach((s, i) => {
+            const g = this.grow(s, p), sway = Math.sin(time * 1.2 - s.x * 0.4 + s.ph) * 0.05;
+            for (let k = 0; k < 2; k++) {
+                const a = s.ry + k * 2.2;
+                _d.position.set(s.x + Math.sin(a) * 0.25 * g, 0.06 * g, s.z + Math.cos(a) * 0.25 * g);
+                _d.rotation.set(sway, a, 0);
+                _d.scale.set(0.45 * g, Math.max(0.0001, 0.06 * g), 0.4 * g);
+                _d.updateMatrix();
+                leafMesh.setMatrixAt(i * 2 + k, _d.matrix);
+            }
+            const e = p < 0.25 ? 0.0001 : Math.min(1, (p - 0.25) / 0.4) * (0.5 + 0.5 * ripe) * g;
+            _d.position.set(s.x, 0.22 * e, s.z);
+            _d.rotation.set(0, s.ry, 0);
+            _d.scale.set(0.62 * e, Math.max(0.0001, 0.44 * e), 0.62 * e);
+            _d.updateMatrix();
+            fruitMesh.setMatrixAt(i, _d.matrix);
+            fruitMesh.setColorAt(i, _c.setHex(P.unripe).lerp(_c2.setHex(s.tone < 0.5 ? P.fruit : P.fruitDark), ripe));
+            _d.position.set(s.x, 0.46 * e + 0.04, s.z);
+            _d.scale.set(0.08 * e, Math.max(0.0001, 0.14 * e), 0.08 * e);
+            _d.updateMatrix();
+            stemMesh.setMatrixAt(i, _d.matrix);
+        });
+    }
+
+    // Maíz: cañas altas que se mecen, una hoja y la mazorca (amarilla al madurar)
+    updateCorn(v, time, p) {
+        const C = CROPS.corn, [stalkMesh, leafMesh, cobMesh] = v.meshes;
+        const ripe = p >= 1, st = ripe ? 3 : p < 0.35 ? 0 : p < 0.7 ? 1 : 2;
+        v.plants.forEach((s, i) => {
+            const h = s.h * 1.7 * this.grow(s, p);
+            const sway = Math.sin(time * 1.3 - s.x * 0.4 - s.z * 0.2 + s.ph * 0.3) * 0.07;
+            _d.position.set(s.x - Math.sin(sway) * h / 2, Math.cos(sway) * h / 2, s.z);
+            _d.rotation.set(0, 0, sway);
+            _d.scale.set(0.08, Math.max(0.0001, h), 0.08);
+            _d.updateMatrix();
+            stalkMesh.setMatrixAt(i, _d.matrix);
+            stalkMesh.setColorAt(i, _c.setHex(C.stages[st]).offsetHSL(0, 0, (s.tone - 0.5) * 0.08));
+            for (let k = 0; k < 2; k++) {
+                const a = s.ry + k * Math.PI, y = h * (0.4 + k * 0.25);
+                _d.position.set(s.x + Math.sin(a) * 0.14 - Math.sin(sway) * y, y, s.z + Math.cos(a) * 0.14);
+                _d.rotation.set(0, a, 0.7 * (k ? -1 : 1));
+                _d.scale.set(0.05, Math.max(0.0001, 0.38 * h / 1.6), 0.12);
+                _d.updateMatrix();
+                leafMesh.setMatrixAt(i * 2 + k, _d.matrix);
+            }
+            const e = p < 0.6 ? 0.0001 : Math.min(1, (p - 0.6) / 0.4);
+            _d.position.set(s.x + Math.sin(s.ry) * 0.08 - Math.sin(sway) * h * 0.65, h * 0.65, s.z + Math.cos(s.ry) * 0.08);
+            _d.rotation.set(0, s.ry, 0.3);
+            _d.scale.set(0.1 * e, Math.max(0.0001, 0.24 * e), 0.1 * e);
+            _d.updateMatrix();
+            cobMesh.setMatrixAt(i, _d.matrix);
+            cobMesh.setColorAt(i, _c.setHex(ripe ? C.fruit : C.unripe));
+        });
+    }
+
+    // Zanahorias: el penacho de hojas y, al madurar, la punta naranja asomando de la tierra
+    updateCarrot(v, time, p) {
+        const C = CROPS.carrot, [leafMesh, topMesh] = v.meshes;
+        v.plants.forEach((s, i) => {
+            const g = this.grow(s, p), h = s.h * 0.55 * g;
+            const sway = Math.sin(time * 1.8 - s.x * 0.5 + s.ph) * 0.1;
+            for (let k = 0; k < 3; k++) {
+                const a = s.ry + k * 2.1;
+                _d.position.set(s.x + Math.sin(a) * 0.05, h / 2, s.z + Math.cos(a) * 0.05);
+                _d.rotation.set(Math.cos(a) * (0.3 + sway), a, Math.sin(a) * 0.3);
+                _d.scale.set(0.06, Math.max(0.0001, h), 0.06);
+                _d.updateMatrix();
+                leafMesh.setMatrixAt(i * 3 + k, _d.matrix);
+            }
+            const e = p < 0.7 ? 0.0001 : Math.min(1, (p - 0.7) / 0.3);
+            _d.position.set(s.x, 0.03, s.z);
+            _d.rotation.set(0, s.ry, 0);
+            _d.scale.set(0.16 * e, Math.max(0.0001, 0.08 * e), 0.16 * e);
+            _d.updateMatrix();
+            topMesh.setMatrixAt(i, _d.matrix);
+            topMesh.setColorAt(i, _c.setHex(C.fruit));
         });
     }
 

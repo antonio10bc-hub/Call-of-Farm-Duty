@@ -558,6 +558,9 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
 /* Iconos de cada recurso (y del barril y el candado de los terrenos bloqueados) */
 .wheat-ico { --ico: var(--px-wheat); }
 .tomato-ico { --ico: var(--px-tomato); }
+.pumpkin-ico { --ico: var(--px-pumpkin); }
+.corn-ico { --ico: var(--px-corn); }
+.carrot-ico { --ico: var(--px-carrot); }
 .barrel-ico { --ico: var(--px-barrel); }
 .lock-ico { --ico: var(--px-lock); }
 .turret-ico { --ico: var(--px-turret); }
@@ -599,6 +602,8 @@ body.cine .farm-ui, body.cine .bubbles { visibility: hidden; }
 /* Cartel del comerciante: madera oscura; sin él, gris con lo que falta para que vuelva */
 .merchant-sign { --sign: #8a5a2a; }
 .merchant-sign.away { --sign: #7a7068; }
+/* Cartel de una parcela en venta: dorado, con su precio en oro */
+.field-sign.for-sale { --sign: #b07a10; }
 /* Hoja del comerciante (con la base de la del ovni): en madera y crema */
 .ufo-shop.merchant-sheet { height: auto; max-height: min(62vh, 560px); background: #4a3020; box-shadow: 0 -6px 0 rgba(42, 26, 14, .4), inset 0 4px 0 #6a4a30; }
 .merchant-portrait { flex: none; width: 48px; height: 48px; background: var(--px-merchant) center / 100% 100% no-repeat; image-rendering: pixelated; animation: hop 1.2s steps(4) infinite; }

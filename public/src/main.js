@@ -244,8 +244,7 @@ const ndcOf = (x, y) => {
 const ico = (icon) => `<span class="ico ${icon}-ico"></span>`;
 
 function updateCounts(bump = false) {
-    $('wheat-count').textContent = state.items.wheat;
-    $('tomato-count').textContent = state.items.tomato;
+    for (const c of Object.keys(CROPS)) $(`${c}-count`).textContent = state.items[c];
     // Monedas alienígenas: salen en cuanto hay alguna (o en cuanto ha caído el ovni)
     $('alien-count').textContent = $('hud-alien').textContent = state.items.alien;
     // Monedas de oro: salen en cuanto hay alguna (o en cuanto ha venido el comerciante)
@@ -253,8 +252,8 @@ function updateCounts(bump = false) {
     $('farm-gold').classList.toggle('hidden', !state.items.gold && !farm.camp.present);
     $('farm-alien').classList.toggle('hidden', !state.items.alien && !state.ufo.crashed);
     $('snipe-alien').classList.toggle('hidden', !state.items.alien);
-    // El contador de tomates sale cuando ya hay campo de tomates
-    $('farm-tomato').classList.toggle('hidden', !state.fields.tomato.unlocked && !state.items.tomato);
+    // Los contadores de los demás cultivos salen cuando ya hay su campo (o algo recogido)
+    for (const f of FARM.fields) if (f.crop !== 'wheat') $(`farm-${f.crop}`).classList.toggle('hidden', !state.fields[f.id].unlocked && !state.items[f.crop]);
     // En el campo de tiro, el contador es el del cultivo que se recoge
     const hud = snipeField && !sniper.unlocking ? FIELD_BY_ID[snipeField].crop : 'wheat';
     $('hud-wheat').textContent = state.items[hud];
@@ -418,11 +417,15 @@ function refreshSigns() {
     for (const def of FARM.fields) {
         const id = def.id, el = signs[id], f = state.fields[id];
         const can = state.canUnlock(id);
-        el.classList.toggle('locked', !f.unlocked && !can);
+        // Parcela sin comprar: EN VENTA con su precio en oro
+        const land = state.landOf(id), forSale = !!land && !state.lands[land.id];
+        el.classList.toggle('locked', !f.unlocked && !can && !forSale);
         el.classList.toggle('can-unlock', can);
-        el.classList.toggle('can-up', state.canUpgrade(id) || state.canBuyTurrets(id));
+        el.classList.toggle('for-sale', forSale);
+        el.classList.toggle('can-up', state.canUpgrade(id) || state.canBuyTurrets(id) || (forSale && state.canBuyLand(land.id)));
         const html = f.unlocked
             ? `${f.turrets ? ico('turret') : ''}<span class="sign-level">${L('LV', 'NV')}.${f.level + 1}</span><i class="sign-up"></i>`
+            : forSale ? `${ico('gold')}<span>${state.landPrice(land.id)}</span><i class="sign-up"></i>`
             : can ? `${ico('barrel')}<span>${L('UNLOCK!', '¡DESBLOQUEAR!')}</span>` : `${ico('lock')}<span>${L('LOCKED', 'BLOQUEADO')}</span>`;
         if (el.innerHTML !== html) el.innerHTML = html;
         if (f.unlocked) el.style.setProperty('--sign', `#${def.levels[f.level].sign.toString(16).padStart(6, '0')}`);
@@ -519,6 +522,21 @@ function refreshPanel() {
         return;
     }
     const id = selected.field, def = FIELD_BY_ID[id], f = state.fields[id], crop = CROPS[def.crop];
+    // Parcela en venta: qué hay dentro y el botón de comprarla con oro
+    const land = state.landOf(id);
+    if (!f.unlocked && land && !state.lands[land.id]) {
+        title.textContent = land.name;
+        text.textContent = L(`FOR SALE. FULL OF JUNK, BUT IT HAS ROOM FOR A ${def.name}. PAY IN GOLD FROM THE MERCHANT, THEN BLOW UP ITS BARREL.`, `EN VENTA. LLENA DE PORQUERÍA, PERO CABE UN ${def.name}. SE PAGA CON EL ORO DEL COMERCIANTE Y LUEGO SE VUELA SU BARRIL.`);
+        bar.parentElement.classList.add('hidden');
+        act.classList.remove('hidden');
+        act.classList.add('unlock-btn');
+        act.disabled = !state.canBuyLand(land.id);
+        $('action-ico').className = 'ico gold-ico';
+        $('action-label').textContent = `${L('BUY', 'COMPRAR')} ${state.landPrice(land.id)}`;
+        up.classList.add('hidden');
+        return;
+    }
+    act.disabled = false;
     // Terreno bloqueado: qué falta para desbloquearlo (el otro campo al máximo) o el botón
     if (!f.unlocked) {
         const can = state.canUnlock(id);
@@ -539,7 +557,7 @@ function refreshPanel() {
     }
     const p = state.progress(id), ready = state.isReady(id);
     title.textContent = `${def.name} ${L('LV', 'NV')}.${f.level + 1}`;
-    const what = def.crop === 'tomato' ? L('TOMATOES', 'TOMATES') : L('BUNDLES', 'MATAS');
+    const what = crop.unit;
     text.textContent = (ready
         ? L(`RIPE! ${f.left} ${what} TO HARVEST.`, `¡MADURO! ${f.left} ${what} PARA RECOGER.`)
         : `${L('GROWING... READY IN', 'CRECIENDO... LISTO EN')} ${fmt((1 - p) * crop.growTime)}`)
@@ -560,6 +578,20 @@ function refreshPanel() {
     const cost = done ? '' : Object.entries(turrets ? state.turretCost(id) : state.cost(id)).map(([c, n]) => `<span class="upgrade-cost${state.items[c] < n ? ' short' : ''}">${ico(CROPS[c].icon)}<b>${n}</b></span>`).join('');
     if ($('upgrade-cost').innerHTML !== cost) $('upgrade-cost').innerHTML = cost;
     up.classList.toggle('maxed', done);
+}
+
+// Comprar la parcela de un campo con oro: queda lista para volar su barril
+function buyLand(id) {
+    const land = state.landOf(id);
+    if (!land || !state.buyLand(land.id)) return sfx.play('miss');
+    const f = farm.fields[id].rect;
+    rig.focus(f.cx, f.cz + 1);
+    rig.shake(0.12);
+    sfx.play('power');
+    vibrate('pickup');
+    updateCounts();
+    stage(L('PLOT BOUGHT!', '¡PARCELA COMPRADA!'), L('NOW BLOW UP ITS BARREL', 'AHORA VUELA SU BARRIL'));
+    refreshPanel();
 }
 
 // Torreta automática: aparecen sacos en las 4 esquinas del campo, la torreta en uno de ellos, y
@@ -609,8 +641,7 @@ function upgradeField(id) {
     sfx.play('power');
     vibrate('pickup');
     updateCounts();
-    const what = FIELD_BY_ID[id].crop === 'tomato' ? L('TOMATOES', 'TOMATES') : L('BUNDLES', 'MATAS');
-    stage(L('FIELD UPGRADED!', '¡CAMPO MEJORADO!'), `${what}: ${state.sheaves(id)}`);
+    stage(L('FIELD UPGRADED!', '¡CAMPO MEJORADO!'), `${CROPS[FIELD_BY_ID[id].crop].unit}: ${state.sheaves(id)}`);
     refreshPanel();
 }
 
@@ -1031,6 +1062,8 @@ tapBtn('btn-prev', () => sniper.goSide(-1));
 tapBtn('btn-next', () => sniper.goSide(1));
 tapBtn('panel-action', () => {
     if (!selected || !selected.field) return;
+    const land = state.landOf(selected.field);
+    if (land && !state.lands[land.id]) return buyLand(selected.field);
     if (state.canUnlock(selected.field)) startUnlock(selected.field);
     else harvest(selected.field);
 });
