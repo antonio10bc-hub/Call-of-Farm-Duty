@@ -160,6 +160,15 @@ const SPRITES = {
         rows: ['.KKKKKK.', 'KRRRRRRK', 'KKKKKKKK', 'KRWRRRRK', 'KYYYYYYK', 'KRWRRRRK', 'KKKKKKKK', 'KRRRRRDK', '.KKKKKK.'],
         pal: { K: INK, R: '#d8302a', D: '#a8201a', W: '#ff9a8a', Y: '#ffcc33' },
     },
+    // El comerciante: doblón de oro y su retrato (sombrero de ala ancha y abrigo con botones)
+    gold: {
+        rows: ['..KKKKK..', '.KYYYYYK.', 'KYWYOYYYK', 'KYYOOOYYK', 'KYOOOOOYK', 'KYYOOOYYK', 'KYYYOYYYK', '.KYYYYYK.', '..KKKKK..'],
+        pal: { K: INK, Y: '#ffd23f', O: '#d99a1a', W: '#fff6b0' },
+    },
+    merchant: {
+        rows: ['............', '....KKKK....', '...KHHHHK...', '.KKKHRRHKKK.', 'KHHHHHHHHHHK', '.KKKSSSSKKK.', '...KSSSSK...', '..KCCCCCCK..', '.KCCGCCGCCK.', '.KCCCCCCCCK.', '.KCCGCCGCCK.', '.KKKKKKKKKK.'],
+        pal: { K: INK, H: '#6a3a22', R: '#c8402e', S: '#e8b48a', C: '#2e7a8a', G: '#ffd23f' },
+    },
     // Reloj del día: sol y luna llena
     sun: {
         rows: ['Y...Y...Y', '.Y.YYY.Y.', '..YYYYY..', '.YYWYYYY.', 'YYYYYYYYY', '.YYYYYYO.', '..YYYYO..', '.Y.YOO.Y.', 'Y...Y...Y'],

@@ -11,7 +11,8 @@ export const FARM = {
         [0, 0, 30, 30],
         [0, -30, 30, 0],
     ],
-    bounds: { x0: 0, z0: -30, x1: 30, z1: 30 }, // todo lo vallado (hasta aquí se mueve la cámara)
+    bounds: { x0: 0, z0: -30, x1: 30, z1: 30 }, // todo lo vallado
+    view: { x0: 0, z0: -30, x1: 44, z1: 30 },   // hasta dónde se mueve la cámara (con el claro del comerciante)
     // Vallas: tramos rectos de [x, z] a [x, z]; gap: hueco [desde, hasta] a lo largo del tramo
     fences: [
         { from: [0, -30], to: [0, 30] },
@@ -106,7 +107,8 @@ export const FARM = {
         [14, 13, 16, 30],   // camino principal hacia el sur
         [3, 15, 25, 16],    // entre el granero y los campos
         [14, -13, 16, 9],   // de la casa a la trasera del granero (por el portón)
-        [17, -16, 46, -14], // de la casa hacia fuera por la derecha: por aquí llegará el comerciante
+        [17, -16, 46, -14], // de la casa hacia fuera por la derecha: por aquí llega el comerciante
+        [33, -22, 41, -16], // el claro donde monta su puesto (content/merchant.js)
     ],
 };
 

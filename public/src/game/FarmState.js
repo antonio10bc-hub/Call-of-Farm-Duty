@@ -2,6 +2,7 @@ import { CROPS } from '../content/crops.js';
 import { FARM, FIELD_BY_ID } from '../content/farm.js';
 import { SHOP_ITEMS, DEFAULT_LOOK } from '../content/ufo.js';
 import { RIFLE, RIFLE_BY_ID, RIFLE_MAX } from '../content/rifle.js';
+import { MERCHANT } from '../content/merchant.js';
 
 // Estado de la granja: lo recogido de cada cultivo, cada campo (desbloqueado o no, nivel, hora
 // de siembra y blancos que quedan), el nivel del granero y las mejoras del rifle.
@@ -26,8 +27,12 @@ export class FarmState {
         this.house = { level: 0 };
         // Nivel de cada mejora del rifle (content/rifle.js)
         this.rifle = Object.fromEntries(RIFLE.map((r) => [r.id, 0]));
-        // Lo recogido de cada cultivo y las monedas alienígenas (alien)
-        this.items = Object.fromEntries([...Object.keys(CROPS), 'alien'].map((c) => [c, 0]));
+        // Lo recogido de cada cultivo, las monedas alienígenas (alien) y las de oro (gold, del
+        // comerciante)
+        this.items = Object.fromEntries([...Object.keys(CROPS), 'alien', 'gold'].map((c) => [c, 0]));
+        // El comerciante: la visita de la que son los encargos que hay (cada uno: cultivo, cuánto,
+        // cuánto oro paga y si ya se ha entregado)
+        this.merchant = { visit: -1, orders: [] };
         // El ovni (crashed: ya se ha estrellado en la parcela de la casa; met: ya se ha abierto su
         // tienda alguna vez) y la casa personalizada en su tienda: lo comprado (owned) y lo que
         // lleva puesto en cada parte (look)
@@ -55,6 +60,7 @@ export class FarmState {
                 this.house.level = Math.min(HOUSE.length - 1, Math.max(0, d.house ? d.house.level | 0 : (d.rev | 0) < 4 ? 1 : 0));
                 for (const r of RIFLE) this.rifle[r.id] = Math.min(RIFLE_MAX, Math.max(0, d.rifle ? d.rifle[r.id] | 0 : 0));
                 this.ufo.crashed = !!(d.ufo && d.ufo.crashed);
+                if (d.merchant && Array.isArray(d.merchant.orders)) this.merchant = { visit: d.merchant.visit | 0, orders: d.merchant.orders.filter((o) => o && CROPS[o.crop]) };
                 this.ufo.met = !!(d.ufo && d.ufo.met);
                 if (d.home) {
                     if (Array.isArray(d.home.owned)) this.home.owned = d.home.owned.filter((id) => SHOP_ITEMS[id]);
@@ -104,7 +110,7 @@ export class FarmState {
 
     save() {
         try {
-            localStorage.setItem(KEY, JSON.stringify({ rev: REV, items: this.items, fields: this.fields, barn: this.barn, house: this.house, rifle: this.rifle, ufo: this.ufo, home: this.home }));
+            localStorage.setItem(KEY, JSON.stringify({ rev: REV, items: this.items, fields: this.fields, barn: this.barn, house: this.house, rifle: this.rifle, ufo: this.ufo, home: this.home, merchant: this.merchant }));
         } catch {
             /* ignorar */
         }
@@ -275,6 +281,40 @@ export class FarmState {
 
     canUpgrade(id) {
         return this.fields[id].unlocked && !this.maxed(id) && this.affordable(id);
+    }
+
+    // ---------- Comerciante ----------
+    // Los encargos de la visita (se piden al llegar: cultivos de los campos que hay, en cantidad
+    // según su nivel)
+    ordersFor(visit) {
+        if (this.merchant.visit === visit) return this.merchant.orders;
+        const fields = FARM.fields.filter((f) => this.fields[f.id].unlocked);
+        if (!fields.length) fields.push(FARM.fields[0]);
+        const orders = [];
+        for (let k = 0; k < MERCHANT.orders; k++) {
+            // Cada encargo de un campo (repartidos entre los que haya)
+            const f = fields[(k + visit) % fields.length], [a, b] = MERCHANT.size;
+            const n = Math.max(MERCHANT.min, Math.round((this.sheaves(f.id) * (a + Math.random() * (b - a))) / MERCHANT.step) * MERCHANT.step);
+            orders.push({ crop: f.crop, n, gold: Math.ceil(n * MERCHANT.rate[f.crop]), done: false });
+        }
+        this.merchant = { visit, orders };
+        this.save();
+        return orders;
+    }
+
+    canDeliver(o) {
+        return !o.done && this.items[o.crop] >= o.n;
+    }
+
+    // Entregar un encargo: se da lo que pide y se cobra en oro
+    deliver(visit, i) {
+        const o = this.ordersFor(visit)[i];
+        if (!o || !this.canDeliver(o)) return false;
+        this.items[o.crop] -= o.n;
+        this.items.gold += o.gold;
+        o.done = true;
+        this.save();
+        return true;
     }
 
     // ---------- Torretas automáticas (la mejora extra con el campo al máximo) ----------

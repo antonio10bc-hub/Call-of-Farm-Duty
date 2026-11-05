@@ -207,3 +207,42 @@ test('torreta: con el campo al máximo, la mejora extra pone una torreta que va 
     await expect.poll(() => page.evaluate(() => window.game && !!game.farm.fields.wheat.turret)).toBe(true);
     expect(errors).toEqual([]);
 });
+
+test('comerciante: llega por su camino, monta el puesto, pide cosecha y paga en oro; luego se va', { tag: '@full' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await openFarm(page);
+    await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
+    await expect.poll(() => page.evaluate(() => game.farm.introT > 2.5)).toBe(true);
+    // Sin él (en las pruebas empieza fuera): su zona vacía y el cartel dice que está fuera
+    expect(await page.evaluate(() => [game.farm.camp.present, game.farm.camp.wagon.visible])).toEqual([false, false]);
+    await expect(page.locator('#sign-merchant')).toContainText('FUERA');
+    // Llega: el carro entra por el camino y monta el puesto (con su aviso)
+    await page.evaluate(() => { game.merchantClock.force = 'here'; });
+    await expect(page.locator('#stage')).toContainText('MERCADER');
+    await expect.poll(() => page.evaluate(() => game.farm.camp.open), { timeout: 15_000 }).toBe(true);
+    expect(await page.evaluate(() => [game.farm.camp.wagon.visible, game.farm.camp.man.visible, game.farm.camp.fireLit])).toEqual([true, true, true]);
+    await expect(page.locator('#sign-merchant')).toContainText('MERCADER');
+    // Sus encargos: 3, de lo que da la granja; sin cosecha no se entregan (la cámara va a su zona:
+    // desde el principio queda fuera de la pantalla del móvil)
+    await page.evaluate(() => { game.rig.focus(37, -15); game.rig.zoomTarget = 0.8; });
+    await page.locator('#sign-merchant').click();
+    await expect(page.locator('#merchant')).toBeVisible();
+    await expect(page.locator('.order')).toHaveCount(3);
+    await expect(page.locator('#order-0 button')).toBeDisabled();
+    const o = await page.evaluate(() => game.state.ordersFor(game.merchantClock.visit)[0]);
+    expect(o.crop).toBe('wheat');
+    // Con la cosecha justa: se entrega, se cobra en oro y queda HECHO
+    await page.evaluate((n) => { game.state.items.wheat = n; }, o.n);
+    await expect(page.locator('#order-0 button')).toBeEnabled();
+    await page.locator('#order-0 button').click();
+    expect(await page.evaluate(() => [game.state.items.wheat, game.state.items.gold])).toEqual([0, o.gold]);
+    await expect(page.locator('#order-0')).toHaveClass(/done/);
+    await expect(page.locator('#gold-count')).toHaveText(String(o.gold));
+    // Se guarda (los encargos de esta visita, con lo entregado, y el oro)
+    await page.reload();
+    await expect.poll(() => page.evaluate(() => window.game && [game.state.items.gold, game.state.merchant.orders[0].done])).toEqual([o.gold, true]);
+    // Se va: recoge el puesto y su carro sale por el camino
+    await page.evaluate(() => { game.merchantClock.force = 'away'; });
+    await expect.poll(() => page.evaluate(() => game.farm.camp.wagon.visible), { timeout: 15_000 }).toBe(false);
+    expect(errors).toEqual([]);
+});

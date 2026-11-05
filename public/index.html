@@ -62,6 +62,7 @@
             <div id="farm-wheat" class="coins-badge static"><span class="ico wheat-ico"></span><span id="wheat-count">0</span></div>
             <div id="farm-tomato" class="coins-badge static hidden"><span class="ico tomato-ico"></span><span id="tomato-count">0</span></div>
             <div id="farm-alien" class="coins-badge static alien-badge hidden"><span class="ico alien-ico"></span><span id="alien-count">0</span></div>
+            <div id="farm-gold" class="coins-badge static gold-badge hidden"><span class="ico gold-ico"></span><span id="gold-count">0</span></div>
         </div>
         <button id="btn-settings" class="corner-btn" data-es="AJUSTES">SETTINGS</button>
         <button id="btn-debug" class="debug-btn">DEBUG</button>
@@ -140,6 +141,18 @@
         <div id="ufo-items" class="ufo-items"></div>
     </div>
 
+    <!-- El comerciante: hoja abajo con él, sus monedas de oro, cuánto le queda y sus encargos -->
+    <div id="merchant" class="ufo-shop merchant-sheet hidden">
+        <div class="ufo-head">
+            <i class="merchant-portrait"></i>
+            <div class="ufo-talk merchant-talk"><b data-es="MERCADER">MERCHANT</b><span id="merchant-line"></span></div>
+            <div class="coins-badge static gold-badge"><span class="ico gold-ico"></span><span id="merchant-gold">0</span></div>
+            <button id="merchant-close" class="panel-x" aria-label="Close" data-es-aria="Cerrar">X</button>
+        </div>
+        <div id="merchant-timer" class="merchant-timer"></div>
+        <div id="merchant-orders" class="merchant-orders"></div>
+    </div>
+
     <!-- Granero (armamento): su nivel y dos pestañas, las rachas de bajas que se llevan al campo
          de tiro y las mejoras del rifle -->
     <div id="streaks" class="screen settings streaks-screen hidden">
@@ -181,6 +194,9 @@
             </div>
             <!-- La hora: la del reloj (AUTO) o día o noche fijos -->
             <div class="ks-row unlock-row"><span data-es="HORA">TIME</span><button class="unlock-one" id="dbg-daytime"></button></div>
+            <!-- El comerciante (AUTO con el reloj, o AQUÍ o FUERA fijos) y monedas de oro -->
+            <div class="ks-row unlock-row"><span data-es="COMERCIANTE">MERCHANT</span><button class="unlock-one" id="dbg-merchant"></button></div>
+            <div class="ks-row" id="gold-row"><span data-es="MONEDAS DE ORO">GOLD COINS</span><button class="ks-step" data-d="-10">-</button><b id="dbg-gold"></b><button class="ks-step" data-d="10">+</button></div>
             <!-- Bajas que pide cada racha: una fila por recompensa (las rellena main.js) -->
             <div class="ks-debug">
                 <div class="ks-debug-title" data-es="BAJAS POR RACHA">KILLS PER STREAK</div>

@@ -3,6 +3,7 @@ import { box, toon, outline, OUTLINE } from '../render/materials.js';
 import { easeOutBack } from '../core/math.js';
 import { STRUCTURES, Ufo, Turret, Sandbags } from '../render/structures.js';
 import { Plot } from '../render/props.js';
+import { MerchantCamp } from '../render/merchant.js';
 import { junkyard, barrelParts, JUNK } from '../render/junk.js';
 import { CROPS } from '../content/crops.js';
 import { FARM, TURRETS } from '../content/farm.js';
@@ -143,6 +144,10 @@ export class Farm {
         // Lo comprado en la tienda del ovni para la parcela de la casa, cada cosa en su hueco
         this.plot = new Plot(theme.outline);
         root.add(this.plot.root);
+        // La zona del comerciante, en su claro junto al camino
+        this.camp = new MerchantCamp(theme.outline);
+        this.camp.root.traverse((o) => (o.userData.merchant = true));
+        root.add(this.camp.root);
     }
 
     tileY(k) {
@@ -605,6 +610,7 @@ export class Farm {
     // Lo que hay bajo un rayo de la cámara: un edificio, un campo o nada
     pick(ray) {
         if (this.ufo && this.ufo.crashed && ray.intersectObject(this.ufo.root, true).length) return { ufo: true };
+        if (ray.intersectObject(this.camp.root, true).length) return { merchant: true };
         const hits = ray.intersectObjects(this.structures.map((m) => m.root), true);
         if (hits.length) return { structure: hits[0].object.userData.structure };
         const t = -ray.ray.origin.y / ray.ray.direction.y;
@@ -636,6 +642,7 @@ export class Farm {
         });
         if (this.ufo) this.ufo.update(dt, time);
         this.plot.update(dt, time);
+        this.camp.update(dt, time, this.nightK || 0);
         this.updateShots(dt);
 
         for (const v of this.views) {

@@ -6,6 +6,7 @@ import { FARM, FIELD_BY_ID, INFO, TURRETS } from './content/farm.js';
 import { KILLSTREAKS, setStreakCounts, streakOf } from './content/killstreaks.js';
 import { UFO, SHOP, SHOP_ITEMS } from './content/ufo.js';
 import { RIFLE } from './content/rifle.js';
+import { MERCHANT, MerchantClock } from './content/merchant.js';
 import { RetroRenderer } from './render/RetroRenderer.js';
 import { CameraRig } from './render/CameraRig.js';
 import { Particles } from './render/Particles.js';
@@ -64,7 +65,7 @@ const _cDay = new THREE.Color(), _cNight = new THREE.Color();
 let nightApplied = -1, clockT = 0;
 function applyNight() {
     const k = dayNight.k, { light, night } = THEME;
-    sniper.nightK = k;
+    sniper.nightK = farm.nightK = k;
     if (Math.abs(k - nightApplied) < 0.002) return;
     nightApplied = k;
     const mix = (out, a, b) => out.copy(_cDay.setHex(a)).lerp(_cNight.setHex(b), k);
@@ -247,6 +248,9 @@ function updateCounts(bump = false) {
     $('tomato-count').textContent = state.items.tomato;
     // Monedas alienígenas: salen en cuanto hay alguna (o en cuanto ha caído el ovni)
     $('alien-count').textContent = $('hud-alien').textContent = state.items.alien;
+    // Monedas de oro: salen en cuanto hay alguna (o en cuanto ha venido el comerciante)
+    $('gold-count').textContent = $('merchant-gold').textContent = state.items.gold;
+    $('farm-gold').classList.toggle('hidden', !state.items.gold && !farm.camp.present);
     $('farm-alien').classList.toggle('hidden', !state.items.alien && !state.ufo.crashed);
     $('snipe-alien').classList.toggle('hidden', !state.items.alien);
     // El contador de tomates sale cuando ya hay campo de tomates
@@ -369,6 +373,18 @@ const houseSign = uiButton('field-sign house-sign hidden', () => select({ struct
 // alarma (una admiración blanca grande); después, la cara del alienígena
 const ufoSign = uiButton('field-sign ufo-sign hidden', () => openShop());
 ufoSign.id = 'sign-ufo';
+// Cartel del comerciante encima de su puesto: con él, su nombre (y la flecha si hay algún encargo
+// que se puede entregar); sin él, lo que falta para que vuelva
+const merchantSign = uiButton('field-sign merchant-sign hidden', () => openMerchant());
+merchantSign.id = 'sign-merchant';
+function refreshMerchantSign() {
+    const here = farm.camp.open, left = merchantClock.left;
+    const can = here && state.ordersFor(merchantClock.visit).some((o) => state.canDeliver(o));
+    const html = `${ico('gold')}<span>${here ? MERCHANT.name : left === null ? L('AWAY', 'FUERA') : fmt(left)}</span><i class="sign-up"></i>`;
+    if (merchantSign.innerHTML !== html) merchantSign.innerHTML = html;
+    merchantSign.classList.toggle('away', !here);
+    merchantSign.classList.toggle('can-up', can);
+}
 function refreshUfoSign() {
     ufoSign.classList.toggle('met', state.ufo.met);
     ufoSign.innerHTML = state.ufo.met ? ico('alien') : '<span>!</span>';
@@ -419,6 +435,12 @@ function placeBubbles() {
     const show = mode === 'farm' && farm.introT > 1.6;
     armory.classList.toggle('hidden', !show);
     houseSign.classList.toggle('hidden', !show);
+    merchantSign.classList.toggle('hidden', !show);
+    if (show) {
+        _b.set(MERCHANT.stall.x, 3.1, MERCHANT.stall.z).project(rig.camera);
+        merchantSign.style.left = `${(_b.x * 0.5 + 0.5) * innerWidth}px`;
+        merchantSign.style.top = `${(-_b.y * 0.5 + 0.5) * innerHeight}px`;
+    }
     const ufoOn = show && state.ufo.crashed && !cine && !!farm.ufo;
     ufoSign.classList.toggle('hidden', !ufoOn);
     if (ufoOn) {
@@ -779,7 +801,7 @@ function panBy(dx, dy) {
     const u = unitsPerPx(), y = rig.yaw, sp = Math.sin((M.pitch * Math.PI) / 180);
     // Derecha de la pantalla y "hacia dentro" sobre el suelo
     const rx = Math.cos(y), rz = -Math.sin(y), fx = -Math.sin(y), fz = -Math.cos(y);
-    const B = FARM.bounds;
+    const B = FARM.view;
     rig.fx = clamp(rig.fx - rx * dx * u + fx * dy * u / sp, B.x0 + 2, B.x1 - 2);
     rig.fz = clamp(rig.fz - rz * dx * u + fz * dy * u / sp, B.z0 + 2, B.z1 - 2);
 }
@@ -789,7 +811,7 @@ function zoomBy(k) {
 }
 
 function isUi(e) {
-    return e.target.closest && e.target.closest('button, .panel, .screen, .ufo-shop');
+    return e.target.closest && e.target.closest('button, .panel, .screen, .ufo-shop, .merchant-sheet');
 }
 
 const locked = () => document.pointerLockElement === canvas;
@@ -929,6 +951,7 @@ function tapMap(x, y) {
     const hit = farm.pick(ray);
     if (!hit) return select(null);
     if (hit.ufo) return openShop();
+    if (hit.merchant) return openMerchant();
     if (hit.field && state.isReady(hit.field) && selected && selected.field === hit.field) return harvest(hit.field);
     select(hit);
 }
@@ -1048,7 +1071,7 @@ function updateCine(dt) {
         cine.locked = true;
         cine.t = UFO.wait;
         select(null);
-        for (const id of ['streaks', 'settings', 'debug', 'ufo-shop']) $(id).classList.add('hidden');
+        for (const id of ['streaks', 'settings', 'debug', 'ufo-shop', 'merchant']) $(id).classList.add('hidden');
         document.body.classList.add('cine');
         touch = pan = pinch = null;
         rig.focus(S.x + 3, S.z + 3);
@@ -1221,6 +1244,92 @@ $('ufo-shop').addEventListener('pointerdown', (e) => e.stopPropagation());
 tapBtn('ufo-close', () => {
     sfx.play('ui');
     $('ufo-shop').classList.add('hidden');
+    rig.zoomTarget = 1;
+});
+
+// ---------- Comerciante ----------
+// Su reloj (en las pruebas, fuera salvo que DEBUG diga otra cosa). Cuando llega o se va, su carro
+// entra o sale por el camino (si se está en el mapa, con aviso)
+const merchantClock = new MerchantClock(Settings.merchant || (CONFIG.test ? 'away' : null));
+farm.camp.setPresent(merchantClock.here, false);
+function updateMerchant(dt) {
+    const here = merchantClock.here;
+    if (here !== farm.camp.present) {
+        farm.camp.setPresent(here, farm.introT > 2);
+        if (mode === 'farm' && farm.introT > 2) {
+            stage(here ? L('THE MERCHANT IS HERE!', '¡HA LLEGADO EL MERCADER!') : L('THE MERCHANT LEFT', 'EL MERCADER SE HA IDO'), here ? L('HE WANTS CROPS FOR GOLD', 'PIDE COSECHA A CAMBIO DE ORO') : L('HE WILL BE BACK SOON', 'VOLVERÁ PRONTO'));
+            sfx.play(here ? 'bounceGet' : 'ui');
+        }
+        if (!here) $('merchant').classList.add('hidden');
+        updateCounts();
+    }
+    // Humo de su hoguera
+    if (farm.camp.fireLit && Math.random() < dt * 6) {
+        const F = MERCHANT.fire;
+        farmParticles.spawn(F.x + (Math.random() - 0.5) * 0.3, 0.7, F.z + (Math.random() - 0.5) * 0.3, 0.1, 0.8, 0.05, 0.16 + Math.random() * 0.1, 2, Math.random() < 0.5 ? 0x7a7068 : 0x9a9088, -0.1);
+    }
+}
+
+// Hoja del comerciante: él, sus monedas, cuánto le queda y sus encargos (cultivo y cuánto → oro)
+function openMerchant() {
+    if (mode !== 'farm' || inCine()) return;
+    select(null);
+    sfx.play('ui');
+    rig.focus(MERCHANT.stall.x + 2, MERCHANT.stall.z + 3);
+    rig.zoomTarget = 0.85;
+    merchantSay(farm.camp.open ? MERCHANT.lines.hello[(Math.random() * MERCHANT.lines.hello.length) | 0] : MERCHANT.lines.away);
+    renderMerchant();
+    const el = $('merchant');
+    el.classList.remove('hidden', 'in');
+    void el.offsetWidth;
+    el.classList.add('in');
+}
+
+function merchantSay(text, warn = false) {
+    $('merchant-line').textContent = text;
+    const t = $('merchant-line').parentElement;
+    t.classList.remove('warn');
+    if (warn) {
+        void t.offsetWidth;
+        t.classList.add('warn');
+    }
+}
+
+function renderMerchant() {
+    $('merchant-gold').textContent = state.items.gold;
+    const here = farm.camp.open, left = merchantClock.left;
+    $('merchant-timer').textContent = left === null ? '' : here ? `${L('LEAVES IN', 'SE VA EN')} ${fmt(left)}` : `${L('BACK IN', 'VUELVE EN')} ${fmt(left)}`;
+    if (!here) {
+        $('merchant-orders').innerHTML = `<div class="merchant-away">${L('HIS STALL IS EMPTY. HE COMES BACK WITH NEW ORDERS EVERY FEW MINUTES.', 'SU PUESTO ESTÁ VACÍO. VUELVE CON ENCARGOS NUEVOS CADA POCOS MINUTOS.')}</div>`;
+        return;
+    }
+    $('merchant-orders').innerHTML = state.ordersFor(merchantClock.visit).map((o, i) => {
+        const can = state.canDeliver(o), need = o.n - state.items[o.crop];
+        const label = o.done ? L('DONE', 'HECHO') : can ? L('DELIVER', 'ENTREGAR') : `${L('NEED', 'FALTAN')} ${need}`;
+        return `<div class="order${o.done ? ' done' : ''}" id="order-${i}"><span class="order-want">${ico(CROPS[o.crop].icon)}<b>${o.n}</b></span><span class="order-arrow">&gt;</span>`
+            + `<span class="order-pay">${ico('gold')}<b>+${o.gold}</b></span><button data-i="${i}"${o.done || !can ? ' disabled' : ''}>${label}</button></div>`;
+    }).join('');
+}
+
+$('merchant').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const b = e.target.closest('button[data-i]');
+    if (!b) return;
+    if (!state.deliver(merchantClock.visit, Number(b.dataset.i))) return sfx.play('miss'), merchantSay(MERCHANT.lines.short, true);
+    sfx.play('coin');
+    setTimeout(() => sfx.play('coin'), 120);
+    vibrate('pickup');
+    const all = state.ordersFor(merchantClock.visit).every((o) => o.done);
+    merchantSay(all ? MERCHANT.lines.done : MERCHANT.lines.thanks);
+    const r = b.getBoundingClientRect();
+    for (let k = 0; k < 3; k++) setTimeout(() => flyItem('gold', r.x + r.width / 2, r.y, $('merchant-gold'), () => {}), k * 90);
+    updateCounts(true);
+    renderMerchant();
+});
+$('merchant').addEventListener('pointerdown', (e) => e.stopPropagation());
+tapBtn('merchant-close', () => {
+    sfx.play('ui');
+    $('merchant').classList.add('hidden');
     rig.zoomTarget = 1;
 });
 
@@ -1403,6 +1512,7 @@ tapBtn('btn-debug', () => {
     sfx.play('ui');
     refreshUnlockRows();
     refreshHomeRows();
+    refreshMerchantDbg();
     $('debug').classList.remove('hidden');
 });
 tapBtn('btn-debug-close', () => {
@@ -1423,6 +1533,30 @@ tapBtn('dbg-daytime', () => {
     sfx.play('ui');
 });
 refreshDaytimeBtn();
+// Depuración: el comerciante (el del reloj, o aquí o fuera fijos; se recuerda) y monedas de oro
+const MERCHANT_MODES = [null, 'here', 'away'];
+function refreshMerchantDbg() {
+    $('dbg-merchant').textContent = { here: L('HERE', 'AQUÍ'), away: L('AWAY', 'FUERA') }[merchantClock.force] || L('AUTO', 'AUTO');
+    $('dbg-gold').textContent = state.items.gold;
+}
+tapBtn('dbg-merchant', () => {
+    const next = MERCHANT_MODES[(MERCHANT_MODES.indexOf(merchantClock.force) + 1) % MERCHANT_MODES.length];
+    merchantClock.force = next;
+    Settings.set('merchant', next);
+    refreshMerchantDbg();
+    sfx.play('ui');
+});
+for (const b of $('gold-row').querySelectorAll('.ks-step')) {
+    b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        state.items.gold = Math.min(9999, Math.max(0, state.items.gold + Number(b.dataset.d)));
+        state.save();
+        updateCounts();
+        refreshMerchantDbg();
+        sfx.play('coin');
+    });
+}
+refreshMerchantDbg();
 // Depuración: cuántas bajas pide cada racha (- / +), y volver a las normales
 const ksRows = {};
 for (const k of KILLSTREAKS) {
@@ -1704,10 +1838,13 @@ function frame(now) {
             renderer.flash(INK, Math.max(0, (modeT - 0.35) / 0.4));
             if (modeT > 0.8) enterSnipe();
         }
+        updateMerchant(dt);
         uiT -= dt;
         if (uiT <= 0) {
             uiT = 0.25;
             refreshPanel();
+            refreshMerchantSign();
+            if (!$('merchant').classList.contains('hidden')) renderMerchant();
         }
         // Humo de la chimenea y del tractor; destellos sobre el campo maduro
         // (la casa en ruinas no echa humo)
@@ -1769,4 +1906,4 @@ if ('serviceWorker' in navigator && !/^(localhost|127\.)/.test(location.hostname
 }
 
 // Para las pruebas (Playwright)
-window.game = { state, sniper, farm, rig, dayNight, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, upgradeBarn, upgradeHouse, openShop, get cine() { return cine; }, goFarm, select, updateCounts, pause: () => (paused = true) };
+window.game = { state, sniper, farm, rig, dayNight, merchantClock, openMerchant, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, upgradeBarn, upgradeHouse, openShop, get cine() { return cine; }, goFarm, select, updateCounts, pause: () => (paused = true) };

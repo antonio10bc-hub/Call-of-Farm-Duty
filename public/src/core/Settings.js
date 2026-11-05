@@ -8,7 +8,8 @@ const KEY = 'cofd.settings';
 // freeHome: depuración, las de la casa y lo de la tienda del ovni cuestan 0
 // streaks: depuración, bajas que pide cada racha ({ grenade: 5, ... }; null = las normales)
 // daytime: depuración, 'day' o 'night' fijos (null = el ciclo del reloj)
-const DEFAULTS = { music: true, sfx: true, vibration: true, analytics: null, uiSize: 'normal', pixel: 'fine', freeCosts: false, freeHome: false, streaks: null, daytime: null };
+// merchant: depuración, el comerciante 'here' o 'away' fijo (null = el del reloj)
+const DEFAULTS = { music: true, sfx: true, vibration: true, analytics: null, uiSize: 'normal', pixel: 'fine', freeCosts: false, freeHome: false, streaks: null, daytime: null, merchant: null };
 
 export const Settings = {
     ...DEFAULTS,
