@@ -57,7 +57,7 @@ test('ovni: con la casa al máximo cae del cielo (sin control), se estrella y ab
 test('ovnis pequeños: cruzan el cielo del campo de tiro y derribarlos da monedas alienígenas', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await enterField(page);
-    const pos = await page.evaluate(() => { const f = game.sniper.flyers.spawn(); f.dist = f.len / 2; const p = f.model.root.position; return { x: p.x, y: p.y, z: p.z }; });
+    const pos = await page.evaluate(() => { const f = game.sniper.flyers.spawn(false); f.dist = f.len / 2; const p = f.model.root.position; return { x: p.x, y: p.y, z: p.z }; });
     expect(pos.y).toBeGreaterThan(5);
     // (se le devuelve al centro de su vuelo y se coloca ya, para apuntar a donde está de verdad)
     await aimAndShoot(page, '(() => { const fl = game.sniper.flyers, f = fl.list.find((x) => !x.falling); if (f) { f.dist = f.len / 2; fl.place(f, game.sniper.time); } return f && f.model.root.position; })()');

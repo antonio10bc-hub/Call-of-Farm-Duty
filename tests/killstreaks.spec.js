@@ -69,7 +69,7 @@ test('alienígenas a pie: entran por un borde, cada uno a su paso, y abatirlos l
     await expect(page.locator('#hitmarker')).toHaveClass(/on/);
     await expect(page.locator('#medals')).toContainText('ALIEN ABATIDO');
     // Los ovnis pequeños también cuentan; a los 3, el misil Predator
-    await page.evaluate(() => { const f = game.sniper.flyers.spawn(); game.sniper.flyers.shoot(f); game.sniper.addAlien(1); });
+    await page.evaluate(() => { const f = game.sniper.flyers.spawn(false); game.sniper.flyers.shoot(f); game.sniper.addAlien(1); });
     await expect.poll(() => page.evaluate(() => !!game.sniper.ks.predator)).toBe(true);
     await expect(page.locator('#as-predator')).toHaveClass(/done/);
     expect(errors).toEqual([]);
@@ -102,7 +102,35 @@ test('ladrones: un alienígena coge una mata y huye; si se escapa se pierde, si 
     expect(errors).toEqual([]);
 });
 
-test('día y noche: de noche el cielo se oscurece, sale la luna y los alienígenas brillan y vienen muchos más', { tag: '@full' }, async ({ page }) => {
+test('ovni ladrón: se para encima de la zona con más cultivos y su rayo absorbe varios; derribado se recuperan, si escapa se pierden', { tag: '@full' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await enterBigField(page);
+    const before = await page.evaluate(() => ({ left: game.state.fields.wheat.left, wheat: game.state.wheat, remaining: game.sniper.field.remaining }));
+    // Llega encima de su zona, baja y echa el rayo: varias matas de golpe
+    const thief = () => page.evaluate(() => { const F = game.sniper.flyers, f = F.spawn(true); f.dist = f.len / 2; f.low = 0.99; });
+    await thief();
+    await expect.poll(() => page.evaluate(() => game.sniper.flyers.list[0].mode)).toBe('beam');
+    const n = await page.evaluate(() => game.sniper.flyers.list[0].loot.length);
+    expect(n).toBeGreaterThan(1);
+    expect(await page.evaluate(() => [!!game.sniper.flyers.list[0].beam, game.sniper.field.remaining])).toEqual([true, before.remaining - n]);
+    // Derribado con su botín: todo lo absorbido se recupera
+    await page.evaluate(() => game.sniper.flyers.shoot(game.sniper.flyers.list[0]));
+    expect(await page.evaluate(() => [game.state.wheat, game.state.fields.wheat.left])).toEqual([before.wheat + n, before.left - n]);
+    // Otro que se escapa con lo suyo: se pierde todo (un -n rojo)
+    await page.evaluate(() => game.sniper.flyers.reset());
+    await thief();
+    await expect.poll(() => page.evaluate(() => game.sniper.flyers.list[0].mode)).toBe('beam');
+    const m = await page.evaluate(() => game.sniper.flyers.list[0].loot.length);
+    await page.evaluate(() => { const f = game.sniper.flyers.list[0]; f.beamT = 0; });
+    await expect.poll(() => page.evaluate(() => game.sniper.flyers.list[0].mode)).toBe('leave');
+    await page.evaluate(() => { const f = game.sniper.flyers.list[0]; f.dist = f.len - 0.01; });
+    await expect.poll(() => page.evaluate(() => game.sniper.flyers.list.length)).toBe(0);
+    expect(await page.evaluate(() => [game.state.wheat, game.state.fields.wheat.left])).toEqual([before.wheat + n, before.left - n - m]);
+    await expect(page.locator('#medals')).toContainText('ROBADO');
+    expect(errors).toEqual([]);
+});
+
+test('día y noche: de noche el cielo se oscurece, sale la luna y los alienígenas brillan y vienen más', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await enterBigField(page);
     await expect(page.locator('#daytime')).toHaveText('DIA');
@@ -112,9 +140,10 @@ test('día y noche: de noche el cielo se oscurece, sale la luna y los alienígen
     await expect(page.locator('body')).toHaveClass(/night/);
     await expect(page.locator('#daytime')).toHaveClass(/is-night/);
     expect(await page.evaluate(() => [game.sniper.nightK, game.sniper.nightSky.visible])).toEqual([1, true]);
-    // De noche caben muchos más a la vez
+    // De noche caben más a la vez (pero no una invasión)
     await page.evaluate(() => { const W = game.sniper.walkers; W.reset(); W.next = 0; });
-    await expect.poll(() => page.evaluate(() => game.sniper.walkers.list.length), { timeout: 15_000 }).toBeGreaterThan(5);
+    await expect.poll(() => page.evaluate(() => game.sniper.walkers.list.length), { timeout: 15_000 }).toBeGreaterThan(4);
+    expect(await page.evaluate(() => game.sniper.walkers.list.filter((w) => w.alive).length)).toBeLessThanOrEqual(6);
     expect(errors).toEqual([]);
 });
 
@@ -165,7 +194,7 @@ test('racha alienígena de 6 y 10: bombardero que bombardea el campo y bomba nuc
     // Nuclear a los 10: cuenta atrás de 5 y lo que quede, recogido; también caen los alienígenas
     // del campo y los ovnis del cielo
     await page.evaluate(() => { game.sniper.aliens = 9; game.sniper.addAlien(1); });
-    await page.evaluate(() => { const W = game.sniper.walkers, w = W.spawn(); w.speed = 0; w.beam = 0; game.sniper.flyers.spawn(); });
+    await page.evaluate(() => { const W = game.sniper.walkers, w = W.spawn(); w.speed = 0; w.beam = 0; game.sniper.flyers.spawn(false); });
     const aliens = await page.evaluate(() => game.sniper.aliens);
     await expect(page.locator('#nuke-count')).toBeVisible();
     await expect(page.locator('#nuke-n')).toHaveText(/^[1-5]$/);

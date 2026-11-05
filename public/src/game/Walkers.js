@@ -16,8 +16,12 @@ const rand = (a, b) => a + Math.random() * (b - a);
 // Materiales por color, compartidos (salen alienígenas a montones; de noche brillan todos a la vez)
 const MATS = new Map();
 const mat = (c) => MATS.get(c) || MATS.set(c, toon(c)).get(c);
-// Halo verde de noche y el aviso rojo de "lleva algo robado"
-const HALO = new THREE.MeshBasicMaterial({ color: 0x7dff4a, transparent: true, opacity: 0, side: THREE.BackSide, depthWrite: false, blending: THREE.AdditiveBlending });
+// Casco de cristal (transparente de día; de noche brilla en verde, con un pulso suave) y el aviso
+// rojo de "lleva algo robado"
+const HELMET = toon(0x9fdcff);
+HELMET.transparent = true;
+HELMET.opacity = 0.35;
+HELMET.depthWrite = false;
 const ALARM = new THREE.MeshBasicMaterial({ color: 0xff3e1a });
 
 // Caja con su contorno de tinta
@@ -69,8 +73,8 @@ export class Walkers {
     }
 
     // Cuerpo de cubos: piernas, traje morado con cinturón, brazos, cabeza verde grande con su
-    // antena (sin cara, como todo en el juego); el halo de la noche y, encima, el hatillo de lo
-    // robado con su aviso rojo (escondidos hasta que roba)
+    // antena (sin cara, como todo en el juego) dentro de un casco de cristal con su collar y,
+    // encima, el hatillo de lo robado con su aviso rojo (escondido hasta que roba)
     build(crop) {
         const g = new THREE.Group(), ink = this.ink;
         const body = new THREE.Group();
@@ -82,9 +86,11 @@ export class Walkers {
         hulled(body, ink, 0.5, 0.42, 0.44, SKIN, 0, 1.15, 0);
         hulled(body, ink, 0.05, 0.22, 0.05, 0x3ec82a, 0, 1.46, 0);
         hulled(body, ink, 0.12, 0.12, 0.12, LAMP, 0, 1.6, 0);
-        const halo = new THREE.Mesh(box(0.9, 1.9, 0.8), HALO);
-        halo.position.y = 0.85;
-        body.add(halo);
+        const helmet = new THREE.Mesh(box(0.7, 0.62, 0.64), HELMET);
+        helmet.position.y = 1.2;
+        helmet.renderOrder = 2;
+        body.add(helmet);
+        hulled(body, ink, 0.64, 0.07, 0.58, 0x9aa8b8, 0, 0.9, 0);
         const loot = new THREE.Group();
         loot.position.y = 1.55;
         const C = CROPS[crop] || CROPS.wheat;
@@ -220,10 +226,13 @@ export class Walkers {
             this.next = rand(W.every[0], W.every[1]) / Math.max(1, Math.sqrt(sn.field.scale || 1)) / (1 + W.night * k);
             if (this.list.filter((w) => w.alive).length < W.max + Math.round(W.nightMax * k)) this.spawn();
         }
-        // De noche brillan: piel y antena con luz propia y un halo verde alrededor
-        mat(SKIN).emissive.setHex(0x2a8a1a).multiplyScalar(k);
+        // De noche brillan: el casco se enciende en verde (latiendo despacio), y la piel y la
+        // antena con luz propia
+        const pulse = 0.75 + Math.sin(time * 3) * 0.25;
+        HELMET.emissive.setHex(0x5aff3a).multiplyScalar(k * 0.7 * pulse);
+        HELMET.opacity = 0.35 + 0.3 * k;
+        mat(SKIN).emissive.setHex(0x2a8a1a).multiplyScalar(k * 0.6);
         mat(LAMP).emissive.setHex(0xff3e5e).multiplyScalar(k);
-        HALO.opacity = 0.32 * k;
         ALARM.color.setHex(Math.sin(time * 14) > 0 ? 0xff3e1a : 0xffe03a);
         this.list = this.list.filter((w) => {
             w.beam = Math.max(0, w.beam - dt);

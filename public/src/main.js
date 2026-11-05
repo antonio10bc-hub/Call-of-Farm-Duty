@@ -178,10 +178,11 @@ const sniper = new Sniper(THEME, {
         void el.offsetWidth;
         el.classList.add('bump');
     },
-    // Un alienígena se ha escapado con algo del campo: se pierde, con su -1 rojo donde se fue
-    onStolen(target, nx, ny) {
-        state.lose(snipeField);
-        killPop((nx * 0.5 + 0.5) * innerWidth, (-ny * 0.5 + 0.5) * innerHeight, cropOf(snipeField).icon, 'stolen-pop', '-1');
+    // Un alienígena (o un ovni, con varias) se ha escapado con algo del campo: se pierde, con su -n
+    // rojo donde se fue
+    onStolen(target, nx, ny, n = 1) {
+        for (let k = 0; k < n; k++) state.lose(snipeField);
+        killPop((nx * 0.5 + 0.5) * innerWidth, (-ny * 0.5 + 0.5) * innerHeight, cropOf(snipeField).icon, 'stolen-pop', `-${n}`);
         medal(L('STOLEN!', '¡ROBADO!'), 'stolen');
         sfx.play('miss');
         $('left-count').textContent = sniper.field.remaining;
@@ -680,6 +681,9 @@ function updateStreak() {
         const next = streakOf('crop').find((k) => k.at > n);
         $('streak-next').textContent = next ? `${L('NEXT', 'SIGUIENTE')}: ${next.at} ${next.short}` : L('MAX STREAK!', '¡RACHA MÁXIMA!');
     }
+    // Lo que queda en el campo (también baja cuando roban)
+    const left = String(sniper.field.remaining);
+    if (!sniper.unlocking && $('left-count').textContent !== left) $('left-count').textContent = left;
     $('alien-streak').classList.toggle('hidden', sniper.unlocking);
     const a = sniper.aliens, steps = streakOf('alien');
     $('as-n').textContent = a;

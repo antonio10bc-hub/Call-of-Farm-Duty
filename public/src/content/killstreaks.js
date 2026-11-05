@@ -50,5 +50,5 @@ export const KS = {
     // Alienígenas ladrones a pie: uno cada every [min, max] s (más en campos más grandes), como
     // mucho max a la vez; cada uno a su paso (m/s): andando, al trote o corriendo. De noche salen
     // (1 + night) veces más seguidos y caben nightMax más a la vez
-    walkers: { every: [2.5, 6], max: 4, speeds: [1.4, 2.6, 4.2], night: 3, nightMax: 6 },
+    walkers: { every: [2.5, 6], max: 4, speeds: [1.4, 2.6, 4.2], night: 1, nightMax: 2 },
 };

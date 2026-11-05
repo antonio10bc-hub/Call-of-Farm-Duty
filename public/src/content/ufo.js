@@ -12,7 +12,10 @@ export const UFO = {
     settle: 1.8,  // s tras el choque antes de devolver el control
     // Ovnis pequeños en el campo de tiro: cada every s (entre min y max) cruza uno el cielo a
     // height m, a speed m/s; derribarlo da coins monedas
-    flyer: { min: 12, max: 28, height: [7, 11], speed: 6, radius: 0.9, coins: 1 },
+    // Ovnis pequeños del campo de tiro. thief: los que, en vez de solo cruzar, se paran encima de
+    // la zona con más cultivos y echan su rayo (beam): baja a height, absorbe en time s todo lo
+    // que pille a menos de radius (como mucho max) y se va con ello
+    flyer: { min: 12, max: 28, height: [7, 11], speed: 6, radius: 0.9, coins: 1, thief: 0.6, beam: { time: 3.2, radius: 2.4, height: 6, max: 8 } },
 };
 
 // Precio en monedas alienígenas (lo de serie no cuesta nada)

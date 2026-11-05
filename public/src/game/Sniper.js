@@ -445,7 +445,7 @@ export class Sniper {
 
     // Sin nada que recoger (ni nadie huyendo con algo robado, ni la nuclear a punto): se acaba
     checkEnd() {
-        if (this.field.remaining === 0 && !this.ks.holdsEnd && !this.walkers.carrying && this.ending < 0 && !this.unlocking) this.finish();
+        if (this.field.remaining === 0 && !this.ks.holdsEnd && !this.walkers.carrying && !this.flyers.carrying && this.ending < 0 && !this.unlocking) this.finish();
     }
 
     // Racha de granadas: sube y la barra se rellena, cada vez durando menos. Al llegar a cada
