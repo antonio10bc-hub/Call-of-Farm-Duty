@@ -185,7 +185,7 @@ export const FARM = {
 };
 
 // Torreta automática de un campo (mejora extra con el campo al máximo): una sola, que va de
-// esquina en esquina (salta cada hop s, como el tirador entre torres). Dispara a ráfagas (burst
+// esquina en esquina (salta cada hop s a la de al lado, nunca en diagonal, como el tirador entre torres). Dispara a ráfagas (burst
 // balas, una cada rate s) como una ametralladora. En el mapa, plantada en unos sacos en cada
 // esquina, recoge sola lo que esté maduro, una mata cada every s (mientras el juego está
 // abierto), y entre tanto no para de tirotear el campo. En el campo de tiro va de un mástil a

@@ -198,6 +198,24 @@ test('torreta: con el campo al máximo, la mejora extra pone una torreta que va 
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
     await page.evaluate(() => { game.sniper.flyers.next = Infinity; game.sniper.walkers.reset(); game.sniper.walkers.next = Infinity; });
     expect(await page.evaluate(() => [!!game.sniper.turrets.turret, game.sniper.turrets.masts.length])).toEqual([true, 4]);
+    // Salta siempre al mástil de al lado (nunca en diagonal), y en el mapa a la esquina de al lado
+    const sides = await page.evaluate(() => {
+        const out = [], T = game.sniper.turrets, v = game.farm.fields.wheat, ft = v.turret;
+        for (let k = 0; k < 16; k++) {
+            let a = T.turret.corner;
+            T.turret.hop = null;
+            T.hop();
+            out.push((T.turret.corner - a + 4) % 4);
+            a = ft.corner;
+            ft.hop = null;
+            ft.tgt = null;
+            ft.hopT = 0;
+            game.farm.updateTurrets(v, 0.016, false);
+            out.push((ft.corner - a + 4) % 4);
+        }
+        return [...new Set(out)].sort();
+    });
+    expect(sides.every((d) => d === 1 || d === 3)).toBe(true);
     await expect.poll(() => page.evaluate(() => game.sniper.field.sheaves.every((s) => s.landed)), { timeout: 20_000 }).toBe(true);
     const total = await page.evaluate(() => game.sniper.field.remaining);
     await expect.poll(() => page.evaluate(() => game.sniper.field.remaining), { timeout: 15_000 }).toBeLessThan(total - 1);

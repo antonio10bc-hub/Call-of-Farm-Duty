@@ -455,7 +455,7 @@ export class Farm {
         if (t.hopping) return;
         if ((t.hopT -= dt) <= 0 && !t.tgt) {
             t.hopT = TURRETS.hop;
-            t.corner = (t.corner + 1 + ((Math.random() * 3) | 0)) % 4;
+            t.corner = (t.corner + (Math.random() < 0.5 ? 1 : 3)) % 4; // a la esquina de al lado (nunca en diagonal)
             const b = v.bases[t.corner];
             t.hopTo(b.root.position.x, b.top * b.root.scale.y, b.root.position.z);
             return;

@@ -71,10 +71,11 @@ export class Turrets {
         b.mesh.material.dispose();
     }
 
-    // A otro mástil que no sea el de tu torre ni el suyo
+    // Al mástil de al lado, a su izquierda o a su derecha (como el tirador entre torres: nunca en
+    // diagonal) y nunca al de tu torre
     hop() {
         const t = this.turret, n = this.masts.length;
-        const free = [...Array(n).keys()].filter((i) => i !== t.corner && i !== this.sn.corner);
+        const free = [(t.corner + 1) % n, (t.corner + n - 1) % n].filter((i) => i !== this.sn.corner);
         t.corner = free[(Math.random() * free.length) | 0];
         const p = this.top(t.corner);
         t.hopTo(p.x, p.y, p.z, 1.1);
