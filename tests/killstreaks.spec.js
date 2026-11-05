@@ -86,8 +86,19 @@ test('racha alienígena de 3: misil Predator con vista cenital, se guía y se ac
     expect(await page.evaluate(() => game.sniper.ks.predator.boost)).toBe(true);
     // Mientras se guía, la racha de granadas no se pierde
     expect(await page.evaluate(() => game.sniper.ks.paused)).toBe(true);
+    // Un alienígena justo debajo: el misil también lo abate
+    await page.evaluate(() => {
+        const p = game.sniper.ks.predator, W = game.sniper.walkers, w = W.spawn();
+        w.x0 = p.x; w.z0 = p.z; w.dist = 0; w.speed = 0; w.beam = 0; W.place(w);
+        window.predLow = 99;
+        const tick = () => { const q = game.sniper.ks.predator; if (q) { window.predLow = Math.min(window.predLow, q.y); requestAnimationFrame(tick); } };
+        tick();
+    });
     await expect.poll(() => page.evaluate(() => game.sniper.ks.predator), { timeout: 10_000 }).toBe(null);
     await expect(page.locator('#predator-hud')).toBeHidden();
+    expect(await page.evaluate(() => game.sniper.aliens)).toBe(4);
+    // La vista del misil se corta al tocar el suelo (no vuelve a subir para ver la explosión)
+    expect(await page.evaluate(() => window.predLow)).toBeLessThan(5);
     expect(await page.evaluate(() => game.state.wheat)).toBeGreaterThan(0);
     expect(errors).toEqual([]);
 });
@@ -102,11 +113,15 @@ test('racha alienígena de 6 y 10: bombardero que bombardea el campo y bomba nuc
     await expect.poll(() => page.evaluate(() => game.sniper.ks.bombs.length > 0), { timeout: 8_000 }).toBe(true);
     await expect.poll(() => page.evaluate(() => !game.sniper.ks.plane), { timeout: 25_000 }).toBe(true); // en el campo grande el avión tarda más en cruzar
     await expect.poll(() => page.evaluate(() => game.state.wheat), { timeout: 5_000 }).toBeGreaterThan(0);
-    // Nuclear a los 10: cuenta atrás de 5 y lo que quede, recogido
+    // Nuclear a los 10: cuenta atrás de 5 y lo que quede, recogido; también caen los alienígenas
+    // del campo y los ovnis del cielo
     await page.evaluate(() => { game.sniper.aliens = 9; game.sniper.addAlien(1); });
+    await page.evaluate(() => { const W = game.sniper.walkers, w = W.spawn(); w.speed = 0; w.beam = 0; game.sniper.flyers.spawn(); });
+    const aliens = await page.evaluate(() => game.sniper.aliens);
     await expect(page.locator('#nuke-count')).toBeVisible();
     await expect(page.locator('#nuke-n')).toHaveText(/^[1-5]$/);
     await expect.poll(() => page.evaluate(() => game.sniper.field.remaining), { timeout: 40_000 }).toBe(0);
+    expect(await page.evaluate(() => game.sniper.aliens)).toBe(aliens + 2);
     await expect(page.locator('#nuke-haze')).toHaveCSS('opacity', '1', { timeout: 5_000 }); // neblina radiactiva
     await expect.poll(() => page.evaluate(() => game.mode), { timeout: 15_000 }).toBe('farm');
     expect(await page.evaluate(() => game.state.wheat)).toBe(total);

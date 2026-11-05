@@ -11,10 +11,18 @@ test('la granja es un mapa: el granero sube de nivel, agranda su recinto y ense�
     await expect(page.locator('#streaks')).toBeVisible();
     // Las dos rachas, activas desde el principio: granadas (recogiendo) y alienígena
     await expect(page.locator('#barn-level')).toHaveText('GRANERO NV.0/5');
-    await expect(page.locator('.ks-track')).toHaveText([/RACHA DE GRANADAS/, /RACHA ALIENÍGENA/]);
-    for (const id of ['frag', 'cluster', 'fire', 'predator', 'bomber', 'nuke']) await expect(page.locator(`#ks-card-${id}`)).not.toHaveClass(/locked/);
-    await expect(page.locator('#ks-card-cluster .ks-kills')).toHaveText('10 SEGUIDAS');
-    await expect(page.locator('#ks-card-nuke .ks-kills')).toHaveText('10 ALIENÍGENAS');
+    await expect(page.locator('.ks-track')).toHaveText([/RACHA DE GRANADAS/, /RACHA ALIENIGENA/]);
+    await expect(page.locator('#ks-card-cluster .kc-n')).toHaveText('10SEGUIDAS');
+    await expect(page.locator('#ks-card-nuke .kc-n')).toHaveText('10ALIENIGENAS');
+    // Todas las fichas iguales; la tocada queda marcada y su detalle sale debajo
+    const sizes = await page.locator('.kc').evaluateAll((els) => new Set(els.map((e) => `${Math.round(e.offsetWidth)}x${e.offsetHeight}`)).size);
+    expect(sizes).toBe(1);
+    await expect(page.locator('#ks-card-frag')).toHaveClass(/sel/);
+    await page.locator('#ks-card-predator').click();
+    await expect(page.locator('#ks-card-predator')).toHaveClass(/sel/);
+    await expect(page.locator('#ks-card-frag')).not.toHaveClass(/sel/);
+    await expect(page.locator('#kd-name')).toHaveText('MISIL PREDATOR');
+    await expect(page.locator('#kd-at')).toHaveText('3 ALIENIGENAS ABATIDOS');
     await expect(page.locator('#barn-upgrade')).toBeDisabled();
     // Con 5 de trigo: nivel 1 y el recinto crece
     const hidden0 = await page.evaluate(() => game.farm.wild.reduce((n, e) => n + e.positions.filter((q) => q.hide).length, 0));
@@ -175,9 +183,15 @@ test('torretas: con el campo al máximo, la mejora extra pone 4 torretas que rec
     expect(await page.evaluate(() => [game.state.fields.wheat.turrets, game.farm.fields.wheat.turrets.length, game.state.wheat])).toEqual([true, 4, 0]);
     await expect(page.locator('#upgrade-label')).toHaveText('AUTOMÁTICO');
     await expect(page.locator('#sign-wheat .turret-ico')).toHaveCount(1);
-    // En el mapa recogen solas lo maduro
+    // En el mapa no paran de disparar a ráfagas y recogen solas lo maduro, con su +1 de trigo
+    await page.evaluate(() => {
+        window.autoPops = 0;
+        new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach((n) => { if (n.classList && n.classList.contains('auto-pop')) window.autoPops++; }))).observe(document.body, { childList: true });
+    });
+    await expect.poll(() => page.evaluate(() => game.farm.shots.length), { timeout: 5_000 }).toBeGreaterThan(0);
     const left = await page.evaluate(() => game.state.fields.wheat.left);
     await expect.poll(() => page.evaluate(() => game.state.wheat), { timeout: 12_000 }).toBeGreaterThan(0);
+    await expect.poll(() => page.evaluate(() => window.autoPops)).toBeGreaterThan(0);
     expect(await page.evaluate(() => game.state.fields.wheat.left)).toBeLessThan(left);
     // En el campo de tiro, una en cada torre, recogiendo matas sin sumar a la racha
     await page.evaluate(() => { game.select(null); game.harvest('wheat'); });

@@ -432,15 +432,26 @@ export class Tractor extends VoxelModel {
 // Torreta automática de un campo: trípode, caja con la munición y una cabeza que gira con dos
 // cañones. aimAt(x, z, drop) la gira hacia un punto (en coordenadas de su padre; drop: cuánto
 // más abajo está, para bajar los cañones); fire() da un fogonazo con retroceso. Sin blanco,
-// vigila girando despacio de un lado a otro. pedestal: alto del parapeto de sacos sobre el que
-// va (en el mapa, para que asome por encima del trigo)
+// vigila girando despacio de un lado a otro. Sobre qué va: sacks (alto del parapeto de sacos,
+// en el mapa, para que asome por encima del trigo) o mast (alto del mástil, en las torres del
+// campo de tiro, para quedar por encima del tirador y no taparle la vista)
 export class Turret extends VoxelModel {
-    constructor(outlineColor, pedestal = 0) {
+    constructor(outlineColor, { sacks = 0, mast = 0 } = {}) {
         super(outlineColor);
         const OL = 0x6a7a5a, DK = 0x3a4a32, METAL = 0x4a4a4a, SACK = 0xc8b48a, b = new THREE.Group();
+        const pedestal = sacks || mast;
         b.position.y = pedestal;
         this.root.add(b);
-        if (pedestal) {
+        if (mast) {
+            // Mástil de hierro con sus riostras y una plataforma pequeña arriba
+            this.part(this.root, 0.16, mast, 0.16, METAL, 0, mast / 2, 0);
+            for (const r of [0, Math.PI / 2]) {
+                const brace = this.part(this.root, 0.06, mast * 0.5, 0.06, 0x5a5a5a, Math.sin(r) * 0.22, mast * 0.25, Math.cos(r) * 0.22);
+                brace.rotation.set(Math.cos(r) * -0.4, 0, Math.sin(r) * 0.4);
+            }
+            this.part(this.root, 0.7, 0.08, 0.7, DK, 0, mast - 0.04, 0);
+        }
+        if (sacks) {
             // Sacos terreros apilados en dos filas, un poco desordenados
             for (let k = 0; k < 4; k++) {
                 const a = (k / 4) * Math.PI * 2 + Math.PI / 4;

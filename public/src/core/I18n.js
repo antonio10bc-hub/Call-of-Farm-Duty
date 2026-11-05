@@ -30,13 +30,16 @@ function detect() {
 }
 
 export const LANG = detect();
-export const L = (en, es) => (LANG === 'es' ? es : en);
+// La Í de la fuente pixelada lleva la tilde metida en el alto de la letra y se lee como «±»: en
+// mayúsculas se escribe I (se lee igual)
+const fix = (s) => (typeof s === 'string' ? s.replace(/Í/g, 'I') : s);
+export const L = (en, es) => (LANG === 'es' ? fix(es) : en);
 
 // Textos fijos de la página (index.html)
 export function applyHtmlTexts(root = document) {
     document.documentElement.lang = LANG;
     if (LANG !== 'es') return;
-    for (const el of root.querySelectorAll('[data-es]')) el.innerHTML = el.dataset.es;
+    for (const el of root.querySelectorAll('[data-es]')) el.innerHTML = fix(el.dataset.es);
     for (const el of root.querySelectorAll('[data-es-aria]')) el.setAttribute('aria-label', el.dataset.esAria);
 }
 

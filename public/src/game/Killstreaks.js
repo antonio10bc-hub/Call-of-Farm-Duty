@@ -154,7 +154,7 @@ export class Killstreaks {
         const sn = this.sn, c = this.bestSpot(KS.predator.radius) || { x: sn.field.cx, z: sn.field.cz };
         sn.setAds(false);
         sn.pending = false;
-        this.predator = { x: c.x, z: c.z, y: KS.predator.height, boost: false, boom: -1, yaw: sn.lookYaw };
+        this.predator = { x: c.x, z: c.z, y: KS.predator.height, boost: false, yaw: sn.lookYaw };
         sn.hooks.sfx.play('missile');
         if (sn.hooks.onPredator) sn.hooks.onPredator(true);
     }
@@ -162,7 +162,7 @@ export class Killstreaks {
     // Guiar el misil: lo que se gira la vista mueve el punto de impacto (más fino al acercarse)
     steer(dx, dy, rate) {
         const p = this.predator;
-        if (!p || p.boom >= 0) return;
+        if (!p) return;
         const k = rate * KS.predator.steer * (0.35 + 0.65 * (p.y / KS.predator.height));
         const rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw), fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw);
         const f = this.sn.field, xs = f.poly.map((q) => q.x), zs = f.poly.map((q) => q.z);
@@ -172,7 +172,7 @@ export class Killstreaks {
 
     boost() {
         const p = this.predator;
-        if (!p || p.boost || p.boom >= 0) return;
+        if (!p || p.boost) return;
         p.boost = true;
         this.sn.hooks.sfx.play('boost');
     }
@@ -186,8 +186,7 @@ export class Killstreaks {
     // Cámara del misil: mirando hacia abajo, con el norte de la vista hacia donde miraba el tirador
     aimCamera(camera) {
         const p = this.predator;
-        const rise = p.boom >= 0 ? 3 + p.boom * 10 : 0; // tras el impacto se ve la explosión desde arriba
-        camera.position.set(p.x, Math.max(5, p.y) + rise, p.z); // sin meterse entre las matas
+        camera.position.set(p.x, Math.max(5, p.y), p.z); // sin meterse entre las matas
         camera.rotation.set(-Math.PI / 2 + 0.001, p.yaw, 0);
         camera.fov = 70;
         camera.updateProjectionMatrix();
@@ -279,8 +278,10 @@ export class Killstreaks {
         sn.trauma = 1;
         sn.hooks.sfx.play('nuke');
         if (sn.hooks.onNuke) sn.hooks.onNuke();
-        // Los alienígenas que anden por el campo, abatidos, y todo lo que queda, recogido
+        // Los alienígenas que anden por el campo y los ovnis pequeños del cielo, abatidos, y todo lo
+        // que queda, recogido
         for (const w of sn.walkers.list.filter((x) => x.alive)) sn.walkers.shoot(w);
+        for (const fl of sn.flyers.list.filter((x) => !x.falling)) sn.flyers.shoot(fl);
         const all = f.targets.filter((s) => s.alive);
         for (const s of all) s.landed = true;
         if (all.length) sn.harvest(all);
@@ -347,16 +348,15 @@ export class Killstreaks {
             f.glow.material.dispose();
             return false;
         });
-        // Misil: baja, y al llegar al suelo, ¡boom!
+        // Misil: baja, y al llegar al suelo, ¡boom! y la vista del misil se corta en seco (vuelve
+        // a la del tirador, que ve la explosión)
         const p = this.predator;
         if (p) {
-            if (p.boom < 0) {
-                p.y -= (p.boost ? KS.predator.boost : KS.predator.speed) * rawDt;
-                if (p.y <= 0.6) {
-                    p.boom = 0;
-                    sn.blast(p.x, p.z, KS.predator.radius, 1.8);
-                }
-            } else if ((p.boom += rawDt) > 1.4) this.endPredator();
+            p.y -= (p.boost ? KS.predator.boost : KS.predator.speed) * rawDt;
+            if (p.y <= 0.6) {
+                this.endPredator();
+                sn.blast(p.x, p.z, KS.predator.radius, 1.8);
+            }
         }
         // Bombardero y sus bombas
         const pl = this.plane;

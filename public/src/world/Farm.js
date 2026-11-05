@@ -5,7 +5,7 @@ import { STRUCTURES, Ufo, Turret } from '../render/structures.js';
 import { Plot } from '../render/props.js';
 import { junkyard, barrelParts, JUNK } from '../render/junk.js';
 import { CROPS } from '../content/crops.js';
-import { FARM } from '../content/farm.js';
+import { FARM, TURRETS } from '../content/farm.js';
 import { UFO } from '../content/ufo.js';
 
 const _d = new THREE.Object3D();
@@ -77,7 +77,7 @@ export class Farm {
         this.houseZone = rectOf(FARM.house.zone);
         this.houseYard = houseClear(houseLevel);
         this.wild = []; // entradas animadas de la zona abandonada del granero (se apartan al crecer el recinto)
-        this.shots = []; // disparos de las torretas automáticas: esperando a apuntar o con su trazada
+        this.shots = []; // trazadas de las balas de las torretas automáticas
         this.build();
         for (const v of this.views) if (fields[v.id].turrets) this.setTurrets(v.id, false);
     }
@@ -369,13 +369,14 @@ export class Farm {
         if (!v.locked) this.buildPlants(v, old);
     }
 
-    // Torretas automáticas del campo: una en cada esquina, por dentro (pop: aparecen con un bote)
+    // Torretas automáticas del campo: una en cada esquina, por dentro, sobre sus sacos (pop:
+    // aparecen con un bote)
     setTurrets(id, pop = true) {
         const v = this.fields[id];
         if (v.turrets) return;
         const f = v.rect, m = 0.5;
         v.turrets = [[f.x + m, f.z + m], [f.x + f.w - m, f.z + m], [f.x + f.w - m, f.z + f.d - m], [f.x + m, f.z + f.d - m]].map(([x, z]) => {
-            const t = new Turret(this.theme.outline, 0.7);
+            const t = new Turret(this.theme.outline, { sacks: 0.7 });
             t.root.position.set(x, 0, z);
             t.root.scale.setScalar(1.35);
             t.yaw = Math.atan2(f.cx - x, f.cz - z);
@@ -383,35 +384,57 @@ export class Farm {
             if (pop) t.select();
             return t;
         });
-        v.nextTurret = 0;
     }
 
-    // Una de las torretas (por turnos) apunta a una mata al azar del campo y, al tenerla, dispara:
-    // trazada y onTurretHit(x, z) para el fogonazo donde da
-    turretShot(id) {
+    // Dónde ha recogido la torreta su última mata (para el +1 del mapa): lo último que acribilló
+    // una de ellas, o una mata al azar
+    turretSpot(id) {
         const v = this.fields[id];
-        if (!v.turrets || !v.plants.length) return;
-        const t = v.turrets[v.nextTurret++ % v.turrets.length], s = v.plants[(Math.random() * v.plants.length) | 0];
-        t.aimAt(s.x, s.z);
-        this.shots.push({ t, x: s.x, z: s.z, wait: 0.6, beam: null });
+        if (!v.turrets || !v.plants.length) return null;
+        const t = v.turrets.find((x) => x.tgt) || v.turrets[(Math.random() * 4) | 0];
+        if (t.tgt) return { x: t.tgt.x, z: t.tgt.z };
+        const s = v.plants[(Math.random() * v.plants.length) | 0];
+        return { x: s.x, z: s.z };
+    }
+
+    // Torretas de un campo maduro: no paran de tirotear el campo a ráfagas (cada una elige una mata,
+    // la apunta, le suelta su ráfaga y a por otra). Cada bala: trazada y onTurretHit(x, z, n)
+    updateTurrets(v, dt, ripe) {
+        for (const t of v.turrets) {
+            t.update(dt);
+            if (!ripe || !v.plants.length) {
+                t.tgt = null;
+                continue;
+            }
+            if (!t.tgt && (t.cool = (t.cool || 0) - dt) <= 0) {
+                const s = v.plants[(Math.random() * v.plants.length) | 0];
+                t.tgt = { x: s.x, z: s.z };
+                t.aimAt(s.x, s.z, 1.3);
+                t.shots = TURRETS.burst;
+                t.next = 0;
+                t.wait = 0.8;
+            }
+            if (!t.tgt || (!t.aimed && (t.wait -= dt) > 0) || (t.next -= dt) > 0) continue;
+            t.next = TURRETS.rate;
+            t.fire();
+            const from = t.muzzle.getWorldPosition(new THREE.Vector3());
+            const to = new THREE.Vector3(t.tgt.x + (Math.random() - 0.5) * 0.6, 0.3 + Math.random() * 0.4, t.tgt.z + (Math.random() - 0.5) * 0.6);
+            const beam = new THREE.Mesh(box(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xfff6dc }));
+            beam.position.copy(from).lerp(to, 0.5);
+            beam.lookAt(to);
+            beam.scale.set(0.08, 0.08, from.distanceTo(to));
+            this.root.add(beam);
+            this.shots.push({ beam, life: 0.06 });
+            if (this.onTurretHit) this.onTurretHit(to.x, to.z, t.shots);
+            if (--t.shots <= 0) {
+                t.tgt = null;
+                t.cool = TURRETS.cool * (0.5 + Math.random() * 0.6);
+            }
+        }
     }
 
     updateShots(dt) {
         this.shots = this.shots.filter((sh) => {
-            if (!sh.beam) {
-                if (!sh.t.aimed && (sh.wait -= dt) > 0) return true;
-                sh.t.fire();
-                const from = sh.t.muzzle.getWorldPosition(new THREE.Vector3()), to = new THREE.Vector3(sh.x, 0.5, sh.z);
-                const beam = new THREE.Mesh(box(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xfff6dc }));
-                beam.position.copy(from).lerp(to, 0.5);
-                beam.lookAt(to);
-                beam.scale.set(0.06, 0.06, from.distanceTo(to));
-                this.root.add(beam);
-                sh.beam = beam;
-                sh.life = 0.08;
-                if (this.onTurretHit) this.onTurretHit(sh.x, sh.z);
-                return true;
-            }
             if ((sh.life -= dt) > 0) return true;
             this.root.remove(sh.beam);
             sh.beam.material.dispose();
@@ -603,7 +626,7 @@ export class Farm {
 
         for (const v of this.views) {
             if (v.locked) continue;
-            if (v.turrets) for (const t of v.turrets) t.update(dt);
+            if (v.turrets) this.updateTurrets(v, dt, (progress[v.id] || 0) >= 1);
             if (v.crop === 'wheat') this.updateWheat(v, time, progress[v.id] || 0);
             else this.updateTomato(v, time, progress[v.id] || 0);
             for (const m of v.meshes) {

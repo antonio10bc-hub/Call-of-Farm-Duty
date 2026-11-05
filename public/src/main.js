@@ -65,10 +65,10 @@ rig.yaw = rig.yawTarget = M.yaw;
 const home = { x: 15, z: 18 };
 rig.focus(home.x, home.z);
 rig.snap();
-// Disparo de una torreta automática en el mapa: polvo y paja donde da
-farm.onTurretHit = (x, z) => {
-    farmParticles.burst(x, 0.5, z, 10, [0xffe9a0, 0xd9b77a, THEME.dust], { speed: 1.8, up: 2.4, size: 0.1, ttl: 0.5 });
-    if (mode === 'farm') sfx.play('shotEnemy');
+// Bala de una torreta automática en el mapa: polvo y paja donde da (y su ruido, una de cada dos)
+farm.onTurretHit = (x, z, n) => {
+    farmParticles.burst(x, 0.4, z, 5, [0xffe9a0, 0xd9b77a, THEME.dust], { speed: 1.4, up: 2, size: 0.08, ttl: 0.4 });
+    if (mode === 'farm' && n % 2) sfx.play('turret');
 };
 farm.onLand = (m) => {
     const p = m.root.position;
@@ -264,11 +264,12 @@ function popPlus(x, y) {
     setTimeout(() => el.remove(), 900);
 }
 
-// +1 de un alienígena abatido, con su cara, encima de su cabeza; sube y se va
-function killPop(x, y) {
+// +1 de un alienígena abatido, con su cara, encima de su cabeza; sube y se va. (Con otro icono y
+// clase, el +1 de lo que recogen las torretas en el mapa)
+function killPop(x, y, icon = 'alien', cls = '') {
     const el = document.createElement('div');
-    el.className = 'kill-pop';
-    el.innerHTML = `${ico('alien')}<b>+1</b>`;
+    el.className = `kill-pop ${cls}`;
+    el.innerHTML = `${ico(icon)}<b>+1</b>`;
     // (con la mira el zoom deja la cabeza fuera: que no se salga de la pantalla)
     el.style.left = `${Math.min(innerWidth - 50, Math.max(50, x))}px`;
     el.style.top = `${Math.min(innerHeight - 60, Math.max(140, y))}px`;
@@ -522,8 +523,13 @@ function autoHarvest(dt) {
         if ((autoT[id] = (autoT[id] || 0) + dt) < TURRETS.every) continue;
         autoT[id] = 0;
         state.collect(id);
-        if (mode === 'farm') farm.turretShot(id);
         updateCounts();
+        // En el mapa, un +1 con el cultivo sale de donde acaban de acribillar
+        const at = mode === 'farm' && farm.turretSpot(id);
+        if (at) {
+            _b.set(at.x, 1.4, at.z).project(rig.camera);
+            if (_b.z < 1) killPop((_b.x * 0.5 + 0.5) * innerWidth, (-_b.y * 0.5 + 0.5) * innerHeight, CROPS[def.crop].icon, 'auto-pop');
+        }
     }
 }
 
@@ -1175,28 +1181,45 @@ tapBtn('ufo-close', () => {
 });
 
 // ---------- Granero: subirlo de nivel y ver las dos rachas de bajas (activas siempre) ----------
+// Dos paneles (granadas y alienígena) con una ficha por recompensa; la tocada queda marcada y su
+// detalle sale debajo
 const ksCards = {};
+let ksSel = KILLSTREAKS[0].id;
 for (const [track, title, how] of [
     ['crop', L('GRENADE STREAK', 'RACHA DE GRANADAS'), L('HARVEST IN A ROW BEFORE THE BAR RUNS OUT', 'RECOGE SEGUIDO ANTES DE QUE SE VACÍE LA BARRA')],
     ['alien', L('ALIEN STREAK', 'RACHA ALIENÍGENA'), L('SHOOT ALIENS: IT ADDS UP ALL GAME LONG', 'ABATE ALIENÍGENAS: SE SUMA TODA LA PARTIDA')],
 ]) {
-    // Una columna por racha: granadas a la izquierda y alienígena a la derecha
     const col = document.createElement('div');
     col.className = `ks-col ks-col-${track}`;
     col.innerHTML = `<div class="ks-track ks-track-${track}"><b>${title}</b><span>${how}</span></div>`;
     $('ks-cards').appendChild(col);
     for (const k of KILLSTREAKS.filter((x) => x.track === track)) {
-        const card = document.createElement('div');
-        card.className = `ks-card on ks-${track}`;
+        const card = document.createElement('button');
+        card.className = 'kc';
         card.id = `ks-card-${k.id}`;
-        card.innerHTML = `<span class="ks-top"><i class="ks-ico" style="--ico: var(--px-${k.icon})"></i><span class="ks-kills"></span></span><span class="ks-info"><b>${k.name}</b><small>${k.desc}</small></span>`;
+        card.innerHTML = `<i class="ks-ico" style="--ico: var(--px-${k.icon})"></i><span class="kc-n"><b></b><small>${track === 'alien' ? L('ALIENS', 'ALIENÍGENAS') : L('IN A ROW', 'SEGUIDAS')}</small></span><span class="kc-name">${k.short}</span>`;
+        card.addEventListener('click', (e) => {
+            e.stopPropagation();
+            ksSel = k.id;
+            sfx.play('ui');
+            refreshStreaks();
+        });
         col.appendChild(card);
         ksCards[k.id] = card;
     }
 }
 
 function refreshStreaks() {
-    for (const k of KILLSTREAKS) ksCards[k.id].querySelector('.ks-kills').textContent = k.track === 'alien' ? `${k.at} ${L('ALIENS', 'ALIENÍGENAS')}` : `${k.at} ${L('IN A ROW', 'SEGUIDAS')}`;
+    for (const k of KILLSTREAKS) {
+        ksCards[k.id].querySelector('.kc-n b').textContent = k.at;
+        ksCards[k.id].classList.toggle('sel', k.id === ksSel);
+    }
+    const k = KILLSTREAKS.find((x) => x.id === ksSel);
+    $('kd-ico').style.setProperty('--ico', `var(--px-${k.icon})`);
+    $('kd-name').textContent = k.name;
+    $('kd-at').textContent = k.track === 'alien' ? `${k.at} ${L('ALIENS SHOT DOWN', 'ALIENÍGENAS ABATIDOS')}` : `${k.at} ${L('HARVESTED IN A ROW', 'RECOGIDAS SEGUIDAS')}`;
+    $('kd-desc').textContent = k.desc;
+    $('ks-detail').style.setProperty('--kd', k.track === 'alien' ? '#7dff4a' : 'var(--yellow)');
     // El granero: su nivel, lo que da el siguiente y lo que cuesta
     const lv = state.barn.level, max = FARM.barn.levels.length - 1;
     $('barn-level').textContent = `${L('BARN', 'GRANERO')} ${L('LV', 'NV')}.${lv}/${max}`;

@@ -110,11 +110,13 @@ export const FARM = {
     ],
 };
 
-// Torretas automáticas de un campo (mejora extra con el campo al máximo). En el mapa recogen
-// solas lo que esté maduro, una mata cada every s (mientras el juego está abierto). En el campo
-// de tiro, cada una (desde su torre, menos la tuya) dispara a una mata cada shoot s, para
-// recoger más deprisa. Lo que recogen no suma a las rachas.
-export const TURRETS = { every: 4, shoot: 2.4, aim: 0.35 };
+// Torretas automáticas de un campo (mejora extra con el campo al máximo). Disparan a ráfagas
+// (burst balas, una cada rate s) como ametralladoras. En el mapa recogen solas lo que esté
+// maduro, una mata cada every s (mientras el juego está abierto), y entre tanto no paran de
+// tirotear el campo. En el campo de tiro, cada una (desde su mástil en su torre, menos la tuya)
+// acribilla una mata con una ráfaga y la recoge, descansa cool s y a por otra. Lo que recogen
+// no suma a las rachas.
+export const TURRETS = { every: 4, cool: 1.1, burst: 6, rate: 0.075, aim: 0.35, mast: 2.4 };
 
 // Fichas de los edificios: un texto corto debajo del nombre
 export const INFO = {
