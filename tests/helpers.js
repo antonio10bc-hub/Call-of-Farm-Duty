@@ -50,8 +50,9 @@ async function enterField(page) {
     await bubble.click();
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
     await expect.poll(() => page.evaluate(() => game.sniper.field.sheaves.every((s) => s.landed)), { timeout: 20_000 }).toBe(true);
-    // Sin ovnis pequeños que se crucen en los disparos de las pruebas (su prueba los saca a mano)
-    await page.evaluate(() => { game.sniper.flyers.next = Infinity; });
+    // Sin ovnis pequeños ni alienígenas a pie que se crucen en los disparos de las pruebas (sus
+    // pruebas los sacan a mano)
+    await page.evaluate(() => { game.sniper.flyers.next = Infinity; game.sniper.walkers.reset(); game.sniper.walkers.next = Infinity; });
 }
 
 // Gesto táctil sintético (pointerType touch) sobre el lienzo: [x, y, ms de espera] por paso
@@ -110,18 +111,17 @@ async function aimAndShoot(page, where) {
     await page.mouse.up({ button: 'right' });
 }
 
-// Al campo de tiro con el trigo al máximo (32 matas: sitio para encadenar rachas)
-async function enterBigField(page, streaks = ['grenade', 'predator']) {
+// Al campo de tiro con el trigo al máximo (sitio para encadenar rachas)
+async function enterBigField(page) {
     await openFarm(page);
-    // Granero al máximo (todas las rachas desbloqueadas) y las pedidas equipadas
-    await page.evaluate((s) => { game.state.barn.level = 5; game.state.streaks = s; }, streaks);
     await page.evaluate(() => { game.state.wheat = 12; for (let i = 0; i < 4; i++) game.upgradeField('wheat'); game.state.wheat = 0; game.select(null); });
     const bubble = page.locator('.bubble:not(.hidden)').first();
     await bubble.click();
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
     await expect.poll(() => page.evaluate(() => game.sniper.field.sheaves.every((s) => s.landed)), { timeout: 20_000 }).toBe(true);
-    // Sin ovnis pequeños que se crucen en los disparos de las pruebas (su prueba los saca a mano)
-    await page.evaluate(() => { game.sniper.flyers.next = Infinity; });
+    // Sin ovnis pequeños ni alienígenas a pie que se crucen en los disparos de las pruebas (sus
+    // pruebas los sacan a mano)
+    await page.evaluate(() => { game.sniper.flyers.next = Infinity; game.sniper.walkers.reset(); game.sniper.walkers.next = Infinity; });
 }
 
 module.exports = { test, expect, frames, watchErrors, screenOf, openFarm, enterField, touchPath, shootNext, aimAndShoot, enterBigField };

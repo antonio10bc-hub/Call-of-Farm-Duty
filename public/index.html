@@ -88,11 +88,20 @@
             <span class="for-mouse" data-es="RATÓN PARA MIRAR · MANTÉN CLIC DERECHO PARA APUNTAR, SUELTA PARA DISPARAR&lt;br&gt;CLIC IZQUIERDO: DISPARAR · Q/E: TORRE · ESC: SOLTAR RATÓN · H: GRANJA">MOUSE TO LOOK · HOLD RIGHT CLICK TO AIM, RELEASE TO FIRE<br>LEFT CLICK: FIRE · Q/E: TOWER · ESC: FREE MOUSE · H: FARM</span>
         </div>
         <div id="reticle" class="reticle"><i></i><i></i><i></i><i></i><b></b></div>
-        <!-- Racha de bajas: número, barra que se vacía y la siguiente recompensa -->
+        <!-- Racha de granadas: número, barra que se vacía y la siguiente granada -->
         <div id="streak" class="streak hidden">
             <div class="streak-head"><span data-es="RACHA">STREAK</span> <b id="streak-n">0</b></div>
             <div class="streak-bar"><i id="streak-fill"></i></div>
             <div id="streak-next" class="streak-next"></div>
+        </div>
+        <!-- Racha alienígena, a la izquierda: alienígenas abatidos y una barra vertical con sus
+             recompensas (Predator, bombardero, nuclear) a la altura que piden -->
+        <div id="alien-streak" class="alien-streak hidden">
+            <div class="as-head"><i class="ico alien-ico"></i><b id="as-n">0</b></div>
+            <div class="as-track">
+                <div class="as-bar"><i id="as-fill"></i></div>
+                <div id="as-steps" class="as-steps"></div>
+            </div>
         </div>
         <!-- Misil Predator: vista del misil -->
         <div id="predator-hud" class="predator-hud">
@@ -143,7 +152,6 @@
             <button id="barn-tab-rifle" class="barn-tab" data-tab="rifle">RIFLE</button>
         </div>
         <div id="barn-ks" class="barn-page">
-            <div id="ks-pick-info" class="ks-pick-info"></div>
             <div id="ks-cards" class="ks-cards"></div>
         </div>
         <!-- Mejoras del rifle: una tarjeta por mejora (las rellena main.js) -->

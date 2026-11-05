@@ -1,7 +1,7 @@
 // Pruebas de el mapa de la granja: granero y sus niveles, mejorar campos, la casa y las partidas guardadas.
 const { test, expect, openFarm, screenOf, watchErrors } = require('./helpers');
 
-test('la granja es un mapa: el granero sube de nivel, agranda su recinto y desbloquea rachas', { tag: '@smoke' }, async ({ page }) => {
+test('la granja es un mapa: el granero sube de nivel, agranda su recinto y enseña las dos rachas', { tag: '@smoke' }, async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto('/?test');
     await expect(page.locator('#sign-wheat')).toBeVisible({ timeout: 30_000 });
@@ -9,32 +9,28 @@ test('la granja es un mapa: el granero sube de nivel, agranda su recinto y desbl
     const p = await screenOf(page, 'map', 15, 1.4, 11);
     await page.mouse.click(p.x, p.y);
     await expect(page.locator('#streaks')).toBeVisible();
-    // Sin mejorar: todas las rachas bloqueadas y la mejora pide trigo
+    // Las dos rachas, activas desde el principio: granadas (recogiendo) y alienígena
     await expect(page.locator('#barn-level')).toHaveText('GRANERO NV.0/5');
-    await expect(page.locator('#barn-next')).toContainText('GRANADA');
-    for (const id of ['grenade', 'predator', 'bomber', 'nuke']) await expect(page.locator(`#ks-card-${id}`)).toHaveClass(/locked/);
+    await expect(page.locator('.ks-track')).toHaveText([/RACHA DE GRANADAS/, /RACHA ALIENÍGENA/]);
+    for (const id of ['frag', 'cluster', 'fire', 'predator', 'bomber', 'nuke']) await expect(page.locator(`#ks-card-${id}`)).not.toHaveClass(/locked/);
+    await expect(page.locator('#ks-card-cluster .ks-kills')).toHaveText('10 SEGUIDAS');
+    await expect(page.locator('#ks-card-nuke .ks-kills')).toHaveText('10 ALIENÍGENAS');
     await expect(page.locator('#barn-upgrade')).toBeDisabled();
-    await page.locator('#ks-card-grenade').click();
-    await expect(page.locator('#ks-pick-info')).toContainText('NV.1');
-    // Con 5 de trigo: nivel 1, la granada se desbloquea y se equipa sola; el recinto crece
+    // Con 5 de trigo: nivel 1 y el recinto crece
     const hidden0 = await page.evaluate(() => game.farm.wild.reduce((n, e) => n + e.positions.filter((q) => q.hide).length, 0));
     await page.evaluate(() => { game.state.wheat = 5; game.select({ structure: 'barn' }); });
     await expect(page.locator('#barn-upgrade')).toBeEnabled();
     await page.locator('#barn-upgrade').click();
     await expect(page.locator('#streaks')).toBeHidden();
-    expect(await page.evaluate(() => [game.state.barn.level, game.farm.barnLevel, game.state.wheat, game.state.activeStreaks])).toEqual([1, 1, 0, ['grenade']]);
+    expect(await page.evaluate(() => [game.state.barn.level, game.farm.barnLevel, game.state.wheat])).toEqual([1, 1, 0]);
     expect(await page.evaluate(() => game.farm.wild.reduce((n, e) => n + e.positions.filter((q) => q.hide).length, 0))).toBeGreaterThan(hidden0);
-    // Los niveles 4 y 5 piden también tomates; el 5 da un hueco más (3 rachas a la vez)
+    // Los niveles 4 y 5 piden también tomates
     await page.evaluate(() => { game.state.items.wheat = 1000; game.state.items.tomato = 0; for (let i = 0; i < 3; i++) game.upgradeBarn(); });
     expect(await page.evaluate(() => [game.state.barn.level, game.state.canUpgradeBarn])).toEqual([3, false]);
     await page.evaluate(() => { game.state.items.tomato = 1000; game.upgradeBarn(); game.upgradeBarn(); game.select({ structure: 'barn' }); });
-    expect(await page.evaluate(() => [game.state.barn.level, game.state.slots])).toEqual([5, 3]);
+    expect(await page.evaluate(() => game.state.barn.level)).toBe(5);
     await expect(page.locator('#barn-upgrade')).toBeHidden();
     await expect(page.locator('#barn-next')).toHaveText('NIVEL MÁXIMO');
-    await page.locator('#ks-card-nuke').click();
-    await expect(page.locator('#ks-pick-info')).toContainText('3/3');
-    await page.locator('#ks-card-bomber').click();
-    await expect(page.locator('#ks-card-bomber')).not.toHaveClass(/on/); // no cabe una cuarta
     await page.locator('#btn-streaks-close').click();
     await expect(page.locator('#streaks')).toBeHidden();
     // El cartel ARMAMENTO encima del granero también abre el menú
@@ -90,7 +86,7 @@ test('partida guardada con las cifras de antes: los campos salen con los blancos
     await page.addInitScript(() => {
         if (sessionStorage.getItem('seeded')) return;
         sessionStorage.setItem('seeded', '1');
-        localStorage.setItem('cofd.farm.v4', JSON.stringify({ items: { wheat: 50, tomato: 0 }, fields: { wheat: { unlocked: true, level: 4, plantedAt: 0, left: 32 }, tomato: { unlocked: true, level: 2, plantedAt: Date.now(), left: 11 } }, streaks: ['grenade'] }));
+        localStorage.setItem('cofd.farm.v4', JSON.stringify({ items: { wheat: 50, tomato: 0 }, fields: { wheat: { unlocked: true, level: 4, plantedAt: 0, left: 32 }, tomato: { unlocked: true, level: 2, plantedAt: Date.now(), left: 11 } } }));
     });
     await page.goto('/?test');
     await expect.poll(() => page.evaluate(() => window.game && [game.state.fields.wheat.left, game.state.fields.tomato.left]), { timeout: 30_000 }).toEqual([80, 22]);

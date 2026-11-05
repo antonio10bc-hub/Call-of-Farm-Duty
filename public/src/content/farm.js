@@ -20,21 +20,20 @@ export const FARM = {
         { from: [0, 30], to: [30, 30], gap: [14, 16] },     // entrada del camino principal
         { from: [0, 0], to: [30, 0], gap: [14, 16] },       // portón entre las dos parcelas
     ],
-    // El granero (cuartel de las rachas de bajas) ocupa la mitad de arriba de la primera parcela
-    // (zone). Empieza sin mejorar, con su recinto (yard) pequeño y el resto de la zona
-    // abandonado: tierra sucia, árboles, matorral y chatarra. Cada nivel agranda el recinto (lo
-    // de dentro se limpia), le añade construcciones y desbloquea una racha (killstreaks.js:
-    // barn); el último da un hueco más para llevar rachas (slots).
+    // El granero (armamento: rachas de bajas y mejoras del rifle) ocupa la mitad de arriba de la
+    // primera parcela (zone). Empieza sin mejorar, con su recinto (yard) pequeño y el resto de la
+    // zona abandonado: tierra sucia, árboles, matorral y chatarra. Cada nivel agranda el recinto
+    // (lo de dentro se limpia) y le añade construcciones.
     //   cost   lo que cuesta llegar a ese nivel
     barn: {
         zone: [1, 1, 29, 15],
         levels: [
-            { yard: [8, 6, 22, 15], slots: 2 },
-            { yard: [6, 5, 24, 15], slots: 2, cost: { wheat: 5 } },
-            { yard: [5, 4, 25, 15], slots: 2, cost: { wheat: 15 } },
-            { yard: [3, 3, 27, 15], slots: 2, cost: { wheat: 30 } },
-            { yard: [2, 2, 28, 15], slots: 2, cost: { wheat: 40, tomato: 15 } },
-            { yard: [1, 1, 29, 15], slots: 3, cost: { wheat: 60, tomato: 30 } },
+            { yard: [8, 6, 22, 15] },
+            { yard: [6, 5, 24, 15], cost: { wheat: 5 } },
+            { yard: [5, 4, 25, 15], cost: { wheat: 15 } },
+            { yard: [3, 3, 27, 15], cost: { wheat: 30 } },
+            { yard: [2, 2, 28, 15], cost: { wheat: 40, tomato: 15 } },
+            { yard: [1, 1, 29, 15], cost: { wheat: 60, tomato: 30 } },
         ],
     },
     // La casa y su parcela: empieza en ruinas con toda la parcela abandonada (zone). Nivel 1: la

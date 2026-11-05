@@ -47,30 +47,31 @@ test('debug: se elige cuántas bajas pide cada racha', { tag: '@full' }, async (
     await page.locator('#btn-home').click();
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('farm');
     await page.locator('#btn-debug').click();
-    // La granada, de 5 a 1 bajas (cuatro veces -)
-    await expect(page.locator('#ks-grenade')).toHaveText('5');
-    for (let i = 0; i < 4; i++) await page.locator('.ks-row', { has: page.locator('#ks-grenade') }).locator('[data-d="-1"]').click();
-    await expect(page.locator('#ks-grenade')).toHaveText('1');
-    await page.locator('.ks-row', { has: page.locator('#ks-grenade') }).locator('[data-d="-1"]').click();
-    await expect(page.locator('#ks-grenade')).toHaveText('1'); // nunca menos de 1
-    await page.locator('.ks-row', { has: page.locator('#ks-nuke') }).locator('[data-d="1"]').click();
-    await expect(page.locator('#ks-nuke')).toHaveText('31');
+    // La de fragmentación, de 5 a 1 bajas (cuatro veces -)
+    const row = (id) => page.locator('.ks-row', { has: page.locator(`#ks-${id}`) });
+    await expect(page.locator('#ks-frag')).toHaveText('5');
+    for (let i = 0; i < 4; i++) await row('frag').locator('[data-d="-1"]').click();
+    await expect(page.locator('#ks-frag')).toHaveText('1');
+    await row('frag').locator('[data-d="-1"]').click();
+    await expect(page.locator('#ks-frag')).toHaveText('1'); // nunca menos de 1
+    await row('nuke').locator('[data-d="1"]').click();
+    await expect(page.locator('#ks-nuke')).toHaveText('11');
     await page.locator('#btn-debug-close').click();
-    // Con una sola baja ya sale la granada (granero en nivel 1, con la granada equipada)
-    await page.evaluate(() => { game.state.barn.level = 1; game.state.streaks = ['grenade']; game.harvest('wheat'); });
+    // Con una sola baja ya sale la granada de fragmentación
+    await page.evaluate(() => game.harvest('wheat'));
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
-    await page.evaluate(() => { game.sniper.flyers.next = Infinity; }); // sin ovnis pequeños de por medio
+    await page.evaluate(() => { game.sniper.flyers.next = Infinity; game.sniper.walkers.reset(); game.sniper.walkers.next = Infinity; }); // sin ovnis pequeños ni alienígenas a pie de por medio
     await expect.poll(() => page.evaluate(() => game.sniper.field.sheaves.every((s) => s.landed)), { timeout: 20_000 }).toBe(true);
-    await expect(page.locator('#streak-next')).toBeHidden();
+    await expect(page.locator('#as-nuke b')).toHaveText('11'); // la racha alienígena, con el número nuevo
     await shootNext(page);
-    await expect(page.locator('#medals')).toContainText('GRANADA');
+    await expect(page.locator('#medals')).toContainText('FRAGMENTACIÓN');
     // Se recuerda al recargar, y RACHAS POR DEFECTO lo devuelve todo a su sitio
     await page.reload();
-    await expect(page.locator('#ks-grenade')).toHaveText('1');
+    await expect(page.locator('#ks-frag')).toHaveText('1');
     await page.locator('#btn-debug').click();
     await page.locator('#ks-default').click();
-    await expect(page.locator('#ks-grenade')).toHaveText('5');
-    await expect(page.locator('#ks-nuke')).toHaveText('30');
+    await expect(page.locator('#ks-frag')).toHaveText('5');
+    await expect(page.locator('#ks-nuke')).toHaveText('10');
     expect(errors).toEqual([]);
 });
 
@@ -91,7 +92,7 @@ test('debug: DESBLOQUEAR TODO limpia todos los terrenos sin requisitos', { tag: 
     expect(errors).toEqual([]);
 });
 
-test('debug: desbloquear de uno en uno terrenos, rachas y el hueco extra', { tag: '@full' }, async ({ page }) => {
+test('debug: desbloquear de uno en uno los terrenos y el rifle', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto('/?test');
     await expect(page.locator('#sign-wheat')).toHaveText('¡DESBLOQUEAR!', { timeout: 30_000 });
@@ -103,17 +104,14 @@ test('debug: desbloquear de uno en uno terrenos, rachas y el hueco extra', { tag
     expect(await page.evaluate(() => [game.state.fields.tomato.unlocked, game.farm.fields.tomato.locked, game.state.fields.wheat.unlocked])).toEqual([true, false, false]);
     await expect(page.locator('#sign-tomato')).toHaveText('NV.1');
     await expect(page.locator('#sign-wheat')).toHaveText('¡DESBLOQUEAR!');
-    // La bomba nuclear sin subir el granero (se equipa sola) y el hueco extra
+    // El rifle al máximo
     await page.locator('#btn-debug').click();
     await expect(page.locator('#unlock-field-tomato')).toHaveText('YA');
-    await page.locator('#unlock-ks-nuke').click();
-    await expect(page.locator('#unlock-ks-nuke')).toHaveText('YA');
-    expect(await page.evaluate(() => [game.state.barn.level, game.state.streakAvailable('nuke'), game.state.activeStreaks, game.state.streakAvailable('grenade')])).toEqual([0, true, ['nuke'], false]);
-    await page.locator('#unlock-slot').click();
-    expect(await page.evaluate(() => game.state.slots)).toBe(3);
+    await page.locator('#unlock-rifle').click();
+    await expect(page.locator('#unlock-rifle')).toHaveText('YA');
     // Se guarda
     await page.reload();
-    await expect.poll(() => page.evaluate(() => window.game && [game.state.streakAvailable('nuke'), game.state.slots])).toEqual([true, 3]);
+    await expect.poll(() => page.evaluate(() => window.game && [game.state.fields.tomato.unlocked, game.state.rifle.zoom])).toEqual([true, 5]);
     expect(errors).toEqual([]);
 });
 

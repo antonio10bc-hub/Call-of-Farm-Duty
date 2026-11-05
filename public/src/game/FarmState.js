@@ -1,11 +1,10 @@
 import { CROPS } from '../content/crops.js';
 import { FARM, FIELD_BY_ID } from '../content/farm.js';
-import { KILLSTREAKS } from '../content/killstreaks.js';
 import { SHOP_ITEMS, DEFAULT_LOOK } from '../content/ufo.js';
 import { RIFLE, RIFLE_BY_ID, RIFLE_MAX } from '../content/rifle.js';
 
 // Estado de la granja: lo recogido de cada cultivo, cada campo (desbloqueado o no, nivel, hora
-// de siembra y blancos que quedan), el nivel del granero y las rachas de bajas equipadas en él.
+// de siembra y blancos que quedan), el nivel del granero y las mejoras del rifle.
 // Se guarda en el navegador; sin almacenamiento simplemente no se recuerda.
 const KEY = 'cofd.farm.v4';
 // Revisión de la partida guardada. 2: campos de tiro grandes (se rellenan los blancos que se
@@ -23,13 +22,10 @@ export class FarmState {
     constructor(now = Date.now()) {
         this.freeCosts = false; // depuración: las mejoras de campos y granero a 0
         this.freeHome = false; // depuración: las mejoras de la casa y la tienda del ovni a 0
-        // barn.extra: rachas desbloqueadas a mano (depuración) aunque el granero no llegue;
-        // barn.slot: el hueco extra, también a mano
-        this.barn = { level: 0, extra: [], slot: false };
+        this.barn = { level: 0 };
         this.house = { level: 0 };
         // Nivel de cada mejora del rifle (content/rifle.js)
         this.rifle = Object.fromEntries(RIFLE.map((r) => [r.id, 0]));
-        this.streaks = [];
         // Lo recogido de cada cultivo y las monedas alienígenas (alien)
         this.items = Object.fromEntries([...Object.keys(CROPS), 'alien'].map((c) => [c, 0]));
         // El ovni (crashed: ya se ha estrellado en la parcela de la casa; met: ya se ha abierto su
@@ -54,8 +50,6 @@ export class FarmState {
             if (d && d.fields) {
                 for (const c of Object.keys(this.items)) this.items[c] = (d.items && d.items[c]) | 0;
                 this.barn.level = Math.min(BARN.length - 1, Math.max(0, d.barn ? d.barn.level | 0 : (d.rev | 0) < 3 ? 2 : 0));
-                if (d.barn && Array.isArray(d.barn.extra)) this.barn.extra = d.barn.extra.filter((id) => KILLSTREAKS.some((k) => k.id === id));
-                this.barn.slot = !!(d.barn && d.barn.slot);
                 this.house.level = Math.min(HOUSE.length - 1, Math.max(0, d.house ? d.house.level | 0 : (d.rev | 0) < 4 ? 1 : 0));
                 for (const r of RIFLE) this.rifle[r.id] = Math.min(RIFLE_MAX, Math.max(0, d.rifle ? d.rifle[r.id] | 0 : 0));
                 this.ufo.crashed = !!(d.ufo && d.ufo.crashed);
@@ -65,7 +59,6 @@ export class FarmState {
                     for (const [slot, id] of Object.entries((d.home && d.home.look) || {})) if (slot in this.home.look && SHOP_ITEMS[id] && this.owns(id)) this.home.look[slot] = id;
                     if (Array.isArray(d.home.placed)) this.home.placed = d.home.placed.filter((id) => this.owns(id));
                 }
-                if (Array.isArray(d.streaks)) this.streaks = d.streaks.filter((id) => this.streakAvailable(id)).slice(0, this.slots);
                 for (const [id, f] of Object.entries(this.fields)) {
                     const s = d.fields[id];
                     if (!s) continue;
@@ -108,21 +101,10 @@ export class FarmState {
 
     save() {
         try {
-            localStorage.setItem(KEY, JSON.stringify({ rev: REV, items: this.items, fields: this.fields, barn: this.barn, house: this.house, rifle: this.rifle, ufo: this.ufo, home: this.home, streaks: this.streaks }));
+            localStorage.setItem(KEY, JSON.stringify({ rev: REV, items: this.items, fields: this.fields, barn: this.barn, house: this.house, rifle: this.rifle, ufo: this.ufo, home: this.home }));
         } catch {
             /* ignorar */
         }
-    }
-
-    // ---------- Granero y rachas de bajas ----------
-    // Huecos para llevar rachas (según el nivel del granero)
-    get slots() {
-        return Math.max(BARN[this.barn.level].slots, this.barn.slot ? BARN[BARN.length - 1].slots : 0);
-    }
-
-    streakAvailable(id) {
-        const k = KILLSTREAKS.find((s) => s.id === id);
-        return !!k && (this.barn.level >= k.barn || this.barn.extra.includes(id));
     }
 
     // ---------- Casa ----------
@@ -205,28 +187,7 @@ export class FarmState {
         this.save();
     }
 
-    // Depuración: desbloquear una racha sin subir el granero (se equipa sola si hay hueco)
-    unlockStreak(id) {
-        if (this.streakAvailable(id)) return false;
-        this.barn.extra.push(id);
-        if (this.activeStreaks.length < this.slots) this.streaks = [...this.activeStreaks, id];
-        this.save();
-        return true;
-    }
-
-    // Depuración: el hueco extra para llevar más rachas
-    unlockSlot() {
-        if (this.slots >= BARN[BARN.length - 1].slots) return false;
-        this.barn.slot = true;
-        this.save();
-        return true;
-    }
-
-    // Las equipadas que valen ahora (las que no estén desbloqueadas no cuentan)
-    get activeStreaks() {
-        return this.streaks.filter((id) => this.streakAvailable(id)).slice(0, this.slots);
-    }
-
+    // ---------- Granero ----------
     get barnMaxed() {
         return this.barn.level >= BARN.length - 1;
     }
@@ -241,16 +202,13 @@ export class FarmState {
         return !this.barnMaxed && Object.entries(this.barnCost()).every(([c, n]) => this.items[c] >= n);
     }
 
-    // Sube el granero; la racha que desbloquee se equipa sola si hay hueco. Devuelve la racha
-    // desbloqueada (o true si no desbloquea ninguna), o false si no se puede
+    // Sube el granero (agranda su recinto); false si no se puede
     upgradeBarn() {
         if (!this.canUpgradeBarn) return false;
         for (const [c, n] of Object.entries(this.barnCost())) this.items[c] -= n;
         this.barn.level++;
-        const k = KILLSTREAKS.find((s) => s.barn === this.barn.level);
-        if (k && !this.streaks.includes(k.id) && this.activeStreaks.length < this.slots) this.streaks.push(k.id);
         this.save();
-        return k ? k.id : true;
+        return true;
     }
 
     // ---------- Mejoras del rifle (en el granero) ----------
@@ -280,17 +238,6 @@ export class FarmState {
     maxRifle() {
         if (RIFLE.every((r) => this.rifleMaxed(r.id))) return false;
         for (const r of RIFLE) this.rifle[r.id] = RIFLE_MAX;
-        this.save();
-        return true;
-    }
-
-    // Equipar o quitar una racha de bajas. Sin desbloquear o sin hueco no entra: false
-    toggleStreak(id) {
-        this.streaks = this.activeStreaks;
-        const i = this.streaks.indexOf(id);
-        if (i >= 0) this.streaks.splice(i, 1);
-        else if (!this.streakAvailable(id) || this.streaks.length >= this.slots) return false;
-        else this.streaks.push(id);
         this.save();
         return true;
     }

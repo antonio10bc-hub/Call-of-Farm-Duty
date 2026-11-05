@@ -3,7 +3,7 @@ import { CONFIG } from './config.js';
 import { THEME } from './content/theme.js';
 import { CROPS } from './content/crops.js';
 import { FARM, FIELD_BY_ID, INFO } from './content/farm.js';
-import { KILLSTREAKS, setStreakCounts } from './content/killstreaks.js';
+import { KILLSTREAKS, setStreakCounts, streakOf } from './content/killstreaks.js';
 import { UFO, SHOP, SHOP_ITEMS } from './content/ufo.js';
 import { RIFLE } from './content/rifle.js';
 import { RetroRenderer } from './render/RetroRenderer.js';
@@ -90,10 +90,10 @@ const sniper = new Sniper(THEME, {
             const name = streak === 2 ? L('DOUBLE KILL', 'DOBLE KILL') : streak === 3 ? L('TRIPLE KILL', 'TRIPLE KILL') : L('MULTI KILL', 'MULTI KILL');
             medal(name, streak >= 4 ? 'multi' : '');
         }
-        // Recompensa de la racha: su medalla, más grande
+        // Recompensa de una racha: su medalla, más grande
         if (reward) {
             const k = KILLSTREAKS.find((r) => r.id === reward);
-            medal(`${k.at} · ${k.name}`, 'reward');
+            medal(`${k.at} · ${k.name}`, k.track === 'alien' ? 'reward alien' : 'reward');
         }
         if (collateral > 1 || streak >= 2 || reward) vibrate('kill');
     },
@@ -124,6 +124,16 @@ const sniper = new Sniper(THEME, {
         setTimeout(() => banner(L('NUKE!', '¡NUCLEAR!')), 300);
     },
     // El barril ha reventado: el terreno queda limpio y desbloqueado (se guarda ya)
+    // Alienígena a pie abatido: su medalla y la racha alienígena da un salto
+    onAlien(nx, ny) {
+        popPlus((nx * 0.5 + 0.5) * innerWidth, (-ny * 0.5 + 0.5) * innerHeight);
+        medal(L('ALIEN DOWN!', '¡ALIEN ABATIDO!'), 'alien');
+        vibrate('kill');
+        const el = $('alien-streak');
+        el.classList.remove('bump');
+        void el.offsetWidth;
+        el.classList.add('bump');
+    },
     // Ovni pequeño derribado: sus monedas vuelan al contador
     onUfoCoin(n, nx, ny) {
         state.items.alien += n;
@@ -488,17 +498,38 @@ function revealUnlocked() {
     return false;
 }
 
-// Barra de la racha de bajas: cuántas lleva, lo que le queda a la barra y la siguiente recompensa
+// Racha de granadas (arriba): cuántas lleva, lo que le queda a la barra y la siguiente granada.
+// Racha alienígena (a la izquierda): cuántos alienígenas lleva y por dónde va hacia cada recompensa
 function updateStreak() {
     const n = sniper.streak, el = $('streak');
     el.classList.toggle('hidden', n <= 0 || sniper.unlocking);
-    if (n <= 0) return;
-    $('streak-n').textContent = n;
-    $('streak-fill').style.width = `${Math.round(Math.max(0, sniper.streakT / sniper.streakMax) * 40) * 2.5}%`;
-    el.classList.toggle('low', sniper.streakT < 1);
-    // La siguiente de las equipadas en el granero
-    const next = KILLSTREAKS.filter((k) => sniper.equipped.includes(k.id) && k.at > n).sort((a, b) => a.at - b.at)[0];
-    $('streak-next').textContent = next ? `${L('NEXT', 'SIGUIENTE')}: ${next.at} ${next.name}` : sniper.equipped.length ? L('MAX STREAK!', '¡RACHA MÁXIMA!') : L('NO STREAKS: UPGRADE THE BARN', 'SIN RACHAS: MEJORA EL GRANERO');
+    if (n > 0) {
+        $('streak-n').textContent = n;
+        $('streak-fill').style.width = `${Math.round(Math.max(0, sniper.streakT / sniper.streakMax) * 40) * 2.5}%`;
+        el.classList.toggle('low', sniper.streakT < 1);
+        const next = streakOf('crop').find((k) => k.at > n);
+        $('streak-next').textContent = next ? `${L('NEXT', 'SIGUIENTE')}: ${next.at} ${next.short}` : L('MAX STREAK!', '¡RACHA MÁXIMA!');
+    }
+    $('alien-streak').classList.toggle('hidden', sniper.unlocking);
+    const a = sniper.aliens, steps = streakOf('alien'), top = steps[steps.length - 1].at;
+    $('as-n').textContent = a;
+    $('as-fill').style.height = `${Math.round(Math.min(1, a / top) * 100)}%`;
+    renderAlienSteps(steps, top);
+    for (const k of steps) {
+        const row = $(`as-${k.id}`);
+        row.classList.toggle('done', a >= k.at);
+        row.classList.toggle('next', k === steps.find((x) => x.at > a));
+    }
+}
+
+// Las recompensas de la racha alienígena, en su sitio a lo largo de la barra (se rehacen solo
+// si cambian los números en DEBUG)
+let alienStepsKey = '';
+function renderAlienSteps(steps, top) {
+    const key = steps.map((k) => `${k.id}${k.at}`).join();
+    if (key === alienStepsKey) return;
+    alienStepsKey = key;
+    $('as-steps').innerHTML = steps.map((k) => `<div class="as-step" id="as-${k.id}" style="bottom:${(k.at / top) * 100}%"><i class="ks-ico" style="--ico: var(--px-${k.icon})"></i><b>${k.at}</b></div>`).join('');
 }
 
 // Guiando el misil: altura en la interfaz
@@ -550,7 +581,7 @@ function quickAction() {
 function enterSnipe() {
     const unlock = goSnipe.unlock;
     const def = FIELD_BY_ID[snipeField], arena = def.levels[state.fields[snipeField].level].arena;
-    sniper.enter(unlock ? { unlock: true, rifle: state.rifle } : { crop: def.crop, count: state.fields[snipeField].left, arena, streaks: state.activeStreaks, rifle: state.rifle });
+    sniper.enter(unlock ? { unlock: true, rifle: state.rifle } : { crop: def.crop, count: state.fields[snipeField].left, arena, rifle: state.rifle });
     document.body.classList.remove('fallout');
     mode = 'snipe';
     snipeStart = time;
@@ -1067,50 +1098,32 @@ tapBtn('ufo-close', () => {
     rig.zoomTarget = 1;
 });
 
-// ---------- Granero: subirlo de nivel y elegir las rachas de bajas (tantas como huecos) ----------
+// ---------- Granero: subirlo de nivel y ver las dos rachas de bajas (activas siempre) ----------
 const ksCards = {};
-for (const k of KILLSTREAKS) {
-    const card = document.createElement('button');
-    card.className = 'ks-card';
-    card.id = `ks-card-${k.id}`;
-    card.innerHTML = `<i class="ks-ico" style="--ico: var(--px-${k.icon})"></i><span class="ks-info"><b>${k.name}</b><span class="ks-kills"></span><small>${k.desc}</small></span><em></em>`;
-    card.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (!state.toggleStreak(k.id)) {
-            // Sin desbloquear (hace falta el granero a su nivel) o sin hueco: hay que quitar una antes
-            sfx.play('miss');
-            const info = $('ks-pick-info');
-            if (!state.streakAvailable(k.id)) info.textContent = L(`NEEDS THE BARN AT LV.${k.barn}`, `HACE FALTA EL GRANERO EN NV.${k.barn}`);
-            info.classList.remove('warn');
-            void info.offsetWidth;
-            info.classList.add('warn');
-            return;
-        }
-        sfx.play(state.streaks.includes(k.id) ? 'reloaded' : 'ui');
-        refreshStreaks();
-    });
-    $('ks-cards').appendChild(card);
-    ksCards[k.id] = card;
+for (const [track, title, how] of [
+    ['crop', L('GRENADE STREAK', 'RACHA DE GRANADAS'), L('HARVEST IN A ROW BEFORE THE BAR RUNS OUT', 'RECOGE SEGUIDO ANTES DE QUE SE VACÍE LA BARRA')],
+    ['alien', L('ALIEN STREAK', 'RACHA ALIENÍGENA'), L('SHOOT ALIENS: IT ADDS UP ALL GAME LONG', 'ABATE ALIENÍGENAS: SE SUMA TODA LA PARTIDA')],
+]) {
+    const head = document.createElement('div');
+    head.className = `ks-track ks-track-${track}`;
+    head.innerHTML = `<b>${title}</b><span>${how}</span>`;
+    $('ks-cards').appendChild(head);
+    for (const k of KILLSTREAKS.filter((x) => x.track === track)) {
+        const card = document.createElement('div');
+        card.className = `ks-card on ks-${track}`;
+        card.id = `ks-card-${k.id}`;
+        card.innerHTML = `<i class="ks-ico" style="--ico: var(--px-${k.icon})"></i><span class="ks-info"><b>${k.name}</b><span class="ks-kills"></span><small>${k.desc}</small></span>`;
+        $('ks-cards').appendChild(card);
+        ksCards[k.id] = card;
+    }
 }
 
 function refreshStreaks() {
-    const active = state.activeStreaks, slots = state.slots, full = active.length >= slots;
-    for (const k of KILLSTREAKS) {
-        const card = ksCards[k.id], on = active.includes(k.id), open = state.streakAvailable(k.id);
-        card.classList.toggle('on', on);
-        card.classList.toggle('locked', !open);
-        card.classList.toggle('full', open && full && !on);
-        card.querySelector('.ks-kills').textContent = `${k.at} ${L('KILLS', 'BAJAS')}`;
-        card.querySelector('em').textContent = !open ? `${L('LV', 'NV')}.${k.barn}` : on ? L('EQUIPPED', 'EQUIPADA') : L('EQUIP', 'EQUIPAR');
-    }
-    $('ks-pick-info').textContent = `${L(`PICK UP TO ${slots}`, `ELIGE HASTA ${slots}`)} · ${active.length}/${slots}`;
+    for (const k of KILLSTREAKS) ksCards[k.id].querySelector('.ks-kills').textContent = k.track === 'alien' ? `${k.at} ${L('ALIENS', 'ALIENÍGENAS')}` : `${k.at} ${L('IN A ROW', 'SEGUIDAS')}`;
     // El granero: su nivel, lo que da el siguiente y lo que cuesta
     const lv = state.barn.level, max = FARM.barn.levels.length - 1;
     $('barn-level').textContent = `${L('BARN', 'GRANERO')} ${L('LV', 'NV')}.${lv}/${max}`;
-    const next = KILLSTREAKS.find((k) => k.barn === lv + 1);
-    $('barn-next').textContent = state.barnMaxed ? L('MAX LEVEL', 'NIVEL MÁXIMO')
-        : next ? `${L('UNLOCKS', 'DESBLOQUEA')}: ${next.name}`
-        : FARM.barn.levels[lv + 1].slots > slots ? L('+1 STREAK SLOT', '+1 HUECO DE RACHA') : '';
+    $('barn-next').textContent = state.barnMaxed ? L('MAX LEVEL', 'NIVEL MÁXIMO') : L('NEXT: A BIGGER YARD', 'SIGUIENTE: MÁS RECINTO');
     const up = $('barn-upgrade');
     up.classList.toggle('hidden', state.barnMaxed);
     up.disabled = !state.canUpgradeBarn;
@@ -1154,8 +1167,7 @@ function upgradeHouse() {
 
 // Subir el granero: se cierra el menú para ver crecer el recinto en el mapa
 function upgradeBarn() {
-    const got = state.upgradeBarn();
-    if (!got) return;
+    if (!state.upgradeBarn()) return;
     $('streaks').classList.add('hidden');
     farm.setBarnLevel(state.barn.level);
     const b = farm.byId.barn;
@@ -1166,8 +1178,7 @@ function upgradeBarn() {
     sfx.play('power');
     vibrate('pickup');
     updateCounts();
-    const k = KILLSTREAKS.find((s) => s.id === got);
-    stage(L('BARN UPGRADED!', '¡GRANERO MEJORADO!'), k ? `${L('UNLOCKED', 'DESBLOQUEADA')}: ${k.name}` : state.barnMaxed ? L('+1 STREAK SLOT', '+1 HUECO DE RACHA') : '');
+    stage(L('BARN UPGRADED!', '¡GRANERO MEJORADO!'), `${L('BARN', 'GRANERO')} ${L('LV', 'NV')}.${state.barn.level}`);
 }
 tapBtn('barn-upgrade', upgradeBarn);
 
@@ -1259,7 +1270,7 @@ const ksRows = {};
 for (const k of KILLSTREAKS) {
     const row = document.createElement('div');
     row.className = 'ks-row';
-    row.innerHTML = `<span>${k.name}</span><button class="ks-step" data-d="-1">-</button><b id="ks-${k.id}"></b><button class="ks-step" data-d="1">+</button>`;
+    row.innerHTML = `<span>${k.track === 'alien' ? '<i class="ico alien-ico"></i> ' : ''}${k.short}</span><button class="ks-step" data-d="-1">-</button><b id="ks-${k.id}"></b><button class="ks-step" data-d="1">+</button>`;
     for (const b of row.querySelectorAll('.ks-step')) {
         b.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -1283,24 +1294,23 @@ function setStreakCount(k, n) {
     refreshStreaks();
     sfx.play('ui');
 }
-// Depuración: todos los terrenos bloqueados, limpios y sembrados de golpe (sin requisitos)
+// Depuración: todos los terrenos bloqueados, limpios y sembrados de golpe (sin requisitos), y el
+// rifle al máximo
 tapBtn('btn-unlock-all', () => {
     const ids = FARM.fields.map((f) => f.id).filter((id) => state.unlock(id, Date.now(), true));
-    const ks = KILLSTREAKS.filter((k) => state.unlockStreak(k.id));
-    const slot = state.unlockSlot();
     const rifle = state.maxRifle();
-    sfx.play(ids.length || ks.length || slot || rifle ? 'power' : 'miss');
+    sfx.play(ids.length || rifle ? 'power' : 'miss');
     refreshUnlockRows();
-    if (!ids.length && !ks.length && !slot && !rifle) return;
+    if (!ids.length && !rifle) return;
     $('debug').classList.add('hidden');
     while (revealUnlocked());
     rig.focus(home.x, home.z);
     updateCounts();
-    const what = [...ids.map((id) => FIELD_BY_ID[id].name), ...ks.map((k) => k.name), ...(slot ? [L('+1 STREAK SLOT', '+1 HUECO DE RACHA')] : []), ...(rifle ? [L('MAXED RIFLE', 'RIFLE AL MÁXIMO')] : [])];
+    const what = [...ids.map((id) => FIELD_BY_ID[id].name), ...(rifle ? [L('MAXED RIFLE', 'RIFLE AL MÁXIMO')] : [])];
     setTimeout(() => stage(L('ALL UNLOCKED!', '¡TODO DESBLOQUEADO!'), what.join(' · ')), 350);
 });
 
-// Depuración: desbloquear de uno en uno cada terreno, cada racha y el hueco extra
+// Depuración: desbloquear de uno en uno cada terreno y el rifle al máximo
 const unlockables = [
     ...FARM.fields.filter((f) => f.locked).map((f) => ({
         id: `field-${f.id}`, name: f.name,
@@ -1311,8 +1321,6 @@ const unlockables = [
             revealUnlocked();
         },
     })),
-    ...KILLSTREAKS.map((k) => ({ id: `ks-${k.id}`, name: k.name, done: () => state.streakAvailable(k.id), run: () => state.unlockStreak(k.id) })),
-    { id: 'slot', name: L('+1 STREAK SLOT', '+1 HUECO DE RACHA'), done: () => state.slots >= FARM.barn.levels[FARM.barn.levels.length - 1].slots, run: () => state.unlockSlot() },
     { id: 'rifle', name: L('MAXED RIFLE', 'RIFLE AL MÁXIMO'), done: () => RIFLE.every((r) => state.rifleMaxed(r.id)), run: () => state.maxRifle() },
 ];
 const unlockBtns = {};

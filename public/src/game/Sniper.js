@@ -8,9 +8,10 @@ import { RifleModel } from '../render/RifleModel.js';
 import { SniperField } from '../world/SniperField.js';
 import { vibrate } from '../core/Haptics.js';
 import { CROPS } from '../content/crops.js';
-import { KILLSTREAKS, KS } from '../content/killstreaks.js';
+import { KS, streakOf } from '../content/killstreaks.js';
 import { Killstreaks } from './Killstreaks.js';
 import { Flyers } from './Flyers.js';
+import { Walkers } from './Walkers.js';
 import { rifleStats } from '../content/rifle.js';
 
 const S = CONFIG.sniper;
@@ -27,10 +28,13 @@ const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) 
 // Se puede mirar, apuntar y disparar también mientras se salta de una torre a otra.
 // Dos modos: cosecha (los blancos son las matas o los tomates) y desbloqueo (un solo disparo
 // lejano al barril rojo encima de la chatarra, sin poder cambiar de torre).
-// Cosechando hay rachas de bajas (content/killstreaks.js): granada, misil Predator (mientras
-// se guía, la vista y el gatillo son del misil), bombardero y bomba nuclear.
+// Cosechando hay dos rachas de bajas (content/killstreaks.js): la de granadas, al recoger
+// (fragmentación, racimo e incendiaria), y la alienígena, al abatir alienígenas que cruzan el
+// campo a pie o ovnis pequeños (misil Predator, que mientras se guía tiene la vista y el gatillo,
+// bombardero y bomba nuclear).
 export class Sniper {
     // hooks: { sfx, onHit(target, ndcX, ndcY), onMedal({ collateral, streak, reward }), onUnlock(),
+    //          onAlien(ndcX, ndcY), onUfoCoin(n, ndcX, ndcY),
     //          onPredator(on), onNukeCount(s), onNuke(), onFinish(), onDone(), onCorner(i) }
     constructor(theme, hooks) {
         this.theme = theme;
@@ -52,8 +56,9 @@ export class Sniper {
         this.stats = rifleStats();
         this.ks = new Killstreaks(this);
         this.flyers = new Flyers(this);
-        this.equipped = [];
-        this.streak = 0;
+        this.walkers = new Walkers(this);
+        this.aliens = 0;        // racha alienígena: abatidos en esta partida (no se pierde)
+        this.streak = 0;        // racha de granadas: lo recogido seguido
         this.streakT = 0; // lo que le queda a la barra de la racha (s) y lo que duraba llena
         this.streakMax = 1;
 
@@ -101,13 +106,12 @@ export class Sniper {
         this.scene.add(this.field.root);
     }
 
-    // what: { crop, count, arena, streaks } para cosechar (count blancos de ese cultivo en un
-    // campo de tamaño arena) o { unlock: true }; rifle: niveles de sus mejoras
+    // what: { crop, count, arena } para cosechar (count blancos de ese cultivo en un campo de
+    // tamaño arena) o { unlock: true }; rifle: niveles de sus mejoras
     enter(what) {
         this.setArena(what.arena || 1);
         this.stats = rifleStats(what.rifle);
         this.unlocking = !!what.unlock;
-        this.equipped = what.streaks || []; // rachas de bajas que valen en esta partida
         this.crop = what.crop || null;
         this.field.restartIntro();
         this.field.setUnlockView(this.unlocking);
@@ -132,13 +136,16 @@ export class Sniper {
         this.slowmo = 0;
         this.hitStop = 0;
         this.streak = this.streakT = 0;
+        this.aliens = 0;
         this.ks.clear();
         this.flyers.reset();
+        this.walkers.reset();
     }
 
     leave() {
         this.ks.clear();
         this.flyers.reset();
+        this.walkers.reset();
         this.field.clearSheaves();
         this.particles.clear();
     }
@@ -286,13 +293,19 @@ export class Sniper {
 
         if (this.unlocking) return this.fireAtJunk(origin, dir, muzzle);
         const hits = this.field.raycast(origin, dir);
-        // Un ovni pequeño en la línea de tiro, antes que los blancos: derribado (para la bala)
-        const ufo = this.flyers.hit(origin, dir);
-        if (ufo && (!hits.length || ufo.t < hits[0].t)) {
-            this.flyers.shoot(ufo.flyer);
-            this.hitStop = S.hitStop;
+        // Un alienígena (a pie o en ovni pequeño) en la línea de tiro para la bala: cae él y lo
+        // que la bala haya atravesado antes (colateral)
+        const ufo = this.flyers.hit(origin, dir), alien = this.walkers.hit(origin, dir);
+        const stop = ufo && (!alien || ufo.t < alien.t) ? ufo : alien;
+        if (stop) {
+            const before = hits.filter((h) => h.t < stop.t);
+            if (stop.flyer) this.flyers.shoot(stop.flyer);
+            else this.walkers.shoot(stop.walker);
+            if (before.length && this.hooks.onMedal) this.hooks.onMedal({ collateral: before.length + 1 });
+            if (before.length) this.harvest(before.map((h) => h.sheaf));
+            this.hitStop = S.hitStop * (1 + Math.min(2, before.length));
             this.trauma = Math.min(1, this.trauma + 0.3);
-            this.drawTracer(origin, dir, muzzle, origin.clone().addScaledVector(dir, ufo.t));
+            this.drawTracer(origin, dir, muzzle, origin.clone().addScaledVector(dir, stop.t));
             return true;
         }
         let end;
@@ -341,15 +354,31 @@ export class Sniper {
         if (this.field.remaining === 0 && !this.ks.holdsEnd && this.ending < 0) this.finish();
     }
 
-    // La racha sube y la barra se rellena, cada vez durando menos. Al llegar a cada número se
-    // lanza su recompensa.
+    // Racha de granadas: sube y la barra se rellena, cada vez durando menos. Al llegar a cada
+    // número se lanza su granada.
     addStreak(n) {
         const prev = this.streak;
         this.streak += n;
         this.streakMax = Math.max(KS.bar.min, KS.bar.time * KS.bar.decay ** (this.streak - 1));
         this.streakT = this.streakMax;
         if (this.hooks.onMedal && this.streak >= 2 && prev < 4) this.hooks.onMedal({ streak: Math.min(4, this.streak) });
-        for (const k of KILLSTREAKS) if (this.equipped.includes(k.id) && prev < k.at && this.streak >= k.at) this.ks.trigger(k.id);
+        for (const k of streakOf('crop')) if (prev < k.at && this.streak >= k.at) this.ks.trigger(k.id);
+    }
+
+    // Racha alienígena: cada alienígena abatido suma (no se pierde con el tiempo) y al llegar a
+    // cada número se lanza su recompensa
+    addAlien(n) {
+        const prev = this.aliens;
+        this.aliens += n;
+        for (const k of streakOf('alien')) if (prev < k.at && this.aliens >= k.at) this.ks.trigger(k.id);
+    }
+
+    // Lo que hay a menos de r de un punto del suelo (explosiones y fuego): los alienígenas
+    // abatidos y los blancos recogidos
+    catchAt(x, z, r) {
+        for (const w of this.walkers.near(x, z, r)) this.walkers.shoot(w);
+        const caught = this.field.targets.filter((s) => s.alive && s.landed && Math.hypot(s.x - x, s.z - z) <= r);
+        if (caught.length) this.harvest(caught);
     }
 
     // Explosión en el suelo (granada, misil, bombas): fuego, humo, polvo y ondas, y se recoge
@@ -364,8 +393,7 @@ export class Sniper {
         this.trauma = Math.min(1, this.trauma + 0.3 * k);
         sfx.play(Math.random() < 0.5 ? 'boom' : 'crateBreak');
         vibrate('crate');
-        const caught = this.field.targets.filter((s) => s.alive && s.landed && Math.hypot(s.x - x, s.z - z) <= r);
-        if (caught.length) this.harvest(caught);
+        this.catchAt(x, z, r);
     }
 
     drawTracer(origin, dir, muzzle, end) {
@@ -462,6 +490,7 @@ export class Sniper {
         if (this.streak > 0 && !this.ks.paused && this.ending < 0 && (this.streakT -= dt) <= 0) this.streak = this.streakT = 0;
         this.ks.update(dt, rawDt);
         this.flyers.update(dt, time);
+        this.walkers.update(dt, time);
 
         if (this.move) {
             const m = this.move;

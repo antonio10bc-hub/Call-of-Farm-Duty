@@ -23,7 +23,9 @@ function hulled(parent, ink, w, h, d, color, x = 0, y = 0, z = 0) {
 }
 
 // Recompensas de las rachas de bajas, en el campo de tiro:
-//   granada    sale de la torre en arco hacia el montón de blancos más gordo y revienta
+//   granadas   (racha de granadas) salen de la torre en arco hacia el montón de blancos más
+//              gordo: la de fragmentación revienta; la de racimo suelta mini granadas que
+//              saltan hacia fuera; la incendiaria deja un fuego que quema lo de alrededor
 //   predator   la vista pasa a ser cenital: el misil baja solo, se guía mirando y se acelera
 //              con el gatillo; al tocar el suelo explota (el francotirador no responde mientras)
 //   bombardero un avión enorme cruza el campo soltando bombas; se sigue disparando a la vez
@@ -35,6 +37,8 @@ export class Killstreaks {
         sniper.scene.add(this.root);
         this.ink = outline(sniper.theme.outline);
         this.grenades = [];
+        this.bomblets = [];
+        this.fires = [];
         this.bombs = [];
         this.plane = null;
         this.predator = null;
@@ -56,7 +60,7 @@ export class Killstreaks {
         if (hooks.onMedal) hooks.onMedal({ reward: id });
         if (id === 'nuke') return this.startNuke();
         if (this.sn.field.remaining === 0) return; // ya no queda nada que recoger
-        if (id === 'grenade') this.throwGrenade();
+        if (id === 'frag' || id === 'cluster' || id === 'fire') this.throwGrenade(id);
         else if (id === 'predator') this.startPredator();
         else if (id === 'bomber') this.callBomber();
     }
@@ -83,17 +87,20 @@ export class Killstreaks {
         return best;
     }
 
-    // ---------- Granada ----------
-    // Sale de delante de la cámara, abajo a la derecha (como lanzada con la mano) para que se vea
-    // salir; es gorda, brilla en amarillo y deja estela de humo y chispas
-    throwGrenade() {
-        const t = this.bestSpot(KS.grenade.radius, true);
+    // ---------- Granadas ----------
+    // Salen de delante de la cámara, abajo a la derecha (como lanzadas con la mano) para que se
+    // vean salir; son gordas, brillan y dejan estela de humo y chispas. Cada tipo con su color:
+    // fragmentación verde, racimo gris con bandas amarillas, incendiaria roja con brillo naranja
+    throwGrenade(type = 'frag') {
+        const t = this.bestSpot(type === 'fire' ? KS.fire.radius : KS.grenade.radius, true);
         if (!t) return;
+        const [body, band, shine] = { frag: [0x5a7a3a, 0x3a5a2a, 0xffe03a], cluster: [0x7a7a6a, 0xffd23f, 0xffe03a], fire: [0xc8402e, 0x8a2a1e, 0xff9a1f] }[type];
         const g = new THREE.Group();
-        hulled(g, this.ink, 0.42, 0.52, 0.42, 0x5a7a3a);
-        hulled(g, this.ink, 0.44, 0.08, 0.44, 0x3a5a2a, 0, -0.06, 0);
+        hulled(g, this.ink, 0.42, 0.52, 0.42, body);
+        hulled(g, this.ink, 0.44, 0.08, 0.44, band, 0, -0.06, 0);
+        if (type === 'cluster') hulled(g, this.ink, 0.44, 0.08, 0.44, band, 0, 0.14, 0);
         hulled(g, this.ink, 0.16, 0.12, 0.22, 0xc8c0b0, 0, 0.32, 0.05);
-        const glow = new THREE.Mesh(box(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffe03a, side: THREE.BackSide }));
+        const glow = new THREE.Mesh(box(1, 1, 1), new THREE.MeshBasicMaterial({ color: shine, side: THREE.BackSide }));
         glow.scale.set(0.62, 0.72, 0.62);
         g.add(glow);
         this.root.add(g);
@@ -105,8 +112,40 @@ export class Killstreaks {
             .addScaledVector(new THREE.Vector3(0, 1, 0).applyQuaternion(cam.quaternion), -0.4);
         // Arco bajo: así no se sale por arriba de la pantalla
         const arc = Math.min(KS.grenade.arc, 1.2 + Math.hypot(t.x - from.x, t.z - from.z) * 0.08);
-        this.grenades.push({ obj: g, glow, from, x: t.x, z: t.z, t: 0, arc, trail: 0 });
+        this.grenades.push({ obj: g, glow, from, x: t.x, z: t.z, t: 0, arc, trail: 0, type });
         this.sn.hooks.sfx.play('grenade');
+    }
+
+    // Racimo: revienta pequeña y suelta las mini granadas en corona (cada una a su aire)
+    burstCluster(x, z) {
+        const C = KS.cluster;
+        this.sn.blast(x, z, C.radius, 0.5);
+        for (let k = 0; k < C.bombs; k++) {
+            const a = (k / C.bombs) * Math.PI * 2 + Math.random() * 0.6, v = C.spread * (0.6 + Math.random() * 0.6);
+            const b = new THREE.Group();
+            hulled(b, this.ink, 0.2, 0.24, 0.2, 0x7a7a6a);
+            hulled(b, this.ink, 0.22, 0.05, 0.22, 0xffd23f);
+            b.position.set(x, 0.5, z);
+            this.root.add(b);
+            this.bomblets.push({ obj: b, vx: Math.sin(a) * v, vz: Math.cos(a) * v, vy: 5 + Math.random() * 2, trail: 0 });
+        }
+    }
+
+    // Incendiaria: fogonazo pequeño y queda un fuego en el suelo (mancha quemada y brillo naranja)
+    startFire(x, z) {
+        const r = KS.fire.radius, sn = this.sn;
+        sn.blast(x, z, 1.2, 0.6);
+        const scorch = new THREE.Mesh(box(1, 1, 1), mat(0x3a2a1e));
+        scorch.scale.set(r * 1.7, 0.03, r * 1.7);
+        scorch.position.set(x, 0.02, z);
+        scorch.rotation.y = Math.PI / 4;
+        const glow = new THREE.Mesh(box(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xff7a1a, transparent: true, opacity: 0.35, depthWrite: false }));
+        glow.scale.set(r * 2, 0.05, r * 2);
+        glow.position.set(x, 0.06, z);
+        this.root.add(scorch, glow);
+        this.fires.push({ x, z, t: KS.fire.time, tick: 0, scorch, glow });
+        sn.waves.spawn(x, z, 0xff9a1f, r * 1.4, 0.5);
+        sn.hooks.sfx.play('boom');
     }
 
     // ---------- Misil Predator ----------
@@ -240,7 +279,8 @@ export class Killstreaks {
         sn.trauma = 1;
         sn.hooks.sfx.play('nuke');
         if (sn.hooks.onNuke) sn.hooks.onNuke();
-        // Todo lo que queda en el campo, recogido
+        // Los alienígenas que anden por el campo, abatidos, y todo lo que queda, recogido
+        for (const w of sn.walkers.list.filter((x) => x.alive)) sn.walkers.shoot(w);
         const all = f.targets.filter((s) => s.alive);
         for (const s of all) s.landed = true;
         if (all.length) sn.harvest(all);
@@ -264,7 +304,47 @@ export class Killstreaks {
             if (k < 1) return true;
             g.glow.material.dispose();
             this.root.remove(g.obj);
-            sn.blast(g.x, g.z, KS.grenade.radius, 0.7);
+            if (g.type === 'cluster') this.burstCluster(g.x, g.z);
+            else if (g.type === 'fire') this.startFire(g.x, g.z);
+            else sn.blast(g.x, g.z, KS.grenade.radius, 0.7);
+            return false;
+        });
+        // Mini granadas del racimo: saltan hacia fuera y revientan al caer
+        this.bomblets = this.bomblets.filter((b) => {
+            b.vy -= 18 * dt;
+            const o = b.obj.position;
+            o.x += b.vx * dt;
+            o.y += b.vy * dt;
+            o.z += b.vz * dt;
+            b.obj.rotation.x += dt * 10;
+            b.obj.rotation.z += dt * 7;
+            if ((b.trail -= dt) <= 0) {
+                b.trail = 0.04;
+                sn.particles.spawn(o.x, o.y, o.z, 0, 0.3, 0, 0.1, 0.4, Math.random() < 0.5 ? 0xffe03a : SMOKE[1], -0.5);
+            }
+            if (o.y > 0.15 || b.vy > 0) return true;
+            this.root.remove(b.obj);
+            sn.blast(o.x, o.z, KS.cluster.bombRadius, 0.5);
+            return false;
+        });
+        // Fuegos de la incendiaria: llamas que suben y, cada poco, quema lo que haya dentro
+        this.fires = this.fires.filter((f) => {
+            f.t -= dt;
+            const r = KS.fire.radius, live = Math.min(1, f.t / 0.8);
+            for (let k = 0; k < 3; k++) {
+                if (Math.random() > live) continue;
+                const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * r;
+                sn.particles.spawn(f.x + Math.sin(a) * d, 0.15, f.z + Math.cos(a) * d, (Math.random() - 0.5) * 0.4, 1.6 + Math.random() * 1.6, (Math.random() - 0.5) * 0.4, 0.16 + Math.random() * 0.16, 0.45 + Math.random() * 0.3, FIRE[1 + ((Math.random() * 3) | 0)], -2);
+            }
+            if (Math.random() < dt * 4) sn.particles.spawn(f.x + (Math.random() - 0.5) * r, 1.2, f.z + (Math.random() - 0.5) * r, 0, 1.4, 0, 0.5 + Math.random() * 0.4, 1.6, SMOKE[(Math.random() * 3) | 0], -1);
+            f.glow.material.opacity = 0.35 + Math.sin(f.t * 18) * 0.08;
+            if ((f.tick -= dt) <= 0 && f.t > 0) {
+                f.tick = KS.fire.tick;
+                sn.catchAt(f.x, f.z, r);
+            }
+            if (f.t > 0) return true;
+            this.root.remove(f.scorch, f.glow);
+            f.glow.material.dispose();
             return false;
         });
         // Misil: baja, y al llegar al suelo, ¡boom!
@@ -366,7 +446,10 @@ export class Killstreaks {
         this.endPredator();
         for (const m of [...this.root.children]) this.root.remove(m);
         if (this.nuke && this.nuke.ball) for (const m of this.nuke.ball) m.material.dispose();
+        for (const f of this.fires) f.glow.material.dispose();
         this.grenades = [];
+        this.bomblets = [];
+        this.fires = [];
         this.bombs = [];
         this.plane = null;
         this.nuke = null;

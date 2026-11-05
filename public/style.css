@@ -471,6 +471,8 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
 .medal.collateral { color: var(--cyan); border-color: var(--cyan); }
 .medal.multi { color: #fff; background: var(--barn); border-color: #fff; }
 .medal.reward { font-size: 14px; padding: 7px 10px; color: var(--ink); background: var(--yellow); border-color: var(--ink); }
+/* Medallas de los alienígenas (abatido y recompensas de su racha): verdes */
+.medal.alien { color: var(--ink); background: #7dff4a; border-color: var(--ink); }
 @keyframes medalPop {
     0% { opacity: 0; transform: scale(1.8); }
     12% { opacity: 1; transform: scale(1); }
@@ -1026,6 +1028,14 @@ body.unlocking .arrow-btn, body.unlocking .corners, body.unlocking .left-badge {
 .ks-card.full { opacity: .55; }
 .ks-card.locked { opacity: .5; filter: grayscale(1); }
 .ks-card.locked em { background: var(--ink); }
+/* En el granero las rachas son fichas (no se equipan): sin efecto al tocar */
+div.ks-card { cursor: default; }
+div.ks-card:active { transform: none; box-shadow: 0 5px 0 var(--ink), inset 0 -4px 0 #e8a82a; }
+.ks-card.ks-alien { background: #d8ffb0; box-shadow: 0 5px 0 var(--ink), inset 0 -4px 0 #9ad84a; }
+.ks-track { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; text-align: left; }
+.ks-track b { font-size: 10px; font-weight: normal; color: var(--yellow); }
+.ks-track-alien b { color: #7dff4a; }
+.ks-track span { font-size: 7px; line-height: 1.5; color: #c8b89a; }
 /* Granero en el menú: su nivel y la mejora */
 .barn-box { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: min(330px, 100%); padding: 8px 10px; background: rgba(255, 243, 214, .1); border: 3px solid #a8957a; }
 .barn-head { display: flex; flex-direction: column; gap: 5px; text-align: left; }
@@ -1094,6 +1104,41 @@ body.fallout .nuke-haze { opacity: 1; animation: haze 3s ease-in-out infinite; }
 .streak.low .streak-bar i { background: var(--barn); animation: blink .25s steps(2) infinite; }
 @keyframes blink { 50% { opacity: .3; } }
 .streak-next { font-size: 6px; line-height: 1.5; color: #c8b89a; }
+
+/* Racha alienígena: a la izquierda, a media altura. Arriba los alienígenas abatidos; debajo una
+   barra vertical que se llena y las recompensas a la altura que piden (encendidas al llegar) */
+.alien-streak {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 6px 8px;
+    color: #fff;
+    background: rgba(42, 26, 14, .82);
+    border: 3px solid #7dff4a;
+    box-shadow: 0 4px 0 rgba(42, 26, 14, .45);
+}
+.alien-streak.hidden { display: none; }
+.alien-streak.bump { animation: asBump .4s steps(2); }
+@keyframes asBump { 0% { transform: translateY(-50%) scale(1.1); border-color: #fff; } }
+.as-head { display: flex; align-items: center; gap: 4px; font-size: 12px; }
+.as-head b { color: #7dff4a; font-weight: normal; }
+.as-head .ico { width: 16px; height: 15px; }
+.as-track { position: relative; width: 50px; height: 150px; margin: 10px 0 2px; }
+.as-bar { position: absolute; left: 4px; top: 0; bottom: 0; width: 8px; padding: 1px; background: #3e2a5e; display: flex; align-items: flex-end; }
+.as-bar i { display: block; width: 100%; background: #7dff4a; transition: height .2s steps(3); }
+.as-steps { position: absolute; inset: 0; }
+.as-step { position: absolute; left: 14px; display: flex; align-items: center; gap: 2px; transform: translateY(50%); opacity: .45; filter: grayscale(1); }
+.as-step .ks-ico { width: 20px; height: 20px; }
+.as-step b { font-size: 7px; font-weight: normal; }
+.as-step.next { opacity: .85; filter: none; }
+.as-step.done { opacity: 1; filter: none; }
+.as-step.done b { color: #7dff4a; }
+body.predator .alien-streak { display: none; }
 
 /* Misil Predator: vista verdosa con líneas, recuadro de impacto en el centro y su altura */
 .predator-hud { display: none; position: fixed; inset: 0; z-index: 12; pointer-events: none; color: #c8ffb0; text-shadow: 2px 2px 0 var(--ink); }

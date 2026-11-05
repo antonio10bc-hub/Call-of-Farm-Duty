@@ -178,6 +178,14 @@ const SPRITES = {
         rows: ['.....KKK....', '....KYYK.KK.', '...KKKKKKOK.', '..KGGGGGGK..', '.KGLGGGGGGK.', '.KGLGGGGGGK.', '.KGGGGGGGGK.', '.KDDDDDDDDK.', '.KGGGGGGGGK.', '.KGGGGGGGDK.', '..KGGGGGDK..', '...KKKKKK...'],
         pal: { K: INK, G: '#5a7a3a', L: '#8aa85a', D: '#3a5a2a', Y: '#c8c0b0', O: '#ffd23f' },
     },
+    ksCluster: {
+        rows: ['.KK....KK...', 'KGGK..KGGK..', 'KGLK..KGLK..', 'KGGK..KGGK..', '.KK....KK...', '.....KK.....', '....KGGK....', '...KGLGGK...', '...KGGGGK...', '...KYYYYK...', '...KGGGGK...', '....KKKK....'],
+        pal: { K: INK, G: '#7a7a6a', L: '#a8a898', Y: '#ffd23f' },
+    },
+    ksFire: {
+        rows: ['.....YO.....', '....YOOY....', '....OROO....', '...KKKKKK...', '..KRRRRRRK..', '.KRLRRRRRRK.', '.KRLRRRRRRK.', '.KDDDDDDDDK.', '.KRRRRRRRRK.', '.KRRRRRRRDK.', '..KRRRRRDK..', '...KKKKKK...'],
+        pal: { K: INK, Y: '#ffe03a', O: '#ff9a1f', R: '#c8402e', L: '#ff7a5a', D: '#8a2a1e' },
+    },
     ksPredator: {
         rows: ['....KYYK....', '.....KK.....', '....KRRK....', '....KRRK....', '....KWWK....', '....KWWK....', '..KRKWWKRK..', '..KRKWWKRK..', '...KKWWKK...', '....KWWK....', '....KWWK....', '.....KK.....'],
         pal: { K: INK, W: '#d8dce2', R: '#c8402e', Y: '#ffd23f' },

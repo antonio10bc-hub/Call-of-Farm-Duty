@@ -65,7 +65,7 @@ test('tomates: con el trigo al máximo se desbloquea disparando al barril; luego
     // A cosechar: matas de tomate con tomates gigantes; disparar a un tomate lo recoge
     await page.evaluate(() => game.harvest('tomato'));
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
-    await page.evaluate(() => { game.sniper.flyers.next = Infinity; }); // sin ovnis pequeños de por medio
+    await page.evaluate(() => { game.sniper.flyers.next = Infinity; game.sniper.walkers.reset(); game.sniper.walkers.next = Infinity; }); // sin ovnis pequeños ni alienígenas a pie de por medio
     await expect.poll(() => page.evaluate(() => game.sniper.field.sheaves.every((s) => s.landed)), { timeout: 20_000 }).toBe(true);
     expect(await page.evaluate(() => game.sniper.field.remaining)).toBe(await page.evaluate(() => game.state.sheaves('tomato')));
     await aimAndShoot(page, 'game.sniper.field.sheaves.find((x) => x.alive)');

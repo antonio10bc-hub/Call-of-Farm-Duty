@@ -9,7 +9,7 @@ const rand = (a, b) => a + Math.random() * (b - a);
 
 // Ovnis pequeños en el campo de tiro: de vez en cuando cruza uno el cielo, bamboleándose. Si se
 // le da, cae en barrena echando chispas y, al tocar el suelo, suelta monedas alienígenas
-// (hooks.onUfoCoin). Su caja de impacto es una esfera (radius).
+// (hooks.onUfoCoin); también suma a la racha alienígena. Su caja de impacto es una esfera (radius).
 export class Flyers {
     constructor(sniper) {
         this.sn = sniper;
@@ -80,6 +80,7 @@ export class Flyers {
         sn.particles.burst(p.x, p.y, p.z, 40, SPARKS, { speed: 4, up: 3, size: 0.12, ttl: 0.7 });
         sn.hooks.sfx.play('crateHit');
         sn.hooks.sfx.play('shieldGet');
+        sn.addAlien(1); // también cuenta para la racha alienígena
     }
 
     update(dt, time) {
