@@ -561,6 +561,14 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
 .barrel-ico { --ico: var(--px-barrel); }
 .lock-ico { --ico: var(--px-lock); }
 .turret-ico { --ico: var(--px-turret); }
+.sun-ico { --ico: var(--px-sun); }
+.moon-ico { --ico: var(--px-moon); }
+/* Reloj del día: arriba a la derecha, bajo AJUSTES (o bajo QUEDAN en el campo de tiro). De
+   noche, azul marino con la luna */
+.daytime { position: fixed; right: 14px; top: calc(var(--safe-top) + 58px); z-index: 8; display: flex; align-items: center; gap: 6px; padding: 4px 8px 4px 5px; font-size: 9px; color: var(--ink); background: #ffe9a0; border: 3px solid var(--ink); box-shadow: 0 3px 0 rgba(42, 26, 14, .45); pointer-events: none; }
+.daytime .ico { width: 16px; height: 16px; }
+.daytime.is-night { color: #fff6d8; background: #18204a; }
+body.cine .daytime, body.predator .daytime { visibility: hidden; }
 .ks-grenade-ico { --ico: var(--px-ks-grenade); }
 .alien-ico { --ico: var(--px-alien); }
 .alarm-ico { --ico: var(--px-alarm); }
@@ -1201,6 +1209,9 @@ body.predator .alien-streak { display: none; }
 .kill-pop { position: fixed; z-index: 23; display: flex; align-items: center; gap: 6px; transform: translate(-50%, -100%); pointer-events: none; font-size: 22px; color: #7dff4a; text-shadow: 0 4px 0 #3ec82a, 0 7px 0 var(--ink), 3px 0 0 var(--ink), -3px 0 0 var(--ink), 0 -3px 0 var(--ink); animation: killPop 1s steps(8) forwards; }
 .kill-pop b { font-weight: normal; }
 .kill-pop .ico { width: 28px; height: 26px; filter: drop-shadow(2px 2px 0 var(--ink)) drop-shadow(-2px -2px 0 var(--ink)); }
+/* -1 de lo que se llevan los alienígenas: rojo */
+.kill-pop.stolen-pop { color: #ff5a3a; text-shadow: 0 4px 0 #a8201a, 0 7px 0 var(--ink), 3px 0 0 var(--ink), -3px 0 0 var(--ink), 0 -3px 0 var(--ink); }
+.medal.stolen { color: #fff; background: #c8402e; border-color: var(--ink); }
 /* +1 de las torretas en el mapa: amarillo, más pequeño */
 .kill-pop.auto-pop { z-index: 14; font-size: 14px; color: var(--yellow); text-shadow: 0 3px 0 var(--orange), 0 5px 0 var(--ink), 2px 0 0 var(--ink), -2px 0 0 var(--ink), 0 -2px 0 var(--ink); }
 .kill-pop.auto-pop .ico { width: 16px; height: 18px; }

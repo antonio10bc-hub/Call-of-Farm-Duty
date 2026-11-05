@@ -47,7 +47,8 @@ export const KS = {
     // Bomba nuclear: cuenta atrás mientras la bomba cae desde height (la vista la sigue) y,
     // al tocar el suelo, lo recoge todo (el campo, los alienígenas y lo maduro de toda la granja)
     nuke: { countdown: 5, height: 70 },
-    // Alienígenas que cruzan el campo a pie: uno cada every [min, max] s (más en campos más
-    // grandes), como mucho max a la vez; cada uno a su paso (m/s): andando, al trote o corriendo
-    walkers: { every: [2.5, 6], max: 4, speeds: [1.4, 2.6, 4.2], radius: 0.55 },
+    // Alienígenas ladrones a pie: uno cada every [min, max] s (más en campos más grandes), como
+    // mucho max a la vez; cada uno a su paso (m/s): andando, al trote o corriendo. De noche salen
+    // (1 + night) veces más seguidos y caben nightMax más a la vez
+    walkers: { every: [2.5, 6], max: 4, speeds: [1.4, 2.6, 4.2], night: 3, nightMax: 6 },
 };

@@ -1,22 +1,24 @@
 import * as THREE from 'three';
 import { box } from '../render/materials.js';
-import { Turret } from '../render/structures.js';
+import { Turret, Mast } from '../render/structures.js';
 import { TURRETS } from '../content/farm.js';
 
 const SPARKS = [0xffffff, 0xffe03a, 0xff9a1f];
 const rand = (a, b) => a + Math.random() * (b - a);
+const S = 1.2; // tamaño de la torreta y los mástiles
 
-// Torretas automáticas en el campo de tiro (si el campo las tiene): una en cada torre, en lo alto
-// de un mástil por fuera de la plataforma (por encima del tirador, sin taparle la vista). Cada
-// una elige una mata al azar, la acribilla con una ráfaga y la recoge con la última bala. La de
-// la torre en la que estás no dispara (la tienes encima). Lo que recogen no suma a las rachas
-// (sniper.harvest con auto).
+// Torreta automática en el campo de tiro (si el campo la tiene): un mástil en cada torre, por
+// fuera de la plataforma y por encima del tirador (sin taparle la vista), y una sola torreta que
+// va de uno a otro como haría un jugador (nunca al de tu torre: si llegas a la suya, se va).
+// Elige una mata al azar, la acribilla con una ráfaga y la recoge con la última bala. Lo que
+// recoge no suma a las rachas (sniper.harvest con auto).
 export class Turrets {
     constructor(sniper) {
         this.sn = sniper;
         this.root = new THREE.Group();
         sniper.scene.add(this.root);
-        this.list = [];
+        this.masts = [];
+        this.turret = null;
         this.beams = [];
     }
 
@@ -24,24 +26,43 @@ export class Turrets {
         this.clear();
         if (!on) return;
         const f = this.sn.field;
-        this.list = f.towers.map((tw, i) => {
+        this.masts = f.towers.map((tw) => {
             const dx = tw.x - f.cx, dz = tw.z - f.cz, d = Math.hypot(dx, dz);
-            const m = new Turret(this.sn.theme.outline, { mast: TURRETS.mast });
-            m.root.scale.setScalar(1.2);
+            const m = new Mast(this.sn.theme.outline, TURRETS.mast);
+            m.root.scale.setScalar(S);
             m.root.position.set(tw.x + (dx / d) * 1.05, tw.floor, tw.z + (dz / d) * 1.05);
-            m.yaw = Math.atan2(-dx, -dz);
             this.root.add(m.root);
-            return { m, i, cool: rand(0.3, 1) + i * 0.25, target: null, wait: 0, shots: 0, next: 0 };
+            return m;
         });
+        const t = (this.turret = new Turret(this.sn.theme.outline));
+        t.root.scale.setScalar(S);
+        t.corner = (this.sn.corner + 2) % this.masts.length; // la de enfrente
+        t.root.position.copy(this.top(t.corner));
+        t.yaw = Math.atan2(f.cx - t.root.position.x, f.cz - t.root.position.z);
+        t.cool = rand(0.3, 0.8);
+        t.hopT = TURRETS.hop;
+        t.target = null;
+        this.root.add(t.root);
+    }
+
+    // Lo alto del mástil i (donde se planta la torreta)
+    top(i) {
+        const m = this.masts[i];
+        return m.root.position.clone().setY(m.root.position.y + m.top * S);
     }
 
     clear() {
-        for (const t of this.list) {
-            this.root.remove(t.m.root);
-            t.m.dispose();
+        for (const m of this.masts) {
+            this.root.remove(m.root);
+            m.dispose();
+        }
+        if (this.turret) {
+            this.root.remove(this.turret.root);
+            this.turret.dispose();
         }
         for (const b of this.beams) this.dropBeam(b);
-        this.list = [];
+        this.masts = [];
+        this.turret = null;
         this.beams = [];
     }
 
@@ -50,12 +71,23 @@ export class Turrets {
         b.mesh.material.dispose();
     }
 
+    // A otro mástil que no sea el de tu torre ni el suyo
+    hop() {
+        const t = this.turret, n = this.masts.length;
+        const free = [...Array(n).keys()].filter((i) => i !== t.corner && i !== this.sn.corner);
+        t.corner = free[(Math.random() * free.length) | 0];
+        const p = this.top(t.corner);
+        t.hopTo(p.x, p.y, p.z, 1.1);
+        t.target = null;
+        t.hopT = TURRETS.hop * rand(0.8, 1.2);
+    }
+
     // Una bala: fogonazo, trazada hasta cerca de la mata (las ráfagas no van todas al mismo
     // sitio) y un poco de polvo y paja donde da
     shot(t, s) {
         const sn = this.sn;
-        t.m.fire();
-        const from = t.m.muzzle.getWorldPosition(new THREE.Vector3());
+        t.fire();
+        const from = t.muzzle.getWorldPosition(new THREE.Vector3());
         const to = new THREE.Vector3(s.x + rand(-0.35, 0.35), Math.max(0.05, s.y + rand(-0.3, 0.2)), s.z + rand(-0.35, 0.35));
         const mesh = new THREE.Mesh(box(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xfff6dc }));
         mesh.position.copy(from).lerp(to, 0.5);
@@ -69,45 +101,44 @@ export class Turrets {
     }
 
     update(dt) {
-        const sn = this.sn, f = sn.field;
-        const busy = sn.unlocking || sn.ending >= 0 || !!sn.ks.predator;
-        for (const t of this.list) {
-            t.m.update(dt);
-            if (busy || t.i === sn.corner) {
-                t.target = null;
-                continue;
-            }
-            // Buscar mata: una viva y en el suelo que no tenga ya otra torreta encima
-            if (!t.target && (t.cool -= dt) <= 0) {
-                const taken = new Set(this.list.map((o) => o.target));
-                const free = f.targets.filter((s) => s.alive && s.landed && !taken.has(s));
-                if (!free.length) continue;
-                t.target = free[(Math.random() * free.length) | 0];
-                t.m.aimAt(t.target.x, t.target.z, t.m.root.position.y + (TURRETS.mast + 0.68) * 1.2 - t.target.y);
-                t.wait = TURRETS.aim * 3;
-                t.shots = TURRETS.burst;
-                t.next = 0;
-            }
-            if (!t.target || (!t.m.aimed && (t.wait -= dt) > 0)) continue;
-            // Ráfaga: una bala cada rate s; la última recoge la mata (si sigue ahí)
-            const s = t.target;
-            if (!s.alive) {
-                t.target = null;
-                t.cool = 0.2;
-                continue;
-            }
-            if ((t.next -= dt) > 0) continue;
-            t.next = TURRETS.rate;
-            this.shot(t, s);
-            if (--t.shots > 0) continue;
-            t.target = null;
-            t.cool = TURRETS.cool * rand(0.8, 1.2);
-            sn.harvest([s], true);
-        }
+        const sn = this.sn, f = sn.field, t = this.turret;
         this.beams = this.beams.filter((b) => {
             if ((b.life -= dt) > 0) return true;
             this.dropBeam(b);
             return false;
         });
+        if (!t) return;
+        t.update(dt);
+        if (t.hopping) return;
+        // Si llegas a su torre, se aparta; y cada poco cambia de torre por su cuenta
+        if (t.corner === sn.corner || ((t.hopT -= dt) <= 0 && !t.target)) return this.hop();
+        if (sn.unlocking || sn.ending >= 0 || !!sn.ks.predator) {
+            t.target = null;
+            return;
+        }
+        if (!t.target && (t.cool -= dt) <= 0) {
+            const free = f.targets.filter((s) => s.alive && s.landed);
+            if (!free.length) return;
+            t.target = free[(Math.random() * free.length) | 0];
+            t.aimAt(t.target.x, t.target.z, t.root.position.y + 0.8 * S - t.target.y);
+            t.wait = TURRETS.aim * 3;
+            t.shots = TURRETS.burst;
+            t.next = 0;
+        }
+        if (!t.target || (!t.aimed && (t.wait -= dt) > 0)) return;
+        // Ráfaga: una bala cada rate s; la última recoge la mata (si sigue ahí)
+        const s = t.target;
+        if (!s.alive) {
+            t.target = null;
+            t.cool = 0.2;
+            return;
+        }
+        if ((t.next -= dt) > 0) return;
+        t.next = TURRETS.rate;
+        this.shot(t, s);
+        if (--t.shots > 0) return;
+        t.target = null;
+        t.cool = TURRETS.cool * rand(0.8, 1.2);
+        sn.harvest([s], true);
     }
 }

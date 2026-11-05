@@ -1,18 +1,24 @@
 import * as THREE from 'three';
 import { box, toon, outline, OUTLINE } from '../render/materials.js';
 import { KS } from '../content/killstreaks.js';
+import { CROPS } from '../content/crops.js';
 
 const W = KS.walkers;
 const GOO = [0x7dff4a, 0xd8ffb0, 0xffffff, 0x3ec82a];
 const BEAM = [0x7dff4a, 0x9fdcff, 0xffffff];
+const SKIN = 0x7dff4a, SUIT = 0x6a4a9a, DARK = 0x3e2a5e, LAMP = 0xff3e5e;
 const _ray = new THREE.Ray();
 const _box = new THREE.Box3();
 const _v = new THREE.Vector3();
+const _max = new THREE.Vector3();
 const rand = (a, b) => a + Math.random() * (b - a);
 
-// Materiales por color, compartidos (salen alienígenas a montones)
+// Materiales por color, compartidos (salen alienígenas a montones; de noche brillan todos a la vez)
 const MATS = new Map();
 const mat = (c) => MATS.get(c) || MATS.set(c, toon(c)).get(c);
+// Halo verde de noche y el aviso rojo de "lleva algo robado"
+const HALO = new THREE.MeshBasicMaterial({ color: 0x7dff4a, transparent: true, opacity: 0, side: THREE.BackSide, depthWrite: false, blending: THREE.AdditiveBlending });
+const ALARM = new THREE.MeshBasicMaterial({ color: 0xff3e1a });
 
 // Caja con su contorno de tinta
 function hulled(parent, ink, w, h, d, color, x = 0, y = 0, z = 0) {
@@ -35,10 +41,12 @@ function limb(parent, ink, w, h, d, color, x, y, z) {
     return g;
 }
 
-// Alienígenas a pie en el campo de tiro: de vez en cuando aparece uno en un borde del campo (con
-// un rayo verde) y lo cruza en línea recta andando, al trote o corriendo, hasta desaparecer por
-// el otro lado. Cada uno abatido suma a la racha alienígena (sniper.addAlien). Su caja de
-// impacto es la de su cuerpo.
+// Alienígenas a pie en el campo de tiro: ladrones de cosecha. Aparecen en un borde del campo
+// (con un rayo verde), van hacia una mata (o un tomate), la cogen y huyen corriendo hacia fuera
+// con ella a cuestas y un aviso rojo encima. Si llega al borde, se la lleva (hooks.onStolen); si
+// se le abate, lo robado se recupera (hooks.onHit, como si se hubiera recogido). Si no queda nada
+// que robar, cruzan el campo y se van. De noche salen muchos más y brillan en la oscuridad. Cada
+// uno abatido suma a la racha alienígena (sniper.addAlien).
 export class Walkers {
     constructor(sniper) {
         this.sn = sniper;
@@ -55,10 +63,16 @@ export class Walkers {
         this.next = rand(1, 2.5); // el primero enseguida, para que se vea de qué va
     }
 
+    // ¿Alguno huye con algo robado? (el campo no se da por terminado mientras tanto)
+    get carrying() {
+        return this.list.some((w) => w.alive && w.loot);
+    }
+
     // Cuerpo de cubos: piernas, traje morado con cinturón, brazos, cabeza verde grande con su
-    // antena (sin cara, como todo en el juego)
-    build() {
-        const g = new THREE.Group(), ink = this.ink, SKIN = 0x7dff4a, SUIT = 0x6a4a9a, DARK = 0x3e2a5e;
+    // antena (sin cara, como todo en el juego); el halo de la noche y, encima, el hatillo de lo
+    // robado con su aviso rojo (escondidos hasta que roba)
+    build(crop) {
+        const g = new THREE.Group(), ink = this.ink;
         const body = new THREE.Group();
         g.add(body);
         const legs = [-0.11, 0.11].map((x) => limb(body, ink, 0.15, 0.46, 0.16, DARK, x, 0.48, 0));
@@ -67,33 +81,61 @@ export class Walkers {
         const arms = [-0.29, 0.29].map((x) => limb(body, ink, 0.12, 0.4, 0.13, SKIN, x, 0.88, 0));
         hulled(body, ink, 0.5, 0.42, 0.44, SKIN, 0, 1.15, 0);
         hulled(body, ink, 0.05, 0.22, 0.05, 0x3ec82a, 0, 1.46, 0);
-        hulled(body, ink, 0.12, 0.12, 0.12, 0xff3e5e, 0, 1.6, 0);
+        hulled(body, ink, 0.12, 0.12, 0.12, LAMP, 0, 1.6, 0);
+        const halo = new THREE.Mesh(box(0.9, 1.9, 0.8), HALO);
+        halo.position.y = 0.85;
+        body.add(halo);
+        const loot = new THREE.Group();
+        loot.position.y = 1.55;
+        const C = CROPS[crop] || CROPS.wheat;
+        hulled(loot, ink, 0.5, 0.36, 0.42, C.fruit || C.ear, 0, 0.18, 0);
+        hulled(loot, ink, 0.12, 0.16, 0.12, C.calyx || C.earDark, 0, 0.42, 0);
+        const alarm = new THREE.Mesh(box(0.22, 0.22, 0.22), ALARM);
+        alarm.position.y = 0.85;
+        alarm.rotation.set(Math.PI / 4, 0, Math.PI / 4);
+        loot.add(alarm);
+        loot.visible = false;
+        body.add(loot);
         g.scale.setScalar(1.25);
-        return { g, body, legs, arms };
+        return { g, body, legs, arms, lootMesh: loot };
     }
 
-    // Uno nuevo: entra por un borde y cruza el campo en una dirección al azar, por cualquier
-    // franja (así cubren más o menos todo el campo)
+    // Uno nuevo: aparece en un borde del campo y va a por algo que robar
     spawn() {
-        const f = this.sn.field, a = Math.random() * Math.PI * 2;
-        const dir = new THREE.Vector3(Math.sin(a), 0, Math.cos(a));
-        const half = f.radius * 0.8, side = rand(-0.55, 0.55) * f.radius;
+        const f = this.sn.field, a = Math.random() * Math.PI * 2, r = f.radius * 0.85;
         const speed = W.speeds[(Math.random() * W.speeds.length) | 0] * rand(0.9, 1.15);
-        const m = this.build();
-        m.g.rotation.y = a;
+        const m = this.build(f.crop);
         this.root.add(m.g);
-        const w = {
-            ...m, dir, speed, len: half * 2, dist: 0, ph: Math.random() * 6, alive: true, dying: -1, beam: 0,
-            x0: f.cx - dir.x * half + dir.z * side, z0: f.cz - dir.z * half - dir.x * side,
-        };
+        const w = { ...m, speed, ph: Math.random() * 6, alive: true, dying: -1, beam: 0, mode: 'in', tgt: null, loot: null, grab: 0, x: f.cx + Math.sin(a) * r, z: f.cz + Math.cos(a) * r, to: null };
         this.list.push(w);
+        this.pickTarget(w);
         this.place(w);
         this.beamFx(w);
         return w;
     }
 
+    // A por la mata (o tomate) viva más cercana que nadie más tenga echada el ojo; si no queda
+    // ninguna, cruza el campo y se va por el otro lado
+    pickTarget(w) {
+        const f = this.sn.field, taken = new Set(this.list.map((o) => o.tgt));
+        let best = null, bd = Infinity;
+        for (const s of f.targets) {
+            if (!s.alive || !s.landed || taken.has(s)) continue;
+            const d = Math.hypot(s.x - w.x, s.z - w.z) * rand(0.7, 1.3); // no todos a la más cercana
+            if (d < bd) [best, bd] = [s, d];
+        }
+        w.tgt = best;
+        if (best) {
+            w.mode = 'in';
+            w.to = { x: best.x, z: best.z };
+        } else {
+            w.mode = 'cross';
+            w.to = { x: 2 * f.cx - w.x, z: 2 * f.cz - w.z };
+        }
+    }
+
     place(w) {
-        w.g.position.set(w.x0 + w.dir.x * w.dist, 0, w.z0 + w.dir.z * w.dist);
+        w.g.position.set(w.x, 0, w.z);
     }
 
     // Rayo de llegada o de salida: columna de chispas verdes y un anillo en el suelo
@@ -107,7 +149,7 @@ export class Walkers {
     // Caja de su cuerpo (de los pies a la antena)
     boxOf(w, out) {
         const p = w.g.position, s = w.g.scale.x;
-        return out.set(_v.set(p.x - 0.32 * s, 0, p.z - 0.32 * s), new THREE.Vector3(p.x + 0.32 * s, 1.55 * s, p.z + 0.32 * s));
+        return out.set(_v.set(p.x - 0.32 * s, 0, p.z - 0.32 * s), _max.set(p.x + 0.32 * s, 1.55 * s, p.z + 0.32 * s));
     }
 
     // El más cercano de los vivos en la línea de tiro: { walker, t } o null
@@ -129,49 +171,63 @@ export class Walkers {
         return this.list.filter((w) => w.alive && Math.hypot(w.g.position.x - x, w.g.position.z - z) <= r + 0.3);
     }
 
-    // Abatido: salta dando vueltas, revienta en babas verdes y suma a la racha alienígena
+    // Abatido: salta dando vueltas, revienta en babas verdes y suma a la racha alienígena. Si
+    // llevaba algo robado, se recupera
     shoot(w) {
         if (!w.alive) return;
         const p = w.g.position, sn = this.sn;
         w.alive = false;
         w.dying = 0;
+        w.tgt = null;
         sn.particles.burst(p.x, 1, p.z, 40, GOO, { speed: 3.5, up: 4, size: 0.12, ttl: 0.8 });
         sn.waves.spawn(p.x, p.z, 0x7dff4a, 1.4, 0.35);
         sn.hooks.sfx.play('crateHit');
-        if (sn.hooks.onAlien) {
-            _v.set(p.x, 1.9, p.z).project(sn.camera); // en su cabeza (el +1 sube desde ahí)
-            sn.hooks.onAlien(_v.x, _v.y);
+        _v.set(p.x, 1.9, p.z).project(sn.camera); // en su cabeza (el +1 sube desde ahí)
+        if (sn.hooks.onAlien) sn.hooks.onAlien(_v.x, _v.y);
+        if (w.loot) {
+            w.lootMesh.visible = false;
+            sn.particles.burst(p.x, 2, p.z, 30, (CROPS[sn.crop] || CROPS.wheat).burst, { speed: 3, up: 4, size: 0.09, ttl: 0.9 });
+            if (sn.hooks.onHit) sn.hooks.onHit(w.loot, _v.x, _v.y);
+            w.loot = null;
         }
         sn.addAlien(1);
     }
 
+    // Coge lo que había ido a buscar: desaparece del campo y se lo echa a la espalda
+    steal(w) {
+        const s = w.tgt, sn = this.sn;
+        w.tgt = null;
+        if (!s || !s.alive) return this.pickTarget(w);
+        s.alive = false;
+        s.dying = 0.2;
+        s.flash = 1;
+        w.loot = s;
+        w.lootMesh.visible = true;
+        sn.particles.burst(s.x, s.y, s.z, 16, (CROPS[sn.crop] || CROPS.wheat).chaff, { speed: 1.6, up: 2, size: 0.07, ttl: 0.6 });
+        sn.hooks.sfx.play('grabOther');
+        // A correr hacia fuera, por donde le pille más cerca
+        const f = sn.field, dx = w.x - f.cx, dz = w.z - f.cz, d = Math.hypot(dx, dz) || 1;
+        w.mode = 'flee';
+        w.to = { x: f.cx + (dx / d) * (f.radius + 1.5), z: f.cz + (dz / d) * (f.radius + 1.5) };
+        w.speed = Math.max(w.speed, W.speeds[2]) * 1.1;
+    }
+
     update(dt, time) {
-        const sn = this.sn;
+        const sn = this.sn, k = sn.nightK || 0;
         const busy = sn.unlocking || sn.ending >= 0 || sn.field.remaining === 0;
         if (!busy && (this.next -= dt) <= 0) {
-            // Más seguidos cuanto más grande es el campo
-            this.next = rand(W.every[0], W.every[1]) / Math.max(1, Math.sqrt(sn.field.scale || 1));
-            if (this.list.filter((w) => w.alive).length < W.max) this.spawn();
+            // Más seguidos cuanto más grande es el campo, y muchos más de noche
+            this.next = rand(W.every[0], W.every[1]) / Math.max(1, Math.sqrt(sn.field.scale || 1)) / (1 + W.night * k);
+            if (this.list.filter((w) => w.alive).length < W.max + Math.round(W.nightMax * k)) this.spawn();
         }
+        // De noche brillan: piel y antena con luz propia y un halo verde alrededor
+        mat(SKIN).emissive.setHex(0x2a8a1a).multiplyScalar(k);
+        mat(LAMP).emissive.setHex(0xff3e5e).multiplyScalar(k);
+        HALO.opacity = 0.32 * k;
+        ALARM.color.setHex(Math.sin(time * 14) > 0 ? 0xff3e1a : 0xffe03a);
         this.list = this.list.filter((w) => {
             w.beam = Math.max(0, w.beam - dt);
-            if (w.alive) {
-                w.dist += w.speed * dt;
-                this.place(w);
-                // Zancadas al ritmo de su paso; corriendo, más largas y con el cuerpo inclinado
-                const k = w.speed / W.speeds[2], step = time * w.speed * 4.2 + w.ph, swing = 0.45 + k * 0.5;
-                w.legs[0].rotation.x = Math.sin(step) * swing;
-                w.legs[1].rotation.x = -Math.sin(step) * swing;
-                w.arms[0].rotation.x = -Math.sin(step) * swing * 0.9;
-                w.arms[1].rotation.x = Math.sin(step) * swing * 0.9;
-                w.body.position.y = Math.abs(Math.cos(step)) * 0.06 * (0.5 + k);
-                w.body.rotation.x = 0.08 + k * 0.18;
-                // Al llegar al otro lado, se va con su rayo
-                if (w.dist < w.len) return true;
-                this.beamFx(w);
-                this.root.remove(w.g);
-                return false;
-            }
+            if (w.alive) return this.walk(w, dt, time);
             // Abatido: sale despedido hacia arriba girando y se encoge
             w.dying += dt;
             const p = w.g.position;
@@ -183,5 +239,51 @@ export class Walkers {
             this.root.remove(w.g);
             return false;
         });
+    }
+
+    // Un paso hacia donde va; false cuando sale del campo (con o sin botín)
+    walk(w, dt, time) {
+        const sn = this.sn;
+        // Si lo que iba a robar ya no está (lo han recogido), a por otra cosa
+        if (w.mode === 'in' && (!w.tgt || !w.tgt.alive)) this.pickTarget(w);
+        if (w.mode === 'grab') {
+            w.grab -= dt;
+            w.body.rotation.x = 0.6; // agachado cogiéndolo
+            if (w.grab <= 0) this.steal(w);
+            return true;
+        }
+        const dx = w.to.x - w.x, dz = w.to.z - w.z, d = Math.hypot(dx, dz);
+        const reach = w.mode === 'in' ? 0.7 : 0.2;
+        if (d <= reach) {
+            if (w.mode === 'in') {
+                w.mode = 'grab';
+                w.grab = 0.35;
+                return true;
+            }
+            // Fuera del campo: se va con su rayo (y con lo robado, si lo lleva)
+            this.beamFx(w);
+            if (w.loot && sn.hooks.onStolen) {
+                _v.set(w.x, 2, w.z).project(sn.camera);
+                sn.hooks.onStolen(w.loot, _v.x, _v.y);
+            }
+            this.root.remove(w.g);
+            return false;
+        }
+        const step = Math.min(d - reach + 0.01, w.speed * dt);
+        w.x += (dx / d) * step;
+        w.z += (dz / d) * step;
+        this.place(w);
+        w.g.rotation.y = Math.atan2(dx, dz);
+        // Zancadas al ritmo de su paso; corriendo, más largas y con el cuerpo inclinado
+        const k = Math.min(1.2, w.speed / W.speeds[2]), stride = time * w.speed * 4.2 + w.ph, swing = 0.45 + k * 0.5;
+        w.legs[0].rotation.x = Math.sin(stride) * swing;
+        w.legs[1].rotation.x = -Math.sin(stride) * swing;
+        // Con botín, los brazos arriba sujetándolo
+        const arm = w.loot ? -2.8 : 0;
+        w.arms[0].rotation.x = arm + (w.loot ? 0 : -Math.sin(stride) * swing * 0.9);
+        w.arms[1].rotation.x = arm + (w.loot ? 0 : Math.sin(stride) * swing * 0.9);
+        w.body.position.y = Math.abs(Math.cos(stride)) * 0.06 * (0.5 + k);
+        w.body.rotation.x = 0.08 + k * 0.18;
+        return true;
     }
 }

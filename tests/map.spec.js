@@ -97,11 +97,11 @@ test('partida guardada con las cifras de antes: los campos salen con los blancos
         localStorage.setItem('cofd.farm.v4', JSON.stringify({ items: { wheat: 50, tomato: 0 }, fields: { wheat: { unlocked: true, level: 4, plantedAt: 0, left: 32 }, tomato: { unlocked: true, level: 2, plantedAt: Date.now(), left: 11 } } }));
     });
     await page.goto('/?test');
-    await expect.poll(() => page.evaluate(() => window.game && [game.state.fields.wheat.left, game.state.fields.tomato.left]), { timeout: 30_000 }).toEqual([80, 22]);
+    await expect.poll(() => page.evaluate(() => window.game && [game.state.fields.wheat.left, game.state.fields.tomato.left]), { timeout: 30_000 }).toEqual([150, 22]);
     // Ya guardada con la revisión nueva: lo que se haya empezado a recoger se respeta
     await page.evaluate(() => { game.state.collect('wheat'); });
     await page.reload();
-    await expect.poll(() => page.evaluate(() => window.game && game.state.fields.wheat.left), { timeout: 30_000 }).toBe(79);
+    await expect.poll(() => page.evaluate(() => window.game && game.state.fields.wheat.left), { timeout: 30_000 }).toBe(149);
     expect(errors).toEqual([]);
 });
 
@@ -169,18 +169,18 @@ test('rifle: en el granero se mejoran la mira, la estabilidad y el cerrojo con c
     expect(errors).toEqual([]);
 });
 
-test('torretas: con el campo al máximo, la mejora extra pone 4 torretas que recogen solas (sin sumar a la racha)', { tag: '@full' }, async ({ page }) => {
+test('torreta: con el campo al máximo, la mejora extra pone una torreta que va de esquina en esquina y recoge sola (sin sumar a la racha)', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await openFarm(page);
     await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
-    // Al nivel 5 la mejora pasa a ser TORRETAS, con su precio
+    // Al nivel 5 la mejora pasa a ser TORRETA, con su precio
     await page.evaluate(() => { game.state.wheat = 12; for (let i = 0; i < 4; i++) game.upgradeField('wheat'); game.state.wheat = 0; game.select({ field: 'wheat' }); });
-    await expect(page.locator('#upgrade-label')).toHaveText('TORRETAS');
+    await expect(page.locator('#upgrade-label')).toHaveText('TORRETA');
     await expect(page.locator('#panel-upgrade')).toBeDisabled();
     await page.evaluate(() => { game.state.wheat = 40; });
     await expect(page.locator('#panel-upgrade')).toBeEnabled();
     await page.locator('#panel-upgrade').click();
-    expect(await page.evaluate(() => [game.state.fields.wheat.turrets, game.farm.fields.wheat.turrets.length, game.state.wheat])).toEqual([true, 4, 0]);
+    expect(await page.evaluate(() => [game.state.fields.wheat.turrets, !!game.farm.fields.wheat.turret, game.farm.fields.wheat.bases.length, game.state.wheat])).toEqual([true, true, 4, 0]);
     await expect(page.locator('#upgrade-label')).toHaveText('AUTOMÁTICO');
     await expect(page.locator('#sign-wheat .turret-ico')).toHaveCount(1);
     // En el mapa no paran de disparar a ráfagas y recogen solas lo maduro, con su +1 de trigo
@@ -193,17 +193,17 @@ test('torretas: con el campo al máximo, la mejora extra pone 4 torretas que rec
     await expect.poll(() => page.evaluate(() => game.state.wheat), { timeout: 12_000 }).toBeGreaterThan(0);
     await expect.poll(() => page.evaluate(() => window.autoPops)).toBeGreaterThan(0);
     expect(await page.evaluate(() => game.state.fields.wheat.left)).toBeLessThan(left);
-    // En el campo de tiro, una en cada torre, recogiendo matas sin sumar a la racha
+    // En el campo de tiro, un mástil en cada torre y la torreta en uno, recogiendo matas sin sumar a la racha
     await page.evaluate(() => { game.select(null); game.harvest('wheat'); });
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
     await page.evaluate(() => { game.sniper.flyers.next = Infinity; game.sniper.walkers.reset(); game.sniper.walkers.next = Infinity; });
-    expect(await page.evaluate(() => game.sniper.turrets.list.length)).toBe(4);
+    expect(await page.evaluate(() => [!!game.sniper.turrets.turret, game.sniper.turrets.masts.length])).toEqual([true, 4]);
     await expect.poll(() => page.evaluate(() => game.sniper.field.sheaves.every((s) => s.landed)), { timeout: 20_000 }).toBe(true);
     const total = await page.evaluate(() => game.sniper.field.remaining);
     await expect.poll(() => page.evaluate(() => game.sniper.field.remaining), { timeout: 15_000 }).toBeLessThan(total - 1);
     expect(await page.evaluate(() => game.sniper.streak)).toBe(0);
     // Se guarda
     await page.reload();
-    await expect.poll(() => page.evaluate(() => window.game && game.farm.fields.wheat.turrets && game.farm.fields.wheat.turrets.length)).toBe(4);
+    await expect.poll(() => page.evaluate(() => window.game && !!game.farm.fields.wheat.turret)).toBe(true);
     expect(errors).toEqual([]);
 });

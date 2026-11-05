@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { box, toon, outline, OUTLINE } from '../render/materials.js';
 import { easeOutBack } from '../core/math.js';
-import { STRUCTURES, Ufo, Turret } from '../render/structures.js';
+import { STRUCTURES, Ufo, Turret, Sandbags } from '../render/structures.js';
 import { Plot } from '../render/props.js';
 import { junkyard, barrelParts, JUNK } from '../render/junk.js';
 import { CROPS } from '../content/crops.js';
@@ -77,7 +77,7 @@ export class Farm {
         this.houseZone = rectOf(FARM.house.zone);
         this.houseYard = houseClear(houseLevel);
         this.wild = []; // entradas animadas de la zona abandonada del granero (se apartan al crecer el recinto)
-        this.shots = []; // trazadas de las balas de las torretas automáticas
+        this.shots = []; // trazadas de las balas de la torreta automática
         this.build();
         for (const v of this.views) if (fields[v.id].turrets) this.setTurrets(v.id, false);
     }
@@ -369,67 +369,81 @@ export class Farm {
         if (!v.locked) this.buildPlants(v, old);
     }
 
-    // Torretas automáticas del campo: una en cada esquina, por dentro, sobre sus sacos (pop:
-    // aparecen con un bote)
+    // Torreta automática del campo: sacos terreros en cada esquina (por dentro) y la torreta, que
+    // va de unos a otros (pop: aparece con un bote)
     setTurrets(id, pop = true) {
         const v = this.fields[id];
-        if (v.turrets) return;
-        const f = v.rect, m = 0.5;
-        v.turrets = [[f.x + m, f.z + m], [f.x + f.w - m, f.z + m], [f.x + f.w - m, f.z + f.d - m], [f.x + m, f.z + f.d - m]].map(([x, z]) => {
-            const t = new Turret(this.theme.outline, { sacks: 0.7 });
-            t.root.position.set(x, 0, z);
-            t.root.scale.setScalar(1.35);
-            t.yaw = Math.atan2(f.cx - x, f.cz - z);
-            this.root.add(t.root);
-            if (pop) t.select();
-            return t;
+        if (v.turret) return;
+        const f = v.rect, m = 0.5, S = 1.35;
+        v.bases = [[f.x + m, f.z + m], [f.x + f.w - m, f.z + m], [f.x + f.w - m, f.z + f.d - m], [f.x + m, f.z + f.d - m]].map(([x, z]) => {
+            const b = new Sandbags(this.theme.outline);
+            b.root.position.set(x, 0, z);
+            b.root.scale.setScalar(S);
+            this.root.add(b.root);
+            if (pop) b.select();
+            return b;
         });
+        const t = (v.turret = new Turret(this.theme.outline));
+        t.root.scale.setScalar(S);
+        t.corner = 0;
+        t.root.position.copy(v.bases[0].root.position).setY(v.bases[0].top * S);
+        t.yaw = Math.atan2(f.cx - t.root.position.x, f.cz - t.root.position.z);
+        t.hopT = TURRETS.hop;
+        this.root.add(t.root);
+        if (pop) t.select();
     }
 
-    // Dónde ha recogido la torreta su última mata (para el +1 del mapa): lo último que acribilló
-    // una de ellas, o una mata al azar
+    // Dónde ha recogido la torreta su última mata (para el +1 del mapa): lo que está acribillando,
+    // o una mata al azar
     turretSpot(id) {
         const v = this.fields[id];
-        if (!v.turrets || !v.plants.length) return null;
-        const t = v.turrets.find((x) => x.tgt) || v.turrets[(Math.random() * 4) | 0];
-        if (t.tgt) return { x: t.tgt.x, z: t.tgt.z };
+        if (!v.turret || !v.plants.length) return null;
+        if (v.turret.tgt) return { x: v.turret.tgt.x, z: v.turret.tgt.z };
         const s = v.plants[(Math.random() * v.plants.length) | 0];
         return { x: s.x, z: s.z };
     }
 
-    // Torretas de un campo maduro: no paran de tirotear el campo a ráfagas (cada una elige una mata,
-    // la apunta, le suelta su ráfaga y a por otra). Cada bala: trazada y onTurretHit(x, z, n)
+    // La torreta de un campo maduro no para de tirotearlo a ráfagas (elige una mata, la apunta, le
+    // suelta su ráfaga y a por otra) y cada poco salta a otra esquina. Cada bala: trazada y
+    // onTurretHit(x, z, n)
     updateTurrets(v, dt, ripe) {
-        for (const t of v.turrets) {
-            t.update(dt);
-            if (!ripe || !v.plants.length) {
-                t.tgt = null;
-                continue;
-            }
-            if (!t.tgt && (t.cool = (t.cool || 0) - dt) <= 0) {
-                const s = v.plants[(Math.random() * v.plants.length) | 0];
-                t.tgt = { x: s.x, z: s.z };
-                t.aimAt(s.x, s.z, 1.3);
-                t.shots = TURRETS.burst;
-                t.next = 0;
-                t.wait = 0.8;
-            }
-            if (!t.tgt || (!t.aimed && (t.wait -= dt) > 0) || (t.next -= dt) > 0) continue;
-            t.next = TURRETS.rate;
-            t.fire();
-            const from = t.muzzle.getWorldPosition(new THREE.Vector3());
-            const to = new THREE.Vector3(t.tgt.x + (Math.random() - 0.5) * 0.6, 0.3 + Math.random() * 0.4, t.tgt.z + (Math.random() - 0.5) * 0.6);
-            const beam = new THREE.Mesh(box(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xfff6dc }));
-            beam.position.copy(from).lerp(to, 0.5);
-            beam.lookAt(to);
-            beam.scale.set(0.08, 0.08, from.distanceTo(to));
-            this.root.add(beam);
-            this.shots.push({ beam, life: 0.06 });
-            if (this.onTurretHit) this.onTurretHit(to.x, to.z, t.shots);
-            if (--t.shots <= 0) {
-                t.tgt = null;
-                t.cool = TURRETS.cool * (0.5 + Math.random() * 0.6);
-            }
+        const t = v.turret;
+        t.update(dt);
+        if (t.hopping) return;
+        if ((t.hopT -= dt) <= 0 && !t.tgt) {
+            t.hopT = TURRETS.hop;
+            t.corner = (t.corner + 1 + ((Math.random() * 3) | 0)) % 4;
+            const b = v.bases[t.corner];
+            t.hopTo(b.root.position.x, b.top * b.root.scale.y, b.root.position.z);
+            return;
+        }
+        if (!ripe || !v.plants.length) {
+            t.tgt = null;
+            return;
+        }
+        if (!t.tgt && (t.cool = (t.cool || 0) - dt) <= 0) {
+            const s = v.plants[(Math.random() * v.plants.length) | 0];
+            t.tgt = { x: s.x, z: s.z };
+            t.aimAt(s.x, s.z, 1.3);
+            t.shots = TURRETS.burst;
+            t.next = 0;
+            t.wait = 0.8;
+        }
+        if (!t.tgt || (!t.aimed && (t.wait -= dt) > 0) || (t.next -= dt) > 0) return;
+        t.next = TURRETS.rate;
+        t.fire();
+        const from = t.muzzle.getWorldPosition(new THREE.Vector3());
+        const to = new THREE.Vector3(t.tgt.x + (Math.random() - 0.5) * 0.6, 0.3 + Math.random() * 0.4, t.tgt.z + (Math.random() - 0.5) * 0.6);
+        const beam = new THREE.Mesh(box(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xfff6dc }));
+        beam.position.copy(from).lerp(to, 0.5);
+        beam.lookAt(to);
+        beam.scale.set(0.08, 0.08, from.distanceTo(to));
+        this.root.add(beam);
+        this.shots.push({ beam, life: 0.06 });
+        if (this.onTurretHit) this.onTurretHit(to.x, to.z, t.shots);
+        if (--t.shots <= 0) {
+            t.tgt = null;
+            t.cool = TURRETS.cool * (0.5 + Math.random() * 0.6);
         }
     }
 
@@ -626,7 +640,7 @@ export class Farm {
 
         for (const v of this.views) {
             if (v.locked) continue;
-            if (v.turrets) this.updateTurrets(v, dt, (progress[v.id] || 0) >= 1);
+            if (v.turret) this.updateTurrets(v, dt, (progress[v.id] || 0) >= 1);
             if (v.crop === 'wheat') this.updateWheat(v, time, progress[v.id] || 0);
             else this.updateTomato(v, time, progress[v.id] || 0);
             for (const m of v.meshes) {

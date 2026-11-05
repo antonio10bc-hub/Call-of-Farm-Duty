@@ -338,6 +338,19 @@ export class FarmState {
         return true;
     }
 
+    // Un blanco que se han llevado los alienígenas del campo id: se pierde (no suma a lo
+    // recogido). Si era el último, se vuelve a sembrar.
+    lose(id, now = Date.now()) {
+        const f = this.fields[id];
+        if (f.left <= 0) return false;
+        if (--f.left === 0) {
+            f.plantedAt = now;
+            f.left = this.sheaves(id);
+        }
+        this.save();
+        return true;
+    }
+
     // Un blanco recogido en el campo id. Al recoger el último, se vuelve a sembrar.
     collect(id, now = Date.now()) {
         const f = this.fields[id];

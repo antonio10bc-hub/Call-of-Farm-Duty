@@ -11,6 +11,12 @@ export const THEME = {
     leaves: [0x4caf3c, 0x3d9a34, 0x63c04a],
     flowers: [0xffffff, 0xffe03a, 0xff8fb0],
     light: { sun: 0xfff2d6, sky: 0xdaf2ff, ground: 0x6a8a3a, sunIntensity: 2.2, hemiIntensity: 1.1 },
+    // Noche de luna llena: cielo azul marino, luz de luna azulada y fría (se mezcla con la del
+    // día según lo de noche que sea)
+    night: { sky: 0x18204a, sun: 0x9fb4ff, sunIntensity: 0.9, hemiSky: 0x4a5a9a, hemiGround: 0x1a2a20, hemiIntensity: 0.75, moon: 0xfff6d8 },
+    // Ciclo de día y noche en segundos reales: day de día, night de noche y fade de transición
+    // (al final de cada uno)
+    cycle: { day: 240, night: 120, fade: 15 },
     ambient: { kind: 'leaves', colors: [0xb6e070, 0xffe680], rate: 2 },
     music: { root: 60, scale: 'major', tempo: 118, lead: 'triangle', swing: 0.18 },
     sniperMusic: { root: 57, scale: 'dorian', tempo: 100, lead: 'triangle', arp: 'stab' },

@@ -64,6 +64,9 @@ export class Sniper {
         this.streakT = 0; // lo que le queda a la barra de la racha (s) y lo que duraba llena
         this.streakMax = 1;
 
+        this.nightK = 0; // lo de noche que es (lo pone main.js con el ciclo de día y noche)
+        this.buildNightSky();
+
         this.tracer = new THREE.Mesh(box(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xfff6dc }));
         this.tracer.visible = false;
         this.scene.add(this.tracer);
@@ -97,6 +100,49 @@ export class Sniper {
         this.ending = -1;
         this.prevYaw = 0;
         this.prevPitch = 0;
+    }
+
+    // Cielo de noche: luna llena enorme con su halo, detrás del campo y algo alta, y estrellas
+    // (se ven más cuanto más de noche es)
+    buildNightSky() {
+        const g = (this.nightSky = new THREE.Group());
+        const mat = (c, o) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, depthWrite: false, fog: false });
+        this.moonMats = [mat(this.theme.night.moon, 1), mat(0xd8d0b0, 1), mat(0xfff6d8, 0.18), mat(0xfff6d8, 0.08)];
+        const moon = new THREE.Group();
+        const disc = new THREE.Mesh(box(14, 14, 0.5), this.moonMats[0]);
+        disc.rotation.z = Math.PI / 4;
+        moon.add(disc, new THREE.Mesh(box(14, 14, 0.5), this.moonMats[0]));
+        for (const [x, y, s] of [[-2.5, 2, 2.6], [3, -1.5, 3.2], [-1, -4, 1.8], [2, 4, 1.4]]) {
+            const c = new THREE.Mesh(box(s, s, 0.6), this.moonMats[1]);
+            c.position.set(x, y, 0.1);
+            moon.add(c);
+        }
+        for (const [s, m] of [[22, 2], [32, 3]]) moon.add(new THREE.Mesh(box(s, s, 0.2), this.moonMats[m]));
+        moon.position.set(90, 55, -140);
+        moon.lookAt(0, 0, 0);
+        g.add(moon);
+        const pos = [];
+        for (let k = 0; k < 260; k++) {
+            const a = Math.random() * Math.PI * 2, e = 0.12 + Math.random() * 1.3, r = 220;
+            pos.push(Math.cos(e) * Math.sin(a) * r, Math.sin(e) * r, Math.cos(e) * Math.cos(a) * r);
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        this.starMat = new THREE.PointsMaterial({ color: 0xfff6d8, size: 2, sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false, fog: false });
+        g.add(new THREE.Points(geo, this.starMat));
+        g.visible = false;
+        this.scene.add(g);
+    }
+
+    updateNightSky() {
+        const k = this.nightK;
+        this.nightSky.visible = k > 0.01;
+        if (!this.nightSky.visible) return;
+        this.nightSky.position.copy(this.camera.position);
+        this.moonMats[0].opacity = this.moonMats[1].opacity = k;
+        this.moonMats[2].opacity = 0.18 * k;
+        this.moonMats[3].opacity = 0.08 * k;
+        this.starMat.opacity = k * (0.75 + Math.sin(this.time * 3) * 0.1);
     }
 
     // Campo de tiro del tamaño pedido (se monta de nuevo solo si cambia)
@@ -360,7 +406,12 @@ export class Sniper {
             vibrate('pickup');
             this.addStreak(list.length);
         }
-        if (this.field.remaining === 0 && !this.ks.holdsEnd && this.ending < 0) this.finish();
+        this.checkEnd();
+    }
+
+    // Sin nada que recoger (ni nadie huyendo con algo robado, ni la nuclear a punto): se acaba
+    checkEnd() {
+        if (this.field.remaining === 0 && !this.ks.holdsEnd && !this.walkers.carrying && this.ending < 0 && !this.unlocking) this.finish();
     }
 
     // Racha de granadas: sube y la barra se rellena, cada vez durando menos. Al llegar a cada
@@ -500,6 +551,8 @@ export class Sniper {
         this.ks.update(dt, rawDt);
         this.flyers.update(dt, time);
         this.walkers.update(dt, time);
+        this.updateNightSky();
+        if (this.crop) this.checkEnd();
         this.turrets.update(dt);
 
         if (this.move) {

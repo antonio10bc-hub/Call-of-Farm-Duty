@@ -62,8 +62,8 @@ export const FARM = {
     //   levels    w, d: tamaño en casillas (en el mapa); sheaves: blancos en el campo de tiro;
     //             arena: tamaño del campo de tiro (1 = el normal); sign: color del cartel.
     //             El nivel 1 apenas cambia; los altos tienen un campo de tiro mucho mayor y lleno
-    //   turrets   lo que cuestan las torretas automáticas, la mejora extra con el campo al
-    //             máximo: 4 torretas, una en cada esquina, que lo recogen solas (ver TURRETS)
+    //   turrets   lo que cuesta la torreta automática, la mejora extra con el campo al máximo:
+    //             una torreta que va de esquina en esquina y lo recoge sola (ver TURRETS)
     fields: [
         {
             id: 'wheat',
@@ -76,11 +76,11 @@ export const FARM = {
             locked: { name: L('JUNKYARD', 'TERRENO ABANDONADO') },
             // El último llena el hueco entre el camino, la valla y los árboles (x 3..14, z 16..27)
             levels: [
-                { w: 4, d: 3, sheaves: 8, arena: 1, sign: 0x9a6a3a },
-                { w: 6, d: 4, sheaves: 16, arena: 1.2, sign: 0xb07a44 },
-                { w: 8, d: 6, sheaves: 30, arena: 1.45, sign: 0x5a9e32 },
-                { w: 10, d: 8, sheaves: 50, arena: 1.75, sign: 0x3a7ec8 },
-                { w: 11, d: 11, sheaves: 80, arena: 2.1, sign: 0xc8402e },
+                { w: 4, d: 3, sheaves: 18, arena: 1, sign: 0x9a6a3a },
+                { w: 6, d: 4, sheaves: 36, arena: 1.2, sign: 0xb07a44 },
+                { w: 8, d: 6, sheaves: 64, arena: 1.45, sign: 0x5a9e32 },
+                { w: 10, d: 8, sheaves: 100, arena: 1.75, sign: 0x3a7ec8 },
+                { w: 11, d: 11, sheaves: 150, arena: 2.1, sign: 0xc8402e },
             ],
         },
         {
@@ -110,13 +110,14 @@ export const FARM = {
     ],
 };
 
-// Torretas automáticas de un campo (mejora extra con el campo al máximo). Disparan a ráfagas
-// (burst balas, una cada rate s) como ametralladoras. En el mapa recogen solas lo que esté
-// maduro, una mata cada every s (mientras el juego está abierto), y entre tanto no paran de
-// tirotear el campo. En el campo de tiro, cada una (desde su mástil en su torre, menos la tuya)
-// acribilla una mata con una ráfaga y la recoge, descansa cool s y a por otra. Lo que recogen
-// no suma a las rachas.
-export const TURRETS = { every: 4, cool: 1.1, burst: 6, rate: 0.075, aim: 0.35, mast: 2.4 };
+// Torreta automática de un campo (mejora extra con el campo al máximo): una sola, que va de
+// esquina en esquina (salta cada hop s, como el tirador entre torres). Dispara a ráfagas (burst
+// balas, una cada rate s) como una ametralladora. En el mapa, plantada en unos sacos en cada
+// esquina, recoge sola lo que esté maduro, una mata cada every s (mientras el juego está
+// abierto), y entre tanto no para de tirotear el campo. En el campo de tiro va de un mástil a
+// otro (de alto mast, en cada torre menos la tuya): acribilla una mata con una ráfaga y la
+// recoge, descansa cool s y a por otra. Lo que recoge no suma a las rachas.
+export const TURRETS = { every: 4, cool: 0.7, burst: 6, rate: 0.075, aim: 0.35, mast: 2.4, hop: 7 };
 
 // Fichas de los edificios: un texto corto debajo del nombre
 export const INFO = {

@@ -285,7 +285,7 @@ export class Killstreaks {
         const all = f.targets.filter((s) => s.alive);
         for (const s of all) s.landed = true;
         if (all.length) sn.harvest(all);
-        if (f.remaining === 0 && sn.ending < 0) sn.finish();
+        sn.checkEnd();
     }
 
     update(dt, rawDt) {

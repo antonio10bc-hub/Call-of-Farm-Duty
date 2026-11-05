@@ -160,6 +160,15 @@ const SPRITES = {
         rows: ['.KKKKKK.', 'KRRRRRRK', 'KKKKKKKK', 'KRWRRRRK', 'KYYYYYYK', 'KRWRRRRK', 'KKKKKKKK', 'KRRRRRDK', '.KKKKKK.'],
         pal: { K: INK, R: '#d8302a', D: '#a8201a', W: '#ff9a8a', Y: '#ffcc33' },
     },
+    // Reloj del día: sol y luna llena
+    sun: {
+        rows: ['Y...Y...Y', '.Y.YYY.Y.', '..YYYYY..', '.YYWYYYY.', 'YYYYYYYYY', '.YYYYYYO.', '..YYYYO..', '.Y.YOO.Y.', 'Y...Y...Y'],
+        pal: { Y: '#ffd23f', O: '#ff9a1f', W: '#fff6b0' },
+    },
+    moon: {
+        rows: ['..KKKKK..', '.KWWWWWK.', 'KWWCWWWWK', 'KWWWWWCWK', 'KWCWWWWWK', 'KWWWWCWWK', 'KWWWWWWWK', '.KWWWWWK.', '..KKKKK..'],
+        pal: { K: INK, W: '#fff6d8', C: '#d8d0b0' },
+    },
     // Torretas automáticas de un campo (la mejora extra con el campo al máximo)
     turret: {
         rows: ['..KKKKK...', '.KGGGGGK..', '.KGLGGGKKK', '.KGGGGGMMK', '.KGGGGGKKK', '..KKKKK...', '...KMMK...', '..KMKKMK..', '.KMK..KMK.', 'KKK....KKK'],

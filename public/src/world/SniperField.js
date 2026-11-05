@@ -11,7 +11,7 @@ const _c = new THREE.Color();
 const _w = new THREE.Color(0xffffff);
 const CLUMP = 20; // tallos por mata de trigo
 const LEAVES = 9; // bloques de hojas por mata de tomate
-const MAX = 96; // blancos como mucho
+const MAX = 160; // blancos como mucho
 
 // Punto dentro del polígono (regla del rayo)
 function inside(poly, x, z) {
@@ -264,7 +264,7 @@ export class SniperField {
         count = Math.min(count, MAX);
         if (crop === 'tomato') return this.spawnTomatoes(count);
         for (let i = 0; i < count; i++) {
-            const { x, z } = this.freeSpot(this.targets, 1.6);
+            const { x, z } = this.freeSpot(this.targets, count > 90 ? 1.2 : 1.6); // (más juntas si hay muchas)
             const stalks = Array.from({ length: CLUMP }, () => {
                 const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * 0.38;
                 return { ox: Math.sin(a) * r, oz: Math.cos(a) * r, h: 1.2 + Math.random() * 0.45 - r * 0.6, tilt: (Math.random() - 0.5) * 0.25, dir: Math.random() * Math.PI * 2, ph: Math.random() * 6, tone: Math.random() };

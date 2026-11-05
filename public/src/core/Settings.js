@@ -7,7 +7,8 @@ const KEY = 'cofd.settings';
 // freeCosts: depuración, las mejoras de campos y granero cuestan 0
 // freeHome: depuración, las de la casa y lo de la tienda del ovni cuestan 0
 // streaks: depuración, bajas que pide cada racha ({ grenade: 5, ... }; null = las normales)
-const DEFAULTS = { music: true, sfx: true, vibration: true, analytics: null, uiSize: 'normal', pixel: 'fine', freeCosts: false, freeHome: false, streaks: null };
+// daytime: depuración, 'day' o 'night' fijos (null = el ciclo del reloj)
+const DEFAULTS = { music: true, sfx: true, vibration: true, analytics: null, uiSize: 'normal', pixel: 'fine', freeCosts: false, freeHome: false, streaks: null, daytime: null };
 
 export const Settings = {
     ...DEFAULTS,

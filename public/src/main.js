@@ -13,6 +13,7 @@ import { weatherParticle } from './render/weather.js';
 import { Farm } from './world/Farm.js';
 import { FarmState } from './game/FarmState.js';
 import { Sniper } from './game/Sniper.js';
+import { DayNight } from './game/DayNight.js';
 import { Scope } from './ui/Scope.js';
 import { installPixelSprites } from './ui/PixelArt.js';
 import { Sfx } from './core/Audio.js';
@@ -44,11 +45,45 @@ state.freeCosts = Settings.freeCosts;
 state.freeHome = Settings.freeHome;
 setStreakCounts(Settings.streaks);
 
+// Luces de una escena (sol y cielo); se guardan para pasarlas a las de la noche
+const lit = [];
 function addLights(scene) {
     const { light } = THEME;
     const sun = new THREE.DirectionalLight(light.sun, light.sunIntensity);
     sun.position.set(-4, 10, 6);
-    scene.add(sun, new THREE.HemisphereLight(light.sky, light.ground, light.hemiIntensity));
+    const hemi = new THREE.HemisphereLight(light.sky, light.ground, light.hemiIntensity);
+    scene.add(sun, hemi);
+    lit.push({ scene, sun, hemi });
+}
+
+// ---------- Día y noche ----------
+// El reloj de verdad (en las pruebas, siempre de día salvo que DEBUG diga otra cosa). Cada
+// fotograma las dos escenas mezclan sus luces y su cielo con los de la noche de luna llena.
+const dayNight = new DayNight(Settings.daytime || (CONFIG.test ? 'day' : null));
+const _cDay = new THREE.Color(), _cNight = new THREE.Color();
+let nightApplied = -1, clockT = 0;
+function applyNight() {
+    const k = dayNight.k, { light, night } = THEME;
+    sniper.nightK = k;
+    if (Math.abs(k - nightApplied) < 0.002) return;
+    nightApplied = k;
+    const mix = (out, a, b) => out.copy(_cDay.setHex(a)).lerp(_cNight.setHex(b), k);
+    for (const { scene, sun, hemi } of lit) {
+        mix(scene.background, THEME.sky, night.sky);
+        mix(sun.color, light.sun, night.sun);
+        sun.intensity = light.sunIntensity + (night.sunIntensity - light.sunIntensity) * k;
+        mix(hemi.color, light.sky, night.hemiSky);
+        mix(hemi.groundColor, light.ground, night.hemiGround);
+        hemi.intensity = light.hemiIntensity + (night.hemiIntensity - light.hemiIntensity) * k;
+    }
+    document.body.classList.toggle('night', k > 0.5);
+}
+// Reloj del día en la interfaz: sol o luna y lo que falta para que cambie
+function updateClock() {
+    const el = $('daytime'), left = dayNight.left, night = dayNight.night;
+    const html = `${ico(night ? 'moon' : 'sun')}<span>${left === null ? (night ? L('NIGHT', 'NOCHE') : L('DAY', 'DÍA')) : fmt(left)}</span>`;
+    if (el.innerHTML !== html) el.innerHTML = html;
+    el.classList.toggle('is-night', night);
 }
 
 // ---------- Granja (mapa) ----------
@@ -139,6 +174,14 @@ const sniper = new Sniper(THEME, {
         el.classList.remove('bump');
         void el.offsetWidth;
         el.classList.add('bump');
+    },
+    // Un alienígena se ha escapado con algo del campo: se pierde, con su -1 rojo donde se fue
+    onStolen(target, nx, ny) {
+        state.lose(snipeField);
+        killPop((nx * 0.5 + 0.5) * innerWidth, (-ny * 0.5 + 0.5) * innerHeight, cropOf(snipeField).icon, 'stolen-pop', '-1');
+        medal(L('STOLEN!', '¡ROBADO!'), 'stolen');
+        sfx.play('miss');
+        $('left-count').textContent = sniper.field.remaining;
     },
     // Bala que da a un alienígena (a pie o en ovni): aspa en el centro y su chasquido
     onHitMarker() {
@@ -266,10 +309,10 @@ function popPlus(x, y) {
 
 // +1 de un alienígena abatido, con su cara, encima de su cabeza; sube y se va. (Con otro icono y
 // clase, el +1 de lo que recogen las torretas en el mapa)
-function killPop(x, y, icon = 'alien', cls = '') {
+function killPop(x, y, icon = 'alien', cls = '', text = '+1') {
     const el = document.createElement('div');
     el.className = `kill-pop ${cls}`;
-    el.innerHTML = `${ico(icon)}<b>+1</b>`;
+    el.innerHTML = `${ico(icon)}<b>${text}</b>`;
     // (con la mira el zoom deja la cabeza fuera: que no se salga de la pantalla)
     el.style.left = `${Math.min(innerWidth - 50, Math.max(50, x))}px`;
     el.style.top = `${Math.min(innerHeight - 60, Math.max(140, y))}px`;
@@ -478,7 +521,7 @@ function refreshPanel() {
     text.textContent = (ready
         ? L(`RIPE! ${f.left} ${what} TO HARVEST.`, `¡MADURO! ${f.left} ${what} PARA RECOGER.`)
         : `${L('GROWING... READY IN', 'CRECIENDO... LISTO EN')} ${fmt((1 - p) * crop.growTime)}`)
-        + (f.turrets ? ` ${L('THE TURRETS HARVEST IT BY THEMSELVES.', 'LAS TORRETAS LO RECOGEN SOLAS.')}` : '');
+        + (f.turrets ? ` ${L('THE TURRET HARVESTS IT BY ITSELF.', 'LA TORRETA LO RECOGE SOLA.')}` : '');
     bar.parentElement.classList.remove('hidden');
     bar.style.width = `${Math.round(p * 20) * 5}%`;
     act.classList.toggle('hidden', !ready);
@@ -491,24 +534,25 @@ function refreshPanel() {
     up.classList.remove('hidden');
     up.classList.toggle('turret-up', turrets);
     up.disabled = turrets ? !state.canBuyTurrets(id) : !state.canUpgrade(id);
-    $('upgrade-label').innerHTML = done ? `${ico('turret')}${L('AUTOMATED', 'AUTOMÁTICO')}` : turrets ? `${ico('turret')}${L('TURRETS', 'TORRETAS')}` : L('UPGRADE', 'MEJORAR');
+    $('upgrade-label').innerHTML = done ? `${ico('turret')}${L('AUTOMATED', 'AUTOMÁTICO')}` : turrets ? `${ico('turret')}${L('TURRET', 'TORRETA')}` : L('UPGRADE', 'MEJORAR');
     const cost = done ? '' : Object.entries(turrets ? state.turretCost(id) : state.cost(id)).map(([c, n]) => `<span class="upgrade-cost${state.items[c] < n ? ' short' : ''}">${ico(CROPS[c].icon)}<b>${n}</b></span>`).join('');
     if ($('upgrade-cost').innerHTML !== cost) $('upgrade-cost').innerHTML = cost;
     up.classList.toggle('maxed', done);
 }
 
-// Torretas automáticas: aparecen en las 4 esquinas del campo y desde ya lo recogen solas
+// Torreta automática: aparecen sacos en las 4 esquinas del campo, la torreta en uno de ellos, y
+// desde ya lo recoge sola
 function buyTurrets(id, force = false) {
     if (mode !== 'farm' || !state.buyTurrets(id, force)) return;
     farm.setTurrets(id);
     const f = farm.fields[id].rect;
     rig.focus(f.cx, f.cz + 1);
     rig.shake(0.18);
-    for (const t of farm.fields[id].turrets) farmParticles.burst(t.root.position.x, 0.3, t.root.position.z, 14, [THEME.dust, 0x6a7a5a, 0xffe03a], { speed: 2.4, up: 2.4, size: 0.12, ttl: 0.5 });
+    for (const b of farm.fields[id].bases) farmParticles.burst(b.root.position.x, 0.3, b.root.position.z, 14, [THEME.dust, 0x6a7a5a, 0xffe03a], { speed: 2.4, up: 2.4, size: 0.12, ttl: 0.5 });
     sfx.play('power');
     vibrate('pickup');
     updateCounts();
-    stage(L('TURRETS ONLINE!', '¡TORRETAS EN MARCHA!'), L('THEY HARVEST THE FIELD BY THEMSELVES', 'RECOGEN EL CAMPO SOLAS'));
+    stage(L('TURRET ONLINE!', '¡TORRETA EN MARCHA!'), L('IT HARVESTS THE FIELD BY ITSELF', 'RECOGE EL CAMPO SOLA'));
     refreshPanel();
 }
 
@@ -1365,6 +1409,20 @@ tapBtn('btn-debug-close', () => {
     sfx.play('ui');
     $('debug').classList.add('hidden');
 });
+// Depuración: la hora (la del reloj, o día o noche fijos; se recuerda)
+const DAYTIMES = [null, 'day', 'night'];
+function refreshDaytimeBtn() {
+    $('dbg-daytime').textContent = { day: L('DAY', 'DÍA'), night: L('NIGHT', 'NOCHE') }[dayNight.force] || L('AUTO', 'AUTO');
+}
+tapBtn('dbg-daytime', () => {
+    const next = DAYTIMES[(DAYTIMES.indexOf(dayNight.force) + 1) % DAYTIMES.length];
+    dayNight.force = next;
+    Settings.set('daytime', next);
+    refreshDaytimeBtn();
+    updateClock();
+    sfx.play('ui');
+});
+refreshDaytimeBtn();
 // Depuración: cuántas bajas pide cada racha (- / +), y volver a las normales
 const ksRows = {};
 for (const k of KILLSTREAKS) {
@@ -1422,9 +1480,9 @@ const unlockables = [
         },
     })),
     { id: 'rifle', name: L('MAXED RIFLE', 'RIFLE AL MÁXIMO'), done: () => RIFLE.every((r) => state.rifleMaxed(r.id)), run: () => state.maxRifle() },
-    // Torretas de cada campo: lo desbloquea y lo sube al máximo si hace falta
+    // Torreta de cada campo: lo desbloquea y lo sube al máximo si hace falta
     ...FARM.fields.map((f) => ({
-        id: `turrets-${f.id}`, name: `${L('TURRETS', 'TORRETAS')}: ${CROPS[f.crop].name || f.name}`,
+        id: `turrets-${f.id}`, name: `${L('TURRET', 'TORRETA')}: ${CROPS[f.crop].name || f.name}`,
         done: () => state.fields[f.id].turrets,
         run: () => {
             $('debug').classList.add('hidden');
@@ -1628,6 +1686,11 @@ function frame(now) {
     const dt = Math.min(CONFIG.sim.maxFrame, (now - last) / 1000);
     last = now;
     time += dt;
+    applyNight();
+    if ((clockT -= dt) <= 0) {
+        clockT = 0.25;
+        updateClock();
+    }
     pollPad(dt);
     keyInput(dt);
     holdCheck();
@@ -1706,4 +1769,4 @@ if ('serviceWorker' in navigator && !/^(localhost|127\.)/.test(location.hostname
 }
 
 // Para las pruebas (Playwright)
-window.game = { state, sniper, farm, rig, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, upgradeBarn, upgradeHouse, openShop, get cine() { return cine; }, goFarm, select, updateCounts, pause: () => (paused = true) };
+window.game = { state, sniper, farm, rig, dayNight, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, upgradeBarn, upgradeHouse, openShop, get cine() { return cine; }, goFarm, select, updateCounts, pause: () => (paused = true) };

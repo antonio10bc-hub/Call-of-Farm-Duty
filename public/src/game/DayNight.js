@@ -1,0 +1,35 @@
+import { THEME } from '../content/theme.js';
+
+const C = THEME.cycle, LEN = C.day + C.night;
+
+// Ciclo de día y noche con el reloj de verdad (así sigue donde iba aunque se recargue la página).
+// k: lo de noche que es, de 0 (día) a 1 (noche cerrada), con su transición al final de cada parte.
+// force: 'day' o 'night' para fijarlo (DEBUG y las pruebas); null, el del reloj.
+export class DayNight {
+    constructor(force = null) {
+        this.force = force;
+    }
+
+    // Segundos desde que empezó este ciclo
+    t(now = Date.now()) {
+        return (now / 1000) % LEN;
+    }
+
+    get k() {
+        if (this.force) return this.force === 'night' ? 1 : 0;
+        const t = this.t();
+        if (t < C.day) return Math.max(0, (t - (C.day - C.fade)) / C.fade);
+        return Math.min(1, Math.max(0, (LEN - t) / C.fade));
+    }
+
+    get night() {
+        return this.k > 0.5;
+    }
+
+    // Segundos que faltan para que cambie (de día a noche o al revés); null si está fijado
+    get left() {
+        if (this.force) return null;
+        const t = this.t();
+        return t < C.day ? C.day - t : LEN - t;
+    }
+}
