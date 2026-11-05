@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { box, toon, outline, OUTLINE } from '../render/materials.js';
 import { easeOutBack } from '../core/math.js';
-import { STRUCTURES, Ufo, Turret, Sandbags } from '../render/structures.js';
+import { STRUCTURES, Ufo, Turret, Sandbags, LandPost } from '../render/structures.js';
 import { Plot } from '../render/props.js';
 import { MerchantCamp } from '../render/merchant.js';
 import { junkyard, barrelParts, JUNK } from '../render/junk.js';
@@ -28,6 +28,11 @@ const mod = (a, n) => ((a % n) + n) % n;
 const inParcel = (x, z, m = 0) => [...FARM.parcels, ...FARM.lands.map((l) => l.rect)].some(([x0, z0, x1, z1]) => x >= x0 + m && x < x1 - m && z >= z0 + m && z < z1 - m);
 const kindKey = (k) => (!k ? '' : k.field ? (k.locked ? 'junk' : 'field') : k.path ? 'path' : k.yard ? 'yard' : k.wild ? 'wild' : 'b');
 const rectOf = ([x0, z0, x1, z1]) => ({ x: x0, z: z0, w: x1 - x0, d: z1 - z0 });
+// La parcela en venta en la que cae un punto (o ninguna)
+const landAt = (x, z) => FARM.lands.find(({ rect: [x0, z0, x1, z1] }) => x >= x0 && x < x1 && z >= z0 && z < z1);
+// Parcela sin comprar: todo más oscuro y frío, como en sombra (se multiplica por esto)
+const SHADE = [0.4, 0.43, 0.56];
+const WAVE = 18; // m/s a los que se retira la sombra al comprarla
 // Lo limpio de la parcela de la casa en un nivel (nada en el 0)
 const houseClear = (level) => {
     const c = FARM.house.levels[level].clear;
@@ -53,8 +58,8 @@ function treeParts(spots) {
 // Un campo bloqueado es un terreno sucio lleno de chatarra con el barril rojo encima del montón.
 export class Farm {
     // fields: { id: { level, unlocked } } (el estado guardado de cada campo); barnLevel y
-    // houseLevel: niveles del granero y de la casa
-    constructor(theme, fields, barnLevel = 0, houseLevel = 0) {
+    // houseLevel: niveles del granero y de la casa; lands: parcelas en venta ya compradas
+    constructor(theme, fields, barnLevel = 0, houseLevel = 0, lands = {}) {
         this.theme = theme;
         this.size = FARM.size;
         const B = FARM.bounds;
@@ -79,6 +84,8 @@ export class Farm {
         this.houseYard = houseClear(houseLevel);
         this.wild = []; // entradas animadas de la zona abandonada del granero (se apartan al crecer el recinto)
         this.shots = []; // trazadas de las balas de la torreta automática
+        this.landOwned = Object.fromEntries(FARM.lands.map((l) => [l.id, !!lands[l.id]]));
+        this.landWave = {}; // parcela recién comprada: la onda que retira su sombra { t, x, z }
         this.build();
         for (const v of this.views) if (fields[v.id].turrets) this.setTurrets(v.id, false);
     }
@@ -150,6 +157,16 @@ export class Farm {
         this.camp = new MerchantCamp(theme.outline);
         this.camp.root.traverse((o) => (o.userData.merchant = true));
         root.add(this.camp.root);
+        // Parcelas en venta: su poste de SE VENDE (o tu bandera) y su sombra
+        this.landPosts = Object.fromEntries(FARM.lands.map((l) => {
+            const post = new LandPost(theme.outline);
+            post.root.position.set(l.post.x, 0, l.post.z);
+            post.root.rotation.y = Math.atan2(15 - l.post.x, 15 - l.post.z);
+            post.setOwned(this.landOwned[l.id], false);
+            root.add(post.root);
+            return [l.id, post];
+        }));
+        this.initShade();
     }
 
     tileY(k) {
@@ -163,7 +180,89 @@ export class Farm {
             : k && k.path ? theme.path[mod(c * 7 + r * 3, 2)]
             : k && k.wild ? JUNK.ground[mod(c * 5 + r * 7 + mod(c * r, 3), JUNK.ground.length)]
             : k && k.yard ? YARD[mod(c + r, 2)] : theme.grass[mod(c * 5 + r * 3 + mod(c * r, 3), 3)];
-        mesh.setColorAt(i, _c.setHex(col).offsetHSL(0, 0, (Math.random() - 0.5) * theme.grassJitter));
+        _c.setHex(col).offsetHSL(0, 0, (Math.random() - 0.5) * theme.grassJitter);
+        // (su color de verdad se guarda: si es de una parcela sin comprar, se ve en sombra)
+        const t = this.floor ? this.floor.tiles[i] : null;
+        if (t) t.col = [_c.r, _c.g, _c.b];
+        mesh.setColorAt(i, t ? this.shadeColor(t.col, t.land, c + 0.5, r + 0.5) : _c);
+    }
+
+    // ---------- Parcelas en venta: en sombra hasta comprarlas ----------
+    // Lo en sombra que está un punto (0 nada, 1 del todo): sin comprar, 1; recién comprada, se
+    // aclara al pasar la onda que sale de su poste
+    shadeOf(land, x, z) {
+        if (!land) return 0;
+        if (!this.landOwned[land]) return 1;
+        const w = this.landWave[land];
+        return w ? Math.min(1, Math.max(0, (Math.hypot(x - w.x, z - w.z) - w.t * WAVE) / 3)) : 0;
+    }
+
+    shadeColor([r, g, b], land, x, z) {
+        const f = this.shadeOf(land, x, z);
+        return _c.setRGB(r * (1 - f + f * SHADE[0]), g * (1 - f + f * SHADE[1]), b * (1 - f + f * SHADE[2]));
+    }
+
+    // Lo que se oscurece: el suelo y lo abandonado (árboles, matorral, chatarra, piedras y el
+    // montón del barril) que cae en una parcela en venta. Se guarda su color de verdad
+    initShade() {
+        this.floor.tiles.forEach((t, i) => {
+            const l = landAt(t.c + 0.5, t.r + 0.5);
+            t.land = l ? l.id : null;
+            const a = this.floor.entry.mesh.instanceColor.array;
+            t.col = [a[i * 3], a[i * 3 + 1], a[i * 3 + 2]];
+        });
+        this.shaded = [];
+        for (const e of [...this.wild, ...this.views.flatMap((v) => v.junk || [])]) {
+            if (e.hull) continue;
+            const lands = e.positions.map((p) => (landAt(p.x, p.z) || {}).id || null);
+            if (!lands.some(Boolean)) continue;
+            const m = e.mesh;
+            if (!m.instanceColor) m.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(m.instanceMatrix.count * 3).fill(1), 3);
+            this.shaded.push({ e, lands, base: m.instanceColor.array.slice() });
+        }
+        this.applyShade();
+    }
+
+    applyShade() {
+        const floor = this.floor.entry.mesh;
+        this.floor.tiles.forEach((t, i) => {
+            if (t.land) floor.setColorAt(i, this.shadeColor(t.col, t.land, t.c + 0.5, t.r + 0.5));
+        });
+        floor.instanceColor.needsUpdate = true;
+        for (const { e, lands, base } of this.shaded) {
+            e.positions.forEach((p, i) => {
+                if (!lands[i]) return;
+                e.mesh.setColorAt(i, this.shadeColor([base[i * 3], base[i * 3 + 1], base[i * 3 + 2]], lands[i], p.x, p.z));
+            });
+            e.mesh.instanceColor.needsUpdate = true;
+        }
+    }
+
+    // Parcela comprada: ya es tuya. Su poste salta, se iza tu bandera y la sombra se retira en una
+    // onda desde el poste (animate false: ya, sin nada)
+    ownLand(id, animate = true) {
+        if (this.landOwned[id]) return;
+        this.landOwned[id] = true;
+        const l = FARM.lands.find((x) => x.id === id);
+        this.landPosts[id].setOwned(true, animate);
+        if (animate) this.landWave[id] = { t: 0, x: l.post.x, z: l.post.z };
+        this.applyShade();
+    }
+
+    updateLandWaves(dt) {
+        let any = false;
+        for (const [id, w] of Object.entries(this.landWave)) {
+            w.t += dt;
+            any = true;
+            // Destellos dorados por el frente de la onda
+            const r = w.t * WAVE, [x0, z0, x1, z1] = FARM.lands.find((l) => l.id === id).rect;
+            for (let k = 0; k < 6 && this.onLandWave; k++) {
+                const a = Math.random() * Math.PI * 2, x = w.x + Math.sin(a) * r, z = w.z + Math.cos(a) * r;
+                if (x >= x0 && x < x1 && z >= z0 && z < z1) this.onLandWave(x, z);
+            }
+            if (r > 50) delete this.landWave[id];
+        }
+        if (any) this.applyShade();
     }
 
     // Vuelve a pintar las casillas que han cambiado (un campo crece o se limpia) y aparta la
@@ -504,7 +603,11 @@ export class Farm {
     unlock(id) {
         const v = this.fields[id];
         if (!v.locked) return;
+        // (si es de una parcela en venta, también queda tuya: DEBUG la desbloquea sin comprarla)
+        const land = FARM.lands.find((l) => l.field === id);
+        if (land) this.ownLand(land.id, false);
         v.locked = false;
+        this.shaded = this.shaded.filter((s) => !(v.junk || []).includes(s.e));
         for (const e of v.junk || []) {
             this.animated.splice(this.animated.indexOf(e), 1);
             this.root.remove(e.mesh);
@@ -615,7 +718,7 @@ export class Farm {
         const mesh = new THREE.InstancedMesh(box(1, 1, 1), toon(color), n);
         const hull = new THREE.InstancedMesh(box(1, 1, 1), outline(this.theme.outline), n);
         this.addAnimated(mesh, pts, delay);
-        this.addAnimated(hull, pts.map((p) => ({ ...p, sx: (p.sx || 1) + OUTLINE * 2, sy: (p.sy || 1) + OUTLINE * 2, sz: (p.sz || 1) + OUTLINE * 2 })), delay);
+        this.addAnimated(hull, pts.map((p) => ({ ...p, sx: (p.sx || 1) + OUTLINE * 2, sy: (p.sy || 1) + OUTLINE * 2, sz: (p.sz || 1) + OUTLINE * 2 })), delay).hull = true;
         return mesh;
     }
 
@@ -681,6 +784,8 @@ export class Farm {
         if (this.ufo) this.ufo.update(dt, time);
         this.plot.update(dt, time);
         this.camp.update(dt, time, this.nightK || 0);
+        for (const post of Object.values(this.landPosts)) post.update(dt, time);
+        this.updateLandWaves(dt);
         this.updateShots(dt);
 
         for (const v of this.views) {

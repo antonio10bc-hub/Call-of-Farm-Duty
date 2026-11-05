@@ -15,11 +15,14 @@ export const FARM = {
     // campos. Empiezan abandonadas (árboles, matorral y chatarra) con su cartel de EN VENTA; una
     // vez compradas se desbloquean como cualquier terreno (disparando al barril de su campo) y
     // queda limpia, con el campo de su cultivo nuevo (field).
+    // Sin comprar se ve oscura (como en sombra) y con un poste de SE VENDE junto a su portón; al
+    // comprarla la oscuridad se retira en una onda desde el poste, que salta, y queda tu bandera.
     //   price   monedas de oro que cuesta
+    //   post    dónde está el poste (y luego la bandera)
     lands: [
-        { id: 'west', rect: [-30, 0, 0, 30], price: 15, field: 'pumpkin', name: L('WEST PLOT', 'PARCELA OESTE') },
-        { id: 'east', rect: [30, 0, 60, 30], price: 25, field: 'corn', name: L('EAST PLOT', 'PARCELA ESTE') },
-        { id: 'south', rect: [0, 30, 30, 60], price: 40, field: 'carrot', name: L('SOUTH PLOT', 'PARCELA SUR') },
+        { id: 'west', rect: [-30, 0, 0, 30], price: 15, field: 'pumpkin', post: { x: -2.4, z: 13.6 }, name: L('WEST PLOT', 'PARCELA OESTE') },
+        { id: 'east', rect: [30, 0, 60, 30], price: 25, field: 'corn', post: { x: 32.4, z: 13.6 }, name: L('EAST PLOT', 'PARCELA ESTE') },
+        { id: 'south', rect: [0, 30, 30, 60], price: 40, field: 'carrot', post: { x: 17.6, z: 32.4 }, name: L('SOUTH PLOT', 'PARCELA SUR') },
     ],
     bounds: { x0: -30, z0: -30, x1: 60, z1: 60 }, // todo lo vallado (con las parcelas en venta)
     view: { x0: -30, z0: -30, x1: 60, z1: 60 },   // hasta dónde se mueve la cámara

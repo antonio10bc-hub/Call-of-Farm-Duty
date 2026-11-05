@@ -523,6 +523,63 @@ export class Turret extends VoxelModel {
     }
 }
 
+// Poste de una parcela en venta: un cartel blanco con su franja roja y una moneda de oro. Al
+// comprarla salta por los aires y en su sitio se iza tu bandera (amarilla y roja, ondeando).
+// setOwned(on, animate) lo pide; la animación avanza en update.
+export class LandPost extends VoxelModel {
+    constructor(outlineColor) {
+        super(outlineColor);
+        const WOOD = 0x9a6a3a, WOOD2 = 0x7a4f2a;
+        this.post = new THREE.Group();
+        this.part(this.post, 0.16, 1.6, 0.16, WOOD2, 0, 0.8, 0);
+        this.part(this.post, 1.3, 0.8, 0.1, 0xf3ead2, 0, 1.45, 0);
+        this.part(this.post, 1.3, 0.2, 0.12, 0xc8402e, 0, 1.75, 0, false);
+        this.part(this.post, 0.34, 0.34, 0.04, 0xffd23f, 0, 1.35, 0.07, false);
+        this.root.add(this.post);
+        this.flag = new THREE.Group();
+        this.part(this.flag, 0.12, 2.6, 0.12, WOOD, 0, 1.3, 0);
+        this.part(this.flag, 0.22, 0.14, 0.22, 0xffd23f, 0, 2.66, 0, false);
+        this.cloth = new THREE.Group();
+        this.cloth.position.set(0, 2.25, 0);
+        this.part(this.cloth, 0.9, 0.3, 0.05, 0xffd23f, 0.5, 0.15, 0);
+        this.part(this.cloth, 0.9, 0.3, 0.05, 0xc8402e, 0.5, -0.15, 0);
+        this.flag.add(this.cloth);
+        this.root.add(this.flag);
+        this.owned = false;
+        this.anim = -1; // segundos desde que se compró (-1: sin animación)
+        this.setOwned(false, false);
+    }
+
+    setOwned(on, animate = true) {
+        this.owned = on;
+        this.anim = on && animate ? 0 : -1;
+        this.post.visible = !on || animate;
+        this.post.position.set(0, 0, 0);
+        this.post.rotation.set(0, 0, 0);
+        this.post.scale.setScalar(1);
+        this.flag.visible = on;
+        this.flag.scale.set(1, on && animate ? 0.0001 : 1, 1);
+    }
+
+    update(dt, time) {
+        if (this.anim >= 0) {
+            this.anim += dt;
+            // El poste sale disparado dando vueltas y se encoge
+            const a = Math.min(1, this.anim / 0.6);
+            this.post.position.set(a * 0.8, Math.sin(a * Math.PI) * 1.6 + a * 1.2, 0);
+            this.post.rotation.set(0, a * 6, a * 2);
+            this.post.scale.setScalar(Math.max(0.0001, 1 - a));
+            this.post.visible = a < 1;
+            // La bandera sube con un bote
+            const b = Math.min(1, Math.max(0, (this.anim - 0.35) / 0.5));
+            this.flag.scale.set(1, b <= 0 ? 0.0001 : 1 + 2.7 * (b - 1) ** 3 + 1.7 * (b - 1) ** 2, 1);
+            if (this.anim > 1) this.anim = -1;
+        }
+        if (this.flag.visible) this.cloth.rotation.y = Math.sin(time * 3 + this.t) * 0.35;
+        this.updateFx(dt);
+    }
+}
+
 // Parapeto de sacos terreros en dos filas, un poco desordenados (donde se planta la torreta en
 // el mapa); top: dónde queda su parte de arriba
 export class Sandbags extends VoxelModel {

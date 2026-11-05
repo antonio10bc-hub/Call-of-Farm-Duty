@@ -88,7 +88,8 @@ test('parcelas en venta: se compran con el oro del comerciante, se desbloquean c
     const errors = watchErrors(page);
     await openFarm(page);
     await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
-    // EN VENTA, con su precio en oro; sin oro no se compra
+    // EN VENTA, con su precio en oro y en sombra (con su poste de SE VENDE); sin oro no se compra
+    expect(await page.evaluate(() => [game.farm.shadeOf('west', -15, 15), game.farm.landPosts.west.owned])).toEqual([1, false]);
     await expect(page.locator('#sign-pumpkin')).toHaveText('15');
     await expect(page.locator('#sign-pumpkin')).toHaveClass(/for-sale/);
     await page.evaluate(() => game.select({ field: 'pumpkin' }));
@@ -99,6 +100,11 @@ test('parcelas en venta: se compran con el oro del comerciante, se desbloquean c
     await expect(page.locator('#panel-action')).toBeEnabled();
     await page.locator('#panel-action').click();
     expect(await page.evaluate(() => [game.state.lands.west, game.state.items.gold, game.state.fields.pumpkin.unlocked])).toEqual([true, 5, false]);
+    // Ya es tuya: la sombra se retira en una onda desde el poste, que salta, y se iza tu bandera
+    await expect(page.locator('#stage')).toContainText('AHORA ES TUYA');
+    expect(await page.evaluate(() => [game.farm.landPosts.west.owned, !!game.farm.landWave.west])).toEqual([true, true]);
+    await expect.poll(() => page.evaluate(() => game.farm.shadeOf('west', -15, 15))).toBe(0);
+    await expect.poll(() => page.evaluate(() => !!game.farm.landWave.west)).toBe(false);
     // Comprada: ahora se vuela su barril, como cualquier terreno
     await expect(page.locator('#sign-pumpkin')).toHaveText('¡DESBLOQUEAR!');
     await page.evaluate(() => game.startUnlock('pumpkin'));
@@ -112,6 +118,6 @@ test('parcelas en venta: se compran con el oro del comerciante, se desbloquean c
     await expect(page.locator('#farm-pumpkin')).toBeVisible();
     // Se guarda
     await page.reload();
-    await expect.poll(() => page.evaluate(() => window.game && [game.state.lands.west, game.state.fields.pumpkin.unlocked])).toEqual([true, true]);
+    await expect.poll(() => page.evaluate(() => window.game && [game.state.lands.west, game.state.fields.pumpkin.unlocked, game.farm.shadeOf('west', -15, 15)])).toEqual([true, true, 0]);
     expect(errors).toEqual([]);
 });

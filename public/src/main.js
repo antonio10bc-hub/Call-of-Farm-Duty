@@ -91,7 +91,7 @@ function updateClock() {
 const farmScene = new THREE.Scene();
 farmScene.background = new THREE.Color(THEME.sky);
 addLights(farmScene);
-const farm = new Farm(THEME, state.fields, state.barn.level, state.house.level);
+const farm = new Farm(THEME, state.fields, state.barn.level, state.house.level, state.lands);
 farmScene.add(farm.root);
 const farmParticles = new Particles(farmScene, 600);
 const rig = new CameraRig(M);
@@ -101,6 +101,8 @@ rig.yaw = rig.yawTarget = M.yaw;
 const home = { x: 15, z: 18 };
 rig.focus(home.x, home.z);
 rig.snap();
+// La sombra de una parcela recién comprada se retira: destellos dorados por donde pasa
+farm.onLandWave = (x, z) => farmParticles.burst(x, 0.3, z, 3, [0xffd23f, 0xfff6b0, 0xffffff], { speed: 1.2, up: 3, size: 0.12, ttl: 0.6 });
 // Bala de una torreta automática en el mapa: polvo y paja donde da (y su ruido, una de cada dos)
 farm.onTurretHit = (x, z, n) => {
     farmParticles.burst(x, 0.4, z, 5, [0xffe9a0, 0xd9b77a, THEME.dust], { speed: 1.4, up: 2, size: 0.08, ttl: 0.4 });
@@ -580,17 +582,22 @@ function refreshPanel() {
     up.classList.toggle('maxed', done);
 }
 
-// Comprar la parcela de un campo con oro: queda lista para volar su barril
+// Comprar la parcela de un campo con oro: ya es tuya (la sombra se retira desde su poste, que
+// salta, y se iza tu bandera) y queda lista para volar su barril
 function buyLand(id) {
     const land = state.landOf(id);
     if (!land || !state.buyLand(land.id)) return sfx.play('miss');
-    const f = farm.fields[id].rect;
-    rig.focus(f.cx, f.cz + 1);
+    select(null);
+    farm.ownLand(land.id);
+    const [x0, z0, x1, z1] = land.rect;
+    rig.focus((land.post.x * 2 + (x0 + x1) / 2) / 3, (land.post.z * 2 + (z0 + z1) / 2) / 3);
+    rig.zoomTarget = 1.35;
     rig.shake(0.12);
     sfx.play('power');
+    setTimeout(() => sfx.play('achievement'), 350);
     vibrate('pickup');
     updateCounts();
-    stage(L('PLOT BOUGHT!', '¡PARCELA COMPRADA!'), L('NOW BLOW UP ITS BARREL', 'AHORA VUELA SU BARRIL'));
+    stage(L('IT IS YOURS!', '¡AHORA ES TUYA!'), L('IT IS FILTHY: BLOW UP ITS BARREL TO CLEAR IT', 'ESTÁ SUCIA: VUELA SU BARRIL PARA LIMPIARLA'));
     refreshPanel();
 }
 
