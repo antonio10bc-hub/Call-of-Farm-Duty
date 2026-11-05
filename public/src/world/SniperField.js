@@ -53,8 +53,6 @@ function instanced(root, mat, n) {
 //   - cosecha de tomates: matas de tomate con tomates gigantes; cada tomate es un blanco
 //   - cosecha de calabazas: calabazas enormes entre hojas; aguantan varios tiros y paran la bala
 //   - cosecha de maíz: matas altas en hileras con dos mazorcas cada una (los blancos)
-//   - cosecha de zanahorias: enterradas; cada poco asoma alguna un momento (solo entonces se
-//     le puede dar)
 //   - desbloqueo: el terreno está sucio y lleno de chatarra, con un barril rojo encima del
 //     montón del fondo. Un disparo al barril lo hace volar todo y deja la tierra limpia.
 // scale: tamaño del campo (1 = el normal); el cuadrilátero y sus torres crecen desde su centro,
@@ -270,7 +268,6 @@ export class SniperField {
         if (crop === 'tomato') return this.spawnTomatoes(count);
         if (crop === 'pumpkin') return this.spawnPumpkins(count);
         if (crop === 'corn') return this.spawnCorn(count);
-        if (crop === 'carrot') return this.spawnCarrots(count);
         for (let i = 0; i < count; i++) {
             const { x, z } = this.freeSpot(this.targets, count > 90 ? 1.2 : 1.6); // (más juntas si hay muchas)
             const stalks = Array.from({ length: CLUMP }, () => {
@@ -374,24 +371,9 @@ export class SniperField {
         this.paintPlants(C, [C.stalk, 0xe8d08a]);
     }
 
-    // Zanahorias: cada una con su penacho; bajo tierra hasta que asoma un rato
-    spawnCarrots(count) {
-        const C = CROPS.carrot;
-        for (let i = 0; i < count; i++) {
-            const { x, z } = this.freeSpot(this.plants, 1.4);
-            const grow = -0.5 - i * Math.min(0.08, 3 / count);
-            const plant = { x, z, h: 0, ph: Math.random() * 6, grow, g: 0.0001, sway: 0, tuft: true,
-                leaves: Array.from({ length: LEAVES }, (_, k) => ({ a: (k / LEAVES) * Math.PI * 2, y: 0, r: 0.08, w: 0.08, tone: Math.random() })) };
-            this.plants.push(plant);
-            plant.target = { plant, kind: 'carrot', x, y: 0, z, size: 0.36, up: 0, lift: 0, out: 0, next: 1 + Math.random() * 4, ry: Math.random() * Math.PI, tone: Math.random(), alive: true, grow: grow - 0.1, landed: false, flash: 0, dying: 0 };
-            this.targets.push(plant.target);
-        }
-        this.paintPlants(C, [C.calyx, C.calyx]);
-    }
-
-    // ¿Se le puede dar? (las zanahorias, solo mientras asoman)
+    // ¿Se le puede dar?
     hittable(s) {
-        return s.alive && s.landed && (s.kind !== 'carrot' || s.up > 0.55);
+        return s.alive && s.landed;
     }
 
     // Terreno abandonado: chatarra a montones por todo el campo y por la hierba hasta la atalaya
@@ -664,9 +646,9 @@ export class SniperField {
         }
     }
 
-    // Calabazas, maíz y zanahorias: sus matas (hojas y tallos) y sus blancos
+    // Calabazas y maíz: sus matas (hojas y tallos) y sus blancos
     drawPlants(dt, time) {
-        const C = CROPS[this.crop], P = C.pop;
+        const C = CROPS[this.crop];
         this.plants.forEach((p, pi) => {
             p.grow += dt;
             const k = Math.min(1, Math.max(0, p.grow / 0.5));
@@ -685,12 +667,6 @@ export class SniperField {
                     _d.position.set(p.x + Math.sin(l.a) * l.r * p.g, l.y, p.z + Math.cos(l.a) * l.r * p.g);
                     _d.rotation.set(p.sway, l.a, 0);
                     _d.scale.set(l.w * p.g, 0.06, l.w * 0.8 * p.g);
-                } else {
-                    // Penacho de la zanahoria: sube con ella cuando asoma
-                    const t = p.target, lift = t ? t.lift : 0;
-                    _d.position.set(p.x + Math.sin(l.a) * 0.08, 0.25 * p.g + lift, p.z + Math.cos(l.a) * 0.08);
-                    _d.rotation.set(Math.cos(l.a) * (0.35 + p.sway), l.a, Math.sin(l.a) * 0.35);
-                    _d.scale.set(0.07, Math.max(0.0001, 0.5 * p.g * (t && !t.alive && t.dying <= 0 ? 0.0001 : 1)), 0.07);
                 }
                 _d.updateMatrix();
                 this.tLeaves.setMatrixAt(pi * LEAVES + k2, _d.matrix);
@@ -722,22 +698,6 @@ export class SniperField {
                 x += sw;
                 w = d = s.size * 0.5;
                 hh = s.size * 1.15;
-            } else if (s.kind === 'carrot') {
-                // Asoma: sube, se queda un rato y vuelve a bajar
-                if (s.alive && s.landed) {
-                    if (s.out > 0) {
-                        if ((s.out -= dt) <= 0) s.next = P.every[0] + Math.random() * (P.every[1] - P.every[0]);
-                    } else if ((s.next -= dt) <= 0) {
-                        s.out = P.up;
-                        if (this.onPop) this.onPop(s);
-                    }
-                }
-                s.up += ((s.out > 0 ? 1 : 0) - s.up) * Math.min(1, dt * 9);
-                s.lift = s.up * 0.55;
-                w = d = s.size * 0.62;
-                hh = s.size * 1.7;
-                y = -0.32 + s.lift + hh / 2;
-                s.y = y;
             }
             _d.position.set(x, y, z);
             _d.rotation.set(0, s.ry, s.kind === 'corn' ? 0.15 : 0);
@@ -750,7 +710,7 @@ export class SniperField {
             const dark = s.kind === 'pumpkin' ? (C.hp - s.hp) * 0.08 : 0;
             _c.setHex(s.tone < 0.5 ? C.fruit : C.fruitDark).offsetHSL(0, 0, -dark).lerp(_w, s.flash);
             this.tFruit.setColorAt(i, _c);
-            // Rabito (calabaza), farfolla (maíz) o el cuello verde (zanahoria)
+            // Rabito (calabaza) o farfolla (maíz)
             _d.position.set(x, s.kind === 'corn' ? y - hh * 0.35 * e : y + hh * 0.5 * e, z);
             _d.scale.set(w * (s.kind === 'pumpkin' ? 0.18 : 0.75) * e, (s.kind === 'pumpkin' ? 0.22 : 0.12) * e, d * (s.kind === 'pumpkin' ? 0.18 : 0.75) * e);
             _d.updateMatrix();
@@ -852,7 +812,6 @@ function hitBox(s) {
         return [s.x - r, 0, s.z - r, s.x + r, s.size * 0.85, s.z + r];
     }
     if (s.kind === 'corn') return [s.x - 0.2, s.y - 0.3, s.z - 0.2, s.x + 0.2, s.y + 0.3, s.z + 0.2];
-    if (s.kind === 'carrot') return [s.x - 0.26, Math.max(0, s.y - 0.4), s.z - 0.26, s.x + 0.26, s.y + 0.55, s.z + 0.26];
     const r = s.size * 0.62;
     return [s.x - r, s.y - r, s.z - r, s.x + r, s.y + r, s.z + r];
 }

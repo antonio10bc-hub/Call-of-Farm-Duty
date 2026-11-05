@@ -129,7 +129,7 @@ test('casa: empieza en ruinas con la parcela sucia; 3 niveles la arreglan y limp
     await expect(page.locator('#panel-title')).toHaveText('CASA NV.3/3');
     expect(await wildHidden()).toBeGreaterThan(l1);
     // Al nivel 3 la parcela entera está limpia: nada abandonado dentro
-    expect(await page.evaluate(() => game.farm.floor.tiles.filter((t) => t.k && t.k.wild && t.r < 0).length)).toBe(0);
+    expect(await page.evaluate(() => game.farm.floor.tiles.filter((t) => t.k && t.k.wild && t.r < 0 && t.c >= 0 && t.c < 30).length)).toBe(0);
     await page.reload();
     await expect.poll(() => page.evaluate(() => window.game && game.state.house.level)).toBe(3);
     expect(errors).toEqual([]);
@@ -262,5 +262,24 @@ test('comerciante: llega por su camino, monta el puesto, pide cosecha y paga en 
     // Se va: recoge el puesto y su carro sale por el camino
     await page.evaluate(() => { game.merchantClock.force = 'away'; });
     await expect.poll(() => page.evaluate(() => game.farm.camp.wagon.visible), { timeout: 15_000 }).toBe(false);
+    expect(errors).toEqual([]);
+});
+
+test('cuadrícula de 3×3 parcelas: las de PRONTO, abandonadas y en sombra; el botón MAPA lo enseña todo y vuelve', { tag: '@full' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await openFarm(page);
+    await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
+    // Las de las esquinas y la de abajo: abandonadas, en sombra y sin nada que comprar
+    for (const [id, x, z] of [['nw', -15, -15], ['sw', -15, 45], ['south', 5, 45], ['se', 45, 45]]) {
+        expect(await page.evaluate(([id, x, z]) => [game.farm.shadeOf(id, x, z), game.farm.kindAt(x, z) && game.farm.kindAt(x, z).wild, id in game.state.lands], [id, x, z])).toEqual([1, true, false]);
+    }
+    // Vista global y vuelta
+    const zoom0 = await page.evaluate(() => game.rig.zoomTarget);
+    await page.locator('#btn-map').click();
+    await expect(page.locator('#btn-map')).toHaveClass(/on/);
+    expect(await page.evaluate(() => [game.rig.zoomTarget > 4.5, game.rig.fx, game.rig.fz])).toEqual([true, 15, 15]);
+    await page.locator('#btn-map').click();
+    await expect(page.locator('#btn-map')).not.toHaveClass(/on/);
+    expect(await page.evaluate(() => game.rig.zoomTarget)).toBe(zoom0);
     expect(errors).toEqual([]);
 });

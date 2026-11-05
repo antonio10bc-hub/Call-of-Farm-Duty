@@ -1,5 +1,5 @@
 // Pruebas de el campo de tiro: controles (dedo, ratón, teclado), colaterales y los cultivos de las
-// parcelas que se compran (calabazas, maíz y zanahorias).
+// parcelas que se compran (calabazas y maíz).
 const { test, expect, aimAndShoot, enterField, openFarm, shootNext, touchPath, watchErrors } = require('./helpers');
 
 // Al campo de tiro de un cultivo de las parcelas que se compran (desbloqueado a la fuerza)
@@ -108,8 +108,9 @@ test('colateral: una bala que atraviesa dos matas recoge las dos', { tag: '@smok
 test('calabazas: aguantan 3 tiros (cada uno las resquebraja) y paran la bala', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await enterCrop(page, 'pumpkin');
-    const at = '(() => { const s = game.sniper.field.sheaves.find((x) => x.alive); return s && { x: s.x, y: s.size * 0.4, z: s.z }; })()';
-    const first = await page.evaluate(() => game.sniper.field.sheaves.findIndex((x) => x.alive));
+    // (a la más cercana a la torre: así no hay otra delante que se lleve el tiro)
+    const first = await page.evaluate(() => { const f = game.sniper.field, p = game.sniper.pos; let best = 0; f.sheaves.forEach((s, i) => { const b = f.sheaves[best]; if (Math.hypot(s.x - p.x, s.z - p.z) < Math.hypot(b.x - p.x, b.z - p.z)) best = i; }); return best; });
+    const at = `(() => { const s = game.sniper.field.sheaves[${first}]; return { x: s.x, y: s.size * 0.4, z: s.z }; })()`;
     await aimAndShoot(page, at);
     await expect.poll(() => page.evaluate((i) => game.sniper.field.sheaves[i].hp, first)).toBe(2);
     expect(await page.evaluate((i) => [game.sniper.field.sheaves[i].alive, game.state.items.pumpkin], first)).toEqual([true, 0]);
@@ -125,27 +126,8 @@ test('maíz: matas altas en hileras con sus mazorcas arriba', { tag: '@full' }, 
     const errors = watchErrors(page);
     await enterCrop(page, 'corn');
     // Dos mazorcas por mata, a media altura de unas matas de más de 2 m
-    expect(await page.evaluate(() => { const f = game.sniper.field; return [f.targets.length, f.plants.every((p) => p.h > 2), f.targets.every((s) => s.y > 1)]; })).toEqual([14, true, true]);
+    expect(await page.evaluate(() => { const f = game.sniper.field; return [f.targets.length, f.plants.every((p) => p.h > 2), f.targets.every((s) => s.y > 1)]; })).toEqual([16, true, true]);
     await aimAndShoot(page, '(() => { const s = game.sniper.field.sheaves.find((x) => x.alive); return s && { x: s.x, y: s.y, z: s.z }; })()');
     await expect.poll(() => page.evaluate(() => game.state.items.corn)).toBeGreaterThan(0);
-    expect(errors).toEqual([]);
-});
-
-test('zanahorias: enterradas; solo se les puede dar mientras asoman', { tag: '@full' }, async ({ page }) => {
-    const errors = watchErrors(page);
-    await enterCrop(page, 'carrot');
-    // Todas abajo un buen rato: no hay a qué disparar
-    await page.evaluate(() => { for (const s of game.sniper.field.targets) { s.out = 0; s.next = 99; } });
-    await expect.poll(() => page.evaluate(() => game.sniper.field.targets.every((s) => s.up < 0.1))).toBe(true);
-    expect(await page.evaluate(() => game.sniper.field.targets.some((s) => game.sniper.field.hittable(s)))).toBe(false);
-    const at = '(() => { const s = game.sniper.field.targets[0]; return { x: s.x, y: 0.3, z: s.z }; })()';
-    await aimAndShoot(page, at);
-    await expect.poll(() => page.evaluate(() => game.sniper.canFire)).toBe(true);
-    expect(await page.evaluate(() => [game.sniper.field.targets[0].alive, game.state.items.carrot])).toEqual([true, 0]);
-    // Asoma: ahora sí
-    await page.evaluate(() => { const s = game.sniper.field.targets[0]; s.out = 30; });
-    await expect.poll(() => page.evaluate(() => game.sniper.field.hittable(game.sniper.field.targets[0]))).toBe(true);
-    await aimAndShoot(page, '(() => { const s = game.sniper.field.targets[0]; return { x: s.x, y: s.y, z: s.z }; })()');
-    await expect.poll(() => page.evaluate(() => game.state.items.carrot)).toBe(1);
     expect(errors).toEqual([]);
 });

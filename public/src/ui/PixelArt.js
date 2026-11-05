@@ -160,7 +160,7 @@ const SPRITES = {
         rows: ['.KKKKKK.', 'KRRRRRRK', 'KKKKKKKK', 'KRWRRRRK', 'KYYYYYYK', 'KRWRRRRK', 'KKKKKKKK', 'KRRRRRDK', '.KKKKKK.'],
         pal: { K: INK, R: '#d8302a', D: '#a8201a', W: '#ff9a8a', Y: '#ffcc33' },
     },
-    // Cultivos de las parcelas que se compran: calabaza, mazorca y zanahoria
+    // Cultivos de las parcelas que se compran: calabaza y mazorca
     pumpkin: {
         rows: ['....KK....', '....KGK...', '..KKKKKK..', '.KOOYOOOK.', 'KOOYOOOODK', 'KOYOOOOODK', 'KOOOOOODDK', 'KOOOOODDDK', '.KODODDDK.', '..KKKKKK..'],
         pal: { K: INK, G: '#5a7a2a', O: '#f08a1e', D: '#d06a10', Y: '#ffc070' },
@@ -168,10 +168,6 @@ const SPRITES = {
     corn: {
         rows: ['....KK....', '...KYYK...', '..KYWYYK..', '..KYYYYK..', '..KYYYOK..', '.GKYYYYKG.', 'GGKYYYOKGG', '.GGKYOKGG.', '..GGKKGG..', '...GGGG...'],
         pal: { K: INK, Y: '#ffd23f', O: '#e8b830', W: '#fff3a0', G: '#7ab83a' },
-    },
-    carrot: {
-        rows: ['..G.G.G...', '...GGG....', '..KKKKK...', '..KOWOK...', '..KOOOK...', '...KOOK...', '...KODK...', '....KOK...', '....KK....', '..........'],
-        pal: { K: INK, G: '#4caf3c', O: '#f07a1e', D: '#d8601a', W: '#ffb070' },
     },
     // El comerciante: doblón de oro y su retrato (sombrero de ala ancha y abrigo con botones)
     gold: {
@@ -181,6 +177,11 @@ const SPRITES = {
     merchant: {
         rows: ['............', '....KKKK....', '...KHHHHK...', '.KKKHRRHKKK.', 'KHHHHHHHHHHK', '.KKKSSSSKKK.', '...KSSSSK...', '..KCCCCCCK..', '.KCCGCCGCCK.', '.KCCCCCCCCK.', '.KCCGCCGCCK.', '.KKKKKKKKKK.'],
         pal: { K: INK, H: '#6a3a22', R: '#c8402e', S: '#e8b48a', C: '#2e7a8a', G: '#ffd23f' },
+    },
+    // Botón MAPA: un plano doblado con sus parcelas
+    map: {
+        rows: ['KKKKKKKKKK', 'KGGKYYKGGK', 'KGGKYYKGGK', 'KKKKKKKKKK', 'KGGKBBKOOK', 'KGGKBBKOOK', 'KKKKKKKKKK', 'KGGKYYKGGK', 'KGGKYYKGGK', 'KKKKKKKKKK'],
+        pal: { K: INK, G: '#5a9e32', Y: '#e8c050', B: '#c8402e', O: '#8a5a34' },
     },
     // Reloj del día: sol y luna llena
     sun: {

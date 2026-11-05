@@ -24,7 +24,7 @@ export const CONFIG = {
         follow: 9,
         view: 15,           // casillas que caben de ancho con zoom 1
         zoomMin: 0.55,
-        zoomMax: 1.7,
+        zoomMax: 4.5,       // (el botón MAPA aleja aún más, hasta verlo todo)
     },
     sniper: {
         fov: 64,            // vista normal en primera persona

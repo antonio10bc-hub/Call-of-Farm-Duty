@@ -101,7 +101,7 @@ export class Farm {
         // La parcela de la casa: lo que aún no se ha limpiado está abandonado
         if (inRect(this.houseZone, c, r) && !inRect(this.houseYard, c, r)) return { wild: true };
         // Las parcelas en venta: abandonadas hasta que se desbloquea su campo
-        for (const l of FARM.lands) if (inRect(rectOf(l.rect), c, r)) return this.fields[l.field].locked ? { wild: true } : null;
+        for (const l of FARM.lands) if (inRect(rectOf(l.rect), c, r)) return !l.field || this.fields[l.field].locked ? { wild: true } : null;
         for (const s of FARM.structures) if (Math.abs(c + 0.5 - s.x) < s.w / 2 + 0.3 && Math.abs(r + 0.5 - s.z) < s.d / 2 + 0.3) return { building: true };
         return null;
     }
@@ -109,7 +109,7 @@ export class Farm {
     build() {
         const { theme, root, size } = this;
         // Césped lejano: un plano enorme bajo todo
-        const far = new THREE.Mesh(new THREE.PlaneGeometry(500, 500), toon(theme.grassFar));
+        const far = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), toon(theme.grassFar));
         far.rotation.x = -Math.PI / 2;
         far.position.set(this.cx, -0.31, this.cz);
         root.add(far);
@@ -159,7 +159,7 @@ export class Farm {
         root.add(this.camp.root);
         // Parcelas en venta: su poste de SE VENDE (o tu bandera) y su sombra
         this.landPosts = Object.fromEntries(FARM.lands.map((l) => {
-            const post = new LandPost(theme.outline);
+            const post = new LandPost(theme.outline, !!l.soon);
             post.root.position.set(l.post.x, 0, l.post.z);
             post.root.rotation.y = Math.atan2(15 - l.post.x, 15 - l.post.z);
             post.setOwned(this.landOwned[l.id], false);
@@ -337,7 +337,7 @@ export class Farm {
     cleared(x, z) {
         return inRect(this.yard, x, z, 0.6) || inRect(this.houseYard, x, z, 0.4) || this.views.some((v) => inRect(v.rect, x, z, 0.5))
             // Una parcela comprada y desbloqueada: limpia, menos lo que su campo aún no ocupa
-            || FARM.lands.some((l) => !this.fields[l.field].locked && inRect(rectOf(l.rect), x, z) && !inRect(this.fields[l.field].zone, x, z, 0.3));
+            || FARM.lands.some((l) => l.field && !this.fields[l.field].locked && inRect(rectOf(l.rect), x, z) && !inRect(this.fields[l.field].zone, x, z, 0.3));
     }
 
     // La casa sube de nivel: se arregla (del 0 al 1) y se limpia más parcela
@@ -405,9 +405,8 @@ export class Farm {
     //   Tomate: una mata por casilla con su tutor de madera y dos tomates (verdes hasta madurar).
     //   Calabaza: una por casilla, tumbada entre dos hojas grandes.
     //   Maíz: dos por casilla, altas, con su hoja y la mazorca.
-    //   Zanahoria: cuatro por casilla, solo el penacho de hojas (y la punta naranja al madurar).
     buildPlants(v, old = null, fromCenter = false) {
-        const f = v.rect, wheat = v.crop === 'wheat', n = { wheat: PER_TILE, corn: 2, carrot: 2 }[v.crop] || 1;
+        const f = v.rect, wheat = v.crop === 'wheat', n = { wheat: PER_TILE, corn: 2 }[v.crop] || 1;
         const prev = new Map(v.plants.map((s) => [s.key, s]));
         v.plants = [];
         for (let a = 0; a < f.w * n; a++) for (let b = 0; b < f.d * n; b++) {
@@ -462,15 +461,6 @@ export class Farm {
             ];
             v.plants.forEach((s, i) => {
                 for (let k = 0; k < 2; k++) v.meshes[1].setColorAt(i * 2 + k, _c.setHex(CROPS.corn.leaves[(k + i) % 3]).offsetHSL(0, 0, (s.tone - 0.5) * 0.06));
-            });
-        } else if (v.crop === 'carrot') {
-            // Penacho de hojas (3) y la punta naranja
-            v.meshes = [
-                this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), v.mats[0], count * 3)),
-                this.dynamic(new THREE.InstancedMesh(box(1, 1, 1), v.mats[1], count)),
-            ];
-            v.plants.forEach((s, i) => {
-                for (let k = 0; k < 3; k++) v.meshes[0].setColorAt(i * 3 + k, _c.setHex(CROPS.carrot.leaves[(k + i) % 3]).offsetHSL(0, 0, (s.tone - 0.5) * 0.06));
             });
         } else {
             // Hojas (3 bloques por mata), tomates (2) y tutores (1)
@@ -795,7 +785,6 @@ export class Farm {
             if (v.crop === 'wheat') this.updateWheat(v, time, p);
             else if (v.crop === 'pumpkin') this.updatePumpkin(v, time, p);
             else if (v.crop === 'corn') this.updateCorn(v, time, p);
-            else if (v.crop === 'carrot') this.updateCarrot(v, time, p);
             else this.updateTomato(v, time, p);
             for (const m of v.meshes) {
                 m.instanceMatrix.needsUpdate = true;
@@ -930,30 +919,6 @@ export class Farm {
             _d.updateMatrix();
             cobMesh.setMatrixAt(i, _d.matrix);
             cobMesh.setColorAt(i, _c.setHex(ripe ? C.fruit : C.unripe));
-        });
-    }
-
-    // Zanahorias: el penacho de hojas y, al madurar, la punta naranja asomando de la tierra
-    updateCarrot(v, time, p) {
-        const C = CROPS.carrot, [leafMesh, topMesh] = v.meshes;
-        v.plants.forEach((s, i) => {
-            const g = this.grow(s, p), h = s.h * 0.55 * g;
-            const sway = Math.sin(time * 1.8 - s.x * 0.5 + s.ph) * 0.1;
-            for (let k = 0; k < 3; k++) {
-                const a = s.ry + k * 2.1;
-                _d.position.set(s.x + Math.sin(a) * 0.05, h / 2, s.z + Math.cos(a) * 0.05);
-                _d.rotation.set(Math.cos(a) * (0.3 + sway), a, Math.sin(a) * 0.3);
-                _d.scale.set(0.06, Math.max(0.0001, h), 0.06);
-                _d.updateMatrix();
-                leafMesh.setMatrixAt(i * 3 + k, _d.matrix);
-            }
-            const e = p < 0.7 ? 0.0001 : Math.min(1, (p - 0.7) / 0.3);
-            _d.position.set(s.x, 0.03, s.z);
-            _d.rotation.set(0, s.ry, 0);
-            _d.scale.set(0.16 * e, Math.max(0.0001, 0.08 * e), 0.16 * e);
-            _d.updateMatrix();
-            topMesh.setMatrixAt(i, _d.matrix);
-            topMesh.setColorAt(i, _c.setHex(C.fruit));
         });
     }
 

@@ -11,41 +11,28 @@ export const FARM = {
         [0, 0, 30, 30],
         [0, -30, 30, 0],
     ],
-    // Parcelas que se compran con el oro del comerciante, a los lados y delante de la de los
-    // campos. Empiezan abandonadas (árboles, matorral y chatarra) con su cartel de EN VENTA; una
-    // vez compradas se desbloquean como cualquier terreno (disparando al barril de su campo) y
-    // queda limpia, con el campo de su cultivo nuevo (field).
-    // Sin comprar se ve oscura (como en sombra) y con un poste de SE VENDE junto a su portón; al
-    // comprarla la oscuridad se retira en una onda desde el poste, que salta, y queda tu bandera.
+    // Las demás parcelas de la cuadrícula de 3×3 (la de los campos, con el granero, en el
+    // centro). Las que se compran con el oro del comerciante (price) empiezan abandonadas (árboles,
+    // matorral y chatarra) con su cartel de EN VENTA; una vez compradas se desbloquean como
+    // cualquier terreno (disparando al barril de su campo) y queda limpia, con el campo de su
+    // cultivo nuevo (field). Las de soon, de momento abandonadas y sin nada que desbloquear.
+    // Sin comprar se ven oscuras (como en sombra) y con su poste (SE VENDE o PRONTO); al comprarla
+    // la oscuridad se retira en una onda desde el poste, que salta, y queda tu bandera.
     //   price   monedas de oro que cuesta
     //   post    dónde está el poste (y luego la bandera)
     lands: [
-        { id: 'west', rect: [-30, 0, 0, 30], price: 15, field: 'pumpkin', post: { x: -2.4, z: 13.6 }, name: L('WEST PLOT', 'PARCELA OESTE') },
-        { id: 'east', rect: [30, 0, 60, 30], price: 25, field: 'corn', post: { x: 32.4, z: 13.6 }, name: L('EAST PLOT', 'PARCELA ESTE') },
-        { id: 'south', rect: [0, 30, 30, 60], price: 40, field: 'carrot', post: { x: 17.6, z: 32.4 }, name: L('SOUTH PLOT', 'PARCELA SUR') },
+        { id: 'west', rect: [-30, 0, 0, 30], price: 15, field: 'pumpkin', post: { x: -1.1, z: 13.2 }, name: L('WEST PLOT', 'PARCELA OESTE') },
+        { id: 'east', rect: [30, 0, 60, 30], price: 25, field: 'corn', post: { x: 31.1, z: 13.2 }, name: L('EAST PLOT', 'PARCELA ESTE') },
+        { id: 'nw', rect: [-30, -30, 0, 0], soon: true, post: { x: -1.4, z: -13.6 } },
+        { id: 'sw', rect: [-30, 30, 0, 60], soon: true, post: { x: -1.4, z: 31.4 } },
+        { id: 'south', rect: [0, 30, 30, 60], soon: true, post: { x: 17.4, z: 32.2 } },
+        { id: 'se', rect: [30, 30, 60, 60], soon: true, post: { x: 31.4, z: 31.4 } },
     ],
-    bounds: { x0: -30, z0: -30, x1: 60, z1: 60 }, // todo lo vallado (con las parcelas en venta)
+    bounds: { x0: -30, z0: -30, x1: 60, z1: 60 }, // toda la cuadrícula de parcelas
     view: { x0: -30, z0: -30, x1: 60, z1: 60 },   // hasta dónde se mueve la cámara
     // Vallas: tramos rectos de [x, z] a [x, z]; gap: hueco [desde, hasta] a lo largo del tramo
-    fences: [
-        { from: [0, -30], to: [0, 0] },
-        { from: [0, 0], to: [0, 30], gap: [14, 17] },       // portón a la parcela oeste
-        { from: [30, -30], to: [30, 0], gap: [-16, -14] },  // salida del camino del comerciante
-        { from: [30, 0], to: [30, 30], gap: [14, 17] },     // portón a la parcela este
-        { from: [0, -30], to: [30, -30] },
-        { from: [0, 30], to: [30, 30], gap: [14, 16] },     // camino principal (a la parcela sur)
-        { from: [0, 0], to: [30, 0], gap: [14, 16] },       // portón entre las dos parcelas
-        // Las parcelas en venta
-        { from: [-30, 0], to: [0, 0] },
-        { from: [-30, 30], to: [0, 30] },
-        { from: [-30, 0], to: [-30, 30] },
-        { from: [30, 0], to: [60, 0] },
-        { from: [30, 30], to: [60, 30] },
-        { from: [60, 0], to: [60, 30] },
-        { from: [0, 30], to: [0, 60] },
-        { from: [30, 30], to: [30, 60] },
-        { from: [0, 60], to: [30, 60], gap: [14, 16] },     // entrada del camino principal
-    ],
+    // (las de la cuadrícula, con sus portones, al final del archivo)
+    fences: [],
     // El granero (armamento: rachas de bajas y mejoras del rifle) ocupa la mitad de arriba de la
     // primera parcela (zone). Empieza sin mejorar, con su recinto (yard) pequeño y el resto de la
     // zona abandonado: tierra sucia, árboles, matorral y chatarra. Cada nivel agranda el recinto
@@ -128,59 +115,45 @@ export const FARM = {
             ],
         },
         // Los de las parcelas que se compran (con su cultivo nuevo y su forma de disparar)
+        // Los de las parcelas que se compran (con su cultivo nuevo y su forma de disparar). Al nivel
+        // máximo ocupan casi toda su parcela (con un margen de aire)
         {
             id: 'pumpkin',
             crop: 'pumpkin',
             name: L('PUMPKIN PATCH', 'CAMPO DE CALABAZAS'),
-            corner: { x: -9, z: 9, dx: -1, dz: 1 }, // donde acaba el camino de la parcela oeste
+            corner: { x: -2, z: 2, dx: -1, dz: 1 }, // junto al portón de la parcela oeste
             cost: { wheat: 8, pumpkin: 2 },
             turrets: { wheat: 40, pumpkin: 10 },
             locked: { land: 'west', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
             levels: [
-                { w: 5, d: 4, sheaves: 5, arena: 1, sign: 0x9a6a3a },
-                { w: 7, d: 5, sheaves: 8, arena: 1.2, sign: 0xb07a44 },
-                { w: 9, d: 7, sheaves: 12, arena: 1.45, sign: 0x5a9e32 },
-                { w: 11, d: 9, sheaves: 17, arena: 1.75, sign: 0x3a7ec8 },
-                { w: 12, d: 11, sheaves: 24, arena: 2.1, sign: 0xc8402e },
+                { w: 6, d: 5, sheaves: 6, arena: 1, sign: 0x9a6a3a },
+                { w: 10, d: 9, sheaves: 10, arena: 1.25, sign: 0xb07a44 },
+                { w: 15, d: 14, sheaves: 15, arena: 1.55, sign: 0x5a9e32 },
+                { w: 20, d: 19, sheaves: 22, arena: 1.9, sign: 0x3a7ec8 },
+                { w: 26, d: 26, sheaves: 32, arena: 2.4, sign: 0xc8402e },
             ],
         },
         {
             id: 'corn',
             crop: 'corn',
             name: L('CORN FIELD', 'CAMPO DE MAÍZ'),
-            corner: { x: 39, z: 9, dx: 1, dz: 1 }, // donde acaba el camino de la parcela este
+            corner: { x: 32, z: 2, dx: 1, dz: 1 }, // junto al portón de la parcela este
             cost: { wheat: 6, corn: 5 },
             turrets: { wheat: 40, corn: 30 },
             locked: { land: 'east', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
             levels: [
-                { w: 5, d: 4, sheaves: 14, arena: 1, sign: 0x9a6a3a },
-                { w: 7, d: 5, sheaves: 26, arena: 1.2, sign: 0xb07a44 },
-                { w: 9, d: 7, sheaves: 44, arena: 1.45, sign: 0x5a9e32 },
-                { w: 11, d: 9, sheaves: 70, arena: 1.75, sign: 0x3a7ec8 },
-                { w: 12, d: 11, sheaves: 104, arena: 2.1, sign: 0xc8402e },
-            ],
-        },
-        {
-            id: 'carrot',
-            crop: 'carrot',
-            name: L('CARROT FIELD', 'CAMPO DE ZANAHORIAS'),
-            corner: { x: 17, z: 36, dx: 1, dz: 1 }, // junto al camino principal, en la parcela sur
-            cost: { wheat: 6, carrot: 4 },
-            turrets: { wheat: 40, carrot: 20 },
-            locked: { land: 'south', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
-            levels: [
-                { w: 5, d: 4, sheaves: 10, arena: 1, sign: 0x9a6a3a },
-                { w: 7, d: 5, sheaves: 18, arena: 1.2, sign: 0xb07a44 },
-                { w: 9, d: 7, sheaves: 28, arena: 1.45, sign: 0x5a9e32 },
-                { w: 11, d: 9, sheaves: 42, arena: 1.75, sign: 0x3a7ec8 },
-                { w: 12, d: 11, sheaves: 60, arena: 2.1, sign: 0xc8402e },
+                { w: 6, d: 5, sheaves: 16, arena: 1, sign: 0x9a6a3a },
+                { w: 10, d: 9, sheaves: 30, arena: 1.25, sign: 0xb07a44 },
+                { w: 15, d: 14, sheaves: 52, arena: 1.55, sign: 0x5a9e32 },
+                { w: 20, d: 19, sheaves: 84, arena: 1.9, sign: 0x3a7ec8 },
+                { w: 26, d: 26, sheaves: 140, arena: 2.4, sign: 0xc8402e },
             ],
         },
     ],
     // Caminos de tierra: rectángulos de casillas [x0, z0, x1, z1) (el final no entra)
     paths: [
-        [14, 13, 16, 60],   // camino principal hacia el sur (cruza la parcela sur)
-        [-8, 15, 38, 16],   // entre el granero y los campos (y a las parcelas oeste y este)
+        [14, 13, 16, 60],   // camino principal hacia el sur (cruza la parcela de abajo)
+        [-2, 15, 32, 16],   // entre el granero y los campos (y a los portones de las parcelas oeste y este)
         [14, -13, 16, 9],   // de la casa a la trasera del granero (por el portón)
         [17, -16, 46, -14], // de la casa hacia fuera por la derecha: por aquí llega el comerciante
         [33, -22, 41, -16], // el claro donde monta su puesto (content/merchant.js)
@@ -206,3 +179,25 @@ export const INFO = {
 export const FIELD_BY_ID = Object.fromEntries(FARM.fields.map((f) => [f.id, f]));
 
 export const LAND_BY_ID = Object.fromEntries(FARM.lands.map((l) => [l.id, l]));
+
+// Vallas de la cuadrícula de 3×3 parcelas: cada lado de 30 casillas, con un portón (hueco) donde
+// pasa un camino. [eje de la línea, dónde está, hueco desde, hasta]
+const GRID = [-30, 0, 30, 60];
+const GATES = [
+    ['x', 0, 14, 17],    // a la parcela oeste
+    ['x', 30, 14, 17],   // a la parcela este
+    ['x', 30, -16, -14], // el camino del comerciante
+    ['x', 60, -16, -14], // ... que sigue hacia fuera
+    ['z', 0, 14, 16],    // entre los campos y la casa
+    ['z', 30, 14, 16],   // el camino principal
+    ['z', 60, 14, 16],   // ... que sigue hacia fuera
+];
+for (const v of GRID) {
+    for (let k = 0; k < 3; k++) {
+        const a0 = GRID[k], a1 = GRID[k + 1];
+        const gate = (ax) => GATES.find(([e, at, g0, g1]) => e === ax && at === v && g0 >= a0 && g1 <= a1);
+        const gx = gate('x'), gz = gate('z');
+        FARM.fences.push({ from: [v, a0], to: [v, a1], ...(gx ? { gap: [gx[2], gx[3]] } : {}) });
+        FARM.fences.push({ from: [a0, v], to: [a1, v], ...(gz ? { gap: [gz[2], gz[3]] } : {}) });
+    }
+}

@@ -34,7 +34,7 @@ export class FarmState {
         // cuánto oro paga y si ya se ha entregado)
         this.merchant = { visit: -1, orders: [] };
         // Parcelas compradas con oro (content/farm.js: lands)
-        this.lands = Object.fromEntries(FARM.lands.map((l) => [l.id, false]));
+        this.lands = Object.fromEntries(FARM.lands.filter((l) => l.price).map((l) => [l.id, false]));
         // El ovni (crashed: ya se ha estrellado en la parcela de la casa; met: ya se ha abierto su
         // tienda alguna vez) y la casa personalizada en su tienda: lo comprado (owned) y lo que
         // lleva puesto en cada parte (look)

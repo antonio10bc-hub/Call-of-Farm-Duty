@@ -848,8 +848,34 @@ function panBy(dx, dy) {
     rig.fz = clamp(rig.fz - rz * dx * u + fz * dy * u / sp, B.z0 + 2, B.z1 - 2);
 }
 
+// Vista global: toda la cuadrícula de parcelas (encuadrada al ancho y al alto de la pantalla);
+// otra vez el botón (o acercar), de vuelta a donde se estaba
+let mapView = null; // { x, z, zoom } de antes
+function enterMap() {
+    if (mode !== 'farm' || inCine() || mapView) return;
+    select(null);
+    mapView = { x: rig.fx, z: rig.fz, zoom: rig.zoomTarget };
+    const B = FARM.bounds, w = B.x1 - B.x0, d = B.z1 - B.z0;
+    rig.focus((B.x0 + B.x1) / 2, (B.z0 + B.z1) / 2);
+    // (girado 45°, la cuadrícula ocupa su diagonal en pantalla; en vertical, se recortan un poco
+    // sus esquinas de los lados para que no quede diminuta)
+    const portrait = innerHeight > innerWidth;
+    rig.zoomTarget = Math.max((w * 1.42 * (portrait ? 0.7 : 1)) / (rig.halfWidth * 2), (d * 1.42) / (rig.halfDepth * 2)) * 0.9;
+    $('btn-map').classList.add('on');
+    sfx.play('ui');
+}
+function leaveMap(back = true) {
+    if (!mapView) return;
+    if (back) {
+        rig.focus(mapView.x, mapView.z);
+        rig.zoomTarget = mapView.zoom;
+    }
+    mapView = null;
+    $('btn-map').classList.remove('on');
+}
 function zoomBy(k) {
-    rig.zoomTarget = clamp(rig.zoomTarget * k, M.zoomMin, M.zoomMax);
+    rig.zoomTarget = clamp(rig.zoomTarget * k, M.zoomMin, Math.max(M.zoomMax, mapView ? rig.zoomTarget : 0));
+    if (mapView && k < 1) leaveMap(false);
 }
 
 function isUi(e) {
@@ -1087,6 +1113,12 @@ tapBtn('panel-upgrade', () => {
     else if (selected.structure === 'house') upgradeHouse();
 });
 tapBtn('panel-close', () => select(null));
+tapBtn('btn-map', () => {
+    if (mapView) {
+        leaveMap();
+        sfx.play('ui');
+    } else enterMap();
+});
 tapBtn('btn-settings', () => {
     sfx.play('ui');
     $('settings').classList.remove('hidden');

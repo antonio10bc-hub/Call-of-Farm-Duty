@@ -77,23 +77,4 @@ export const CROPS = {
         loot: 0xffd23f,
         stub: [0x9ac04a, 0x8a7a4a, 0x7ab83a],
     },
-    // Zanahorias: enterradas (solo se ven sus hojas) y de vez en cuando asoman un momento; solo se
-    // les puede dar mientras están fuera
-    carrot: {
-        name: L('CARROTS', 'ZANAHORIAS'),
-        icon: 'carrot',
-        growTime: 40,
-        stages: [0x6fbf3a, 0x5ab83a, 0x4caf3c, 0x3d9a34],
-        leaves: [0x4caf3c, 0x3d9a34, 0x63c04a],
-        fruit: 0xf07a1e,
-        fruitDark: 0xd8601a,
-        unripe: 0xe8a060,
-        calyx: 0x3d9a34,
-        burst: [0xf07a1e, 0xffa04a, 0xd8601a, 0x4caf3c],
-        chaff: [0x8a5a34, 0x4caf3c, 0xfff3d6],
-        unit: L('CARROTS', 'ZANAHORIAS'),
-        loot: 0xf07a1e,
-        stub: [0x8a5a34, 0x76492a, 0x4caf3c],
-        pop: { every: [1.6, 5], up: 1.6 }, // cada cuánto asoma (s) y cuánto se queda fuera
-    },
 };

@@ -7,7 +7,7 @@ const DEG = Math.PI / 180;
 export class CameraRig {
     constructor(cfg) {
         this.cfg = cfg;
-        this.camera = new THREE.PerspectiveCamera(cfg.fov, 1, 0.5, 400);
+        this.camera = new THREE.PerspectiveCamera(cfg.fov, 1, 0.5, 2500); // (lejos: la vista global de la granja)
         this.aspect = 1;
         this.cols = 10;
         this.rows = 10;

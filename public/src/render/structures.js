@@ -525,16 +525,23 @@ export class Turret extends VoxelModel {
 
 // Poste de una parcela en venta: un cartel blanco con su franja roja y una moneda de oro. Al
 // comprarla salta por los aires y en su sitio se iza tu bandera (amarilla y roja, ondeando).
+// soon: el de una parcela que aún no se puede comprar (gris, con un candado).
 // setOwned(on, animate) lo pide; la animación avanza en update.
 export class LandPost extends VoxelModel {
-    constructor(outlineColor) {
+    constructor(outlineColor, soon = false) {
         super(outlineColor);
         const WOOD = 0x9a6a3a, WOOD2 = 0x7a4f2a;
         this.post = new THREE.Group();
         this.part(this.post, 0.16, 1.6, 0.16, WOOD2, 0, 0.8, 0);
-        this.part(this.post, 1.3, 0.8, 0.1, 0xf3ead2, 0, 1.45, 0);
-        this.part(this.post, 1.3, 0.2, 0.12, 0xc8402e, 0, 1.75, 0, false);
-        this.part(this.post, 0.34, 0.34, 0.04, 0xffd23f, 0, 1.35, 0.07, false);
+        this.part(this.post, 1.3, 0.8, 0.1, soon ? 0xb8b0a0 : 0xf3ead2, 0, 1.45, 0);
+        this.part(this.post, 1.3, 0.2, 0.12, soon ? 0x6a6a6a : 0xc8402e, 0, 1.75, 0, false);
+        if (soon) {
+            // Candado: cuerpo dorado y su arco
+            this.part(this.post, 0.34, 0.28, 0.06, 0xffd23f, 0, 1.32, 0.07, false);
+            this.part(this.post, 0.06, 0.2, 0.06, 0x8a8a8a, -0.11, 1.52, 0.07, false);
+            this.part(this.post, 0.06, 0.2, 0.06, 0x8a8a8a, 0.11, 1.52, 0.07, false);
+            this.part(this.post, 0.28, 0.06, 0.06, 0x8a8a8a, 0, 1.62, 0.07, false);
+        } else this.part(this.post, 0.34, 0.34, 0.04, 0xffd23f, 0, 1.35, 0.07, false);
         this.root.add(this.post);
         this.flag = new THREE.Group();
         this.part(this.flag, 0.12, 2.6, 0.12, WOOD, 0, 1.3, 0);

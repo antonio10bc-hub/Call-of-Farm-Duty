@@ -43,7 +43,6 @@ export class Sniper {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(theme.sky);
         this.field = new SniperField(theme);
-        this.wireField();
         this.scene.add(this.field.root);
         this.particles = new Particles(this.scene, 3200);
         this.waves = new Shockwaves(this.scene);
@@ -152,17 +151,9 @@ export class Sniper {
         this.scene.remove(this.field.root);
         this.field.dispose();
         this.field = new SniperField(this.theme, scale);
-        this.wireField();
         this.scene.add(this.field.root);
     }
 
-    // Lo que el campo avisa: una zanahoria que asoma (salta la tierra)
-    wireField() {
-        this.field.onPop = (s) => {
-            this.particles.burst(s.x, 0.15, s.z, 14, [0x8a5a34, 0x76492a, this.theme.dust], { speed: 1.8, up: 3, size: 0.09, ttl: 0.5 });
-            if (Math.random() < 0.35) this.hooks.sfx.play('pop');
-        };
-    }
 
     // what: { crop, count, arena, turrets } para cosechar (count blancos de ese cultivo en un
     // campo de tamaño arena, con o sin sus torretas automáticas) o { unlock: true }; rifle:
