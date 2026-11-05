@@ -4,6 +4,7 @@ import { easeOutBack } from '../core/math.js';
 import { STRUCTURES, Ufo, Turret, Sandbags, LandPost } from '../render/structures.js';
 import { Plot } from '../render/props.js';
 import { MerchantCamp } from '../render/merchant.js';
+import { MERCHANT } from '../content/merchant.js';
 import { junkyard, barrelParts, JUNK } from '../render/junk.js';
 import { CROPS } from '../content/crops.js';
 import { FARM, TURRETS } from '../content/farm.js';
@@ -58,8 +59,9 @@ function treeParts(spots) {
 // Un campo bloqueado es un terreno sucio lleno de chatarra con el barril rojo encima del montón.
 export class Farm {
     // fields: { id: { level, unlocked } } (el estado guardado de cada campo); barnLevel y
-    // houseLevel: niveles del granero y de la casa; lands: parcelas en venta ya compradas
-    constructor(theme, fields, barnLevel = 0, houseLevel = 0, lands = {}) {
+    // houseLevel: niveles del granero y de la casa; lands: parcelas en venta ya compradas;
+    // villageLevel: nivel del poblado del comerciante
+    constructor(theme, fields, barnLevel = 0, houseLevel = 0, lands = {}, villageLevel = 0) {
         this.theme = theme;
         this.size = FARM.size;
         const B = FARM.bounds;
@@ -82,6 +84,9 @@ export class Farm {
         this.houseLevel = houseLevel;
         this.houseZone = rectOf(FARM.house.zone);
         this.houseYard = houseClear(houseLevel);
+        this.villageLevel = villageLevel;
+        this.villageZone = rectOf(MERCHANT.village.zone);
+        this.villageYard = rectOf(MERCHANT.village.levels[villageLevel].clear);
         this.wild = []; // entradas animadas de la zona abandonada del granero (se apartan al crecer el recinto)
         this.shots = []; // trazadas de las balas de la torreta automática
         this.landOwned = Object.fromEntries(FARM.lands.map((l) => [l.id, !!lands[l.id]]));
@@ -100,6 +105,8 @@ export class Farm {
         if (inRect(this.zone, c, r)) return inRect(this.yard, c, r) ? { yard: true } : { wild: true };
         // La parcela de la casa: lo que aún no se ha limpiado está abandonado
         if (inRect(this.houseZone, c, r) && !inRect(this.houseYard, c, r)) return { wild: true };
+        // El poblado del comerciante: lo que aún no ha limpiado su nivel está abandonado
+        if (inRect(this.villageZone, c, r)) return inRect(this.villageYard, c, r) ? { yard: true } : { wild: true };
         // Las parcelas en venta: abandonadas hasta que se desbloquea su campo
         for (const l of FARM.lands) if (inRect(rectOf(l.rect), c, r)) return !l.field || this.fields[l.field].locked ? { wild: true } : null;
         for (const s of FARM.structures) if (Math.abs(c + 0.5 - s.x) < s.w / 2 + 0.3 && Math.abs(r + 0.5 - s.z) < s.d / 2 + 0.3) return { building: true };
@@ -154,7 +161,7 @@ export class Farm {
         this.plot = new Plot(theme.outline);
         root.add(this.plot.root);
         // La zona del comerciante, en su claro junto al camino
-        this.camp = new MerchantCamp(theme.outline);
+        this.camp = new MerchantCamp(theme.outline, this.villageLevel);
         this.camp.root.traverse((o) => (o.userData.merchant = true));
         root.add(this.camp.root);
         // Parcelas en venta: su poste de SE VENDE (o tu bandera) y su sombra
@@ -335,9 +342,18 @@ export class Farm {
 
     // ¿Ya está limpio este punto? (dentro del recinto del granero o de un campo)
     cleared(x, z) {
-        return inRect(this.yard, x, z, 0.6) || inRect(this.houseYard, x, z, 0.4) || this.views.some((v) => inRect(v.rect, x, z, 0.5))
+        return inRect(this.yard, x, z, 0.6) || inRect(this.houseYard, x, z, 0.4) || inRect(this.villageYard, x, z, 0.4) || this.views.some((v) => inRect(v.rect, x, z, 0.5))
             // Una parcela comprada y desbloqueada: limpia, menos lo que su campo aún no ocupa
             || FARM.lands.some((l) => l.field && !this.fields[l.field].locked && inRect(rectOf(l.rect), x, z) && !inRect(this.fields[l.field].zone, x, z, 0.3));
+    }
+
+    // El poblado del comerciante sube de nivel: se limpia más parcela y salen sus construcciones
+    setVillageLevel(level) {
+        if (level === this.villageLevel) return;
+        this.villageLevel = level;
+        this.villageYard = rectOf(MERCHANT.village.levels[level].clear);
+        this.refreshGround();
+        this.camp.setLevel(level);
     }
 
     // La casa sube de nivel: se arregla (del 0 al 1) y se limpia más parcela
@@ -355,9 +371,9 @@ export class Farm {
     // matorral, chatarra y piedras; se apartan cuando el recinto o el campo crecen encima
     buildWild() {
         const trees = [], bush = [], pieces = [], rocks = [];
-        const zones = [{ Z: this.zone, k: 1 }, { Z: this.houseZone, k: 0.8 }, ...this.views.map((v) => ({ Z: v.zone, k: 0.55 })), ...FARM.lands.map((l) => ({ Z: rectOf(l.rect), k: 1 }))];
+        const zones = [{ Z: this.zone, k: 1 }, { Z: this.houseZone, k: 0.8 }, { Z: this.villageZone, k: 0.8 }, ...this.views.map((v) => ({ Z: v.zone, k: 0.55 })), ...FARM.lands.map((l) => ({ Z: rectOf(l.rect), k: 1 }))];
         for (const { Z, k } of zones) {
-            const free = (x, z, m) => inRect(Z, x, z) && !inRect(this.yard, x, z, m) && !inRect(this.houseYard, x, z, m) && !this.views.some((v) => inRect(v.rect, x, z, m))
+            const free = (x, z, m) => inRect(Z, x, z) && !inRect(this.yard, x, z, m) && !inRect(this.houseYard, x, z, m) && !inRect(this.villageYard, x, z, m) && !this.views.some((v) => inRect(v.rect, x, z, m))
                 && !FARM.paths.some(([x0, z0, x1, z1]) => x > x0 - m && x < x1 + m && z > z0 - m && z < z1 + m)
                 && !FARM.structures.some((st) => Math.abs(x - st.x) < st.w / 2 + m && Math.abs(z - st.z) < st.d / 2 + m);
             const spots = (n, m) => {

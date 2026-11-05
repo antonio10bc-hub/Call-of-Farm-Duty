@@ -283,3 +283,31 @@ test('cuadrícula de 3×3 parcelas: las de PRONTO, abandonadas y en sombra; el b
     expect(await page.evaluate(() => game.rig.zoomTarget)).toBe(zoom0);
     expect(errors).toEqual([]);
 });
+
+test('poblado del comerciante: 3 niveles que limpian su parcela, levantan el poblado y traen un comerciante mejor', { tag: '@full' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await openFarm(page);
+    await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
+    // Nivel 1: solo el claro; el resto de su parcela, abandonado. 3 encargos
+    expect(await page.evaluate(() => [game.state.village.level, game.farm.kindAt(50, -25).wild, game.state.ordersFor(1).length])).toEqual([0, true, 3]);
+    await page.evaluate(() => game.openMerchant());
+    await expect(page.locator('#village-level')).toHaveText('POBLADO NV.1/3');
+    await expect(page.locator('#village-up')).toBeDisabled();
+    // Con oro y trigo: nivel 2 (más parcela limpia, sus construcciones y 4 encargos mejor pagados)
+    await page.evaluate(() => { game.state.items.gold = 20; game.state.items.wheat = 60; });
+    await expect(page.locator('#village-up')).toBeEnabled();
+    await page.locator('#village-up').click();
+    await expect(page.locator('#village-level')).toHaveText('POBLADO NV.2/3');
+    expect(await page.evaluate(() => [game.state.village.level, game.state.items.gold, game.state.items.wheat, game.farm.camp.levels[1].parent !== null])).toEqual([1, 0, 0, true]);
+    expect(await page.evaluate(() => game.state.ordersFor(2).length)).toBe(4);
+    // Al máximo: toda su parcela limpia
+    await page.evaluate(() => { game.state.items.gold = 50; game.state.items.wheat = 120; game.state.items.tomato = 40; });
+    await page.locator('#village-up').click();
+    await expect(page.locator('#village-level')).toHaveText('POBLADO NV.3/3');
+    await expect(page.locator('#village-up')).toBeHidden();
+    expect(await page.evaluate(() => [game.farm.kindAt(50, -25), game.state.ordersFor(3).length])).toEqual([{ yard: true }, 5]);
+    // Se guarda
+    await page.reload();
+    await expect.poll(() => page.evaluate(() => window.game && game.farm.camp.level)).toBe(2);
+    expect(errors).toEqual([]);
+});

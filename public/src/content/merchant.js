@@ -3,7 +3,7 @@ import { L } from '../core/I18n.js';
 // El comerciante: llega por su camino (el que sale de la parcela de la casa hacia la derecha),
 // monta su puesto en el claro de al lado y pide cultivos a cambio de monedas de oro. Con el
 // reloj de verdad: cada cycle s llega y se queda stay s; luego recoge y se va.
-//   orders   encargos por visita
+//   orders   encargos por visita (con el poblado al nivel 1; ver village)
 //   size     cuánto pide de un cultivo: de [min, max] veces los blancos del campo a su nivel,
 //            redondeado a step y nunca menos de min
 //   rate     monedas de oro por cada unidad entregada de cada cultivo (se redondea hacia arriba)
@@ -20,6 +20,19 @@ export const MERCHANT = {
     stall: { x: 37, z: -19.6 },
     wagon: { x: 39.6, z: -20.6, from: 54, road: -15 },
     fire: { x: 34.6, z: -17.4 },
+    // El poblado del comerciante: toda su parcela (zone), abandonada salvo lo limpio de su nivel
+    // (clear). Cada nivel limpia más, le añade construcciones (render/merchant.js) y trae un
+    // comerciante mejor: más encargos (orders) y mejor pagados (pay, por el oro de cada uno).
+    //   cost   lo que cuesta llegar a ese nivel
+    village: {
+        zone: [31, -29, 59, -1],
+        levels: [
+            { clear: [32, -23, 44, -11], orders: 3, pay: 1 },
+            { clear: [31, -28, 53, -4], orders: 4, pay: 1.4, cost: { gold: 20, wheat: 60 } },
+            { clear: [31, -29, 59, -1], orders: 5, pay: 1.8, cost: { gold: 50, wheat: 120, tomato: 40 } },
+        ],
+        name: L('MERCHANT VILLAGE', 'POBLADO'),
+    },
     name: L('MERCHANT', 'MERCADER'),
     lines: {
         hello: [

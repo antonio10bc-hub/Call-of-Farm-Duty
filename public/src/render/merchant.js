@@ -14,9 +14,11 @@ const seg = (t, a, b) => Math.min(1, Math.max(0, (t - a) / (b - a)));
 // rodadas del carro y un poste con su cartel. Cuando viene: su carro entra por el camino y aparca
 // en el claro, se despliega el toldo de rayas, sale la mercancía y él detrás del mostrador, y se
 // enciende la hoguera (y de noche, el farol). Al irse, todo al revés. setPresent(on) lo pide;
-// la animación avanza en update.
+// la animación avanza en update. Con el poblado (level) crece la zona: nivel 1, un puesto de
+// fruta, tiendas de lona, un pozo y farolas por el camino; nivel 2, una posada, una plaza con
+// fuente, otro puesto, un establo con su caballo y banderas en la entrada.
 export class MerchantCamp extends VoxelModel {
-    constructor(outlineColor) {
+    constructor(outlineColor, level = 0) {
         super(outlineColor);
         const r = this.root, S = MERCHANT.stall, F = MERCHANT.fire;
         // --- Lo que queda siempre ---
@@ -105,10 +107,182 @@ export class MerchantCamp extends VoxelModel {
         });
         r.add(this.flames);
 
+        // --- El poblado, por niveles ---
+        this.lamps = [];
+        this.levels = [null, this.buildLevel1(), this.buildLevel2()];
+        this.level = -1;
+        this.setLevel(level, false);
+
         this.step = 0;      // por dónde va la llegada (0 = no está; T.open = puesto abierto)
         this.want = 0;   // a dónde va: T.open (llegar) o 0 (irse)
         this.wheel = 0;
         this.pose(0);
+    }
+
+    // Un puesto con toldo de rayas (colores a y b) y su mercancía (cajas de colores)
+    stall(g, x, z, a, b, goods) {
+        for (const [dx, dz] of [[-1, -0.5], [1, -0.5], [-1, 0.5], [1, 0.5]]) this.part(g, 0.14, 1.9, 0.14, WOOD2, x + dx, 0.95, z + dz);
+        this.part(g, 2.2, 0.12, 1.1, WOOD, x, 0.85, z + 0.15);
+        this.part(g, 2.2, 0.6, 0.1, WOOD2, x, 0.48, z + 0.66);
+        for (let k = 0; k < 5; k++) this.part(g, 0.46, 0.08, 1.4, k % 2 ? a : b, x - 0.92 + k * 0.46, 2.0, z + 0.25).rotation.x = 0.22;
+        goods.forEach((c, k) => this.part(g, 0.36, 0.26, 0.32, c, x - 0.7 + k * 0.48, 1.04, z + 0.15));
+    }
+
+    // Farola de hierro con su farol (de noche luce)
+    lamp(g, x, z) {
+        this.part(g, 0.12, 2.4, 0.12, 0x3a3a3a, x, 1.2, z);
+        this.part(g, 0.5, 0.08, 0.08, 0x3a3a3a, x + 0.22, 2.35, z);
+        this.part(g, 0.24, 0.3, 0.24, 0x2a2a2a, x + 0.44, 2.15, z);
+        const glow = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.2, 0.16), new THREE.MeshBasicMaterial({ color: 0x8a6a2a }));
+        this.own(glow.material);
+        glow.position.set(x + 0.44, 2.15, z);
+        g.add(glow);
+        this.lamps.push(glow);
+    }
+
+    // Nivel 1 del poblado: puesto de fruta, dos tiendas de lona, el pozo, farolas por el camino,
+    // barriles y sacos
+    buildLevel1() {
+        const g = new THREE.Group();
+        this.stall(g, 44.5, -19.8, 0x5a9e32, CANVAS, [0xe8352a, 0xffd23f, 0x7ab83a, 0xf08a1e]);
+        for (const [x, z, c] of [[35.2, -25.6, RED], [39.4, -26.2, 0x3a7ec8]]) {
+            // Tienda de lona: dos faldones inclinados y el palo
+            const t = new THREE.Group();
+            t.position.set(x, 0, z);
+            this.part(t, 2.2, 0.1, 1.5, c, 0, 0.9, -0.55).rotation.x = -0.75;
+            this.part(t, 2.2, 0.1, 1.5, CANVAS, 0, 0.9, 0.55).rotation.x = 0.75;
+            this.part(t, 0.1, 1.8, 0.1, WOOD2, 0, 0.9, 0);
+            this.part(t, 2.0, 0.06, 0.06, WOOD2, 0, 1.45, 0);
+            g.add(t);
+        }
+        // El pozo: anillo de piedra, agua, dos postes y su tejadillo
+        for (let k = 0; k < 8; k++) {
+            const a = (k / 8) * Math.PI * 2;
+            this.part(g, 0.5, 0.7, 0.3, STONE, 47 + Math.sin(a) * 0.65, 0.35, -9.5 + Math.cos(a) * 0.65).rotation.y = a;
+        }
+        this.part(g, 0.9, 0.06, 0.9, 0x3a7ec8, 47, 0.55, -9.5, false);
+        for (const dx of [-0.75, 0.75]) this.part(g, 0.12, 1.7, 0.12, WOOD2, 47 + dx, 0.85, -9.5);
+        this.part(g, 1.9, 0.12, 1.2, RED, 47, 1.75, -9.5).rotation.z = 0.0;
+        this.part(g, 1.3, 0.08, 0.08, WOOD, 47, 1.4, -9.5);
+        // Farolas a lo largo del camino
+        for (const x of [35, 41, 47, 53]) this.lamp(g, x, -13.2);
+        // Barriles y sacos
+        for (const [x, z] of [[48.6, -20.4], [49.3, -20.9], [48.9, -19.6]]) this.part(g, 0.5, 0.65, 0.5, WOOD2, x, 0.33, z);
+        for (const [x, z] of [[42.2, -21.2], [42.7, -21.5]]) this.part(g, 0.5, 0.4, 0.4, 0xe0c060, x, 0.2, z).rotation.y = x;
+        // Balas de paja junto a las tiendas y un carro de mano
+        for (const [x, z, r] of [[37.4, -23.4, 0.3], [38.3, -23.1, 1.2], [37.8, -22.6, 0.7]]) this.part(g, 0.9, 0.5, 0.6, 0xe0c060, x, 0.25, z).rotation.y = r;
+        const cart = new THREE.Group();
+        cart.position.set(50.5, 0, -17.6);
+        cart.rotation.y = 0.5;
+        this.part(cart, 1.4, 0.4, 0.9, WOOD, 0, 0.6, 0);
+        for (const z of [-0.5, 0.5]) this.part(cart, 0.6, 0.6, 0.08, DARK, 0, 0.32, z);
+        this.part(cart, 1.2, 0.06, 0.06, WOOD2, 1.2, 0.55, 0.25);
+        this.part(cart, 0.5, 0.3, 0.5, 0xf08a1e, -0.2, 0.92, 0);
+        g.add(cart);
+        return g;
+    }
+
+    // Casita de pueblo: paredes, tejado a dos aguas, puerta y ventana
+    cottage(g, x, z, ry, wall, roof) {
+        const h = new THREE.Group();
+        h.position.set(x, 0, z);
+        h.rotation.y = ry;
+        this.part(h, 2.6, 1.8, 2.4, wall, 0, 0.9, 0);
+        this.part(h, 3, 0.18, 1.6, roof, 0, 2.2, -0.62).rotation.x = 0.62;
+        this.part(h, 3, 0.18, 1.6, roof, 0, 2.2, 0.62).rotation.x = -0.62;
+        this.part(h, 0.6, 1.1, 0.08, WOOD2, -0.5, 0.55, 1.22);
+        this.part(h, 0.55, 0.5, 0.08, 0x9fdcff, 0.6, 1.05, 1.22);
+        g.add(h);
+    }
+
+    // Nivel 2: la posada, la plaza con su fuente, otro puesto, el establo con un caballo y las
+    // banderas de la entrada
+    buildLevel2() {
+        const g = new THREE.Group();
+        // Posada: paredes encaladas, entramado de madera, tejado rojo, puerta, ventanas, chimenea y
+        // su cartel colgado
+        const inn = new THREE.Group();
+        inn.position.set(54.5, 0, -22);
+        this.part(inn, 5, 2.4, 4, 0xf3ead2, 0, 1.2, 0);
+        for (const x of [-2.4, 2.4]) this.part(inn, 0.16, 2.4, 4.1, WOOD2, x, 1.2, 0);
+        this.part(inn, 5.1, 0.16, 4.1, WOOD2, 0, 2.4, 0);
+        const roofA = this.part(inn, 5.6, 0.2, 2.6, 0xb84a32, 0, 3.05, -1.05);
+        roofA.rotation.x = 0.55;
+        const roofB = this.part(inn, 5.6, 0.2, 2.6, 0xb84a32, 0, 3.05, 1.05);
+        roofB.rotation.x = -0.55;
+        this.part(inn, 0.9, 1.5, 0.1, WOOD2, 0, 0.75, 2.04);
+        for (const x of [-1.6, 1.6]) this.part(inn, 0.8, 0.7, 0.1, 0x9fdcff, x, 1.4, 2.04);
+        this.part(inn, 0.5, 1.2, 0.5, STONE, 1.8, 3.6, -0.6);
+        this.part(inn, 0.08, 0.6, 0.08, DARK, -1.2, 2.2, 2.4);
+        this.part(inn, 0.9, 0.55, 0.08, WOOD, -1.2, 1.75, 2.45);
+        this.part(inn, 0.3, 0.3, 0.04, 0xffd23f, -1.2, 1.75, 2.5, false);
+        g.add(inn);
+        // Plaza: losas de piedra y la fuente con su chorro
+        for (let i = 0; i < 5; i++) for (let j = 0; j < 4; j++) this.part(g, 0.95, 0.06, 0.95, (i + j) % 2 ? 0xc8c0b0 : 0xb0a898, 45 + i, 0.03, -6.5 + j, false);
+        for (let k = 0; k < 8; k++) {
+            const a = (k / 8) * Math.PI * 2;
+            this.part(g, 0.7, 0.5, 0.35, STONE, 47 + Math.sin(a) * 1.1, 0.25, -5 + Math.cos(a) * 1.1).rotation.y = a;
+        }
+        this.part(g, 1.8, 0.06, 1.8, 0x3a7ec8, 47, 0.4, -5, false);
+        this.part(g, 0.3, 1.2, 0.3, STONE, 47, 0.6, -5);
+        this.jet = this.part(g, 0.18, 0.7, 0.18, 0x9fdcff, 47, 1.5, -5, false);
+        // Otro puesto (de telas) y el establo con su caballo
+        this.stall(g, 52, -9.5, 0x6a4a9a, 0xffd23f, [0xc8402e, 0x3a7ec8, 0xf3ead2, 0x5a9e32]);
+        for (let k = 0; k <= 4; k++) this.part(g, 0.12, 0.9, 0.12, WOOD2, 34 + k * 1.2, 0.45, -3.2);
+        for (let k = 0; k <= 3; k++) this.part(g, 0.12, 0.9, 0.12, WOOD2, 34, 0.45, -3.2 - k * 1.2);
+        for (const y of [0.35, 0.7]) {
+            this.part(g, 4.8, 0.08, 0.08, WOOD, 36.4, y, -3.2);
+            this.part(g, 0.08, 0.08, 3.6, WOOD, 34, y, -5);
+        }
+        const horse = new THREE.Group();
+        horse.position.set(37, 0, -5.4);
+        horse.rotation.y = 0.4;
+        this.part(horse, 1.5, 0.6, 0.55, 0x8a5a34, 0, 1.05, 0);
+        for (const [x, z] of [[-0.55, -0.2], [-0.55, 0.2], [0.55, -0.2], [0.55, 0.2]]) this.part(horse, 0.16, 0.8, 0.16, 0x6a4024, x, 0.4, z);
+        this.part(horse, 0.35, 0.7, 0.3, 0x8a5a34, 0.75, 1.45, 0).rotation.z = -0.5;
+        this.part(horse, 0.55, 0.28, 0.3, 0x8a5a34, 1.05, 1.75, 0);
+        this.part(horse, 0.12, 0.5, 0.32, 0x2a1a0e, 0.65, 1.55, 0).rotation.z = -0.5;
+        this.part(horse, 0.1, 0.55, 0.1, 0x2a1a0e, -0.8, 0.95, 0).rotation.z = 0.5;
+        g.add(horse);
+        this.horse = horse;
+        // Dos casitas, una hilera de árboles junto a la valla, flores delante de la posada y bancos
+        // en la plaza
+        this.cottage(g, 41, -8.2, 0, 0xe8d8b0, 0x6a7a9a);
+        this.cottage(g, 56.6, -11.5, -Math.PI / 2, 0xf0e0c0, 0x8a5a34);
+        for (const x of [37, 41.5, 46, 50.5, 55]) {
+            this.part(g, 0.25, 1, 0.25, 0x7a4f2a, x, 0.5, -1.9);
+            this.part(g, 1.3, 1, 1.3, x % 2 ? 0x4caf3c : 0x3d9a34, x, 1.4, -1.9);
+        }
+        for (let k = 0; k < 6; k++) this.part(g, 0.5, 0.18, 0.5, [0xff8fb0, 0xffe03a, 0xffffff][k % 3], 52.6 + k * 0.75, 0.12, -19.4, false);
+        this.part(g, 4.6, 0.12, 0.6, 0x5a9e32, 54.4, 0.06, -19.4, false);
+        for (const x of [44.2, 49.8]) {
+            this.part(g, 1.4, 0.12, 0.45, WOOD, x, 0.45, -5);
+            for (const dx of [-0.55, 0.55]) this.part(g, 0.12, 0.42, 0.4, WOOD2, x + dx, 0.21, -5);
+        }
+        // Banderas a la entrada del poblado, a los lados del camino
+        this.flags = [];
+        for (const z of [-12.6, -17.4]) {
+            this.part(g, 0.12, 3, 0.12, WOOD, 31.6, 1.5, z);
+            const cloth = new THREE.Group();
+            cloth.position.set(31.6, 2.55, z);
+            this.part(cloth, 0.05, 0.7, 1, z < -15 ? 0xffd23f : RED, 0, 0, 0.55);
+            g.add(cloth);
+            this.flags.push(cloth);
+        }
+        return g;
+    }
+
+    // El nivel del poblado: se ven sus construcciones (las nuevas aparecen con un bote)
+    setLevel(level, animate = true) {
+        this.level = level;
+        this.levels.forEach((g, i) => {
+            if (!g) return;
+            const on = i <= level;
+            if (on && !g.parent) {
+                this.root.add(g);
+                if (animate) g.userData.pop = 0;
+            } else if (!on && g.parent) this.root.remove(g);
+        });
     }
 
     buildWagon() {
@@ -210,8 +384,20 @@ export class MerchantCamp extends VoxelModel {
                 m.rotation.y = time * (1 + i);
             });
         }
-        // De noche el farol luce (y parpadea un poco)
+        // De noche el farol luce (y parpadea un poco), y las farolas del poblado también
         this.glow.material.color.setHex(nightK > 0.3 && Math.sin(time * 9) > -0.8 ? 0xffe680 : 0x8a6a2a);
+        for (const l of this.lamps) if (l.parent && l.parent.parent) l.material.color.setHex(nightK > 0.3 ? 0xffe680 : 0x8a6a2a);
+        // Lo nuevo del poblado aparece con un bote
+        for (const g of this.levels) {
+            if (!g || g.userData.pop === undefined) continue;
+            g.userData.pop = Math.min(1, g.userData.pop + dt * 1.8);
+            const k = g.userData.pop, s = k >= 1 ? 1 : 1 + 2.7 * (k - 1) ** 3 + 1.7 * (k - 1) ** 2;
+            g.scale.set(1, Math.max(0.0001, s), 1);
+            if (k >= 1) delete g.userData.pop;
+        }
+        if (this.jet && this.level >= 2) this.jet.scale.y = 0.8 + Math.abs(Math.sin(time * 5)) * 0.4;
+        if (this.flags) for (const [i, f] of this.flags.entries()) f.rotation.y = Math.sin(time * 3 + i) * 0.35;
+        if (this.horse && this.level >= 2) this.horse.rotation.y = 0.4 + Math.sin(time * 0.4) * 0.3;
         // Él: respira y, con el puesto abierto, saluda de vez en cuando
         if (this.man.visible) {
             this.man.position.y = Math.abs(Math.sin(time * 2)) * 0.02;

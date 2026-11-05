@@ -625,6 +625,15 @@ body.cine .farm-ui, body.cine .bubbles { visibility: hidden; }
 .order button:disabled { color: #8a6a4a; background: #e0d4b4; cursor: default; box-shadow: none; }
 .order.done { opacity: .6; background: #d8ffb0; }
 .order.done button { background: #17d65a; color: #fff; text-shadow: 1px 1px 0 var(--ink); }
+/* El poblado en la hoja del comerciante: su nivel y la mejora */
+.village-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 8px; background: rgba(255, 243, 214, .1); border: 3px solid #a8957a; }
+.village-bar .upgrade-btn { padding: 7px 10px; font-size: 9px; gap: 8px; }
+.village-bar .upgrade-btn.hidden { display: none; }
+.village-bar .upgrade-cost { padding: 2px 4px; border-width: 2px; }
+.village-bar .upgrade-cost .ico { width: 12px; height: 13px; }
+.merchant-sign .pips { display: flex; gap: 2px; }
+.merchant-sign .pip { width: 6px; height: 8px; background: rgba(0, 0, 0, .35); border: 1px solid var(--ink); }
+.merchant-sign .pip.on { background: var(--yellow); }
 .merchant-away { padding: 18px 10px; font-size: 9px; line-height: 1.7; color: #e8d4b0; text-align: center; }
 
 /* Tienda del ovni: hoja abajo con la casa visible arriba */
