@@ -1104,16 +1104,17 @@ for (const [track, title, how] of [
     ['crop', L('GRENADE STREAK', 'RACHA DE GRANADAS'), L('HARVEST IN A ROW BEFORE THE BAR RUNS OUT', 'RECOGE SEGUIDO ANTES DE QUE SE VACÍE LA BARRA')],
     ['alien', L('ALIEN STREAK', 'RACHA ALIENÍGENA'), L('SHOOT ALIENS: IT ADDS UP ALL GAME LONG', 'ABATE ALIENÍGENAS: SE SUMA TODA LA PARTIDA')],
 ]) {
-    const head = document.createElement('div');
-    head.className = `ks-track ks-track-${track}`;
-    head.innerHTML = `<b>${title}</b><span>${how}</span>`;
-    $('ks-cards').appendChild(head);
+    // Una columna por racha: granadas a la izquierda y alienígena a la derecha
+    const col = document.createElement('div');
+    col.className = `ks-col ks-col-${track}`;
+    col.innerHTML = `<div class="ks-track ks-track-${track}"><b>${title}</b><span>${how}</span></div>`;
+    $('ks-cards').appendChild(col);
     for (const k of KILLSTREAKS.filter((x) => x.track === track)) {
         const card = document.createElement('div');
         card.className = `ks-card on ks-${track}`;
         card.id = `ks-card-${k.id}`;
-        card.innerHTML = `<i class="ks-ico" style="--ico: var(--px-${k.icon})"></i><span class="ks-info"><b>${k.name}</b><span class="ks-kills"></span><small>${k.desc}</small></span>`;
-        $('ks-cards').appendChild(card);
+        card.innerHTML = `<span class="ks-top"><i class="ks-ico" style="--ico: var(--px-${k.icon})"></i><span class="ks-kills"></span></span><span class="ks-info"><b>${k.name}</b><small>${k.desc}</small></span>`;
+        col.appendChild(card);
         ksCards[k.id] = card;
     }
 }

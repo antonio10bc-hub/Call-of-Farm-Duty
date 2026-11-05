@@ -1032,7 +1032,16 @@ body.unlocking .arrow-btn, body.unlocking .corners, body.unlocking .left-badge {
 div.ks-card { cursor: default; }
 div.ks-card:active { transform: none; box-shadow: 0 5px 0 var(--ink), inset 0 -4px 0 #e8a82a; }
 .ks-card.ks-alien { background: #d8ffb0; box-shadow: 0 5px 0 var(--ink), inset 0 -4px 0 #9ad84a; }
-.ks-track { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; text-align: left; }
+/* Las dos rachas en columnas: granadas a la izquierda, alienígena a la derecha. Cada ficha en
+   vertical (icono y bajas arriba, nombre y lo que hace debajo) para que quepan las dos en el móvil */
+#ks-cards { display: grid; grid-template-columns: 1fr 1fr; align-items: start; gap: 10px; width: min(560px, 100%); }
+.ks-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+#ks-cards .ks-card { flex-direction: column; align-items: stretch; gap: 6px; padding: 8px; }
+.ks-top { display: flex; align-items: center; gap: 6px; }
+#ks-cards .ks-ico { width: 32px; height: 32px; }
+#ks-cards .ks-info b { font-size: 8px; line-height: 1.4; }
+#ks-cards .ks-kills { font-size: 8px; line-height: 1.4; }
+.ks-track { display: flex; flex-direction: column; gap: 4px; min-height: 42px; text-align: left; }
 .ks-track b { font-size: 10px; font-weight: normal; color: var(--yellow); }
 .ks-track-alien b { color: #7dff4a; }
 .ks-track span { font-size: 7px; line-height: 1.5; color: #c8b89a; }
