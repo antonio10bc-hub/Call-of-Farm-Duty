@@ -55,8 +55,8 @@ Las cosas se van abriendo por pasos, cada una con su cartel grande:
   - **PARCELA:** 40 cosas (agua, jardín, juegos, estructuras, decoración y de otro mundo), cada una en su hueco fijo. Se compran una vez y luego se ponen o se quitan.
 
 ### El granero: armamento por clases
-Al estilo «Crear clase» de Call of Duty. Su recinto crece con sus 5 niveles (los 3 primeros cuestan trigo, 5, 15 y 30; los 2 últimos, trigo y tomates, 40 + 15 y 60 + 30), y se llena de cosas: sacos, tiendas, búnker, helipuerto, hangar…
-- **Clases:** a la izquierda, 5 (Francotirador, Cosechador, Espantaaliens y dos más que se abren con el granero a nivel 3 y 5). EQUIPAR CLASE elige la que se lleva al campo.
+Al estilo «Crear clase» de Call of Duty. El granero no se mejora: se queda como está, y su menú es solo el de las clases.
+- **Clases:** a la izquierda, 5 (Francotirador, Cosechador, Espantaaliens y dos más: la 4 se abre con los tomates y la 5 con el mercader). EQUIPAR CLASE elige la que se lleva al campo.
 - **La clase que se edita** (a la derecha): arma principal, accesorios (mirilla, cargador y un hueco PRÓXIMAMENTE) y dos secciones de rachas, de cultivos y de alienígenas, que se ponen o quitan tocándolas. En el campo de tiro solo saltan las de la clase equipada.
 - **Armería:** tocar el arma o un accesorio abre su lista, un maletín de espuma con el fusil desmontado. Se compra con oro y se monta en esa clase; cada pieza se ve distinta en su dibujo y en el fusil en primera persona, y tiene sus pegas:
   - **Mirillas:** estándar; punto rojo (poco zoom, se sube al instante, muy firme); táctica (más zoom y firme); largo alcance (zoom enorme, lenta y temblona); visión nocturna (de noche ve como de día, con la lente verde). Cada una con su retícula.

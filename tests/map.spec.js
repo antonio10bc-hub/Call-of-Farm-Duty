@@ -1,7 +1,7 @@
 // Pruebas de el mapa de la granja: granero y sus niveles, mejorar campos, la casa y las partidas guardadas.
 const { test, expect, openFarm, screenOf, watchErrors } = require('./helpers');
 
-test('la granja es un mapa: el granero sube de nivel, agranda su recinto y enseña las dos rachas', { tag: '@smoke' }, async ({ page }) => {
+test('la granja es un mapa: el granero (sin mejoras) abre el armamento con las dos secciones de rachas', { tag: '@smoke' }, async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto('/?test');
     await expect(page.locator('#sign-wheat')).toBeVisible({ timeout: 30_000 });
@@ -9,8 +9,6 @@ test('la granja es un mapa: el granero sube de nivel, agranda su recinto y ense�
     const p = await screenOf(page, 'map', 15, 1.4, 11);
     await page.mouse.click(p.x, p.y);
     await expect(page.locator('#streaks')).toBeVisible();
-    // Las dos rachas, activas desde el principio: granadas (recogiendo) y alienígena
-    await expect(page.locator('#barn-level')).toHaveText('GRANERO NV.0/5');
     // Dos secciones de rachas en la clase: de cultivos y de alienígenas, todas puestas de serie
     await expect(page.locator('#ks-card-cluster .kc-n')).toHaveText('10SEGUIDAS');
     await expect(page.locator('#ks-card-nuke .kc-n')).toHaveText('10ALIENIGENAS');
@@ -21,22 +19,10 @@ test('la granja es un mapa: el granero sube de nivel, agranda su recinto y ense�
     expect(await page.evaluate(() => game.state.arsenal.loadout.ks.includes('predator'))).toBe(false);
     await page.locator('#ks-card-predator').click();
     await expect(page.locator('#ks-card-predator')).toHaveClass(/on/);
-    await expect(page.locator('#barn-upgrade')).toBeDisabled();
-    // Con 5 de trigo: nivel 1 y el recinto crece
-    const hidden0 = await page.evaluate(() => game.farm.wild.reduce((n, e) => n + e.positions.filter((q) => q.hide).length, 0));
-    await page.evaluate(() => { game.state.wheat = 5; game.select({ structure: 'barn' }); });
-    await expect(page.locator('#barn-upgrade')).toBeEnabled();
-    await page.locator('#barn-upgrade').click();
-    await expect(page.locator('#streaks')).toBeHidden();
-    expect(await page.evaluate(() => [game.state.barn.level, game.farm.barnLevel, game.state.wheat])).toEqual([1, 1, 0]);
-    expect(await page.evaluate(() => game.farm.wild.reduce((n, e) => n + e.positions.filter((q) => q.hide).length, 0))).toBeGreaterThan(hidden0);
-    // Los niveles 4 y 5 piden también tomates
-    await page.evaluate(() => { game.state.items.wheat = 1000; game.state.items.tomato = 0; for (let i = 0; i < 3; i++) game.upgradeBarn(); });
-    expect(await page.evaluate(() => [game.state.barn.level, game.state.canUpgradeBarn])).toEqual([3, false]);
-    await page.evaluate(() => { game.state.items.tomato = 1000; game.upgradeBarn(); game.upgradeBarn(); game.select({ structure: 'barn' }); });
-    expect(await page.evaluate(() => game.state.barn.level)).toBe(5);
-    await expect(page.locator('#barn-upgrade')).toBeHidden();
-    await expect(page.locator('#barn-next')).toHaveText('NIVEL MÁXIMO');
+    // El granero no se mejora: ni botón ni nivel
+    await expect(page.locator('#barn-upgrade')).toHaveCount(0);
+    await page.evaluate(() => { game.state.items.wheat = 1000; game.state.items.tomato = 1000; game.upgradeBarn(); });
+    expect(await page.evaluate(() => [game.state.barn.level, game.state.canUpgradeBarn])).toEqual([0, false]);
     await page.locator('#btn-streaks-close').click();
     await expect(page.locator('#streaks')).toBeHidden();
     // El cartel ARMAMENTO encima del granero también abre el menú

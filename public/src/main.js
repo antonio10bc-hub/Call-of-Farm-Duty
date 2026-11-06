@@ -708,10 +708,8 @@ function refreshArmory() {
     const hhtml = `${ico('home')}<span>${L('FARMHOUSE', 'CASA')}</span><span class="pips">${hp}</span><i class="sign-up"></i>`;
     if (houseSign.innerHTML !== hhtml) houseSign.innerHTML = hhtml;
     houseSign.classList.toggle('can-up', state.canUpgradeHouse);
-    const lv = state.barn.level, max = FARM.barn.levels.length - 1;
-    const pips = Array.from({ length: max }, (_, i) => `<i class="pip${i < lv ? ' on' : ''}"></i>`).join('');
     const html = !state.open('barn') ? `${ico('barrel')}<span>${L('UNLOCK BARN!', '¡DESBLOQUEAR GRANERO!')}</span>`
-        : `${ico('ks-grenade')}<span>${L('ARMORY', 'ARMAMENTO')}</span><span class="pips">${pips}</span><i class="sign-up"></i>`;
+        : `${ico('ks-grenade')}<span>${L('ARMORY', 'ARMAMENTO')}</span><i class="sign-up"></i>`;
     if (armory.innerHTML !== html) armory.innerHTML = html;
     armory.classList.toggle('can-unlock', !state.open('barn'));
     armory.classList.toggle('can-up', state.canUpgradeBarn || ARSENAL_KINDS.some((k) => ARSENAL[k].some((x) => !state.ownsGear(k, x.id) && state.items.gold >= state.gearPrice(k, x.id))));
@@ -1695,17 +1693,8 @@ tapBtn('merchant-close', () => {
 });
 
 // ---------- Granero: subirlo de nivel y ver las dos rachas de bajas (activas siempre) ----------
-function refreshStreaks() {
-    // El granero: su nivel, lo que da el siguiente y lo que cuesta
-    const lv = state.barn.level, max = FARM.barn.levels.length - 1;
-    $('barn-level').textContent = `${L('BARN', 'GRANERO')} ${L('LV', 'NV')}.${lv}/${max}`;
-    $('barn-next').textContent = state.barnMaxed ? L('MAX LEVEL', 'NIVEL MÁXIMO') : L('NEXT: A BIGGER YARD', 'SIGUIENTE: MÁS RECINTO');
-    const up = $('barn-upgrade');
-    up.classList.toggle('hidden', state.barnMaxed);
-    up.disabled = !state.canUpgradeBarn;
-    const cost = Object.entries(state.barnCost()).map(([c, n]) => `<span class="upgrade-cost${state.items[c] < n ? ' short' : ''}">${ico(CROPS[c].icon)}<b>${n}</b></span>`).join('');
-    if ($('barn-cost').innerHTML !== cost) $('barn-cost').innerHTML = cost;
-}
+// (el granero ya no se mejora: el menú solo tiene las clases)
+function refreshStreaks() {}
 
 // Ficha de la casa: su nivel, qué hace el siguiente y su mejora
 function refreshHousePanel(title, text, bar, act, up) {
@@ -1756,7 +1745,6 @@ function upgradeBarn() {
     updateCounts();
     stage(L('BARN UPGRADED!', '¡GRANERO MEJORADO!'), `${L('BARN', 'GRANERO')} ${L('LV', 'NV')}.${state.barn.level}`);
 }
-tapBtn('barn-upgrade', upgradeBarn);
 
 function openStreaks() {
     sfx.play('ui');
@@ -1893,7 +1881,7 @@ function refreshRifle() {
     CLASSES.forEach((def, i) => {
         const b = classBtns[i], open = state.classOpen(i);
         const html = open ? `<b>${L(...def.name)}</b>${i === A.active ? `<em>${L('EQUIPPED', 'EQUIPADA')}</em>` : ''}`
-            : `<b>${L('LOCKED', 'BLOQUEADA')}</b><em>${L('BARN', 'GRANERO')} ${L('LV', 'NV')}.${def.open}</em>`;
+            : `<b>${L('LOCKED', 'BLOQUEADA')}</b><em>${L(...def.need)}</em>`;
         if (b.innerHTML !== html) b.innerHTML = html;
         b.classList.toggle('on', i === loEdit);
         b.classList.toggle('lock', !open);

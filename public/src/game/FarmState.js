@@ -236,8 +236,9 @@ export class FarmState {
         return this.freeCosts ? Object.fromEntries(Object.keys(c).map((k) => [k, 0])) : c;
     }
 
+    // El granero ya no se mejora: se queda como está
     get canUpgradeBarn() {
-        return !this.barnMaxed && Object.entries(this.barnCost()).every(([c, n]) => this.items[c] >= n);
+        return false;
     }
 
     // Sube el granero (agranda su recinto); false si no se puede
@@ -260,9 +261,9 @@ export class FarmState {
         return this.freeCosts ? 0 : arsenalItem(kind, id).price;
     }
 
-    // ¿Está abierta la clase i? (las últimas, con el granero a su nivel)
+    // ¿Está abierta la clase i? (las últimas, con su paso de la progresión)
     classOpen(i) {
-        return this.gatesOff || this.barn.level >= CLASSES[i].open;
+        return !CLASSES[i].open || this.open(CLASSES[i].open);
     }
 
     // Equipar la clase i (la que se lleva al campo de tiro)
