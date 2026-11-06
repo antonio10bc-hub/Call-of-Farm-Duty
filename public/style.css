@@ -1528,16 +1528,13 @@ body.cine .aim-btn { display: none !important; }
     .lo-ks .kc-n small { display: none; }
     .lo-ks .kc-name { font-size: 6px; }
 }
-/* Desplegable de CAMPOS: sube desde el dock con un botón por cultivo */
-.dock-pop { position: absolute; left: 50%; bottom: calc(100% + 10px); transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; min-width: 210px; padding: 8px; background: rgba(42, 26, 14, .92); border: 3px solid var(--ink); box-shadow: 0 4px 0 var(--ink); animation: popUp .18s steps(3) both; }
+/* Barra de CAMPOS: otra fila de fichas igual que el dock, justo encima, con un cultivo en cada una */
+.dock-pop { position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); display: flex; gap: 8px; padding: 6px; background: rgba(42, 26, 14, .55); border: 3px solid var(--ink); animation: popUp .15s steps(3) both; }
 .dock-pop.hidden { display: none; }
-.dock-pop::after { content: ''; position: absolute; left: 50%; bottom: -15px; margin-left: -8px; border: 8px solid transparent; border-top: 9px solid var(--ink); }
-@keyframes popUp { from { transform: translate(-50%, 12px); opacity: 0; } }
-.dock-pop-btn { display: flex; align-items: center; gap: 10px; padding: 8px 10px; font-family: var(--font); font-size: 9px; color: var(--ink); text-align: left; background: var(--cream); border: 3px solid var(--ink); box-shadow: 0 3px 0 var(--ink); cursor: pointer; }
-.dock-pop-btn:active { transform: translateY(2px); box-shadow: none; }
-.dock-pop-btn .ico { width: 22px; height: 22px; }
-.dock-pop-btn em { margin-left: auto; font-style: normal; font-size: 7px; color: #8a6a4a; }
-.dock-pop-btn.ready { background: var(--yellow); }
-.dock-pop-btn.ready em { color: #1a6a2a; }
-.dock-pop-empty { font-size: 8px; color: var(--cream); padding: 6px; }
+@keyframes popUp { from { transform: translate(-50%, 10px); opacity: 0; } }
+.dock-pop-btn .pips { position: absolute; left: 4px; right: 4px; bottom: 3px; display: flex; gap: 1px; }
+.dock-pop-btn .pip { flex: 1; height: 3px; background: rgba(42, 26, 14, .3); }
+.dock-pop-btn .pip.on { background: #2fbf4a; }
+.dock-pop-empty { font-size: 7px; color: var(--cream); padding: 6px; white-space: nowrap; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .dock-btn.on { background: var(--yellow); }

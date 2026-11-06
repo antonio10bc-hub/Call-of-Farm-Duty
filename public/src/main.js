@@ -647,8 +647,9 @@ for (const d of DOCK) {
     d.el.innerHTML = `${ico(d.icon)}<i class="dock-dot"></i>`;
     dock.appendChild(d.el);
 }
-// Desplegable de CAMPOS: sube del botón con cada cultivo desbloqueado (su icono, su nombre y si
-// está listo); tocar uno lleva la cámara a su campo (y, si ya estás allí, abre su ficha)
+// CAMPOS abre otra barra igual justo encima, con una ficha por cultivo desbloqueado (su icono, su
+// nivel en rayitas y el cuadradito rojo si está listo); tocar una lleva la cámara a su campo (y, si
+// ya estás allí, abre su ficha)
 const fieldsPop = document.createElement('div');
 fieldsPop.className = 'dock-pop hidden';
 fieldsPop.id = 'fields-pop';
@@ -664,13 +665,14 @@ function toggleFieldsPop(open = fieldsPop.classList.contains('hidden')) {
     if (!ids.length) fieldsPop.innerHTML = `<span class="dock-pop-empty">${L('NO CROPS YET', 'AÚN SIN CULTIVOS')}</span>`;
     for (const id of ids) {
         const def = FIELD_BY_ID[id], f = state.fields[id], ready = state.isReady(id);
-        const b = uiButton(`dock-pop-btn${ready ? ' ready' : ''}`, () => {
+        const b = uiButton(`dock-btn dock-pop-btn${ready ? ' alert' : ''}`, () => {
             toggleFieldsPop(false);
             const r = farm.views.find((v) => v.id === id).rect;
             dockGo(r.cx, r.cz, () => select({ field: id }));
         });
         b.id = `pop-${id}`;
-        b.innerHTML = `${ico(CROPS[def.crop].icon)}<span>${CROPS[def.crop].name}</span><em>${ready ? L('READY!', '¡LISTO!') : `${L('LV', 'NV')}.${f.level + 1}`}</em>`;
+        b.title = CROPS[def.crop].name;
+        b.innerHTML = `${ico(CROPS[def.crop].icon)}<span class="sr">${CROPS[def.crop].name}</span><i class="dock-dot"></i><span class="pips">${def.levels.map((_, i) => `<i class="pip${i <= f.level ? ' on' : ''}"></i>`).join('')}</span>`;
         fieldsPop.appendChild(b);
     }
 }

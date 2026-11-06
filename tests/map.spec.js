@@ -322,7 +322,7 @@ test('claro del comerciante: un bosque con el surco del ovni, sin niveles ni mej
     expect(errors).toEqual([]);
 });
 
-test('dock: CAMPOS despliega los cultivos desbloqueados y tocar uno lleva la cámara a su campo', { tag: '@full' }, async ({ page }) => {
+test('dock: CAMPOS abre encima otra barra con los cultivos desbloqueados y tocar uno lleva la cámara a su campo', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await openFarm(page);
     await page.evaluate(() => { game.state.unlock('tomato', Date.now(), true); while (game.revealUnlocked()); game.rig.focus(15, -15); });
