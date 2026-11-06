@@ -155,8 +155,7 @@ export const FARM = {
         [14, 13, 16, 60],   // camino principal hacia el sur (cruza la parcela de abajo)
         [-2, 15, 32, 16],   // entre el granero y los campos (y a los portones de las parcelas oeste y este)
         [14, -13, 16, 9],   // de la casa a la trasera del granero (por el portón)
-        [17, -16, 46, -14], // de la casa hacia fuera por la derecha: por aquí llega el comerciante
-        [33, -22, 41, -16], // el claro donde monta su puesto (content/merchant.js)
+        [17, -16, 34, -14], // de la casa al claro del bosque donde aterriza el comerciante
     ],
 };
 
@@ -186,8 +185,7 @@ const GRID = [-30, 0, 30, 60];
 const GATES = [
     ['x', 0, 14, 17],    // a la parcela oeste
     ['x', 30, 14, 17],   // a la parcela este
-    ['x', 30, -16, -14], // el camino del comerciante
-    ['x', 60, -16, -14], // ... que sigue hacia fuera
+    ['x', 30, -16, -14], // el camino al claro del comerciante
     ['z', 0, 14, 16],    // entre los campos y la casa
     ['z', 30, 14, 16],   // el camino principal
     ['z', 60, 14, 16],   // ... que sigue hacia fuera

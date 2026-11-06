@@ -175,8 +175,10 @@ const SPRITES = {
         pal: { K: INK, Y: '#ffd23f', O: '#d99a1a', W: '#fff6b0' },
     },
     merchant: {
-        rows: ['............', '....KKKK....', '...KHHHHK...', '.KKKHRRHKKK.', 'KHHHHHHHHHHK', '.KKKSSSSKKK.', '...KSSSSK...', '..KCCCCCCK..', '.KCCGCCGCCK.', '.KCCCCCCCCK.', '.KCCGCCGCCK.', '.KKKKKKKKKK.'],
-        pal: { K: INK, H: '#6a3a22', R: '#c8402e', S: '#e8b48a', C: '#2e7a8a', G: '#ffd23f' },
+        // El alienígena disfrazado: antenas por encima del sombrero, la cabeza verde y la careta
+        // de humano (cara pintada, bigote) sujeta con su goma, y la gabardina
+        rows: ['..Y......Y..', '...G....G...', '...KKKKKK...', '..KHHHHHHK..', 'KKKRRRRRRKKK', '.KGSSSSSSGK.', '.KBSESSESBK.', '.KGSSSSSSGK.', '.KGSMMMMSGK.', '.KGSSPPSSGK.', '..KKKKKKKK..', '.KCCCGGCCCK.', 'KCCCCCCCCCCK'],
+        pal: { K: INK, Y: '#ffe03a', G: '#7dff4a', H: '#4a3a2a', R: '#c8402e', S: '#f3c8a0', E: INK, B: '#3a3a3a', M: '#6a3a22', P: '#c8402e', C: '#8a6a4a' },
     },
     // Una bala (contador del cargador)
     ammo: {

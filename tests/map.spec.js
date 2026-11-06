@@ -235,19 +235,24 @@ test('torreta: con el campo al máximo, la mejora extra pone una torreta que va 
     expect(errors).toEqual([]);
 });
 
-test('comerciante: llega por su camino, monta el puesto, pide cosecha y paga en oro; luego se va', { tag: '@full' }, async ({ page }) => {
+test('comerciante: su ovni disfrazado de coche recorre el surco, sale él, pide cosecha y paga en oro; luego se va', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await openFarm(page);
     await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
     await expect.poll(() => page.evaluate(() => game.farm.introT > 2.5)).toBe(true);
     // Sin él (en las pruebas empieza fuera): su zona vacía y el cartel dice que está fuera
-    expect(await page.evaluate(() => [game.farm.camp.present, game.farm.camp.wagon.visible])).toEqual([false, false]);
+    expect(await page.evaluate(() => [game.farm.camp.present, game.farm.camp.ufo.visible, game.farm.camp.man.visible])).toEqual([false, false, false]);
     await expect(page.locator('#sign-merchant')).toContainText('FUERA');
-    // Llega: el carro entra por el camino y monta el puesto (con su aviso)
+    // Llega: el ovni entra volando, recorre el surco pegado al suelo y sale él (con su aviso)
     await page.evaluate(() => { game.merchantClock.force = 'here'; });
     await expect(page.locator('#stage')).toContainText('MERCADER');
+    await expect.poll(() => page.evaluate(() => game.farm.camp.gliding), { timeout: 15_000 }).toBe(true);
     await expect.poll(() => page.evaluate(() => game.farm.camp.open), { timeout: 15_000 }).toBe(true);
-    expect(await page.evaluate(() => [game.farm.camp.wagon.visible, game.farm.camp.man.visible, game.farm.camp.fireLit])).toEqual([true, true, true]);
+    // Parado al final del surco, con él en su sitio junto a la mesa
+    expect(await page.evaluate(() => {
+        const c = game.farm.camp, u = c.ufo.position, m = c.man.position;
+        return [c.ufo.visible, c.man.visible, c.goods.visible, Math.round(u.x * 10) / 10, Math.round(m.x * 10) / 10];
+    })).toEqual([true, true, true, 41.6, 38.2]);
     await expect(page.locator('#sign-merchant')).toContainText('MERCADER');
     // Sus encargos: 3, de lo que da la granja; sin cosecha no se entregan (la cámara va a su zona:
     // desde el principio queda fuera de la pantalla del móvil)
@@ -268,9 +273,9 @@ test('comerciante: llega por su camino, monta el puesto, pide cosecha y paga en 
     // Se guarda (los encargos de esta visita, con lo entregado, y el oro)
     await page.reload();
     await expect.poll(() => page.evaluate(() => window.game && [game.state.items.gold, game.state.merchant.orders[0].done])).toEqual([o.gold, true]);
-    // Se va: recoge el puesto y su carro sale por el camino
+    // Se va: vuelve a entrar en el ovni, que sale por el surco y despega
     await page.evaluate(() => { game.merchantClock.force = 'away'; });
-    await expect.poll(() => page.evaluate(() => game.farm.camp.wagon.visible), { timeout: 15_000 }).toBe(false);
+    await expect.poll(() => page.evaluate(() => game.farm.camp.ufo.visible), { timeout: 15_000 }).toBe(false);
     expect(errors).toEqual([]);
 });
 
@@ -293,30 +298,15 @@ test('cuadrícula de 3×3 parcelas: las de PRONTO, abandonadas y en sombra; el b
     expect(errors).toEqual([]);
 });
 
-test('poblado del comerciante: 3 niveles que limpian su parcela, levantan el poblado y traen un comerciante mejor', { tag: '@full' }, async ({ page }) => {
+test('claro del comerciante: un bosque con el surco del ovni, sin niveles ni mejoras', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await openFarm(page);
     await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
-    // Nivel 1: solo el claro; el resto de su parcela, abandonado. 3 encargos
-    expect(await page.evaluate(() => [game.state.village.level, game.farm.kindAt(50, -25).wild, game.state.ordersFor(1).length])).toEqual([0, true, 3]);
+    // El claro (con el surco) está limpio; el resto de su parcela es bosque. Siempre 3 encargos
+    expect(await page.evaluate(() => [game.farm.kindAt(45, -19), game.farm.kindAt(50, -26).wild, game.state.ordersFor(1).length, 'village' in game.state])).toEqual([{ yard: true }, true, 3, false]);
+    // Su hoja no tiene mejora
     await page.evaluate(() => game.openMerchant());
-    await expect(page.locator('#village-level')).toHaveText('POBLADO NV.1/3');
-    await expect(page.locator('#village-up')).toBeDisabled();
-    // Con oro y trigo: nivel 2 (más parcela limpia, sus construcciones y 4 encargos mejor pagados)
-    await page.evaluate(() => { game.state.items.gold = 20; game.state.items.wheat = 60; });
-    await expect(page.locator('#village-up')).toBeEnabled();
-    await page.locator('#village-up').click();
-    await expect(page.locator('#village-level')).toHaveText('POBLADO NV.2/3');
-    expect(await page.evaluate(() => [game.state.village.level, game.state.items.gold, game.state.items.wheat, game.farm.camp.levels[1].parent !== null])).toEqual([1, 0, 0, true]);
-    expect(await page.evaluate(() => game.state.ordersFor(2).length)).toBe(4);
-    // Al máximo: toda su parcela limpia
-    await page.evaluate(() => { game.state.items.gold = 50; game.state.items.wheat = 120; game.state.items.tomato = 40; });
-    await page.locator('#village-up').click();
-    await expect(page.locator('#village-level')).toHaveText('POBLADO NV.3/3');
-    await expect(page.locator('#village-up')).toBeHidden();
-    expect(await page.evaluate(() => [game.farm.kindAt(50, -25), game.state.ordersFor(3).length])).toEqual([{ yard: true }, 5]);
-    // Se guarda
-    await page.reload();
-    await expect.poll(() => page.evaluate(() => window.game && game.farm.camp.level)).toBe(2);
+    await expect(page.locator('#merchant')).toBeVisible();
+    await expect(page.locator('#village-up')).toHaveCount(0);
     expect(errors).toEqual([]);
 });

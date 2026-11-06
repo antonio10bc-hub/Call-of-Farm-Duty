@@ -1,13 +1,20 @@
 import { L } from '../core/I18n.js';
 
-// El comerciante: llega por su camino (el que sale de la parcela de la casa hacia la derecha),
-// monta su puesto en el claro de al lado y pide cultivos a cambio de monedas de oro. Con el
-// reloj de verdad: cada cycle s llega y se queda stay s; luego recoge y se va.
-//   orders   encargos por visita (con el poblado al nivel 1; ver village)
+// El comerciante: un alienígena disfrazado de humano (muy mal: una careta plana con su goma).
+// Llega en su ovni, también "disfrazado" de coche con una careta gigante, al claro del bosque donde
+// una vez se estrelló una nave y dejó un surco largo. El ovni entra volando desde fuera de cámara,
+// baja al principio del surco, lo recorre pegado al suelo como si fuera un coche y se para al
+// final; baja la rampa, sale él y se pone a comerciar: pide cultivos a cambio de monedas de oro.
+// Con el reloj de verdad: cada cycle s llega y se queda stay s; luego se vuelve por donde vino.
+//   orders   encargos por visita
 //   size     cuánto pide de un cultivo: de [min, max] veces los blancos del campo a su nivel,
 //            redondeado a step y nunca menos de min
 //   rate     monedas de oro por cada unidad entregada de cada cultivo (se redondea hacia arriba)
-//   spot     el claro (casillas [x0, z0, x1, z1)) y dónde va cada cosa
+//   site     el bosque (zone) y lo despejado (clear) en casillas [x0, z0, x1, z1)
+//   furrow   el surco: de dónde empieza (from, x) a dónde acaba (to, x), a lo largo de z, y su
+//            ancho al final (w)
+//   ufo      dónde se para el ovni; from: de dónde viene volando (fuera de cámara)
+//   stall    dónde está él comerciando (el cartel y la cámara van ahí)
 export const MERCHANT = {
     cycle: 300,
     stay: 240,
@@ -16,34 +23,21 @@ export const MERCHANT = {
     step: 5,
     min: 5,
     rate: { wheat: 0.12, tomato: 0.35, pumpkin: 0.9, corn: 0.2 },
-    clearing: [33, -22, 41, -16],
-    stall: { x: 37, z: -19.6 },
-    wagon: { x: 39.6, z: -20.6, from: 54, road: -15 },
-    fire: { x: 34.6, z: -17.4 },
-    // El poblado del comerciante: toda su parcela (zone), abandonada salvo lo limpio de su nivel
-    // (clear). Cada nivel limpia más, le añade construcciones (render/merchant.js) y trae un
-    // comerciante mejor: más encargos (orders) y mejor pagados (pay, por el oro de cada uno).
-    //   cost   lo que cuesta llegar a ese nivel
-    village: {
-        zone: [31, -29, 59, -1],
-        levels: [
-            { clear: [32, -23, 44, -11], orders: 3, pay: 1 },
-            { clear: [31, -28, 53, -4], orders: 4, pay: 1.4, cost: { gold: 20, wheat: 60 } },
-            { clear: [31, -29, 59, -1], orders: 5, pay: 1.8, cost: { gold: 50, wheat: 120, tomato: 40 } },
-        ],
-        name: L('MERCHANT VILLAGE', 'POBLADO'),
-    },
+    site: { zone: [31, -29, 59, -1], clear: [32, -23, 59, -14] },
+    furrow: { from: 58.5, to: 43.2, z: -19.2, w: 3.2 },
+    ufo: { x: 41.6, z: -19.2, from: { x: 80, y: 16, z: -30 } },
+    stall: { x: 38.2, z: -16.6 },
     name: L('MERCHANT', 'MERCADER'),
     lines: {
         hello: [
-            L('FRESH CROPS? I PAY IN GOLD.', '¿COSECHA FRESCA? PAGO EN ORO.'),
-            L('THE ROAD WAS LONG. WHAT HAVE YOU GOT?', 'EL CAMINO FUE LARGO. ¿QUÉ TIENES?'),
-            L('GOLD FOR GRAIN, FRIEND. FAIR DEAL.', 'ORO POR GRANO, AMIGO. TRATO JUSTO.'),
+            L('GREETINGS, FELLOW HUMAN. I PAY IN GOLD.', 'SALUDOS, COMPAÑERO HUMANO. PAGO EN ORO.'),
+            L('I CAME BY CAR. A NORMAL CAR. WHAT HAVE YOU GOT?', 'HE VENIDO EN COCHE. UN COCHE NORMAL. ¿QUÉ TIENES?'),
+            L('GOLD FOR GRAIN, FRIEND. NOTHING SUSPICIOUS HERE.', 'ORO POR GRANO, AMIGO. AQUÍ NADA RARO.'),
         ],
-        thanks: L('A PLEASURE DOING BUSINESS!', '¡UN PLACER HACER NEGOCIOS!'),
-        short: L('THAT IS NOT ENOUGH, FRIEND.', 'NO TE LLEGA, AMIGO.'),
-        done: L('ALL DONE! SEE YOU NEXT TIME.', '¡TODO LISTO! HASTA LA PRÓXIMA.'),
-        away: L('THE MERCHANT IS ON THE ROAD.', 'EL MERCADER ESTÁ DE CAMINO.'),
+        thanks: L('A PLEASURE DOING HUMAN BUSINESS!', '¡UN PLACER HACER NEGOCIOS HUMANOS!'),
+        short: L('THAT IS NOT ENOUGH, EARTHLING... I MEAN, FRIEND.', 'NO TE LLEGA, TERRÍCOLA... DIGO, AMIGO.'),
+        done: L('ALL DONE! TIME TO DRIVE MY CAR HOME.', '¡TODO LISTO! ME VUELVO EN MI COCHE.'),
+        away: L('THE MERCHANT IS ON THE ROAD. BY CAR.', 'EL MERCADER ESTÁ DE CAMINO. EN COCHE.'),
     },
 };
 

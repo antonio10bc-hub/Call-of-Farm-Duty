@@ -94,7 +94,7 @@ function updateClock() {
 const farmScene = new THREE.Scene();
 farmScene.background = new THREE.Color(THEME.sky);
 addLights(farmScene);
-const farm = new Farm(THEME, state.fields, state.barn.level, state.house.level, state.lands, state.village.level);
+const farm = new Farm(THEME, state.fields, state.barn.level, state.house.level, state.lands);
 farmScene.add(farm.root);
 const farmParticles = new Particles(farmScene, 600);
 const rig = new CameraRig(M);
@@ -387,11 +387,10 @@ merchantSign.id = 'sign-merchant';
 function refreshMerchantSign() {
     const here = farm.camp.open, left = merchantClock.left;
     const can = here && state.ordersFor(merchantClock.visit).some((o) => state.canDeliver(o));
-    const max = MERCHANT.village.levels.length - 1, pips = Array.from({ length: max }, (_, i) => `<i class="pip${i < state.village.level ? ' on' : ''}"></i>`).join('');
-    const html = `${ico('gold')}<span>${here ? MERCHANT.name : left === null ? L('AWAY', 'FUERA') : fmt(left)}</span><span class="pips">${pips}</span><i class="sign-up"></i>`;
+    const html = `${ico('gold')}<span>${here ? MERCHANT.name : left === null ? L('AWAY', 'FUERA') : fmt(left)}</span><i class="sign-up"></i>`;
     if (merchantSign.innerHTML !== html) merchantSign.innerHTML = html;
     merchantSign.classList.toggle('away', !here);
-    merchantSign.classList.toggle('can-up', can || state.canUpgradeVillage);
+    merchantSign.classList.toggle('can-up', can);
 }
 function refreshUfoSign() {
     ufoSign.classList.toggle('met', state.ufo.met);
@@ -1331,8 +1330,8 @@ tapBtn('ufo-close', () => {
 });
 
 // ---------- Comerciante ----------
-// Su reloj (en las pruebas, fuera salvo que DEBUG diga otra cosa). Cuando llega o se va, su carro
-// entra o sale por el camino (si se está en el mapa, con aviso)
+// Su reloj (en las pruebas, fuera salvo que DEBUG diga otra cosa). Cuando llega o se va, su ovni
+// disfrazado de coche entra o sale por el surco (si se está en el mapa, con aviso)
 const merchantClock = new MerchantClock(Settings.merchant || (CONFIG.test ? 'away' : null));
 farm.camp.setPresent(merchantClock.here, false);
 function updateMerchant(dt) {
@@ -1346,10 +1345,10 @@ function updateMerchant(dt) {
         if (!here) $('merchant').classList.add('hidden');
         updateCounts();
     }
-    // Humo de su hoguera
-    if (farm.camp.fireLit && Math.random() < dt * 6) {
-        const F = MERCHANT.fire;
-        farmParticles.spawn(F.x + (Math.random() - 0.5) * 0.3, 0.7, F.z + (Math.random() - 0.5) * 0.3, 0.1, 0.8, 0.05, 0.16 + Math.random() * 0.1, 2, Math.random() < 0.5 ? 0x7a7068 : 0x9a9088, -0.1);
+    // El ovni levanta polvo y tierra al ir por el surco
+    if (farm.camp.gliding && Math.random() < dt * 30) {
+        const D = farm.camp.dust;
+        farmParticles.burst(D.x, D.y, D.z + (Math.random() - 0.5) * 1.6, 3, [THEME.dust, 0x8a5a34, 0xa8885a], { speed: 1.6, up: 1.4, size: 0.14, ttl: 0.6 });
     }
 }
 
@@ -1380,18 +1379,10 @@ function merchantSay(text, warn = false) {
 
 function renderMerchant() {
     $('merchant-gold').textContent = state.items.gold;
-    // El poblado: su nivel, lo que trae el siguiente y su mejora
-    const V = MERCHANT.village.levels, lv = state.village.level, nx = V[lv + 1];
-    $('village-level').textContent = `${MERCHANT.village.name} ${L('LV', 'NV')}.${lv + 1}/${V.length}`;
-    $('village-next').textContent = nx ? L(`NEXT: ${nx.orders} ORDERS, PAYS x${nx.pay}`, `SIGUIENTE: ${nx.orders} ENCARGOS, PAGA x${nx.pay}`) : L('MAX LEVEL', 'NIVEL MÁXIMO');
-    $('village-up').classList.toggle('hidden', state.villageMaxed);
-    $('village-up').disabled = !state.canUpgradeVillage;
-    const vc = costHtml(state.villageCost());
-    if ($('village-cost').innerHTML !== vc) $('village-cost').innerHTML = vc;
     const here = farm.camp.open, left = merchantClock.left;
     $('merchant-timer').textContent = left === null ? '' : here ? `${L('LEAVES IN', 'SE VA EN')} ${fmt(left)}` : `${L('BACK IN', 'VUELVE EN')} ${fmt(left)}`;
     if (!here) {
-        $('merchant-orders').innerHTML = `<div class="merchant-away">${L('HIS STALL IS EMPTY. HE COMES BACK WITH NEW ORDERS EVERY FEW MINUTES.', 'SU PUESTO ESTÁ VACÍO. VUELVE CON ENCARGOS NUEVOS CADA POCOS MINUTOS.')}</div>`;
+        $('merchant-orders').innerHTML = `<div class="merchant-away">${L('NOBODY HERE BUT THE OLD CRASH FURROW. HE COMES BACK "BY CAR" WITH NEW ORDERS EVERY FEW MINUTES.', 'AQUÍ SOLO ESTÁ EL SURCO. VUELVE "EN COCHE" CON ENCARGOS NUEVOS CADA POCOS MINUTOS.')}</div>`;
         return;
     }
     $('merchant-orders').innerHTML = state.ordersFor(merchantClock.visit).map((o, i) => {
@@ -1402,21 +1393,6 @@ function renderMerchant() {
     }).join('');
 }
 
-// Mejorar el poblado: se limpia más parcela, salen sus construcciones y el comerciante mejora
-function upgradeVillage() {
-    if (!state.upgradeVillage()) return sfx.play('miss');
-    farm.setVillageLevel(state.village.level);
-    const [x0, z0, x1, z1] = MERCHANT.village.levels[state.village.level].clear;
-    for (let k = 0; k < 18; k++) farmParticles.burst(x0 + Math.random() * (x1 - x0), 0.2, z0 + Math.random() * (z1 - z0), 6, [THEME.dust, 0x8a5a34, 0xffd23f], { speed: 2.4, up: 2, size: 0.14, ttl: 0.6 });
-    rig.shake(0.18);
-    sfx.play('power');
-    vibrate('pickup');
-    merchantSay(MERCHANT.lines.thanks);
-    updateCounts();
-    renderMerchant();
-    stage(L('VILLAGE UPGRADED!', '¡POBLADO MEJORADO!'), `${MERCHANT.village.name} ${L('LV', 'NV')}.${state.village.level + 1}`);
-}
-tapBtn('village-up', upgradeVillage);
 
 $('merchant').addEventListener('click', (e) => {
     e.stopPropagation();
@@ -1745,7 +1721,6 @@ const unlockables = [
             revealUnlocked();
         },
     })),
-    { id: 'village', name: L('MAXED VILLAGE', 'POBLADO AL MÁXIMO'), done: () => state.villageMaxed, run: () => { while (!state.villageMaxed) { state.village.level++; farm.setVillageLevel(state.village.level); } state.save(); } },
     { id: 'arsenal', name: L('FULL ARMORY', 'ARMERÍA COMPLETA'), done: () => ARSENAL_KINDS.every((k) => ARSENAL[k].every((x) => state.ownsGear(k, x.id))), run: () => state.ownAllGear() },
     // Torreta de cada campo: lo desbloquea y lo sube al máximo si hace falta
     ...FARM.fields.map((f) => ({

@@ -2,332 +2,226 @@ import * as THREE from 'three';
 import { VoxelModel } from './VoxelModel.js';
 import { MERCHANT } from '../content/merchant.js';
 
-const WOOD = 0x9a6a3a, WOOD2 = 0x7a4f2a, DARK = 0x5a3a22, CANVAS = 0xf3ead2, RED = 0xc8402e;
-const STONE = 0x9a948a, ASH = 0x4a4038;
-const T = { road: 2.6, park: 3.6, awning: 4.2, open: 4.8 }; // la llegada, paso a paso (s)
+const WOOD = 0x9a6a3a, WOOD2 = 0x7a4f2a, DARK = 0x5a3a22, STONE = 0x9a948a;
+const DIRT = [0x8a5a34, 0x76492a, 0x9a6a3a], TRENCH = [0x5a3a22, 0x4a2e1a];
+const METAL = 0x9aa8b8, METAL2 = 0x7a8898, HULL = 0x4a5868, GLASS = 0x9fdcff;
+const RUBBER = 0xe0a860; // las gomas de las caretas
+// La llegada, paso a paso (s): vuela hasta el surco, lo recorre pegado al suelo, se posa, baja
+// la rampa, sale él y monta su mercancía
+const T = { fly: 2.2, glide: 4.8, land: 5.2, ramp: 5.7, out: 7.2, open: 7.7 };
 const ease = (k) => k * k * (3 - 2 * k);
+const out = (k) => 1 - (1 - k) * (1 - k);
 const back = (k) => 1 + 2.7 * (k - 1) ** 3 + 1.7 * (k - 1) ** 2;
 const seg = (t, a, b) => Math.min(1, Math.max(0, (t - a) / (b - a)));
+const lerp = (a, b, k) => a + (b - a) * k;
+const RAMP = { closed: -1.45, open: 0.78, len: 1.5 };
+const HOVER = 0.62; // altura del ovni "conduciendo" por el surco
 
-// La zona del comerciante, en el claro junto a su camino. Siempre se ve que ha estado alguien:
-// la estructura del puesto vacía, cajas viejas, una hoguera apagada con su círculo de piedras, las
-// rodadas del carro y un poste con su cartel. Cuando viene: su carro entra por el camino y aparca
-// en el claro, se despliega el toldo de rayas, sale la mercancía y él detrás del mostrador, y se
-// enciende la hoguera (y de noche, el farol). Al irse, todo al revés. setPresent(on) lo pide;
-// la animación avanza en update. Con el poblado (level) crece la zona: nivel 1, un puesto de
-// fruta, tiendas de lona, un pozo y farolas por el camino; nivel 2, una posada, una plaza con
-// fuente, otro puesto, un establo con su caballo y banderas en la entrada.
+// El claro del comerciante en el bosque: el surco que dejó una nave al estrellarse (tierra
+// levantada a los lados, piedras, árboles tumbados al principio y un montón de tierra al final) y
+// su mesita plegable. Cuando viene: su ovni, disfrazado de coche con una careta gigante de cartón
+// sujeta con dos gomas, entra volando desde fuera de cámara, baja al principio del surco, lo
+// recorre pegado al suelo como si condujera y se para; baja la rampa y sale él, un alienígena
+// disfrazado de humano con una careta plana y su goma, y saca la mercancía. Al irse, todo al
+// revés. setPresent(on) lo pide; la animación avanza en update.
 export class MerchantCamp extends VoxelModel {
-    constructor(outlineColor, level = 0) {
+    constructor(outlineColor) {
         super(outlineColor);
-        const r = this.root, S = MERCHANT.stall, F = MERCHANT.fire;
-        // --- Lo que queda siempre ---
-        // Estructura del puesto: postes, mostrador y travesaño
-        for (const [dx, dz] of [[-1.3, -0.6], [1.3, -0.6], [-1.3, 0.6], [1.3, 0.6]]) this.part(r, 0.16, 2.1, 0.16, WOOD2, S.x + dx, 1.05, S.z + dz);
-        this.part(r, 2.8, 0.14, 1.2, WOOD, S.x, 0.9, S.z + 0.25);
-        this.part(r, 2.8, 0.7, 0.12, WOOD2, S.x, 0.5, S.z + 0.82);
-        this.part(r, 2.8, 0.1, 0.1, WOOD2, S.x, 2.1, S.z - 0.6);
-        // Cajas viejas (una volcada) y un saco vacío
-        this.part(r, 0.7, 0.55, 0.6, WOOD, 34.2, 0.28, -20.8).rotation.y = 0.3;
-        this.part(r, 0.6, 0.5, 0.6, WOOD2, 34.4, 0.8, -20.7).rotation.y = -0.2;
-        const tipped = this.part(r, 0.6, 0.5, 0.55, WOOD, 35.2, 0.22, -21.4);
-        tipped.rotation.set(0.2, 0.9, 1.3);
-        this.part(r, 0.5, 0.18, 0.4, 0xc8b48a, 33.8, 0.09, -19.6).rotation.y = 0.5;
-        // Hoguera apagada: círculo de piedras, ceniza y dos troncos
-        for (let k = 0; k < 8; k++) {
-            const a = (k / 8) * Math.PI * 2;
-            this.part(r, 0.26, 0.18, 0.22, STONE, F.x + Math.sin(a) * 0.55, 0.09, F.z + Math.cos(a) * 0.55).rotation.y = a;
-        }
-        this.part(r, 0.7, 0.04, 0.7, ASH, F.x, 0.02, F.z, false);
-        for (const a of [0.4, 2.2]) {
-            const log = this.part(r, 0.7, 0.14, 0.14, DARK, F.x, 0.1, F.z);
-            log.rotation.y = a;
-        }
-        // Rodadas del carro, del camino al claro
-        for (const z of [-15.45, -14.55]) this.part(r, 9, 0.02, 0.12, 0xa8885a, 36.5, 0.01, z, false);
-        for (const x of [39.1, 40.1]) this.part(r, 0.12, 0.02, 4.8, 0xa8885a, x, 0.01, -18, false);
-        // Poste con su cartel junto al camino: una moneda de oro pintada
-        this.part(r, 0.14, 1.6, 0.14, WOOD2, 32.6, 0.8, -13.4);
-        this.part(r, 0.9, 0.55, 0.1, WOOD, 32.6, 1.45, -13.4);
-        this.part(r, 0.32, 0.32, 0.04, 0xffd23f, 32.6, 1.45, -13.33, false);
-        // Un barril y una bala de paja
-        this.part(r, 0.5, 0.65, 0.5, WOOD2, 40.9, 0.33, -17.4);
-        this.part(r, 0.9, 0.5, 0.6, 0xe0c060, 33.7, 0.25, -17.9).rotation.y = 0.4;
+        const r = this.root;
+        this.buildFurrow();
+        // Mesita plegable junto a donde se pone él, y el cartel del camino (una moneda pintada)
+        const S = MERCHANT.stall;
+        this.table = { x: S.x - 1.3, z: S.z - 0.5 };
+        for (const [dx, dz] of [[-0.5, -0.3], [0.5, -0.3], [-0.5, 0.3], [0.5, 0.3]]) this.part(r, 0.08, 0.7, 0.08, 0x6a6a72, this.table.x + dx, 0.35, this.table.z + dz, false);
+        this.part(r, 1.3, 0.08, 0.8, 0xf3ead2, this.table.x, 0.72, this.table.z);
+        this.part(r, 0.14, 1.6, 0.14, WOOD2, 33.4, 0.8, -13.4);
+        this.part(r, 0.9, 0.55, 0.1, WOOD, 33.4, 1.45, -13.4);
+        this.part(r, 0.32, 0.32, 0.04, 0xffd23f, 33.4, 1.45, -13.33, false);
 
-        // --- Lo que trae él ---
-        this.wagon = this.buildWagon();
-        r.add(this.wagon);
-        // Toldo de rayas rojas y crema, inclinado hacia el camino
-        this.awning = new THREE.Group();
-        this.awning.position.set(S.x, 2.15, S.z - 0.6);
-        for (let k = 0; k < 6; k++) {
-            const st = this.part(this.awning, 0.52, 0.08, 1.7, k % 2 ? CANVAS : RED, -1.3 + k * 0.52, 0, 0.85);
-            st.rotation.x = 0.22;
-        }
-        for (let k = 0; k < 6; k++) this.part(this.awning, 0.52, 0.22, 0.06, k % 2 ? RED : CANVAS, -1.3 + k * 0.52, -0.28, 1.68);
-        r.add(this.awning);
-        // Mercancía: sacos de grano, una cesta de tomates, tarros y una balanza
+        // Mercancía sobre la mesa: un saco de grano, una cesta de tomates, tarros y una balanza
         this.goods = new THREE.Group();
-        this.goods.position.set(S.x, 0.97, S.z + 0.25);
-        this.part(this.goods, 0.45, 0.4, 0.4, 0xe0c060, -0.95, 0.2, 0);
-        this.part(this.goods, 0.3, 0.1, 0.3, 0xf6cf4a, -0.95, 0.44, 0, false);
-        this.part(this.goods, 0.55, 0.22, 0.4, WOOD2, -0.3, 0.11, 0.05);
-        for (const [x, z] of [[-0.42, -0.05], [-0.2, 0.08], [-0.3, -0.1]]) this.part(this.goods, 0.17, 0.17, 0.17, 0xe8352a, x, 0.28, z, false);
-        for (const x of [0.25, 0.45]) this.part(this.goods, 0.14, 0.24, 0.14, 0x9fdcff, x, 0.12, -0.1);
-        this.part(this.goods, 0.06, 0.4, 0.06, DARK, 0.95, 0.2, 0);
-        this.part(this.goods, 0.6, 0.04, 0.06, DARK, 0.95, 0.4, 0);
-        for (const x of [0.7, 1.2]) this.part(this.goods, 0.2, 0.04, 0.2, 0xffd23f, x, 0.3, 0);
+        this.goods.position.set(this.table.x, 0.76, this.table.z);
+        this.part(this.goods, 0.36, 0.34, 0.32, 0xe0c060, -0.4, 0.17, 0);
+        this.part(this.goods, 0.24, 0.08, 0.24, 0xf6cf4a, -0.4, 0.37, 0, false);
+        this.part(this.goods, 0.36, 0.16, 0.3, WOOD2, 0.05, 0.08, 0.05);
+        for (const [x, z] of [[-0.03, -0.02], [0.12, 0.08], [0.05, 0.12]]) this.part(this.goods, 0.12, 0.12, 0.12, 0xe8352a, x, 0.2, z, false);
+        for (const x of [0.36, 0.5]) this.part(this.goods, 0.1, 0.18, 0.1, 0x7dff4a, x, 0.09, -0.12);
         r.add(this.goods);
-        // Farol colgado del travesaño (de noche luce)
-        this.lantern = new THREE.Group();
-        this.lantern.position.set(S.x + 1.1, 1.75, S.z - 0.6);
-        this.part(this.lantern, 0.04, 0.3, 0.04, DARK, 0, 0.2, 0, false);
-        this.part(this.lantern, 0.22, 0.28, 0.22, DARK, 0, -0.08, 0);
-        this.glow = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.2, 0.16), new THREE.MeshBasicMaterial({ color: 0xffd23f }));
-        this.own(this.glow.material);
-        this.glow.position.y = -0.08;
-        this.lantern.add(this.glow);
-        r.add(this.lantern);
-        // Él: botas, pantalón, abrigo con botones dorados, brazos, cabeza y su sombrero de ala
-        // ancha (sin cara, como todo en el juego), delante del puesto, de cara al camino (bajo el
-        // toldo no se le vería desde arriba)
-        this.man = this.buildMan();
-        this.man.position.set(S.x + 1.9, 0, S.z + 1.4);
-        this.man.rotation.y = 0.5;
+
+        this.ufo = this.buildUfo();
+        r.add(this.ufo);
+        this.man = this.buildAlien();
         r.add(this.man);
-        // Fuego de la hoguera
-        this.flames = new THREE.Group();
-        this.flames.position.set(F.x, 0.1, F.z);
-        this.flameBits = [0xff9a1f, 0xffe03a, 0xff3e1a].map((c, i) => {
-            const m = new THREE.Mesh(new THREE.BoxGeometry(0.3 - i * 0.06, 0.5 - i * 0.1, 0.3 - i * 0.06), new THREE.MeshBasicMaterial({ color: c }));
-            this.own(m.material);
-            m.position.y = 0.25;
-            this.flames.add(m);
-            return m;
-        });
-        r.add(this.flames);
 
-        // --- El poblado, por niveles ---
-        this.lamps = [];
-        this.levels = [null, this.buildLevel1(), this.buildLevel2()];
-        this.level = -1;
-        this.setLevel(level, false);
-
-        this.step = 0;      // por dónde va la llegada (0 = no está; T.open = puesto abierto)
+        this.step = 0;   // por dónde va la llegada (0 = no está; T.open = abierto)
         this.want = 0;   // a dónde va: T.open (llegar) o 0 (irse)
-        this.wheel = 0;
+        this.dust = new THREE.Vector3(); // dónde levanta polvo al ir por el surco
         this.pose(0);
     }
 
-    // Un puesto con toldo de rayas (colores a y b) y su mercancía (cajas de colores)
-    stall(g, x, z, a, b, goods) {
-        for (const [dx, dz] of [[-1, -0.5], [1, -0.5], [-1, 0.5], [1, 0.5]]) this.part(g, 0.14, 1.9, 0.14, WOOD2, x + dx, 0.95, z + dz);
-        this.part(g, 2.2, 0.12, 1.1, WOOD, x, 0.85, z + 0.15);
-        this.part(g, 2.2, 0.6, 0.1, WOOD2, x, 0.48, z + 0.66);
-        for (let k = 0; k < 5; k++) this.part(g, 0.46, 0.08, 1.4, k % 2 ? a : b, x - 0.92 + k * 0.46, 2.0, z + 0.25).rotation.x = 0.22;
-        goods.forEach((c, k) => this.part(g, 0.36, 0.26, 0.32, c, x - 0.7 + k * 0.48, 1.04, z + 0.15));
+    // Ancho del surco en x (estrecho al principio, donde tocó tierra; ancho al final)
+    furrowWidth(x) {
+        const F = MERCHANT.furrow, k = (F.from - x) / (F.from - F.to);
+        return lerp(1.1, F.w, Math.min(1, Math.max(0, k)));
     }
 
-    // Farola de hierro con su farol (de noche luce)
-    lamp(g, x, z) {
-        this.part(g, 0.12, 2.4, 0.12, 0x3a3a3a, x, 1.2, z);
-        this.part(g, 0.5, 0.08, 0.08, 0x3a3a3a, x + 0.22, 2.35, z);
-        this.part(g, 0.24, 0.3, 0.24, 0x2a2a2a, x + 0.44, 2.15, z);
-        const glow = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.2, 0.16), new THREE.MeshBasicMaterial({ color: 0x8a6a2a }));
-        this.own(glow.material);
-        glow.position.set(x + 0.44, 2.15, z);
-        g.add(glow);
-        this.lamps.push(glow);
-    }
-
-    // Nivel 1 del poblado: puesto de fruta, dos tiendas de lona, el pozo, farolas por el camino,
-    // barriles y sacos
-    buildLevel1() {
-        const g = new THREE.Group();
-        this.stall(g, 44.5, -19.8, 0x5a9e32, CANVAS, [0xe8352a, 0xffd23f, 0x7ab83a, 0xf08a1e]);
-        for (const [x, z, c] of [[35.2, -25.6, RED], [39.4, -26.2, 0x3a7ec8]]) {
-            // Tienda de lona: dos faldones inclinados y el palo
-            const t = new THREE.Group();
-            t.position.set(x, 0, z);
-            this.part(t, 2.2, 0.1, 1.5, c, 0, 0.9, -0.55).rotation.x = -0.75;
-            this.part(t, 2.2, 0.1, 1.5, CANVAS, 0, 0.9, 0.55).rotation.x = 0.75;
-            this.part(t, 0.1, 1.8, 0.1, WOOD2, 0, 0.9, 0);
-            this.part(t, 2.0, 0.06, 0.06, WOOD2, 0, 1.45, 0);
-            g.add(t);
+    buildFurrow() {
+        const r = this.root, F = MERCHANT.furrow;
+        // El fondo del surco: tierra oscura y removida, más ancha hacia el final
+        for (let x = F.to - 0.4, k = 0; x < F.from; x += 0.8, k++) {
+            const w = this.furrowWidth(x);
+            this.part(r, 0.84, 0.05, w, TRENCH[k % 2], x, 0.025, F.z + Math.sin(k * 1.7) * 0.08, false);
+            this.part(r, 0.84, 0.06, w * 0.35, 0x3a2414, x, 0.04, F.z, false);
         }
-        // El pozo: anillo de piedra, agua, dos postes y su tejadillo
+        // Tierra levantada a los dos lados: más alta hacia el final, con matas y piedras encima
+        let n = 0;
+        for (let x = F.to - 0.6; x < F.from + 0.4; x += 0.75) {
+            const w = this.furrowWidth(x), k = Math.min(1, Math.max(0, (F.from - x) / (F.from - F.to)));
+            for (const s of [-1, 1]) {
+                const h = lerp(0.18, 0.75, k) * (0.75 + ((n * 37) % 10) / 20);
+                const z = F.z + s * (w / 2 + 0.35 + ((n * 13) % 5) * 0.05);
+                const clod = this.part(r, 0.7 + ((n * 7) % 3) * 0.12, h, 0.55 + k * 0.2, DIRT[n % 3], x, h / 2, z);
+                clod.rotation.y = ((n * 11) % 7) * 0.1 - 0.3;
+                if (n % 3 === 0) this.part(r, 0.3, 0.2, 0.3, [0x4caf3c, 0x3d9a34][n % 2], x + 0.1, h + 0.1, z);
+                if (n % 4 === 1) this.part(r, 0.32, 0.22, 0.26, STONE, x - 0.2, h + 0.08, z + s * 0.1).rotation.y = n;
+                n++;
+            }
+        }
+        // El montón de tierra que empujó la nave al pararse, al final del surco
+        const P = { x: MERCHANT.ufo.x - 4.3, z: F.z - 0.2 };
+        for (const [dx, dz, w, h, d] of [[0, 0, 1.4, 0.9, 3.4], [0.5, -0.6, 1.1, 0.6, 1.6], [0.4, 0.9, 1.0, 0.7, 1.4], [-0.5, 0.2, 0.9, 0.45, 2.6], [0.1, -1.6, 0.9, 0.5, 0.9], [0.2, 1.8, 0.8, 0.45, 0.9]]) {
+            this.part(r, w, h, d, DIRT[(dx * 10 + dz * 3) & 1], P.x + dx, h / 2, P.z + dz);
+        }
+        this.part(r, 0.5, 0.3, 0.4, STONE, P.x - 0.3, 1.0, P.z + 0.3).rotation.y = 0.6;
+        // Quemaduras alrededor del final
+        for (const [dx, dz, s] of [[2.6, -2.2, 1.2], [1.2, 2.3, 0.9], [-1.4, 2.0, 0.8]]) this.part(r, s, 0.03, s * 0.8, 0x3a3028, MERCHANT.ufo.x + dx, 0.015, F.z + dz, false);
+        // Al principio, donde tocó tierra: dos árboles tumbados y sus tocones
+        for (const [x, z, ry] of [[F.from + 1.4, F.z - 2.1, 0.5], [F.from + 0.6, F.z + 2.2, -0.4]]) {
+            this.part(r, 0.4, 0.35, 0.4, 0x7a4f2a, x + 1.3, 0.17, z - Math.sin(ry) * 1.3);
+            const log = new THREE.Group();
+            log.position.set(x, 0.22, z);
+            log.rotation.y = ry;
+            this.part(log, 2.6, 0.32, 0.32, 0x7a4f2a, 0, 0, 0);
+            this.part(log, 1.2, 0.8, 1.2, 0x3d9a34, -1.6, 0.3, 0);
+            this.part(log, 0.8, 0.6, 0.9, 0x4caf3c, -2.2, 0.15, 0.3);
+            r.add(log);
+        }
+    }
+
+    // El ovni (el frente, hacia -x, es por donde avanza) con su careta de coche de perfil delante,
+    // mirando a la cámara (+z), sujeta con dos gomas gigantes; la rampa sale por el frente
+    buildUfo() {
+        const g = new THREE.Group(), b = new THREE.Group();
+        g.add(b);
+        g.body = b;
+        this.part(b, 3.2, 0.28, 3.2, METAL2, 0, 0.5, 0);
+        this.part(b, 3.8, 0.2, 3.8, METAL, 0, 0.72, 0);
+        this.part(b, 2.7, 0.28, 2.7, METAL, 0, 0.95, 0);
+        this.part(b, 1.8, 0.22, 1.8, HULL, 0, 0.28, 0);
+        this.part(b, 1.5, 0.8, 1.5, GLASS, 0, 1.45, 0);
+        this.part(b, 1.0, 0.18, 1.0, 0xc4ecff, 0, 1.92, 0, false);
+        g.lights = [];
         for (let k = 0; k < 8; k++) {
             const a = (k / 8) * Math.PI * 2;
-            this.part(g, 0.5, 0.7, 0.3, STONE, 47 + Math.sin(a) * 0.65, 0.35, -9.5 + Math.cos(a) * 0.65).rotation.y = a;
+            g.lights.push(this.part(b, 0.2, 0.15, 0.2, k % 2 ? 0xffe03a : 0xff3e5e, Math.sin(a) * 1.78, 0.72, Math.cos(a) * 1.78, false));
         }
-        this.part(g, 0.9, 0.06, 0.9, 0x3a7ec8, 47, 0.55, -9.5, false);
-        for (const dx of [-0.75, 0.75]) this.part(g, 0.12, 1.7, 0.12, WOOD2, 47 + dx, 0.85, -9.5);
-        this.part(g, 1.9, 0.12, 1.2, RED, 47, 1.75, -9.5).rotation.z = 0.0;
-        this.part(g, 1.3, 0.08, 0.08, WOOD, 47, 1.4, -9.5);
-        // Farolas a lo largo del camino
-        for (const x of [35, 41, 47, 53]) this.lamp(g, x, -13.2);
-        // Barriles y sacos
-        for (const [x, z] of [[48.6, -20.4], [49.3, -20.9], [48.9, -19.6]]) this.part(g, 0.5, 0.65, 0.5, WOOD2, x, 0.33, z);
-        for (const [x, z] of [[42.2, -21.2], [42.7, -21.5]]) this.part(g, 0.5, 0.4, 0.4, 0xe0c060, x, 0.2, z).rotation.y = x;
-        // Balas de paja junto a las tiendas y un carro de mano
-        for (const [x, z, r] of [[37.4, -23.4, 0.3], [38.3, -23.1, 1.2], [37.8, -22.6, 0.7]]) this.part(g, 0.9, 0.5, 0.6, 0xe0c060, x, 0.25, z).rotation.y = r;
-        const cart = new THREE.Group();
-        cart.position.set(50.5, 0, -17.6);
-        cart.rotation.y = 0.5;
-        this.part(cart, 1.4, 0.4, 0.9, WOOD, 0, 0.6, 0);
-        for (const z of [-0.5, 0.5]) this.part(cart, 0.6, 0.6, 0.08, DARK, 0, 0.32, z);
-        this.part(cart, 1.2, 0.06, 0.06, WOOD2, 1.2, 0.55, 0.25);
-        this.part(cart, 0.5, 0.3, 0.5, 0xf08a1e, -0.2, 0.92, 0);
-        g.add(cart);
+
+        // La careta: un coche rojo de perfil (el morro hacia -x), de cartón, con su borde crema
+        const m = new THREE.Group();
+        m.position.set(0, 0, 2.08);
+        b.add(m);
+        const RED = 0xd8402e, CARD = 0xe8d8b0;
+        this.part(m, 4.9, 0.95, 0.05, CARD, 0, 0.82, -0.03);        // cartón de detrás (asoma)
+        this.part(m, 2.8, 0.85, 0.05, CARD, 0.25, 1.62, -0.03);
+        this.part(m, 4.8, 0.85, 0.06, RED, 0, 0.82, 0);              // carrocería
+        this.part(m, 2.6, 0.75, 0.06, RED, 0.25, 1.6, 0);             // cabina
+        for (const x of [-0.42, 0.88]) this.part(m, 1.05, 0.5, 0.04, 0x9fdcff, x, 1.62, 0.04, false); // ventanillas
+        this.part(m, 0.06, 0.75, 0.04, 0x8a2418, 0.25, 1.0, 0.04, false); // la puerta
+        this.part(m, 0.2, 0.06, 0.04, 0x2a1a0e, 0.55, 1.08, 0.05, false); // su tirador
+        this.part(m, 0.22, 0.2, 0.04, 0xffe680, -2.33, 0.95, 0.04, false); // faro
+        this.part(m, 0.16, 0.2, 0.04, 0xff3e1a, 2.35, 0.95, 0.04, false);  // piloto
+        for (const x of [-2.42, 2.42]) this.part(m, 0.12, 0.2, 0.08, 0xc8c8c8, x, 0.55, 0.02, false); // parachoques
+        for (const x of [-1.5, 1.5]) {
+            // Ruedas pintadas: octógono negro (dos cajas, una girada) y tapacubos
+            this.part(m, 0.95, 0.95, 0.05, 0x2a2624, x, 0.42, 0.06);
+            this.part(m, 0.95, 0.95, 0.05, 0x2a2624, x, 0.42, 0.06).rotation.z = Math.PI / 4;
+            this.part(m, 0.38, 0.38, 0.04, 0xb8b8c0, x, 0.42, 0.1, false);
+        }
+        // Las gomas: un lazo alrededor del borde del platillo y otro alrededor de la cúpula, cada
+        // uno desde los dos extremos de la careta hasta la parte de atrás
+        const strap = (x1, z1, x2, z2, y) => {
+            const len = Math.hypot(x2 - x1, z2 - z1);
+            const s = this.part(b, len, 0.08, 0.08, RUBBER, (x1 + x2) / 2, y, (z1 + z2) / 2, false);
+            s.rotation.y = -Math.atan2(z2 - z1, x2 - x1);
+        };
+        for (const [w, back, y, x0, x1] of [[2.0, 1.98, 0.86, -2.4, 2.4], [0.82, 0.82, 1.55, -1.05, 1.55]]) {
+            strap(x0, 2.06, -w, -back * 0.4, y);
+            strap(-w, -back * 0.4, -w * 0.6, -back, y);
+            strap(-w * 0.6, -back, w * 0.6, -back, y);
+            strap(w * 0.6, -back, w, -back * 0.4, y);
+            strap(w, -back * 0.4, x1, 2.06, y);
+        }
+
+        // La rampa, por el frente (-x): gira desde el borde hasta tocar el suelo
+        g.ramp = new THREE.Group();
+        g.ramp.position.set(-1.75, 0.55, 0);
+        b.add(g.ramp);
+        this.part(g.ramp, RAMP.len, 0.08, 0.9, METAL2, -RAMP.len / 2, 0, 0);
+        for (let k = 0; k < 4; k++) this.part(g.ramp, 0.06, 0.04, 0.8, HULL, -0.25 - k * 0.35, 0.05, 0, false);
+        g.hatch = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 0.8), new THREE.MeshBasicMaterial({ color: 0x7dff4a }));
+        this.own(g.hatch.material);
+        g.hatch.position.set(-1.62, 0.78, 0);
+        b.add(g.hatch);
         return g;
     }
 
-    // Casita de pueblo: paredes, tejado a dos aguas, puerta y ventana
-    cottage(g, x, z, ry, wall, roof) {
-        const h = new THREE.Group();
-        h.position.set(x, 0, z);
-        h.rotation.y = ry;
-        this.part(h, 2.6, 1.8, 2.4, wall, 0, 0.9, 0);
-        this.part(h, 3, 0.18, 1.6, roof, 0, 2.2, -0.62).rotation.x = 0.62;
-        this.part(h, 3, 0.18, 1.6, roof, 0, 2.2, 0.62).rotation.x = -0.62;
-        this.part(h, 0.6, 1.1, 0.08, WOOD2, -0.5, 0.55, 1.22);
-        this.part(h, 0.55, 0.5, 0.08, 0x9fdcff, 0.6, 1.05, 1.22);
-        g.add(h);
-    }
-
-    // Nivel 2: la posada, la plaza con su fuente, otro puesto, el establo con un caballo y las
-    // banderas de la entrada
-    buildLevel2() {
-        const g = new THREE.Group();
-        // Posada: paredes encaladas, entramado de madera, tejado rojo, puerta, ventanas, chimenea y
-        // su cartel colgado
-        const inn = new THREE.Group();
-        inn.position.set(54.5, 0, -22);
-        this.part(inn, 5, 2.4, 4, 0xf3ead2, 0, 1.2, 0);
-        for (const x of [-2.4, 2.4]) this.part(inn, 0.16, 2.4, 4.1, WOOD2, x, 1.2, 0);
-        this.part(inn, 5.1, 0.16, 4.1, WOOD2, 0, 2.4, 0);
-        const roofA = this.part(inn, 5.6, 0.2, 2.6, 0xb84a32, 0, 3.05, -1.05);
-        roofA.rotation.x = 0.55;
-        const roofB = this.part(inn, 5.6, 0.2, 2.6, 0xb84a32, 0, 3.05, 1.05);
-        roofB.rotation.x = -0.55;
-        this.part(inn, 0.9, 1.5, 0.1, WOOD2, 0, 0.75, 2.04);
-        for (const x of [-1.6, 1.6]) this.part(inn, 0.8, 0.7, 0.1, 0x9fdcff, x, 1.4, 2.04);
-        this.part(inn, 0.5, 1.2, 0.5, STONE, 1.8, 3.6, -0.6);
-        this.part(inn, 0.08, 0.6, 0.08, DARK, -1.2, 2.2, 2.4);
-        this.part(inn, 0.9, 0.55, 0.08, WOOD, -1.2, 1.75, 2.45);
-        this.part(inn, 0.3, 0.3, 0.04, 0xffd23f, -1.2, 1.75, 2.5, false);
-        g.add(inn);
-        // Plaza: losas de piedra y la fuente con su chorro
-        for (let i = 0; i < 5; i++) for (let j = 0; j < 4; j++) this.part(g, 0.95, 0.06, 0.95, (i + j) % 2 ? 0xc8c0b0 : 0xb0a898, 45 + i, 0.03, -6.5 + j, false);
-        for (let k = 0; k < 8; k++) {
-            const a = (k / 8) * Math.PI * 2;
-            this.part(g, 0.7, 0.5, 0.35, STONE, 47 + Math.sin(a) * 1.1, 0.25, -5 + Math.cos(a) * 1.1).rotation.y = a;
+    // Él: un alienígena verde disfrazado de humano. Gabardina, pantalón, zapatos y sombrero (con
+    // las antenas asomando por arriba); la cabeza verde, enorme, con una careta plana de cara
+    // humana delante sujeta con su goma
+    buildAlien() {
+        const g = new THREE.Group(), SKIN = 0x7dff4a, COAT = 0x8a6a4a, COAT2 = 0x6a4f34, HAT = 0x4a3a2a;
+        for (const x of [-0.11, 0.11]) {
+            this.part(g, 0.15, 0.42, 0.17, 0x3a3a4a, x, 0.26, 0);
+            this.part(g, 0.18, 0.12, 0.26, 0x2a1a0e, x, 0.06, 0.04);
         }
-        this.part(g, 1.8, 0.06, 1.8, 0x3a7ec8, 47, 0.4, -5, false);
-        this.part(g, 0.3, 1.2, 0.3, STONE, 47, 0.6, -5);
-        this.jet = this.part(g, 0.18, 0.7, 0.18, 0x9fdcff, 47, 1.5, -5, false);
-        // Otro puesto (de telas) y el establo con su caballo
-        this.stall(g, 52, -9.5, 0x6a4a9a, 0xffd23f, [0xc8402e, 0x3a7ec8, 0xf3ead2, 0x5a9e32]);
-        for (let k = 0; k <= 4; k++) this.part(g, 0.12, 0.9, 0.12, WOOD2, 34 + k * 1.2, 0.45, -3.2);
-        for (let k = 0; k <= 3; k++) this.part(g, 0.12, 0.9, 0.12, WOOD2, 34, 0.45, -3.2 - k * 1.2);
-        for (const y of [0.35, 0.7]) {
-            this.part(g, 4.8, 0.08, 0.08, WOOD, 36.4, y, -3.2);
-            this.part(g, 0.08, 0.08, 3.6, WOOD, 34, y, -5);
+        this.part(g, 0.5, 0.66, 0.32, COAT, 0, 0.8, 0);
+        this.part(g, 0.52, 0.07, 0.34, COAT2, 0, 0.66, 0);
+        this.part(g, 0.08, 0.5, 0.02, COAT2, 0, 0.82, 0.17, false);
+        for (const y of [0.72, 0.9]) this.part(g, 0.05, 0.05, 0.02, 0xd9b04a, 0.07, y, 0.17, false);
+        this.part(g, 0.16, 0.12, 0.3, SKIN, 0, 1.17, 0); // cuello verde
+        g.arm = new THREE.Group();
+        g.arm.position.set(0.32, 1.05, 0);
+        this.part(g.arm, 0.13, 0.46, 0.14, COAT, 0, -0.23, 0);
+        this.part(g.arm, 0.11, 0.12, 0.11, SKIN, 0, -0.5, 0, false);
+        g.add(g.arm);
+        this.part(g, 0.13, 0.46, 0.14, COAT, -0.32, 0.82, 0);
+        this.part(g, 0.11, 0.12, 0.11, SKIN, -0.32, 0.55, 0, false);
+        // La cabeza: verde, más grande que la de una persona
+        this.part(g, 0.5, 0.46, 0.44, SKIN, 0, 1.45, 0);
+        // La careta plana (más pequeña que la cabeza: se le ve el verde por los lados) con su cara
+        // pintada: ojos, cejas, bigote, sonrisa y coloretes
+        const mask = new THREE.Group();
+        mask.position.set(0, 1.43, 0.24);
+        g.add(mask);
+        this.part(mask, 0.36, 0.4, 0.03, 0xf3c8a0, 0, 0, 0);
+        for (const x of [-0.08, 0.08]) {
+            this.part(mask, 0.05, 0.05, 0.02, 0x2a1a0e, x, 0.06, 0.02, false);
+            this.part(mask, 0.09, 0.02, 0.02, 0x6a3a22, x, 0.12, 0.02, false);
+            this.part(mask, 0.06, 0.04, 0.02, 0xff9fb0, x * 1.4, -0.03, 0.02, false);
         }
-        const horse = new THREE.Group();
-        horse.position.set(37, 0, -5.4);
-        horse.rotation.y = 0.4;
-        this.part(horse, 1.5, 0.6, 0.55, 0x8a5a34, 0, 1.05, 0);
-        for (const [x, z] of [[-0.55, -0.2], [-0.55, 0.2], [0.55, -0.2], [0.55, 0.2]]) this.part(horse, 0.16, 0.8, 0.16, 0x6a4024, x, 0.4, z);
-        this.part(horse, 0.35, 0.7, 0.3, 0x8a5a34, 0.75, 1.45, 0).rotation.z = -0.5;
-        this.part(horse, 0.55, 0.28, 0.3, 0x8a5a34, 1.05, 1.75, 0);
-        this.part(horse, 0.12, 0.5, 0.32, 0x2a1a0e, 0.65, 1.55, 0).rotation.z = -0.5;
-        this.part(horse, 0.1, 0.55, 0.1, 0x2a1a0e, -0.8, 0.95, 0).rotation.z = 0.5;
-        g.add(horse);
-        this.horse = horse;
-        // Dos casitas, una hilera de árboles junto a la valla, flores delante de la posada y bancos
-        // en la plaza
-        this.cottage(g, 41, -8.2, 0, 0xe8d8b0, 0x6a7a9a);
-        this.cottage(g, 56.6, -11.5, -Math.PI / 2, 0xf0e0c0, 0x8a5a34);
-        for (const x of [37, 41.5, 46, 50.5, 55]) {
-            this.part(g, 0.25, 1, 0.25, 0x7a4f2a, x, 0.5, -1.9);
-            this.part(g, 1.3, 1, 1.3, x % 2 ? 0x4caf3c : 0x3d9a34, x, 1.4, -1.9);
+        this.part(mask, 0.18, 0.04, 0.02, 0x6a3a22, 0, -0.06, 0.02, false); // bigote
+        this.part(mask, 0.12, 0.025, 0.02, 0xc8402e, 0, -0.12, 0.02, false); // sonrisa
+        // La goma alrededor de la cabeza
+        for (const s of [-1, 1]) this.part(g, 0.03, 0.04, 0.44, 0x2a2a2a, s * 0.26, 1.45, 0, false);
+        this.part(g, 0.52, 0.04, 0.03, 0x2a2a2a, 0, 1.45, -0.23, false);
+        // Sombrero, con dos antenas que salen por arriba
+        this.part(g, 0.66, 0.05, 0.62, HAT, 0, 1.7, 0);
+        this.part(g, 0.4, 0.22, 0.38, HAT, 0, 1.83, 0);
+        this.part(g, 0.42, 0.05, 0.4, 0xc8402e, 0, 1.75, 0, false);
+        for (const x of [-0.1, 0.1]) {
+            this.part(g, 0.03, 0.26, 0.03, SKIN, x, 2.05, 0, false);
+            this.part(g, 0.08, 0.08, 0.08, 0xffe03a, x, 2.2, 0, false);
         }
-        for (let k = 0; k < 6; k++) this.part(g, 0.5, 0.18, 0.5, [0xff8fb0, 0xffe03a, 0xffffff][k % 3], 52.6 + k * 0.75, 0.12, -19.4, false);
-        this.part(g, 4.6, 0.12, 0.6, 0x5a9e32, 54.4, 0.06, -19.4, false);
-        for (const x of [44.2, 49.8]) {
-            this.part(g, 1.4, 0.12, 0.45, WOOD, x, 0.45, -5);
-            for (const dx of [-0.55, 0.55]) this.part(g, 0.12, 0.42, 0.4, WOOD2, x + dx, 0.21, -5);
-        }
-        // Banderas a la entrada del poblado, a los lados del camino
-        this.flags = [];
-        for (const z of [-12.6, -17.4]) {
-            this.part(g, 0.12, 3, 0.12, WOOD, 31.6, 1.5, z);
-            const cloth = new THREE.Group();
-            cloth.position.set(31.6, 2.55, z);
-            this.part(cloth, 0.05, 0.7, 1, z < -15 ? 0xffd23f : RED, 0, 0, 0.55);
-            g.add(cloth);
-            this.flags.push(cloth);
-        }
-        return g;
-    }
-
-    // El nivel del poblado: se ven sus construcciones (las nuevas aparecen con un bote)
-    setLevel(level, animate = true) {
-        this.level = level;
-        this.levels.forEach((g, i) => {
-            if (!g) return;
-            const on = i <= level;
-            if (on && !g.parent) {
-                this.root.add(g);
-                if (animate) g.userData.pop = 0;
-            } else if (!on && g.parent) this.root.remove(g);
-        });
-    }
-
-    buildWagon() {
-        const g = new THREE.Group(), body = new THREE.Group();
-        g.add(body);
-        // Caja de madera, lona arqueada (tres arcos), lanza y ruedas. El frente mira a +x
-        this.part(body, 2.6, 0.55, 1.4, WOOD, 0, 0.75, 0);
-        this.part(body, 2.7, 0.1, 1.5, WOOD2, 0, 1.05, 0);
-        this.part(body, 2.4, 0.75, 1.4, CANVAS, 0, 1.45, 0);
-        this.part(body, 2.4, 0.3, 1.0, CANVAS, 0, 1.95, 0);
-        for (const x of [-1.05, 0, 1.05]) this.part(body, 0.1, 0.9, 1.5, 0xe0d4b4, x, 1.55, 0);
-        this.part(body, 1.4, 0.08, 0.08, WOOD2, 1.95, 0.55, 0.3);
-        this.part(body, 1.4, 0.08, 0.08, WOOD2, 1.95, 0.55, -0.3);
-        // Su cartel: monedas
-        this.part(body, 0.6, 0.4, 0.04, 0xffd23f, 0, 1.45, 0.72, false);
-        g.wheels = [];
-        for (const x of [-0.85, 0.85]) for (const z of [-0.75, 0.75]) {
-            const w = new THREE.Group();
-            w.position.set(x, 0.42, z);
-            this.part(w, 0.8, 0.8, 0.1, DARK, 0, 0, 0);
-            this.part(w, 0.12, 0.7, 0.12, WOOD, 0, 0, 0, false);
-            body.add(w);
-            g.wheels.push(w);
-        }
-        return g;
-    }
-
-    buildMan() {
-        const g = new THREE.Group(), COAT = 0x2e7a8a, SKIN = 0xe8b48a, HAT = 0x6a3a22;
-        for (const x of [-0.12, 0.12]) {
-            this.part(g, 0.16, 0.5, 0.18, 0x5a4030, x, 0.3, 0);
-            this.part(g, 0.18, 0.14, 0.24, 0x2a1a0e, x, 0.07, 0.03);
-        }
-        this.part(g, 0.52, 0.62, 0.32, COAT, 0, 0.86, 0);
-        this.part(g, 0.54, 0.08, 0.34, 0x3a2a1a, 0, 0.6, 0);
-        for (const y of [0.78, 0.98]) this.part(g, 0.06, 0.06, 0.02, 0xffd23f, 0, y, 0.17, false);
-        this.arm = new THREE.Group();
-        this.arm.position.set(0.32, 1.12, 0);
-        this.part(this.arm, 0.13, 0.5, 0.14, COAT, 0, -0.25, 0);
-        g.add(this.arm);
-        this.part(g, 0.13, 0.5, 0.14, COAT, -0.32, 0.87, 0);
-        this.part(g, 0.34, 0.32, 0.32, SKIN, 0, 1.33, 0);
-        this.part(g, 0.7, 0.06, 0.7, HAT, 0, 1.5, 0);
-        this.part(g, 0.36, 0.22, 0.36, HAT, 0, 1.62, 0);
-        this.part(g, 0.38, 0.05, 0.38, 0xc8402e, 0, 1.54, 0, false);
         return g;
     }
 
@@ -335,13 +229,14 @@ export class MerchantCamp extends VoxelModel {
         return this.want > 0;
     }
 
-    // ¿Puesto abierto del todo? (para el cartel y el humo de la hoguera)
+    // ¿Abierto del todo? (para el cartel y los encargos)
     get open() {
         return this.step >= T.open;
     }
 
-    get fireLit() {
-        return this.step > T.awning;
+    // ¿Va por el surco? (levanta polvo)
+    get gliding() {
+        return this.step > T.fly && this.step < T.land && this.step !== this.want;
     }
 
     // Que venga (o se vaya). animate false: aparece (o desaparece) ya
@@ -353,55 +248,67 @@ export class MerchantCamp extends VoxelModel {
     }
 
     // Cómo está todo en el instante t de la llegada
-    pose(t) {
-        const W = MERCHANT.wagon, w = this.wagon;
-        const a = ease(seg(t, 0, T.road)), b = ease(seg(t, T.road, T.park));
-        w.visible = t > 0.02;
-        w.position.set(W.from + (W.x - W.from) * a, 0, W.road + (W.z - W.road) * b);
-        w.rotation.y = Math.PI - (Math.PI / 2) * b;
-        const aw = seg(t, T.park, T.awning), op = seg(t, T.awning, T.open);
-        this.awning.scale.set(1, Math.max(0.0001, aw > 0 ? back(aw) : 0), Math.max(0.0001, aw));
-        this.awning.visible = aw > 0;
-        const s = op > 0 ? back(op) : 0.0001;
-        this.goods.scale.setScalar(s);
-        this.man.scale.setScalar(s);
-        this.goods.visible = this.man.visible = op > 0;
-        this.flames.visible = this.lantern.visible = t > T.awning;
+    pose(t, time = 0) {
+        const U = MERCHANT.ufo, F = MERCHANT.furrow, u = this.ufo;
+        u.visible = t > 0.02;
+        // Vuela desde fuera de cámara hasta el principio del surco, bajando
+        const kf = seg(t, 0, T.fly), kg = seg(t, T.fly, T.glide), kl = seg(t, T.glide, T.land);
+        const fx = lerp(U.from.x, F.from, out(kf)), fz = lerp(U.from.z, F.z, out(kf)), fy = lerp(U.from.y, HOVER, ease(kf));
+        let x = fx, y = fy, z = fz;
+        if (kf >= 1) {
+            // Por el surco, pegado al suelo, frenando al final, con los botes de un coche
+            x = lerp(F.from, U.x, out(kg));
+            y = HOVER + Math.abs(Math.sin(x * 2.3)) * 0.06 * (1 - kg) - 0.12 * ease(kl);
+            z = F.z;
+        }
+        u.position.set(x, y, z);
+        // Inclinado mientras baja volando; recto al conducir
+        u.rotation.z = -0.25 * (1 - kf) * kf * 4;
+        u.body.scale.set(1 + Math.sin(kl * Math.PI) * 0.06, 1 - Math.sin(kl * Math.PI) * 0.08, 1 + Math.sin(kl * Math.PI) * 0.06);
+        // Rampa y luz de la escotilla
+        const kr = seg(t, T.land, T.ramp);
+        u.ramp.rotation.z = lerp(RAMP.closed, RAMP.open, ease(kr));
+        u.hatch.visible = kr > 0.05;
+        // Él: baja por la rampa y va a su sitio
+        const ko = seg(t, T.ramp, T.out), m = this.man, S = MERCHANT.stall;
+        m.visible = t > T.ramp;
+        const top = { x: U.x - 1.75, y: HOVER - 0.12 + 0.55, z: U.z }, foot = { x: U.x - 1.75 - RAMP.len * Math.cos(RAMP.open), y: 0, z: U.z };
+        let mx, my, mz, face;
+        if (ko < 0.35) {
+            const k = ko / 0.35;
+            mx = lerp(top.x, foot.x, k); my = lerp(top.y, foot.y, k); mz = top.z;
+            face = -Math.PI / 2;
+        } else {
+            const k = ease((ko - 0.35) / 0.65);
+            mx = lerp(foot.x, S.x, k); mz = lerp(foot.z, S.z, k); my = 0;
+            face = ko < 0.95 ? Math.atan2(S.x - foot.x, S.z - foot.z) : Math.PI / 4;
+        }
+        const walking = ko > 0 && ko < 1;
+        m.position.set(mx, my + (walking ? Math.abs(Math.sin(ko * 26)) * 0.06 : 0), mz);
+        m.rotation.y = ko >= 1 ? Math.PI / 4 : face;
+        // Su mercancía sale a la mesa
+        const kg2 = seg(t, T.out, T.open);
+        this.goods.visible = kg2 > 0;
+        this.goods.scale.setScalar(kg2 > 0 ? Math.max(0.0001, back(kg2)) : 0.0001);
+        this.dust.set(x + 1.2, 0.1, z);
     }
 
     update(dt, time, nightK = 0) {
         if (this.step !== this.want) {
-            const before = this.step;
             this.step = this.want > this.step ? Math.min(this.want, this.step + dt) : Math.max(this.want, this.step - dt * 1.4);
-            this.wheel += Math.abs(this.step - before) * (this.step < T.park ? 7 : 2);
-            for (const wh of this.wagon.wheels) wh.rotation.z = -this.wheel;
-            this.pose(this.step);
+            this.pose(this.step, time);
         }
-        if (this.flames.visible) {
-            this.flameBits.forEach((m, i) => {
-                const f = 0.8 + Math.abs(Math.sin(time * (9 + i * 3) + i)) * 0.4;
-                m.scale.set(f, f * (1 + i * 0.2), f);
-                m.rotation.y = time * (1 + i);
-            });
+        const u = this.ufo;
+        if (u.visible) {
+            // Luces que parpadean (de noche, todas encendidas a la vez de vez en cuando) y un leve
+            // vaivén cuando está posado
+            u.lights.forEach((l, i) => (l.visible = nightK > 0.5 ? Math.sin(time * 3) > -0.6 : Math.sin(time * 8 + i * 0.8) > -0.2));
+            if (this.step === this.want && this.open) u.body.position.y = Math.sin(time * 1.6) * 0.04;
         }
-        // De noche el farol luce (y parpadea un poco), y las farolas del poblado también
-        this.glow.material.color.setHex(nightK > 0.3 && Math.sin(time * 9) > -0.8 ? 0xffe680 : 0x8a6a2a);
-        for (const l of this.lamps) if (l.parent && l.parent.parent) l.material.color.setHex(nightK > 0.3 ? 0xffe680 : 0x8a6a2a);
-        // Lo nuevo del poblado aparece con un bote
-        for (const g of this.levels) {
-            if (!g || g.userData.pop === undefined) continue;
-            g.userData.pop = Math.min(1, g.userData.pop + dt * 1.8);
-            const k = g.userData.pop, s = k >= 1 ? 1 : 1 + 2.7 * (k - 1) ** 3 + 1.7 * (k - 1) ** 2;
-            g.scale.set(1, Math.max(0.0001, s), 1);
-            if (k >= 1) delete g.userData.pop;
-        }
-        if (this.jet && this.level >= 2) this.jet.scale.y = 0.8 + Math.abs(Math.sin(time * 5)) * 0.4;
-        if (this.flags) for (const [i, f] of this.flags.entries()) f.rotation.y = Math.sin(time * 3 + i) * 0.35;
-        if (this.horse && this.level >= 2) this.horse.rotation.y = 0.4 + Math.sin(time * 0.4) * 0.3;
-        // Él: respira y, con el puesto abierto, saluda de vez en cuando
-        if (this.man.visible) {
+        // Él: respira y, abierto, saluda de vez en cuando
+        if (this.man.visible && this.open) {
             this.man.position.y = Math.abs(Math.sin(time * 2)) * 0.02;
-            this.arm.rotation.z = this.open && Math.sin(time * 0.8) > 0.7 ? 2.4 + Math.sin(time * 10) * 0.35 : 0.1;
+            this.man.arm.rotation.z = Math.sin(time * 0.8) > 0.7 ? 2.4 + Math.sin(time * 10) * 0.35 : 0.1;
         }
         this.updateFx(dt);
     }

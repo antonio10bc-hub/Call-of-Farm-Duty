@@ -14,7 +14,6 @@ const KEY = 'cofd.farm.v4';
 // casa (las de antes, con la casa ya arreglada, empiezan en el nivel 1)
 const REV = 4;
 const BARN = FARM.barn.levels;
-const VILLAGE = MERCHANT.village.levels;
 const HOUSE = FARM.house.levels;
 const OLD_KEYS = ['cofd.farm.v3', 'cofd.farm.v2']; // v3: un solo campo de trigo
 const levelsOf = (id) => FIELD_BY_ID[id].levels;
@@ -34,8 +33,6 @@ export class FarmState {
         // El comerciante: la visita de la que son los encargos que hay (cada uno: cultivo, cuánto,
         // cuánto oro paga y si ya se ha entregado)
         this.merchant = { visit: -1, orders: [] };
-        // El poblado del comerciante (de 0 a MERCHANT.village.levels.length - 1)
-        this.village = { level: 0 };
         // Parcelas compradas con oro (content/farm.js: lands)
         this.lands = Object.fromEntries(FARM.lands.filter((l) => l.price).map((l) => [l.id, false]));
         // El ovni (crashed: ya se ha estrellado en la parcela de la casa; met: ya se ha abierto su
@@ -69,7 +66,6 @@ export class FarmState {
                 }
                 this.ufo.crashed = !!(d.ufo && d.ufo.crashed);
                 for (const id of Object.keys(this.lands)) this.lands[id] = !!(d.lands && d.lands[id]);
-                this.village.level = Math.min(VILLAGE.length - 1, Math.max(0, d.village ? d.village.level | 0 : 0));
                 if (d.merchant && Array.isArray(d.merchant.orders)) this.merchant = { visit: d.merchant.visit | 0, orders: d.merchant.orders.filter((o) => o && CROPS[o.crop]) };
                 this.ufo.met = !!(d.ufo && d.ufo.met);
                 if (d.home) {
@@ -120,7 +116,7 @@ export class FarmState {
 
     save() {
         try {
-            localStorage.setItem(KEY, JSON.stringify({ rev: REV, items: this.items, fields: this.fields, barn: this.barn, house: this.house, arsenal: this.arsenal, ufo: this.ufo, home: this.home, merchant: this.merchant, lands: this.lands, village: this.village }));
+            localStorage.setItem(KEY, JSON.stringify({ rev: REV, items: this.items, fields: this.fields, barn: this.barn, house: this.house, arsenal: this.arsenal, ufo: this.ufo, home: this.home, merchant: this.merchant, lands: this.lands }));
         } catch {
             /* ignorar */
         }
@@ -303,38 +299,15 @@ export class FarmState {
         const fields = FARM.fields.filter((f) => this.fields[f.id].unlocked);
         if (!fields.length) fields.push(FARM.fields[0]);
         const orders = [];
-        const V = VILLAGE[this.village.level];
-        for (let k = 0; k < V.orders; k++) {
+        for (let k = 0; k < MERCHANT.orders; k++) {
             // Cada encargo de un campo (repartidos entre los que haya)
             const f = fields[(k + visit) % fields.length], [a, b] = MERCHANT.size;
             const n = Math.max(MERCHANT.min, Math.round((this.sheaves(f.id) * (a + Math.random() * (b - a))) / MERCHANT.step) * MERCHANT.step);
-            orders.push({ crop: f.crop, n, gold: Math.ceil(n * MERCHANT.rate[f.crop] * V.pay), done: false });
+            orders.push({ crop: f.crop, n, gold: Math.ceil(n * MERCHANT.rate[f.crop]), done: false });
         }
         this.merchant = { visit, orders };
         this.save();
         return orders;
-    }
-
-    // ---------- Poblado del comerciante ----------
-    get villageMaxed() {
-        return this.village.level >= VILLAGE.length - 1;
-    }
-
-    villageCost() {
-        const c = this.villageMaxed ? {} : VILLAGE[this.village.level + 1].cost;
-        return this.freeCosts ? Object.fromEntries(Object.keys(c).map((k) => [k, 0])) : c;
-    }
-
-    get canUpgradeVillage() {
-        return !this.villageMaxed && this.affordableCost(this.villageCost());
-    }
-
-    upgradeVillage() {
-        if (!this.canUpgradeVillage) return false;
-        for (const [c, n] of Object.entries(this.villageCost())) this.items[c] -= n;
-        this.village.level++;
-        this.save();
-        return true;
     }
 
     canDeliver(o) {
