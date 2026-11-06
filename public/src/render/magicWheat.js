@@ -44,9 +44,10 @@ export class MagicWheat extends VoxelModel {
         this.gone = 0;     // 0..1: deshaciéndose
     }
 
-    // Centro del trigo en el mundo (para el bocadillo, las chispas y el blanco)
+    // Centro del trigo en el mundo (para el bocadillo, las chispas y el blanco): sigue a la mata,
+    // que flota a su altura (base) y se mece
     center(out = new THREE.Vector3()) {
-        return this.root.localToWorld(out.set(0, 0.8, 0));
+        return this.root.localToWorld(out.set(0, this.body.position.y + 0.8, 0));
     }
 
     hit(origin, dir) {

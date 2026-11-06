@@ -331,7 +331,7 @@ export class Prologue {
             r.rotation.y = 0;
             this.after(0.3, () => {
                 this.locked = false;
-                this.hooks.prompt('collect');
+                this.hooks.prompt('magic');
             });
         }
     }
@@ -559,17 +559,13 @@ export class Prologue {
         S.t += dt;
         // La cámara sigue la acción: las granadas, el avión (por delante) y, al final, la bomba
         // Cuando el bombardero ya llega al otro lado del campo: silencio y la vista sube al cielo,
-        // a donde está a punto de caer la nuclear; al llegar la vista, cae
+        // donde la nuclear ya está cayendo (aparece justo cuando la vista empieza a subir)
         const pl = sn.ks.plane;
         if (S.bomber && !S.pause && (!pl || pl.dist > pl.len * 0.62)) {
             S.pause = true;
             this.hooks.silence();
-            const f = sn.field;
-            S.look = { x: f.cx, y: 60, z: f.cz };
-            this.after(1.4, () => {
-                S.look = null;
-                sn.ks.startNuke();
-            });
+            S.look = null;
+            sn.ks.startNuke();
         }
         let to = S.look;
         if (pl && !S.pause) to = { x: pl.model.position.x + pl.dir.x * 8, y: pl.model.position.y * 0.5, z: pl.model.position.z + pl.dir.z * 8 };
@@ -605,6 +601,7 @@ export class Prologue {
         this.leaving = 0;
         this.after(3.0, () => this.talk([LINES.remember, LINES.luck], () => {
             this.leaving = 0.001;
+            this.magic.ring.visible = false; // su anillo del suelo no se va con él: desaparece
             this.hooks.sfx.play('whoosh');
             this.after(1.8, () => {
                 F.root.remove(this.magic.root);

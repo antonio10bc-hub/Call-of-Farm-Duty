@@ -53,13 +53,15 @@ export class MerchantClock {
         return (now / 1000) % MERCHANT.cycle;
     }
 
+    // locked: aún no ha llegado a la granja (la progresión no lo ha abierto)
     get here() {
+        if (this.locked) return false;
         return this.force ? this.force === 'here' : this.t() < MERCHANT.stay;
     }
 
     // Segundos para que se vaya (si está) o vuelva (si no); null si está fijado
     get left() {
-        if (this.force) return null;
+        if (this.force || this.locked) return null;
         const t = this.t();
         return t < MERCHANT.stay ? MERCHANT.stay - t : MERCHANT.cycle - t;
     }

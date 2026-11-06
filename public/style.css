@@ -1374,3 +1374,11 @@ body.prologue .snipe-ui > :not(#reticle) { display: none !important; }
 /* Línea terminada: flechita que parpadea (toca para seguir) */
 .pro-talk.done::after { content: '▼'; position: absolute; right: 10px; bottom: 6px; font-size: 8px; color: #7b5cff; animation: proNext .8s steps(2) infinite; }
 @keyframes proNext { 50% { opacity: 0; } }
+/* El aviso para coger el trigo mágico: de colores, con el arcoíris pasando a saltos */
+.pro-prompt.magic {
+    color: #fff;
+    text-shadow: 2px 2px 0 var(--ink);
+    background: linear-gradient(90deg, #ff3e5e, #ff9a1f, #ffe03a, #7dff4a, #3ac8ff, #9a5aff, #ff3e5e) 0 0 / 200% 100%;
+    animation: proRainbow 1.2s steps(6) infinite, proPulse 1s steps(2) infinite;
+}
+@keyframes proRainbow { to { background-position: 200% 0; } }

@@ -40,6 +40,7 @@ export class Sniper {
     constructor(theme, hooks) {
         this.theme = theme;
         this.hooks = hooks;
+        this.tracks = { crop: true, alien: true }; // rachas abiertas (las cierra la progresión)
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(theme.sky);
         this.field = new SniperField(theme);
@@ -475,7 +476,7 @@ export class Sniper {
         this.streakMax = Math.max(KS.bar.min, KS.bar.time * KS.bar.decay ** (this.streak - 1));
         this.streakT = this.streakMax;
         if (this.hooks.onMedal && this.streak >= 2 && prev < 4) this.hooks.onMedal({ streak: Math.min(4, this.streak) });
-        if (!this.scripted) for (const k of streakOf('crop')) if (prev < k.at && this.streak >= k.at) this.ks.trigger(k.id);
+        if (!this.scripted && this.tracks.crop) for (const k of streakOf('crop')) if (prev < k.at && this.streak >= k.at) this.ks.trigger(k.id);
     }
 
     // Racha alienígena: cada alienígena abatido suma (no se pierde con el tiempo) y al llegar a
@@ -483,7 +484,7 @@ export class Sniper {
     addAlien(n) {
         const prev = this.aliens;
         this.aliens += n;
-        if (!this.scripted) for (const k of streakOf('alien')) if (prev < k.at && this.aliens >= k.at) this.ks.trigger(k.id);
+        if (!this.scripted && this.tracks.alien) for (const k of streakOf('alien')) if (prev < k.at && this.aliens >= k.at) this.ks.trigger(k.id);
     }
 
     // Lo que hay a menos de r de un punto del suelo (explosiones y fuego): los alienígenas

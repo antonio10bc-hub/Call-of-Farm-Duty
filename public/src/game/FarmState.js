@@ -25,7 +25,9 @@ export class FarmState {
         this.prologue = false;
         this.freeCosts = false; // depuración: las mejoras de campos y granero a 0
         this.freeHome = false; // depuración: las mejoras de la casa y la tienda del ovni a 0
-        this.barn = { level: 0 };
+        // open: el granero ya desbloqueado (lo primero que se hace en una partida nueva)
+        this.barn = { level: 0, open: false };
+        this.gatesOff = false; // pruebas y depuración: todo lo de la progresión abierto
         this.house = { level: 0 };
         // Armería (content/arsenal.js): lo comprado ('scope:tac'...) y lo que lleva montado el fusil
         this.arsenal = { owned: [], loadout: { ...DEFAULT_LOADOUT } };
@@ -62,6 +64,7 @@ export class FarmState {
                 this.prologue = d.prologue === undefined ? true : !!d.prologue; // las de antes, ya empezadas
                 for (const c of Object.keys(this.items)) this.items[c] = (d.items && d.items[c]) | 0;
                 this.barn.level = Math.min(BARN.length - 1, Math.max(0, d.barn ? d.barn.level | 0 : (d.rev | 0) < 3 ? 2 : 0));
+                this.barn.open = d.barn && d.barn.open !== undefined ? !!d.barn.open : true; // las de antes, ya abierto
                 this.house.level = Math.min(HOUSE.length - 1, Math.max(0, d.house ? d.house.level | 0 : (d.rev | 0) < 4 ? 1 : 0));
                 if (d.arsenal) {
                     if (Array.isArray(d.arsenal.owned)) this.arsenal.owned = d.arsenal.owned.filter((k) => { const [kind, id] = k.split(':'); return ARSENAL[kind] && ARSENAL[kind].some((x) => x.id === id); });
@@ -102,6 +105,7 @@ export class FarmState {
                 w.plantedAt = +v3.plot.plantedAt || 0;
                 w.left = v3.plot.left | 0;
                 this.barn.level = 2;
+                this.barn.open = true;
                 this.house.level = 1;
                 this.prologue = true;
             }
@@ -351,10 +355,34 @@ export class FarmState {
     }
 
     // Un terreno bloqueado se puede desbloquear ya, cuando el campo del que depende (after) está al
-    // máximo o cuando se ha comprado su parcela (land)
+    // máximo, cuando se ha comprado su parcela (land) o, el trigo, con el granero abierto (barn)
     canUnlock(id) {
         const lock = FIELD_BY_ID[id].locked;
-        return !!lock && !this.fields[id].unlocked && (!lock.after || this.maxed(lock.after)) && (!lock.land || this.lands[lock.land]);
+        return !!lock && !this.fields[id].unlocked && (!lock.after || this.maxed(lock.after)) && (!lock.land || this.lands[lock.land]) && (!lock.barn || this.open('barn'));
+    }
+
+    // ---------- Progresión ----------
+    // Lo que se va abriendo, en orden: el granero nada más empezar; el trigo; las rachas de
+    // granadas con el trigo a nivel 2; los tomates con el trigo al máximo; las rachas alienígenas
+    // con los tomates a nivel 2; y con los tomates al máximo, el mercader y la tienda de la casa
+    // (con su oro se compran las demás parcelas)
+    open(gate) {
+        if (this.gatesOff) return true;
+        const lv = (id) => (this.fields[id].unlocked ? this.fields[id].level : -1);
+        switch (gate) {
+            case 'barn': return this.barn.open;
+            case 'grenades': return lv('wheat') >= 1;
+            case 'aliens': return lv('tomato') >= 1;
+            case 'merchant': case 'shop': return this.fields.tomato.unlocked && this.maxed('tomato');
+        }
+        return true;
+    }
+
+    openBarn() {
+        if (this.barn.open) return false;
+        this.barn.open = true;
+        this.save();
+        return true;
     }
 
     // ---------- Parcelas en venta ----------

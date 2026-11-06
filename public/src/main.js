@@ -46,6 +46,9 @@ const scope = new Scope($('scope'));
 const state = new FarmState();
 state.freeCosts = Settings.freeCosts;
 state.freeHome = Settings.freeHome;
+// En las pruebas la progresión está abierta (salvo con ?progress, para probarla)
+state.gatesOff = CONFIG.test && !new URLSearchParams(location.search).has('progress');
+const merchantClock = new MerchantClock(Settings.merchant || (CONFIG.test ? 'away' : null));
 setStreakCounts(Settings.streaks);
 
 // Luces de una escena (sol y cielo); se guardan para pasarlas a las de la noche
@@ -274,10 +277,11 @@ const prologueHooks = {
     prompt(kind) {
         const el = $('pro-prompt');
         if (!kind) return el.classList.add('hidden');
-        el.textContent = kind === 'collect'
+        el.textContent = kind === 'collect' || kind === 'magic'
             ? (fineMouse ? L('CLICK TO HARVEST', 'HAZ CLIC PARA RECOLECTAR') : L('TAP TO HARVEST', 'TOCA PARA RECOLECTAR'))
             : (fineMouse ? L('HOLD RIGHT CLICK TO AIM · RELEASE TO FIRE', 'MANTÉN EL CLIC DERECHO PARA APUNTAR · SUÉLTALO PARA DISPARAR') : L('HOLD YOUR FINGER STILL TO AIM · RELEASE TO FIRE', 'DEJA EL DEDO QUIETO PARA APUNTAR · SUÉLTALO PARA DISPARAR'));
         el.classList.toggle('aim', kind === 'aim');
+        el.classList.toggle('magic', kind === 'magic'); // el del trigo mágico, de colores
         el.classList.remove('hidden');
     },
     popPlus: () => popPlus(innerWidth * 0.62, innerHeight * 0.62),
@@ -309,6 +313,7 @@ const prologueHooks = {
         scope.show(false);
         mode = 'farm';
         rig.focus(home.x, home.z);
+        rig.zoomTarget = 1.6; // algo más lejos: se ve la zona y el trigo hablando
         rig.snap();
         startMusic(THEME.music);
     },
@@ -348,7 +353,44 @@ const ico = (icon) => `<span class="ico ${icon}-ico"></span>`;
 // Lo que cuesta algo, en sus pastillas (cultivos y oro); short: en rojo lo que no llega
 const costHtml = (cost) => Object.entries(cost).map(([c, n]) => `<span class="upgrade-cost${state.items[c] < n ? ' short' : ''}">${ico(c === 'gold' ? 'gold' : CROPS[c].icon)}<b>${n}</b></span>`).join('');
 
+// ---------- Progresión ----------
+// Lo que ya está abierto; cuando se abre algo nuevo, su cartel grande (al cargar, sin cartel)
+const GATES = {
+    grenades: [L('NEW: GRENADE STREAKS!', '¡NUEVO: RACHAS DE GRANADAS!'), L('HARVEST IN A ROW TO EARN GRENADES', 'RECOGE SEGUIDO PARA GANAR GRANADAS')],
+    aliens: [L('NEW: ALIEN STREAK!', '¡NUEVO: RACHA ALIENÍGENA!'), L('SHOOT ALIENS: MISSILE, BOMBER AND NUKE', 'ABATE ALIENÍGENAS: MISIL, BOMBARDERO Y NUCLEAR')],
+    merchant: [L('A MERCHANT ARRIVES!', '¡LLEGA UN MERCADER!'), L('HE PAYS IN GOLD · AND DECORATES HOUSES', 'PAGA EN ORO · Y DECORA CASAS')],
+};
+let gatesSeen = null;
+function refreshGates() {
+    merchantClock.locked = !state.open('merchant');
+    const now = Object.fromEntries(Object.keys(GATES).map((g) => [g, state.open(g)]));
+    if (gatesSeen && mode === 'farm') {
+        const g = Object.keys(GATES).find((k) => now[k] && !gatesSeen[k]);
+        if (g) setTimeout(() => stage(...GATES[g]), 900);
+    }
+    gatesSeen = now;
+    // El granero: sin abrir no está (solo su cartel para abrirlo)
+    for (const id of ['barn', 'silo']) farm.byId[id].root.visible = state.open('barn');
+}
+
+// El granero se abre: cae en su sitio con polvo y su cartel
+function openBarn() {
+    if (!state.openBarn()) return;
+    const b = farm.byId.barn;
+    refreshGates();
+    b.select();
+    farm.byId.silo.select();
+    rig.focus(b.def.x, b.def.z + 1);
+    rig.shake(0.3);
+    for (let k = 0; k < 12; k++) farmParticles.burst(b.def.x + (Math.random() - 0.5) * 7, 0.2, b.def.z + (Math.random() - 0.5) * 5, 6, [THEME.dust, 0x8a5a34, 0xffe03a], { speed: 2.6, up: 2.4, size: 0.14, ttl: 0.7 });
+    sfx.play('unlock');
+    vibrate('kill');
+    updateCounts();
+    setTimeout(() => stage(L('BARN UNLOCKED!', '¡GRANERO DESBLOQUEADO!'), L('NOW CLEAR THE WHEAT FIELD', 'AHORA LIMPIA EL CAMPO DE TRIGO')), 300);
+}
+
 function updateCounts(bump = false) {
+    refreshGates();
     for (const c of Object.keys(CROPS)) $(`${c}-count`).textContent = state.items[c];
     // Monedas de oro: salen en cuanto hay alguna (o en cuanto ha venido el comerciante)
     $('gold-count').textContent = $('merchant-gold').textContent = state.items.gold;
@@ -501,8 +543,10 @@ function refreshArmory() {
     houseSign.classList.toggle('can-up', state.canUpgradeHouse);
     const lv = state.barn.level, max = FARM.barn.levels.length - 1;
     const pips = Array.from({ length: max }, (_, i) => `<i class="pip${i < lv ? ' on' : ''}"></i>`).join('');
-    const html = `${ico('ks-grenade')}<span>${L('ARMORY', 'ARMAMENTO')}</span><span class="pips">${pips}</span><i class="sign-up"></i>`;
+    const html = !state.open('barn') ? `${ico('barrel')}<span>${L('UNLOCK BARN!', '¡DESBLOQUEAR GRANERO!')}</span>`
+        : `${ico('ks-grenade')}<span>${L('ARMORY', 'ARMAMENTO')}</span><span class="pips">${pips}</span><i class="sign-up"></i>`;
     if (armory.innerHTML !== html) armory.innerHTML = html;
+    armory.classList.toggle('can-unlock', !state.open('barn'));
     armory.classList.toggle('can-up', state.canUpgradeBarn || ARSENAL_KINDS.some((k) => ARSENAL[k].some((x) => !state.ownsGear(k, x.id) && state.items.gold >= state.gearPrice(k, x.id))));
 }
 
@@ -539,13 +583,13 @@ function placeBubbles() {
     const show = mode === 'farm' && farm.introT > 1.6;
     armory.classList.toggle('hidden', !show);
     houseSign.classList.toggle('hidden', !show);
-    merchantSign.classList.toggle('hidden', !show);
+    merchantSign.classList.toggle('hidden', !show || merchantClock.locked);
     if (show) {
         _b.set(MERCHANT.stall.x, 3.1, MERCHANT.stall.z).project(rig.camera);
         merchantSign.style.left = `${(_b.x * 0.5 + 0.5) * innerWidth}px`;
         merchantSign.style.top = `${(-_b.y * 0.5 + 0.5) * innerHeight}px`;
     }
-    const ufoOn = show && state.houseMaxed && !cine;
+    const ufoOn = show && state.open('shop') && !cine;
     ufoSign.classList.toggle('hidden', !ufoOn);
     if (ufoOn) {
         const h = farm.byId.house;
@@ -582,7 +626,8 @@ function placeBubbles() {
 
 // Ficha del edificio o del campo tocado
 function select(what) {
-    // El granero es el cuartel de las rachas de bajas: abre su menú
+    // El granero es el cuartel de las rachas de bajas: abre su menú (sin abrir, se abre)
+    if (what && (what.structure === 'barn' || what.structure === 'silo') && !state.open('barn')) return openBarn();
     if (what && what.structure === 'barn') {
         select(null);
         farm.byId.barn.select();
@@ -772,7 +817,7 @@ function revealUnlocked() {
 // Racha alienígena (a la izquierda): cuántos alienígenas lleva y por dónde va hacia cada recompensa
 function updateStreak() {
     const n = sniper.streak, el = $('streak');
-    el.classList.toggle('hidden', n <= 0 || sniper.unlocking);
+    el.classList.toggle('hidden', n <= 0 || sniper.unlocking || !sniper.tracks.crop);
     if (n > 0) {
         $('streak-n').textContent = n;
         $('streak-fill').style.width = `${Math.round(Math.max(0, sniper.streakT / sniper.streakMax) * 40) * 2.5}%`;
@@ -783,7 +828,7 @@ function updateStreak() {
     // Lo que queda en el campo (también baja cuando roban)
     const left = String(sniper.field.remaining);
     if (!sniper.unlocking && $('left-count').textContent !== left) $('left-count').textContent = left;
-    $('alien-streak').classList.toggle('hidden', sniper.unlocking);
+    $('alien-streak').classList.toggle('hidden', sniper.unlocking || !sniper.tracks.alien);
     const a = sniper.aliens, steps = streakOf('alien');
     $('as-n').textContent = a;
     renderAlienTower(steps);
@@ -860,6 +905,7 @@ function quickAction() {
     const ids = FARM.fields.map((f) => f.id);
     const ready = ids.find((id) => state.isReady(id));
     if (ready) return harvest(ready);
+    if (!state.open('barn')) return openBarn();
     const free = ids.find((id) => state.canUnlock(id));
     if (free) startUnlock(free);
 }
@@ -867,6 +913,7 @@ function quickAction() {
 function enterSnipe() {
     const unlock = goSnipe.unlock;
     const def = FIELD_BY_ID[snipeField], arena = def.levels[state.fields[snipeField].level].arena;
+    sniper.tracks = { crop: state.open('grenades'), alien: state.open('aliens') };
     sniper.enter(unlock ? { unlock: true, loadout: state.arsenal.loadout } : { crop: def.crop, count: state.fields[snipeField].left, arena, loadout: state.arsenal.loadout, turrets: state.fields[snipeField].turrets });
     document.body.classList.remove('fallout');
     mode = 'snipe';
@@ -1288,7 +1335,7 @@ function say(text, warn = false) {
 }
 
 function openShop() {
-    if (mode !== 'farm' || inCine() || !state.houseMaxed) return;
+    if (mode !== 'farm' || inCine() || !state.open('shop')) return;
     if (!state.ufo.met) {
         state.ufo.met = true;
         state.save();
@@ -1369,7 +1416,6 @@ tapBtn('ufo-close', () => {
 // ---------- Comerciante ----------
 // Su reloj (en las pruebas, fuera salvo que DEBUG diga otra cosa). Cuando llega o se va, su ovni
 // disfrazado de coche entra o sale por el surco (si se está en el mapa, con aviso)
-const merchantClock = new MerchantClock(Settings.merchant || (CONFIG.test ? 'away' : null));
 farm.camp.setPresent(merchantClock.here, false);
 function updateMerchant(dt) {
     const here = merchantClock.here;
@@ -1734,6 +1780,10 @@ function setStreakCount(k, n) {
 // Depuración: todos los terrenos bloqueados, limpios y sembrados de golpe (sin requisitos), y el
 // rifle al máximo
 tapBtn('btn-unlock-all', () => {
+    if (!state.barn.open) {
+        state.openBarn();
+        refreshGates();
+    }
     const ids = FARM.fields.map((f) => f.id).filter((id) => state.unlock(id, Date.now(), true));
     const rifle = state.ownAllGear();
     sfx.play(ids.length || rifle ? 'power' : 'miss');

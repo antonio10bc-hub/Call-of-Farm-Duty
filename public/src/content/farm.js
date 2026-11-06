@@ -87,7 +87,7 @@ export const FARM = {
             cost: { wheat: 3 },
             turrets: { wheat: 40 },
             // Lo primero del juego: limpiar este terreno para poder sembrar trigo
-            locked: { name: L('JUNKYARD', 'TERRENO ABANDONADO') },
+            locked: { barn: true, name: L('JUNKYARD', 'TERRENO ABANDONADO') },
             // El último llena el hueco entre el camino, la valla y los árboles (x 3..14, z 16..27)
             levels: [
                 { w: 4, d: 3, sheaves: 18, arena: 1, sign: 0x9a6a3a },

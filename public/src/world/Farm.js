@@ -137,6 +137,7 @@ export class Farm {
         }
         this.buildFences();
         this.buildTrees();
+        this.pickHints();
         this.buildWild();
         this.buildHints();
         this.buildDecor();
@@ -324,7 +325,7 @@ export class Farm {
         const trees = [], bush = [], pieces = [], rocks = [];
         const zones = [{ Z: this.zone, k: 1 }, { Z: this.houseZone, k: 0.8 }, { Z: this.villageZone, k: 1.6, forest: true }, ...this.views.map((v) => ({ Z: v.zone, k: 0.55 })), ...FARM.lands.map((l) => ({ Z: rectOf(l.rect), k: 1 }))];
         for (const { Z, k, forest } of zones) {
-            const free = (x, z, m) => inRect(Z, x, z) && !inRect(this.yard, x, z, m) && !inRect(this.houseYard, x, z, m) && !inRect(this.villageYard, x, z, m) && !this.views.some((v) => inRect(v.rect, x, z, m))
+            const free = (x, z, m) => inRect(Z, x, z) && !this.hintSpots.some(([hx, hz]) => Math.hypot(hx - x, hz - z) < m + 0.8) && !inRect(this.yard, x, z, m) && !inRect(this.houseYard, x, z, m) && !inRect(this.villageYard, x, z, m) && !this.views.some((v) => inRect(v.rect, x, z, m))
                 && !FARM.paths.some(([x0, z0, x1, z1]) => x > x0 - m && x < x1 + m && z > z0 - m && z < z1 + m)
                 && !FARM.structures.some((st) => Math.abs(x - st.x) < st.w / 2 + m && Math.abs(z - st.z) < st.d / 2 + m);
             const spots = (n, m) => {
@@ -361,19 +362,29 @@ export class Farm {
 
     // Adelantos: en cada terreno aún bloqueado asoman, entre la porquería, unas cuantas plantas de lo
     // que tendrá (espigas, tomateras, calabazas, maíz). Se van al desbloquearlo
-    buildHints() {
-        const solid = [], thin = [];
+    // Dónde van las plantas de muestra (antes que lo abandonado, que les deja un claro alrededor
+    // para que se vean)
+    pickHints() {
+        this.hintSpots = [];
+        this.hintBy = {};
         for (const v of this.views) {
             if (!v.locked) continue;
-            const Z = v.zone, spots = [];
-            for (let tries = 0; spots.length < 8 && tries < 300; tries++) {
+            // Bastantes (según el tamaño de la zona) y grandes, para que se vea bien lo que vendrá
+            const Z = v.zone, spots = [], want = Math.min(34, Math.max(12, Math.round(Z.w * Z.d * 0.07)));
+            for (let tries = 0; spots.length < want && tries < 900; tries++) {
                 const x = Z.x + 0.8 + Math.random() * (Z.w - 1.6), z = Z.z + 0.8 + Math.random() * (Z.d - 1.6);
                 if (FARM.paths.some(([x0, z0, x1, z1]) => x > x0 - 0.7 && x < x1 + 0.7 && z > z0 - 0.7 && z < z1 + 0.7)) continue;
-                if (spots.some(([a, b]) => Math.hypot(a - x, b - z) < 1.7)) continue;
+                if (spots.some(([a, b]) => Math.hypot(a - x, b - z) < 1.5)) continue;
                 spots.push([x, z]);
             }
-            for (const [x, z] of spots) this.hintPlant(v.crop, x, z, v.id, solid, thin);
+            this.hintBy[v.id] = spots;
+            this.hintSpots.push(...spots);
         }
+    }
+
+    buildHints() {
+        const solid = [], thin = [];
+        for (const v of this.views) for (const [x, z] of this.hintBy[v.id] || []) this.hintPlant(v.crop, x, z, v.id, solid, thin);
         this.hints = [];
         if (solid.length) {
             const m = this.addHulled(0xffffff, solid, 0.5);
@@ -389,8 +400,8 @@ export class Farm {
 
     // Una planta de muestra de un cultivo (piezas con contorno en solid; tallos finos en thin)
     hintPlant(crop, x, z, field, solid, thin) {
-        const r = Math.random() * Math.PI;
-        const add = (list, dx, y, dz, sx, sy, sz, color, ry = 0) => list.push({ x: x + dx, y, z: z + dz, sx, sy, sz, ry, color, field });
+        const r = Math.random() * Math.PI, k = 1.45; // más grandes que las de verdad, para que se lean
+        const add = (list, dx, y, dz, sx, sy, sz, color, ry = 0) => list.push({ x: x + dx * k, y: y * k, z: z + dz * k, sx: sx * k, sy: sy * k, sz: sz * k, ry, color, field });
         if (crop === 'wheat') {
             for (let k = 0; k < 6; k++) {
                 const a = k * 1.1 + r, d = 0.08 + (k % 3) * 0.08, h = 0.7 + (k % 2) * 0.2;
