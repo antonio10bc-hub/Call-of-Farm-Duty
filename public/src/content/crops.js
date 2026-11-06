@@ -77,4 +77,18 @@ export const CROPS = {
         loot: 0xffd23f,
         stub: [0x9ac04a, 0x8a7a4a, 0x7ab83a],
     },
+    // Leche: vacas que corren por su prado; cada poco se les hincha la ubre y, llena, un tiro a la
+    // ubre da un cubo de leche (cada vaca, uno por partida). Su campo es un prado, no tierra arada
+    milk: {
+        name: L('MILK', 'LECHE'),
+        icon: 'milk',
+        growTime: 50,
+        pasture: true,
+        swell: [3, 7], // segundos que tarda en llenarse la ubre de cada vaca
+        burst: [0xffffff, 0xf3ead2, 0xd8f0ff, 0xffffff],
+        chaff: [0xffffff, 0xf2a0b0, 0xf3ead2],
+        unit: L('BUCKETS', 'CUBOS'),
+        loot: 0xf6f3ea,
+        stub: [0x8fd45a, 0x7fc84e, 0x9ad962],
+    },
 };

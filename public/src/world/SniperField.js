@@ -4,6 +4,7 @@ import { easeOutBack } from '../core/math.js';
 import { Tower } from '../render/structures.js';
 import { junkyard, barrelParts, JUNK } from '../render/junk.js';
 import { CROPS } from '../content/crops.js';
+import { buildCow, animateCow } from '../render/cow.js';
 import { FIELD } from '../content/field.js';
 
 const _d = new THREE.Object3D();
@@ -52,6 +53,8 @@ function instanced(root, mat, n) {
 //   - cosecha de trigo: las matas maduras son los blancos
 //   - cosecha de tomates: matas de tomate con tomates gigantes; cada tomate es un blanco
 //   - cosecha de calabazas: calabazas enormes entre hojas; aguantan varios tiros y paran la bala
+//   - leche: vacas que corren por el prado; cada poco se les llena la ubre y, llena, un tiro a la
+//     ubre da un cubo
 //   - cosecha de maíz: matas altas en hileras con dos mazorcas cada una (los blancos)
 //   - desbloqueo: el terreno está sucio y lleno de chatarra, con un barril rojo encima del
 //     montón del fondo. Un disparo al barril lo hace volar todo y deja la tierra limpia.
@@ -231,7 +234,8 @@ export class SniperField {
         const { theme } = this;
         this.tiles.forEach(({ c, r, soil }, i) => {
             if (!soil) return;
-            const col = kind === 'junk' ? JUNK.ground[mod(c * 7 + r * 5 + mod(c * r, 3), JUNK.ground.length)] : theme.soil[r & 1];
+            const col = kind === 'junk' ? JUNK.ground[mod(c * 7 + r * 5 + mod(c * r, 3), JUNK.ground.length)]
+                : CROPS[kind] && CROPS[kind].pasture ? [0xa8e070, 0x9ad962, 0xb4e67a][mod(c * 3 + r * 5, 3)] : theme.soil[r & 1];
             this.floor.setColorAt(i, _c.setHex(col).offsetHSL(0, 0, (Math.random() - 0.5) * theme.grassJitter));
         });
         this.floor.instanceColor.needsUpdate = true;
@@ -268,6 +272,7 @@ export class SniperField {
         if (crop === 'tomato') return this.spawnTomatoes(count);
         if (crop === 'pumpkin') return this.spawnPumpkins(count);
         if (crop === 'corn') return this.spawnCorn(count);
+        if (crop === 'milk') return this.spawnCows(count);
         for (let i = 0; i < count; i++) {
             const { x, z } = this.freeSpot(this.targets, count > 90 ? 1.2 : 1.6); // (más juntas si hay muchas)
             const stalks = Array.from({ length: CLUMP }, () => {
@@ -371,9 +376,63 @@ export class SniperField {
         this.paintPlants(C, [C.stalk, 0xe8d08a]);
     }
 
-    // ¿Se le puede dar?
+    // Vacas: cada una corre por el prado a su ritmo; la ubre se le va hinchando (swell) y, llena,
+    // es el blanco (s.x, s.y, s.z: la ubre)
+    spawnCows(count) {
+        if (!this.herd) {
+            this.herd = new THREE.Group();
+            this.root.add(this.herd);
+        }
+        const ink = outline(this.theme.outline), [a, b] = CROPS.milk.swell;
+        for (let i = 0; i < count; i++) {
+            const { x, z } = this.freeSpot(this.targets, 2.4);
+            const cow = buildCow(ink);
+            this.herd.add(cow.g);
+            this.targets.push({ kind: 'cow', cow, x, y: 0.55, z, cx: x, cz: z, ry: Math.random() * 6, goal: null, speed: 0, pace: 1 + Math.random() * 2.8,
+                swell: Math.random() * 0.4, rate: 1 / (a + Math.random() * (b - a)), alive: true, grow: -0.5 - i * 0.12, landed: false, flash: 0, dying: 0 });
+        }
+    }
+
+    // Un sitio del prado al que ir corriendo (lejos del borde)
+    cowGoal() {
+        return this.freeSpot([], 0);
+    }
+
+    drawCows(dt, time) {
+        for (const s of this.targets) {
+            const c = s.cow;
+            c.g.visible = !s.gone; // (se la ha llevado un ovni)
+            if (!s.goal || Math.hypot(s.goal.x - s.cx, s.goal.z - s.cz) < 0.5) {
+                s.goal = this.cowGoal();
+                // A veces echa a galopar, a veces va al paso
+                s.speed = s.pace * (Math.random() < 0.3 ? 1.6 : 1);
+            }
+            const dx = s.goal.x - s.cx, dz = s.goal.z - s.cz, d = Math.hypot(dx, dz) || 1, v = s.landed ? s.speed : 0;
+            s.cx += (dx / d) * v * dt;
+            s.cz += (dz / d) * v * dt;
+            const want = Math.atan2(dx, dz);
+            s.ry += Math.atan2(Math.sin(want - s.ry), Math.cos(want - s.ry)) * Math.min(1, dt * 5);
+            if (s.alive && s.landed && s.swell < 1 && (s.swell += dt * s.rate) >= 1) {
+                s.swell = 1;
+                if (this.onFull) this.onFull(s);
+            }
+            else if (!s.alive) s.swell = Math.max(0, s.swell - dt * 3); // ordeñada: se vacía
+            c.g.position.set(s.cx, 0, s.cz);
+            c.g.rotation.y = s.ry;
+            c.g.scale.setScalar((s.g || 0.0001) * 1.15);
+            animateCow(c, dt, time, v, s.swell);
+            // La ubre, en el mundo (el blanco)
+            const sin = Math.sin(s.ry), cos = Math.cos(s.ry), back = -0.18 * 1.15;
+            s.x = s.cx + sin * back;
+            s.z = s.cz + cos * back;
+            s.y = 0.55 * 1.15;
+            if (s.flash > 0) c.udder.scale.multiplyScalar(1 + s.flash * 0.3);
+        }
+    }
+
+    // ¿Se le puede dar? (las vacas, solo con la ubre llena)
     hittable(s) {
-        return s.alive && s.landed;
+        return s.alive && s.landed && (s.kind !== 'cow' || s.swell >= 1);
     }
 
     // Terreno abandonado: chatarra a montones por todo el campo y por la hierba hasta la atalaya
@@ -490,6 +549,7 @@ export class SniperField {
     }
 
     clearSheaves() {
+        if (this.herd) for (const c of [...this.herd.children]) this.herd.remove(c);
         this.targets.length = 0;
         this.plants.length = 0;
         for (const m of [this.tStalks, this.tEars, this.tLeaves, this.tStems, this.tFruit, this.tFruitHull, this.tCalyx]) m.count = 0;
@@ -546,7 +606,8 @@ export class SniperField {
             if (s.dying > 0) s.dying = Math.max(0, s.dying - dt);
             s.flash = Math.max(0, s.flash - dt * 6);
         }
-        if (this.crop === 'wheat') this.drawWheat(time);
+        if (this.crop === 'milk') this.drawCows(dt, time);
+        else if (this.crop === 'wheat') this.drawWheat(time);
         else if (this.crop === 'tomato') this.drawTomatoes(dt, time);
         else if (this.crop) this.drawPlants(dt, time);
         if (this.junk) this.updateJunk(dt);
@@ -811,6 +872,7 @@ function hitBox(s) {
         const r = s.size * 0.66;
         return [s.x - r, 0, s.z - r, s.x + r, s.size * 0.85, s.z + r];
     }
+    if (s.kind === 'cow') return [s.x - 0.34, 0.25, s.z - 0.34, s.x + 0.34, 0.85, s.z + 0.34];
     if (s.kind === 'corn') return [s.x - 0.2, s.y - 0.3, s.z - 0.2, s.x + 0.2, s.y + 0.3, s.z + 0.2];
     const r = s.size * 0.62;
     return [s.x - r, s.y - r, s.z - r, s.x + r, s.y + r, s.z + r];

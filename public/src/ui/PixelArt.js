@@ -175,6 +175,11 @@ const SPRITES = {
         rows: ['....KK....', '....KGK...', '..KKKKKK..', '.KOOYOOOK.', 'KOOYOOOODK', 'KOYOOOOODK', 'KOOOOOODDK', 'KOOOOODDDK', '.KODODDDK.', '..KKKKKK..'],
         pal: { K: INK, G: '#5a7a2a', O: '#f08a1e', D: '#d06a10', Y: '#ffc070' },
     },
+    // Cubo de leche: de chapa con su asa y la leche asomando
+    milk: {
+        rows: ['..KKKKKK..', '.K......K.', 'K.KKKKKK.K', 'KKWWWWWWKK', 'KMWWWWWWMK', 'KMMMMMMMMK', '.KMLMMMMK.', '.KMLMMMMK.', '.KMMMMMDK.', '..KKKKKK..'],
+        pal: { K: INK, W: '#ffffff', M: '#a8b8c8', L: '#d8e4f0', D: '#7a8898' },
+    },
     corn: {
         rows: ['....KK....', '...KYYK...', '..KYWYYK..', '..KYYYYK..', '..KYYYOK..', '.GKYYYYKG.', 'GGKYYYOKGG', '.GGKYOKGG.', '..GGKKGG..', '...GGGG...'],
         pal: { K: INK, Y: '#ffd23f', O: '#e8b830', W: '#fff3a0', G: '#7ab83a' },

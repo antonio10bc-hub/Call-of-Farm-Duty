@@ -23,7 +23,7 @@ export const FARM = {
     lands: [
         { id: 'west', rect: [-30, 0, 0, 30], price: 15, field: 'pumpkin', post: { x: -1.1, z: 13.2 }, name: L('WEST PLOT', 'PARCELA OESTE') },
         { id: 'east', rect: [30, 0, 60, 30], price: 25, field: 'corn', post: { x: 31.1, z: 13.2 }, name: L('EAST PLOT', 'PARCELA ESTE') },
-        { id: 'nw', rect: [-30, -30, 0, 0], soon: true, post: { x: -1.4, z: -13.6 } },
+        { id: 'nw', rect: [-30, -30, 0, 0], price: 40, field: 'milk', post: { x: -1.1, z: -12.8 }, name: L('NORTH-WEST PLOT', 'PARCELA NOROESTE') },
         { id: 'sw', rect: [-30, 30, 0, 60], soon: true, post: { x: -1.4, z: 31.4 } },
         { id: 'south', rect: [0, 30, 30, 60], soon: true, post: { x: 17.4, z: 32.2 } },
         { id: 'se', rect: [30, 30, 60, 60], soon: true, post: { x: 31.4, z: 31.4 } },
@@ -149,6 +149,23 @@ export const FARM = {
                 { w: 26, d: 26, sheaves: 140, arena: 2.4, sign: 0xc8402e },
             ],
         },
+        {
+            id: 'milk',
+            crop: 'milk',
+            name: L('COW PASTURE', 'PRADO DE VACAS'),
+            corner: { x: -2, z: -2, dx: -1, dz: -1 }, // junto a la esquina de la casa y la parcela oeste
+            cost: { wheat: 10, milk: 3 },
+            turrets: { wheat: 40, milk: 12 },
+            locked: { land: 'nw', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
+            // sheaves: vacas del campo de tiro (un cubo cada una)
+            levels: [
+                { w: 6, d: 5, sheaves: 4, arena: 1, sign: 0x9a6a3a },
+                { w: 10, d: 9, sheaves: 6, arena: 1.25, sign: 0xb07a44 },
+                { w: 15, d: 14, sheaves: 9, arena: 1.55, sign: 0x5a9e32 },
+                { w: 20, d: 19, sheaves: 13, arena: 1.9, sign: 0x3a7ec8 },
+                { w: 26, d: 26, sheaves: 18, arena: 2.4, sign: 0xc8402e },
+            ],
+        },
     ],
     // Caminos de tierra: rectángulos de casillas [x0, z0, x1, z1) (el final no entra)
     paths: [
@@ -156,6 +173,7 @@ export const FARM = {
         [-2, 15, 32, 16],   // entre el granero y los campos (y a los portones de las parcelas oeste y este)
         [14, -13, 16, 9],   // de la casa a la trasera del granero (por el portón)
         [17, -16, 34, -14], // de la casa al claro del bosque donde aterriza el comerciante
+        [-2, -16, 13, -14], // de la casa al portón del prado de vacas (a la izquierda)
     ],
 };
 
@@ -184,6 +202,7 @@ export const LAND_BY_ID = Object.fromEntries(FARM.lands.map((l) => [l.id, l]));
 const GRID = [-30, 0, 30, 60];
 const GATES = [
     ['x', 0, 14, 17],    // a la parcela oeste
+    ['x', 0, -16, -14],  // al prado de vacas
     ['x', 30, 14, 17],   // a la parcela este
     ['x', 30, -16, -14], // el camino al claro del comerciante
     ['z', 0, 14, 16],    // entre los campos y la casa

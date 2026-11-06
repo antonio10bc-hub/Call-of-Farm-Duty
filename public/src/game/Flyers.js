@@ -142,6 +142,7 @@ export class Flyers {
             s.alive = false;
             s.dying = 0.2;
             s.flash = 1;
+            s.gone = true; // (una vaca: se la lleva entera)
             fl.loot.push(s);
             const mesh = new THREE.Mesh(box(0.34, 0.34, 0.34), cubeMat);
             mesh.position.set(s.x, s.y, s.z);

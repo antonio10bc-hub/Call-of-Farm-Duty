@@ -12,7 +12,7 @@ Solo en una partida nueva (en DEBUG, VER EL PRÓLOGO), todo al atardecer, con ba
 4. Fundido en blanco y al mapa con todo por hacer. El trigo se despide, te deja su viejo granero (aparece con magia) y se va. A partir de ahí, dependes de ti mismo.
 
 ### La granja
-- **Una cuadrícula de 3×3 parcelas** de 30×30 casillas, con vallas y portones donde pasan los caminos. En el centro, la de los campos y el granero; detrás, la de la casa; a su derecha, el claro del mercader; a los lados, dos parcelas que se compran con oro. Las demás (las esquinas y la de abajo) están abandonadas, en sombra y con un poste con candado: de momento no hay nada que desbloquear.
+- **Una cuadrícula de 3×3 parcelas** de 30×30 casillas, con vallas y portones donde pasan los caminos. En el centro, la de los campos y el granero; detrás, la de la casa; a su derecha, el claro del mercader; a los lados y arriba a la izquierda, tres parcelas que se compran con oro. Las demás (las esquinas de abajo y la de abajo) están abandonadas, en sombra y con un poste con candado: de momento no hay nada que desbloquear.
 - **Moverse:** arrastra para mover la cámara; pellizca o usa la rueda para acercar o alejar. El botón **MAPA** (abajo a la izquierda) enseña toda la granja de un vistazo; otra vez (o acercar), de vuelta a donde estabas.
 - **Carteles:** fichas cuadradas sobre cada campo y edificio, con su icono y su barra de nivel; un cuadrado verde avisa de que hay una mejora que te puedes permitir. El texto solo sale cuando importa (desbloquear, en venta, el mercader) o al pasar el ratón. Un campo maduro saca **¡RECOGER!**.
 - **Dock** (abajo en el centro): GRANERO, CAMPOS (abre encima otra barra con las fichas de los cultivos que tienes, con su nivel en rayitas y un cuadradito rojo si están listos), CASA y MERCADER. El primer toque lleva la cámara y el segundo abre su ficha; un cuadradito rojo avisa de lo que pide atención.
@@ -36,10 +36,11 @@ Las cosas se van abriendo por pasos, cada una con su cartel grande:
   - Lo suyo no suma a las rachas.
 
 ### Parcelas en venta
-- **Oeste (15 de oro) y este (25 de oro).** Mientras no son tuyas se ven en sombra, con un poste de SE VENDE junto a su portón.
+- **Oeste (15 de oro), este (25 de oro) y noroeste (40 de oro).** Mientras no son tuyas se ven en sombra, con un poste de SE VENDE junto a su portón.
 - **Al comprarlas,** la sombra se retira en una onda dorada desde el poste, el poste salta por los aires y se iza tu bandera: ya es tuya, pero sigue sucia. Luego se desbloquea con su barril y queda limpia con su cultivo (5 niveles, torreta y campo de tiro). Al nivel 5 el campo ocupa casi toda la parcela (26×26).
   - **Calabazas** (oeste): enormes, entre hojas grandes. Aguantan 3 tiros (cada uno las resquebraja, con su hitmarker) y paran la bala.
   - **Maíz** (este): matas de más de 2 m en hileras (cada partida en una dirección) con dos mazorcas a media altura. Las hileras dan colaterales largos y las matas tapan la vista.
+  - **Vacas** (noroeste, con su camino desde la casa): su campo es un prado de hierba fresca donde pastan. En el campo de tiro corren por todo el prado, cada una a su ritmo (unas al paso, otras al galope), y se les va hinchando la ubre; llena (rosa y temblando, a veces con un mugido) es el blanco: un tiro a la ubre da un **cubo de leche**. Ordeñada, sigue corriendo con la ubre vacía. Un cubo por vaca: 4, 6, 9, 13 y 18 según el nivel; cada mejora cuesta 10 de trigo y 3 cubos. Los alienígenas a pie no las persiguen, pero un ovni ladrón puede llevarse una entera con su rayo. El mercader compra la leche.
 
 ### El mercader y el oro
 - **Quién es:** un alienígena muy mal disfrazado de humano (careta plana con su goma, gabardina y sombrero con las antenas asomando). Llega en un ovni disfrazado de coche (una careta gigante de cartón con un coche rojo de perfil) al claro del bosque donde una vez se estrelló una nave: baja al surco, lo recorre pegado al suelo levantando polvo, baja la rampa y sale.

@@ -44,6 +44,7 @@ export class Sniper {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(theme.sky);
         this.field = new SniperField(theme);
+        this.wireField();
         this.scene.add(this.field.root);
         this.particles = new Particles(this.scene, 3200);
         this.waves = new Shockwaves(this.scene);
@@ -155,9 +156,17 @@ export class Sniper {
         this.scene.remove(this.field.root);
         this.field.dispose();
         this.field = new SniperField(this.theme, scale);
+        this.wireField();
         this.scene.add(this.field.root);
     }
 
+
+    // Lo que avisa el campo: a una vaca se le ha llenado la ubre (muge, a veces)
+    wireField() {
+        this.field.onFull = () => {
+            if (Math.random() < 0.5) this.hooks.sfx.play('moo');
+        };
+    }
 
     // what: { crop, count, arena, turrets } para cosechar (count blancos de ese cultivo en un
     // campo de tamaño arena, con o sin sus torretas automáticas) o { unlock: true }; loadout:

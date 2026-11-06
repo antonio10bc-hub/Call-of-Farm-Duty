@@ -1,5 +1,5 @@
 // Pruebas de el campo de tiro: controles (dedo, ratón, teclado), colaterales y los cultivos de las
-// parcelas que se compran (calabazas y maíz).
+// parcelas que se compran (calabazas, maíz y las vacas del prado).
 const { test, expect, aimAndShoot, enterField, openFarm, shootNext, touchPath, watchErrors } = require('./helpers');
 
 // Al campo de tiro de un cultivo de las parcelas que se compran (desbloqueado a la fuerza)
@@ -128,5 +128,26 @@ test('maíz: matas altas en hileras con sus mazorcas arriba', { tag: '@full' }, 
     expect(await page.evaluate(() => { const f = game.sniper.field; return [f.targets.length, f.plants.every((p) => p.h > 2), f.targets.every((s) => s.y > 1)]; })).toEqual([16, true, true]);
     await aimAndShoot(page, '(() => { const s = game.sniper.field.sheaves.find((x) => x.alive); return s && { x: s.x, y: s.y, z: s.z }; })()');
     await expect.poll(() => page.evaluate(() => game.state.items.corn)).toBeGreaterThan(0);
+    expect(errors).toEqual([]);
+});
+
+test('vacas: corren por el prado; con la ubre llena, un tiro a la ubre da un cubo de leche', { tag: '@full' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await enterCrop(page, 'milk');
+    // Una vaca por cubo, corriendo (cada una se mueve)
+    const n = await page.evaluate(() => game.sniper.field.targets.length);
+    expect(n).toBe(await page.evaluate(() => game.state.sheaves('milk')));
+    const at0 = await page.evaluate(() => game.sniper.field.targets.map((s) => [s.cx, s.cz]));
+    await expect.poll(() => page.evaluate((at0) => game.sniper.field.targets.every((s, i) => Math.hypot(s.cx - at0[i][0], s.cz - at0[i][1]) > 0.2), at0)).toBe(true);
+    // Con la ubre vacía no hay a qué disparar
+    await page.evaluate(() => { for (const s of game.sniper.field.targets) { s.swell = 0; s.rate = 0; } });
+    expect(await page.evaluate(() => game.sniper.field.targets.some((s) => game.sniper.field.hittable(s)))).toBe(false);
+    // Una, quieta y con la ubre llena: a la ubre
+    await page.evaluate(() => { const s = game.sniper.field.targets[0]; s.swell = 1; s.pace = s.speed = 0; s.goal = { x: s.cx, z: s.cz }; });
+    expect(await page.evaluate(() => game.sniper.field.hittable(game.sniper.field.targets[0]))).toBe(true);
+    await aimAndShoot(page, '(() => { const s = game.sniper.field.targets[0]; return { x: s.x, y: s.y, z: s.z }; })()');
+    await expect.poll(() => page.evaluate(() => game.state.items.milk)).toBe(1);
+    // Ordeñada: sigue ahí (no desaparece), con la ubre vaciándose
+    expect(await page.evaluate(() => { const s = game.sniper.field.targets[0]; return [s.alive, s.cow.g.visible]; })).toEqual([false, true]);
     expect(errors).toEqual([]);
 });

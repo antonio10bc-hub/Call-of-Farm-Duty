@@ -126,7 +126,7 @@ export class Walkers {
         const f = this.sn.field, taken = new Set(this.list.map((o) => o.tgt));
         let best = null, bd = Infinity;
         for (const s of f.targets) {
-            if (!s.alive || !s.landed || taken.has(s)) continue;
+            if (!s.alive || !s.landed || taken.has(s) || s.kind === 'cow') continue; // (a las vacas, que corren, no las persiguen)
             const d = Math.hypot(s.x - w.x, s.z - w.z) * rand(0.7, 1.3); // no todos a la más cercana
             if (d < bd) [best, bd] = [s, d];
         }

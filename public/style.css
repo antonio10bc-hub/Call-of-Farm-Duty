@@ -566,6 +566,7 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
 .tomato-ico { --ico: var(--px-tomato); }
 .pumpkin-ico { --ico: var(--px-pumpkin); }
 .corn-ico { --ico: var(--px-corn); }
+.milk-ico { --ico: var(--px-milk); }
 .barrel-ico { --ico: var(--px-barrel); }
 .lock-ico { --ico: var(--px-lock); }
 .turret-ico { --ico: var(--px-turret); }

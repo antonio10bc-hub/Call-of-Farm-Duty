@@ -7,6 +7,7 @@ import { MerchantCamp } from '../render/merchant.js';
 import { MERCHANT } from '../content/merchant.js';
 import { junkyard, barrelParts, JUNK } from '../render/junk.js';
 import { CROPS } from '../content/crops.js';
+import { buildCow, animateCow } from '../render/cow.js';
 import { FARM, TURRETS } from '../content/farm.js';
 
 const _d = new THREE.Object3D();
@@ -28,6 +29,7 @@ const mod = (a, n) => ((a % n) + n) % n;
 const inParcel = (x, z, m = 0) => [...FARM.parcels, ...FARM.lands.map((l) => l.rect)].some(([x0, z0, x1, z1]) => x >= x0 + m && x < x1 - m && z >= z0 + m && z < z1 - m);
 const kindKey = (k) => (!k ? '' : k.field ? (k.locked ? 'junk' : 'field') : k.path ? 'path' : k.yard ? 'yard' : k.wild ? 'wild' : 'b');
 const rectOf = ([x0, z0, x1, z1]) => ({ x: x0, z: z0, w: x1 - x0, d: z1 - z0 });
+const PASTURE = [0xa8e070, 0x9ad962, 0xb4e67a]; // hierba fresca del prado de las vacas
 // La parcela en venta en la que cae un punto (o ninguna)
 const landAt = (x, z) => FARM.lands.find(({ rect: [x0, z0, x1, z1] }) => x >= x0 && x < x1 && z >= z0 && z < z1);
 // Parcela sin comprar: todo más oscuro y frío, como en sombra (se multiplica por esto)
@@ -183,7 +185,8 @@ export class Farm {
     paintTile(mesh, { c, r, k }, i) {
         const { theme } = this;
         const col = k && k.field
-            ? (k.locked ? JUNK.ground[mod(c * 7 + r * 5 + mod(c * r, 3), JUNK.ground.length)] : theme.soil[r & 1])
+            ? (k.locked ? JUNK.ground[mod(c * 7 + r * 5 + mod(c * r, 3), JUNK.ground.length)]
+                : CROPS[this.fields[k.field].crop].pasture ? PASTURE[mod(c * 3 + r * 5, 3)] : theme.soil[r & 1]) // (el prado, de hierba)
             : k && k.path ? theme.path[mod(c * 7 + r * 3, 2)]
             : k && k.wild ? JUNK.ground[mod(c * 5 + r * 7 + mod(c * r, 3), JUNK.ground.length)]
             : k && k.yard ? YARD[mod(c + r, 2)] : theme.grass[mod(c * 5 + r * 3 + mod(c * r, 3), 3)];
@@ -417,6 +420,15 @@ export class Farm {
             add(solid, -0.25, 0.04, -0.2, 0.5, 0.08, 0.4, 0x3d8a2c, r + 1);
             add(solid, 0, 0.24, 0, 0.75, 0.48, 0.64, 0xf08a1e, r);
             add(solid, 0, 0.53, 0, 0.09, 0.16, 0.09, 0x5a7a2a);
+        } else if (crop === 'milk') {
+            // Una vaca de muestra: cuerpo con su mancha, cabeza, patas y la ubre rosa
+            const rx = Math.sin(r), rz = Math.cos(r);
+            add(solid, 0, 0.62, 0, 0.42, 0.34, 0.8, 0xf6f3ea, r);
+            add(solid, 0, 0.8, 0, 0.36, 0.04, 0.24, 0x2a2622, r);
+            add(solid, rx * 0.5, 0.74, rz * 0.5, 0.26, 0.24, 0.24, 0xf6f3ea, r);
+            add(solid, rx * 0.66, 0.68, rz * 0.66, 0.2, 0.12, 0.08, 0xf2a0b0, r);
+            for (const [a, b] of [[0.12, 0.28], [-0.12, 0.28], [0.12, -0.28], [-0.12, -0.28]]) add(solid, rx * b + rz * a, 0.22, rz * b - rx * a, 0.1, 0.44, 0.1, 0xf6f3ea);
+            add(solid, -rx * 0.1, 0.4, -rz * 0.1, 0.22, 0.12, 0.2, 0xf2a0b0, r);
         } else if (crop === 'corn') {
             add(thin, 0, 0.9, 0, 0.12, 1.8, 0.12, 0x8ab83a);
             add(thin, 0.35, 0.7, 0.1, 0.1, 1.4, 0.1, 0x7ab83a);
@@ -441,6 +453,7 @@ export class Farm {
     //   Calabaza: una por casilla, tumbada entre dos hojas grandes.
     //   Maíz: dos por casilla, altas, con su hoja y la mazorca.
     buildPlants(v, old = null, fromCenter = false) {
+        if (CROPS[v.crop].pasture) return this.buildHerd(v);
         const f = v.rect, wheat = v.crop === 'wheat', n = { wheat: PER_TILE, corn: 2 }[v.crop] || 1;
         const prev = new Map(v.plants.map((s) => [s.key, s]));
         v.plants = [];
@@ -887,6 +900,7 @@ export class Farm {
             if (v.crop === 'wheat') this.updateWheat(v, time, p);
             else if (v.crop === 'pumpkin') this.updatePumpkin(v, time, p);
             else if (v.crop === 'corn') this.updateCorn(v, time, p);
+            else if (v.herd) this.updateHerd(v, dt, time, p);
             else this.updateTomato(v, time, p);
             for (const m of v.meshes) {
                 m.instanceMatrix.needsUpdate = true;
@@ -963,6 +977,52 @@ export class Farm {
                 fruitMesh.setColorAt(i * 2 + k, _c);
             }
         });
+    }
+
+    // El prado de las vacas: una vaca cada pocas casillas (más pequeñas que en el campo de tiro),
+    // paseando y paciendo por su campo. v.plants son ellas (la torreta les dispara)
+    buildHerd(v) {
+        const f = v.rect, n = Math.max(2, Math.min(16, Math.round((f.w * f.d) / 14)));
+        if (!v.herd) {
+            v.herd = new THREE.Group();
+            this.root.add(v.herd);
+            v.plants = [];
+        }
+        const ink = outline(this.theme.outline);
+        while (v.plants.length < n) {
+            const c = buildCow(ink);
+            c.g.scale.setScalar(0.0001);
+            v.herd.add(c.g);
+            v.plants.push({ cow: c, x: f.x + 1 + Math.random() * (f.w - 2), z: f.z + 1 + Math.random() * (f.d - 2), ry: Math.random() * 6, goal: null, speed: 0, wait: Math.random() * 3, t0: this.clock + 0.3 + v.plants.length * 0.12 });
+        }
+    }
+
+    // Cada vaca pasea hacia un sitio del prado al azar, se para a pacer y vuelve a andar; la ubre
+    // se le hincha según madura el campo
+    updateHerd(v, dt, time, p) {
+        const f = v.rect;
+        for (const s of v.plants) {
+            if ((s.wait -= dt) <= 0 && !s.goal) s.goal = { x: f.x + 1 + Math.random() * (f.w - 2), z: f.z + 1 + Math.random() * (f.d - 2) };
+            let speed = 0;
+            if (s.goal) {
+                const dx = s.goal.x - s.x, dz = s.goal.z - s.z, d = Math.hypot(dx, dz);
+                if (d < 0.2) {
+                    s.goal = null;
+                    s.wait = 1.5 + Math.random() * 4;
+                } else {
+                    speed = 0.8;
+                    s.x += (dx / d) * speed * dt;
+                    s.z += (dz / d) * speed * dt;
+                    const want = Math.atan2(dx, dz);
+                    s.ry += Math.atan2(Math.sin(want - s.ry), Math.cos(want - s.ry)) * Math.min(1, dt * 4);
+                }
+            }
+            const g = s.cow.g, intro = Math.min(1, Math.max(0, (this.clock - s.t0) / 0.4));
+            g.position.set(s.x, 0, s.z);
+            g.rotation.y = s.ry;
+            g.scale.setScalar(intro <= 0 ? 0.0001 : 0.62 * easeOutBack(intro));
+            animateCow(s.cow, dt, time, speed, Math.min(1, p));
+        }
     }
 
     // Calabazas: dos hojas grandes en el suelo y la calabaza, que sale verde y se pone naranja
