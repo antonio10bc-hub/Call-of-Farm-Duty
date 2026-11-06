@@ -523,7 +523,7 @@ export class Turret extends VoxelModel {
     }
 }
 
-// Poste de una parcela en venta: un cartel blanco con su franja roja y una moneda de oro. Al
+// Poste de una parcela en venta: un cartel blanco con su franja roja y una moneda de oro (de cartón). Al
 // comprarla salta por los aires y en su sitio se iza tu bandera (amarilla y roja, ondeando).
 // soon: el de una parcela que aún no se puede comprar (gris, con un candado).
 // setOwned(on, animate) lo pide; la animación avanza en update.
@@ -541,7 +541,12 @@ export class LandPost extends VoxelModel {
             this.part(this.post, 0.06, 0.2, 0.06, 0x8a8a8a, -0.11, 1.52, 0.07, false);
             this.part(this.post, 0.06, 0.2, 0.06, 0x8a8a8a, 0.11, 1.52, 0.07, false);
             this.part(this.post, 0.28, 0.06, 0.06, 0x8a8a8a, 0, 1.62, 0.07, false);
-        } else this.part(this.post, 0.34, 0.34, 0.04, 0xffd23f, 0, 1.35, 0.07, false);
+        } else {
+            // Una moneda de oro de cartón: el cartón, la pintura amarilla a medias y su $ de rotulador
+            this.part(this.post, 0.38, 0.38, 0.04, 0xc8955a, 0, 1.35, 0.07, false);
+            this.part(this.post, 0.28, 0.26, 0.02, 0xffd23f, -0.01, 1.36, 0.1, false);
+            this.part(this.post, 0.05, 0.2, 0.02, 0x6a3a1a, 0, 1.35, 0.115, false);
+        }
         this.root.add(this.post);
         this.flag = new THREE.Group();
         this.part(this.flag, 0.12, 2.6, 0.12, WOOD, 0, 1.3, 0);

@@ -1,25 +1,17 @@
 import { L } from '../core/I18n.js';
 
-// El ovni: al dejar la casa al máximo cae del cielo y se estrella en un rincón de su parcela.
-// Desde entonces es la tienda para personalizar la casa y la parcela, que se paga con monedas
-// alienígenas: se consiguen derribando los ovnis pequeños que a veces cruzan el cielo del campo
-// de tiro mientras se cosecha.
+// Los ovnis pequeños del campo de tiro y la tienda para personalizar la casa y la parcela (la
+// lleva el mercader y se paga con monedas de oro; sale con la casa al máximo).
 export const UFO = {
-    spot: { x: 23.5, z: -23.5 }, // dónde se estrella (un rincón libre de la parcela de la casa)
-    from: { x: -14, y: 18, z: -16 }, // de dónde viene, respecto a spot (por arriba de la pantalla)
-    wait: 1.5,    // s de calma tras la mejora antes de empezar la cinemática
-    flight: 3.2,  // s de caída
-    settle: 1.8,  // s tras el choque antes de devolver el control
-    // Ovnis pequeños en el campo de tiro: cada every s (entre min y max) cruza uno el cielo a
-    // height m, a speed m/s; derribarlo da coins monedas
-    // Ovnis pequeños del campo de tiro. thief: los que, en vez de solo cruzar, se paran encima de
+    // Ovnis pequeños del campo de tiro: cada min..max s cruza uno el cielo a height m, a speed
+    // m/s. thief: los que, en vez de solo cruzar, se paran encima de
     // la zona con más cultivos y echan su rayo (beam): baja a height, absorbe en time s todo lo
     // que pille a menos de radius (como mucho max) y se va con ello
-    flyer: { min: 12, max: 28, height: [7, 11], speed: 6, radius: 0.9, coins: 1, thief: 0.6, beam: { time: 3.2, radius: 2.4, height: 6, max: 8 } },
+    flyer: { min: 12, max: 28, height: [7, 11], speed: 6, radius: 0.9, thief: 0.6, beam: { time: 3.2, radius: 2.4, height: 6, max: 8 } },
 };
 
-// Precio en monedas alienígenas (lo de serie no cuesta nada)
-const C = (n) => (n ? { alien: n } : {});
+// Precio en monedas de oro (lo de serie no cuesta nada): n del catálogo por 3
+const C = (n) => (n ? { gold: n * 3 } : {});
 
 // Catálogo de la tienda: dos secciones (CASA y PARCELA), cada una con sus categorías.
 //   slot   la parte de la casa que cambia (las categorías de color: tejado, fachada, puerta y

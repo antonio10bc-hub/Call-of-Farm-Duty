@@ -3,27 +3,37 @@
 // escalan con image-rendering: pixelated, nunca suavizados.
 
 const INK = '#2a1a0e';
-const GOLD = { dark: '#c77800', mid: '#e6a400', base: '#ffd23f', light: '#fff4b0' };
-
-// Un fotograma de la moneda girando: `half` es la media anchura (7 de frente, 1 de canto).
-export function drawCoin(ctx, half) {
-    const S = 16, c = (S - 1) / 2, rx = half + 0.9, ry = 7.9;
+// La moneda de oro... de cartón: un círculo de cartón recortado a mano (canto ondulado de cartón
+// corrugado), pintado de amarillo con cera a brochazos (se ve el cartón por los huecos) y un $
+// garabateado con rotulador. Muy falsa, pero es la moneda oficial.
+const CARD = { edge: '#8a5a2e', dark: '#a8763e', base: '#c8955a', paint: '#ffd23f', paint2: '#f2b830', pen: '#6a3a1a' };
+// size: lado del sprite en píxeles; half: media anchura (para la moneda girando: de frente = size/2 - 1)
+export function drawCoin(ctx, half, S = 16) {
+    const c = (S - 1) / 2, ry = S / 2 - 0.1, rx = Math.min(ry, half + 0.9);
     ctx.clearRect(0, 0, S, S);
-    const inside = (x, y) => x >= 0 && y >= 0 && x < S && y < S &&
-        ((x - c) / rx) ** 2 + ((y - c) / ry) ** 2 <= 1;
+    // Recortada a tijera: el radio sube y baja un poco con el ángulo
+    const inside = (x, y) => {
+        if (x < 0 || y < 0 || x >= S || y >= S) return false;
+        const a = Math.atan2(y - c, x - c), k = 1 - 0.07 * Math.max(0, Math.sin(a * 3 + 1.3));
+        return ((x - c) / (rx * k)) ** 2 + ((y - c) / (ry * k)) ** 2 <= 1;
+    };
+    // El $ de rotulador en el centro (en la pequeña, un garabato)
+    const D = S >= 14 ? ['..#..', '.####', '#.#..', '.###.', '..#.#', '####.', '..#..'] : ['.#.', '##.', '.##', '.#.'];
+    const dx = Math.round(c - (D[0].length - 1) / 2), dy = Math.round(c - (D.length - 1) / 2);
     for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
         if (!inside(x, y)) continue;
         const edge = !inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1);
+        const nx = (x - c) / rx, ny = (y - c) / ry, d = Math.hypot(nx, ny);
+        // La pintura no llega al borde y está dada a mano: su límite sube y baja
+        const a = Math.atan2(ny, nx), lim = 0.66 + 0.08 * Math.sin(a * 5 + 0.7);
         let col;
         if (edge) col = INK;
-        else if (half <= 1) col = y < 5 ? GOLD.light : GOLD.mid;          // de canto
+        else if (half <= 1) col = (y % 2) ? CARD.dark : CARD.base;                 // de canto: el corrugado
+        else if (d > lim) col = (Math.round(a * 4) % 2) ? CARD.dark : CARD.base;  // cartón sin pintar
         else {
-            const nx = (x - c) / rx, ny = (y - c) / ry, d = nx * nx + ny * ny;
-            const light = nx + ny < -0.75, dark = nx + ny > 0.7;          // luz arriba a la izquierda
-            if (half >= 5 && d > 0.22 && d < 0.42) col = GOLD.mid;       // aro interior
-            else if (dark) col = GOLD.dark;
-            else if (light) col = GOLD.light;
-            else col = GOLD.base;
+            col = nx + ny > 0.45 ? CARD.paint2 : CARD.paint;
+            const px = x - dx, py = y - dy;
+            if (half >= 5 && D[py] && D[py][px] === '#') col = CARD.pen;
         }
         ctx.fillStyle = col;
         ctx.fillRect(x, y, 1, 1);
@@ -169,11 +179,6 @@ const SPRITES = {
         rows: ['....KK....', '...KYYK...', '..KYWYYK..', '..KYYYYK..', '..KYYYOK..', '.GKYYYYKG.', 'GGKYYYOKGG', '.GGKYOKGG.', '..GGKKGG..', '...GGGG...'],
         pal: { K: INK, Y: '#ffd23f', O: '#e8b830', W: '#fff3a0', G: '#7ab83a' },
     },
-    // El comerciante: doblón de oro y su retrato (sombrero de ala ancha y abrigo con botones)
-    gold: {
-        rows: ['..KKKKK..', '.KYYYYYK.', 'KYWYOYYYK', 'KYYOOOYYK', 'KYOOOOOYK', 'KYYOOOYYK', 'KYYYOYYYK', '.KYYYYYK.', '..KKKKK..'],
-        pal: { K: INK, Y: '#ffd23f', O: '#d99a1a', W: '#fff6b0' },
-    },
     // El trigo mágico del prólogo: espigas de todos los colores con su atadura dorada
     magic: {
         rows: ['.R..O..Y..G.', 'RRKOOKYYKGG.', '.RKOKKKYKG..', '..KKCKBKKP..', '...KCCBBPK..', '....KKKKK...', '....KYYYK...', '....KCBPK...', '...KCKBKPK..', '..KCK.K.KPK.', '.KK..K..KK..', '............'],
@@ -308,6 +313,9 @@ export function installPixelSprites() {
     const cv = Object.assign(document.createElement('canvas'), { width: 16, height: 16 });
     drawCoin(cv.getContext('2d'), 7);
     root.setProperty('--px-coin', `url(${cv.toDataURL()})`);
+    const g = Object.assign(document.createElement('canvas'), { width: 12, height: 12 });
+    drawCoin(g.getContext('2d'), 5, 12);
+    root.setProperty('--px-gold', `url(${g.toDataURL()})`);
     for (const [name, def] of Object.entries(SPRITES)) {
         root.setProperty(`--px-${name.replace(/[A-Z]/, (m) => '-' + m.toLowerCase())}`, spriteUrl(def));
     }

@@ -17,8 +17,8 @@ const CORE_GEO = new THREE.CylinderGeometry(0.2, B.radius * 0.45, 1, 6, 1, true)
 // Ovnis pequeños en el campo de tiro: de vez en cuando cruza uno el cielo, bamboleándose. Algunos
 // (thief) son ladrones: se paran encima de la zona con más cultivos, bajan y echan su rayo, que
 // absorbe todo lo que pilla debajo (se ve subir girando hasta la nave); luego se van con ello. Si
-// se le da, cae en barrena echando chispas y, al tocar el suelo, suelta monedas alienígenas
-// (hooks.onUfoCoin); lo que se llevaba se recupera (hooks.onHit) y si escapa, se pierde
+// se le da, cae en barrena echando chispas y, al tocar el suelo, revienta (hooks.onUfoDown)
+// ; lo que se llevaba se recupera (hooks.onHit) y si escapa, se pierde
 // (hooks.onStolen). También suma a la racha alienígena. De noche brillan. Su caja de impacto es
 // una esfera (radius).
 export class Flyers {
@@ -205,12 +205,11 @@ export class Flyers {
             r.rotation.z += fl.spin * 0.6 * dt;
             if (Math.random() < 0.6) sn.particles.spawn(r.position.x, r.position.y, r.position.z, 0, 0.5, 0, 0.18 + Math.random() * 0.12, 0.8, Math.random() < 0.3 ? 0xffe03a : 0x5a5048, -0.5);
             if (r.position.y > 0.3) return true;
-            // En el suelo: pum y la moneda
+            // En el suelo: pum
             sn.particles.burst(r.position.x, 0.3, r.position.z, 50, [0xffffff, 0xffe03a, 0xff9a1f, 0x7dff4a], { speed: 5, up: 5, size: 0.2, ttl: 0.8 });
             sn.waves.spawn(r.position.x, r.position.z, 0x7dff4a, 2.4, 0.5);
             sn.hooks.sfx.play('boom');
-            _v.copy(r.position).project(sn.camera);
-            if (sn.hooks.onUfoCoin) sn.hooks.onUfoCoin(F.coins, _v.x, _v.y);
+            if (sn.hooks.onUfoDown) sn.hooks.onUfoDown();
             this.drop(fl);
             return false;
         });

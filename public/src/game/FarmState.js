@@ -29,9 +29,9 @@ export class FarmState {
         this.house = { level: 0 };
         // Armería (content/arsenal.js): lo comprado ('scope:tac'...) y lo que lleva montado el fusil
         this.arsenal = { owned: [], loadout: { ...DEFAULT_LOADOUT } };
-        // Lo recogido de cada cultivo, las monedas alienígenas (alien) y las de oro (gold, del
-        // comerciante)
-        this.items = Object.fromEntries([...Object.keys(CROPS), 'alien', 'gold'].map((c) => [c, 0]));
+        // Lo recogido de cada cultivo y las monedas de oro (gold: la moneda del juego, la paga el
+        // comerciante; son de cartón, pero que no se entere nadie)
+        this.items = Object.fromEntries([...Object.keys(CROPS), 'gold'].map((c) => [c, 0]));
         // El comerciante: la visita de la que son los encargos que hay (cada uno: cultivo, cuánto,
         // cuánto oro paga y si ya se ha entregado)
         this.merchant = { visit: -1, orders: [] };
@@ -40,7 +40,7 @@ export class FarmState {
         // El ovni (crashed: ya se ha estrellado en la parcela de la casa; met: ya se ha abierto su
         // tienda alguna vez) y la casa personalizada en su tienda: lo comprado (owned) y lo que
         // lleva puesto en cada parte (look)
-        this.ufo = { crashed: false, met: false };
+        this.ufo = { met: false }; // met: ya se ha abierto la tienda de la casa
         // placed: lo de la parcela que está puesto en su hueco (lo comprado se puede quitar)
         this.home = { owned: [], look: { ...DEFAULT_LOOK }, placed: [] };
         // Los terrenos bloqueados se siembran al desbloquearlos (y quedan listos para recoger).
@@ -67,7 +67,8 @@ export class FarmState {
                     if (Array.isArray(d.arsenal.owned)) this.arsenal.owned = d.arsenal.owned.filter((k) => { const [kind, id] = k.split(':'); return ARSENAL[kind] && ARSENAL[kind].some((x) => x.id === id); });
                     for (const kind of ARSENAL_KINDS) if (d.arsenal.loadout && this.ownsGear(kind, d.arsenal.loadout[kind])) this.arsenal.loadout[kind] = d.arsenal.loadout[kind];
                 }
-                this.ufo.crashed = !!(d.ufo && d.ufo.crashed);
+                // Las monedas alienígenas de antes pasan a ser de oro (la única moneda)
+                if (d.items && d.items.alien) this.items.gold += (d.items.alien | 0) * 3;
                 for (const id of Object.keys(this.lands)) this.lands[id] = !!(d.lands && d.lands[id]);
                 if (d.merchant && Array.isArray(d.merchant.orders)) this.merchant = { visit: d.merchant.visit | 0, orders: d.merchant.orders.filter((o) => o && CROPS[o.crop]) };
                 this.ufo.met = !!(d.ufo && d.ufo.met);

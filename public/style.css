@@ -580,6 +580,7 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
 body.cine .daytime, body.predator .daytime { visibility: hidden; }
 .ks-grenade-ico { --ico: var(--px-ks-grenade); }
 .alien-ico { --ico: var(--px-alien); }
+.merchant-ico { --ico: var(--px-merchant); }
 .alarm-ico { --ico: var(--px-alarm); }
 /* Monedas alienígenas: insignia verde */
 .alien-badge { background: #7dff4a; }
@@ -598,7 +599,7 @@ body.cine .farm-ui, body.cine .bubbles { visibility: hidden; }
 /* Cartel del ovni: alarma roja latiendo con una admiración blanca grande hasta abrir su tienda;
    después, morado y tranquilo con la cara del alienígena */
 .field-sign.ufo-sign { --sign: #c8402e; justify-content: center; min-width: 40px; padding: 7px 10px 4px; font-size: 26px; line-height: 1; color: #fff; animation: signBob 1.6s steps(2) infinite, signGlow .4s steps(2) infinite; }
-.field-sign.ufo-sign.met { --sign: #6a4a9a; min-width: 0; padding: 6px 8px; animation: signBob 1.6s steps(2) infinite; }
+.field-sign.ufo-sign.met { --sign: #8a5a2a; min-width: 0; padding: 6px 8px; animation: signBob 1.6s steps(2) infinite; }
 .field-sign.ufo-sign .ico { width: 26px; height: 24px; }
 
 /* Monedas de oro del comerciante */
@@ -645,10 +646,10 @@ body.cine .farm-ui, body.cine .bubbles { visibility: hidden; }
     padding: 10px 10px max(10px, env(safe-area-inset-bottom));
     transform: translateX(-50%);
     color: var(--cream);
-    background: #1e2a33;
+    background: #4a3020;
     border: 4px solid var(--ink);
     border-bottom: 0;
-    box-shadow: 0 -6px 0 rgba(42, 26, 14, .4), inset 0 4px 0 #2e4250;
+    box-shadow: 0 -6px 0 rgba(42, 26, 14, .4), inset 0 4px 0 #6a4a30;
 }
 .ufo-shop.hidden { display: none; }
 .ufo-shop.in { animation: shopIn .3s steps(3) both; }

@@ -29,14 +29,16 @@ export class MerchantCamp extends VoxelModel {
         super(outlineColor);
         const r = this.root;
         this.buildFurrow();
-        // Mesita plegable junto a donde se pone él, y el cartel del camino (una moneda pintada)
+        // Mesita plegable junto a donde se pone él, y el cartel del camino (una de sus monedas de cartón)
         const S = MERCHANT.stall;
         this.table = { x: S.x - 1.3, z: S.z - 0.5 };
         for (const [dx, dz] of [[-0.5, -0.3], [0.5, -0.3], [-0.5, 0.3], [0.5, 0.3]]) this.part(r, 0.08, 0.7, 0.08, 0x6a6a72, this.table.x + dx, 0.35, this.table.z + dz, false);
         this.part(r, 1.3, 0.08, 0.8, 0xf3ead2, this.table.x, 0.72, this.table.z);
         this.part(r, 0.14, 1.6, 0.14, WOOD2, 33.4, 0.8, -13.4);
         this.part(r, 0.9, 0.55, 0.1, WOOD, 33.4, 1.45, -13.4);
-        this.part(r, 0.32, 0.32, 0.04, 0xffd23f, 33.4, 1.45, -13.33, false);
+        this.part(r, 0.36, 0.36, 0.04, 0xc8955a, 33.4, 1.45, -13.33, false);
+        this.part(r, 0.26, 0.24, 0.02, 0xffd23f, 33.39, 1.46, -13.3, false);
+        this.part(r, 0.05, 0.18, 0.02, 0x6a3a1a, 33.4, 1.45, -13.285, false);
 
         // Mercancía sobre la mesa: un saco de grano, una cesta de tomates, tarros y una balanza
         this.goods = new THREE.Group();

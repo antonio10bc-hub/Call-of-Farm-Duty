@@ -35,7 +35,7 @@ const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) 
 // bombardero y bomba nuclear).
 export class Sniper {
     // hooks: { sfx, onHit(target, ndcX, ndcY), onMedal({ collateral, streak, reward }), onUnlock(),
-    //          onAlien(ndcX, ndcY), onHitMarker(), onUfoCoin(n, ndcX, ndcY),
+    //          onAlien(ndcX, ndcY), onHitMarker(), onUfoDown(),
     //          onPredator(on), onNukeCount(s), onNuke(), onFinish(), onDone(), onCorner(i) }
     constructor(theme, hooks) {
         this.theme = theme;
