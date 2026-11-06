@@ -142,7 +142,9 @@ test('armería: en el granero se compran con oro y se montan mirillas, rifles y 
     await page.evaluate(() => game.select({ structure: 'barn' }));
     await page.locator('#barn-tab-rifle').click();
     await expect(page.locator('#barn-rifle')).toBeVisible();
-    // Tres carruseles de 5; lo de serie viene montado
+    // El maletín con sus tres huecos (el rifle elegido) y tres listas de 5; lo de serie viene montado
+    await expect(page.locator('.case-slot')).toHaveCount(3);
+    await expect(page.locator('#case-rifle')).toHaveClass(/on/);
     await expect(page.locator('.gear-row')).toHaveCount(3);
     await expect(page.locator('.gear')).toHaveCount(15);
     for (const id of ['scope-std', 'rifle-bolt', 'mag-std']) await expect(page.locator(`#gear-${id}`)).toHaveClass(/on/);
@@ -153,10 +155,13 @@ test('armería: en el granero se compran con oro y se montan mirillas, rifles y 
     await page.locator('#barn-tab-rifle').click();
     await page.locator('#gear-rifle-semi').click();
     await expect(page.locator('#gear-rifle-semi')).toHaveClass(/on/);
+    await page.locator('#case-scope').click();
     await page.locator('#gear-scope-dot').click();
+    await page.locator('#case-mag').click();
     await page.locator('#gear-mag-ext').click();
     expect(await page.evaluate(() => [game.state.arsenal.loadout, game.state.items.gold])).toEqual([{ scope: 'dot', rifle: 'semi', mag: 'ext' }, 40 - 10 - 8 - 12]);
     // Volver a lo de serie no cuesta nada (ya es tuyo)
+    await page.locator('#case-rifle').click();
     await page.locator('#gear-rifle-bolt').click();
     await page.locator('#gear-rifle-semi').click();
     expect(await page.evaluate(() => game.state.items.gold)).toBe(10);

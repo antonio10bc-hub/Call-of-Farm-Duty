@@ -592,6 +592,57 @@ ufoSign.id = 'sign-ufo';
 // que se puede entregar); sin él, lo que falta para que vuelva
 const merchantSign = uiButton('field-sign merchant-sign hidden', () => openMerchant());
 merchantSign.id = 'sign-merchant';
+// ---------- Dock (abajo, en el centro) ----------
+// Botones cuadrados de solo icono para ir a cada sitio: el granero, los campos (va pasando por
+// los que piden algo), la casa y el mercader. Si la cámara ya está allí, abre su ficha. Un
+// cuadradito rojo avisa de que hay algo que hacer.
+const dock = document.createElement('div');
+dock.className = 'dock';
+dock.id = 'dock';
+$('farm-ui').appendChild(dock);
+let dockField = -1;
+const dockGo = (x, z, open) => {
+    if (Math.hypot(rig.fx - x, rig.fz - z) < 3) return open();
+    leaveMap(false);
+    select(null);
+    rig.focus(x, z);
+    sfx.play('ui');
+};
+const fieldNeeds = (id) => state.isReady(id) || state.canUnlock(id) || state.canUpgrade(id);
+const DOCK = [
+    { id: 'barn', icon: 'ks-grenade', label: L('ARMORY', 'ARMAMENTO'), show: () => state.open('barn'), alert: () => state.canUpgradeBarn,
+        go: () => { const b = farm.byId.barn.def; dockGo(b.x, b.z + 1, () => select({ structure: 'barn' })); } },
+    { id: 'fields', icon: 'wheat', label: L('FIELDS', 'CAMPOS'), show: () => true, alert: () => FARM.fields.some((f) => fieldNeeds(f.id)),
+        go: () => {
+            // Siguiente campo que pide algo (o, si ninguno, el siguiente abierto)
+            const ids = FARM.fields.map((f) => f.id), pool = ids.filter(fieldNeeds).length ? ids.filter(fieldNeeds) : ids.filter((id) => state.fields[id].unlocked || state.canUnlock(id));
+            if (!pool.length) return;
+            const cur = farm.views.find((v) => Math.hypot(v.rect.cx - rig.fx, v.rect.cz - rig.fz) < 3);
+            if (cur && pool.includes(cur.id) && dockField === cur.id) return select({ field: cur.id });
+            const id = pool[(pool.indexOf(dockField) + 1) % pool.length];
+            dockField = id;
+            const r = farm.views.find((v) => v.id === id).rect;
+            dockGo(r.cx, r.cz, () => select({ field: id }));
+        } },
+    { id: 'house', icon: 'home', label: L('FARMHOUSE', 'CASA'), show: () => true, alert: () => state.canUpgradeHouse,
+        go: () => { const h = farm.byId.house.def; dockGo(h.x, h.z, () => select({ structure: 'house' })); } },
+    { id: 'merchant', icon: 'merchant', label: L('MERCHANT', 'MERCADER'), show: () => !merchantClock.locked, alert: () => farm.camp.open && state.ordersFor(merchantClock.visit).some((o) => state.canDeliver(o)),
+        go: () => dockGo(MERCHANT.stall.x, MERCHANT.stall.z, () => openMerchant()) },
+];
+for (const d of DOCK) {
+    d.el = uiButton('dock-btn', d.go);
+    d.el.id = `dock-${d.id}`;
+    d.el.title = d.label;
+    d.el.setAttribute('aria-label', d.label);
+    d.el.innerHTML = `${ico(d.icon)}<i class="dock-dot"></i>`;
+    dock.appendChild(d.el);
+}
+function refreshDock() {
+    for (const d of DOCK) {
+        d.el.classList.toggle('hidden', !d.show());
+        d.el.classList.toggle('alert', !!d.alert());
+    }
+}
 function refreshMerchantSign() {
     const here = farm.camp.open, left = merchantClock.left;
     const can = here && state.ordersFor(merchantClock.visit).some((o) => state.canDeliver(o));
@@ -611,7 +662,7 @@ houseSign.id = 'sign-house';
 function refreshArmory() {
     const hl = state.house.level, hmax = FARM.house.levels.length - 1;
     const hp = Array.from({ length: hmax }, (_, i) => `<i class="pip${i < hl ? ' on' : ''}"></i>`).join('');
-    const hhtml = `<span>${L('FARMHOUSE', 'CASA')}</span><span class="pips">${hp}</span><i class="sign-up"></i>`;
+    const hhtml = `${ico('home')}<span>${L('FARMHOUSE', 'CASA')}</span><span class="pips">${hp}</span><i class="sign-up"></i>`;
     if (houseSign.innerHTML !== hhtml) houseSign.innerHTML = hhtml;
     houseSign.classList.toggle('can-up', state.canUpgradeHouse);
     const lv = state.barn.level, max = FARM.barn.levels.length - 1;
@@ -632,6 +683,7 @@ for (const def of FARM.fields) {
 }
 
 function refreshSigns() {
+    refreshDock();
     for (const def of FARM.fields) {
         const id = def.id, el = signs[id], f = state.fields[id];
         const can = state.canUnlock(id);
@@ -641,8 +693,9 @@ function refreshSigns() {
         el.classList.toggle('can-unlock', can);
         el.classList.toggle('for-sale', forSale);
         el.classList.toggle('can-up', state.canUpgrade(id) || state.canBuyTurrets(id) || (forSale && state.canBuyLand(land.id)));
+        const lvPips = def.levels.map((_, i) => `<i class="pip${i <= f.level ? ' on' : ''}"></i>`).join('');
         const html = f.unlocked
-            ? `${f.turrets ? ico('turret') : ''}<span class="sign-level">${L('LV', 'NV')}.${f.level + 1}</span><i class="sign-up"></i>`
+            ? `${ico(CROPS[def.crop].icon)}${f.turrets ? ico('turret') : ''}<span class="sign-level">${L('LV', 'NV')}.${f.level + 1}</span><span class="pips">${lvPips}</span><i class="sign-up"></i>`
             : forSale ? `${ico('gold')}<span>${state.landPrice(land.id)}</span><i class="sign-up"></i>`
             : can ? `${ico('barrel')}<span>${L('UNLOCK!', '¡DESBLOQUEAR!')}</span>` : `${ico('lock')}<span>${L('LOCKED', 'BLOQUEADO')}</span>`;
         if (el.innerHTML !== html) el.innerHTML = html;
@@ -1713,10 +1766,27 @@ const GEAR = {
     mag: { title: L('MAGAZINE', 'CARGADOR'), stats: (x) => [[L('ROUNDS', 'BALAS'), x.size <= 6 ? 1 : x.size <= 10 ? 2 : x.size <= 18 ? 3 : 5], [L('RELOAD', 'RECARGA'), x.regen ? 5 : clampPip((4.1 - x.reload) / 0.75)]] },
 };
 const gearCards = {};
+let gearKind = 'rifle'; // la pieza que se está cambiando
+const caseSlots = {};
+for (const kind of ['rifle', 'scope', 'mag']) {
+    const slot = document.createElement('button');
+    slot.className = `case-slot case-${kind}`;
+    slot.id = `case-${kind}`;
+    slot.innerHTML = `<i class="cut"><img alt=""></i><b>${GEAR[kind].title}</b>`;
+    slot.addEventListener('click', (e) => {
+        e.stopPropagation();
+        gearKind = kind;
+        sfx.play('ui');
+        refreshRifle(true);
+    });
+    $('gear-case').appendChild(slot);
+    caseSlots[kind] = slot;
+}
 for (const kind of ARSENAL_KINDS) {
     const row = document.createElement('div');
     row.className = 'gear-row';
-    row.innerHTML = `<div class="gear-title">${GEAR[kind].title}</div><div class="gear-strip" id="gear-${kind}"></div>`;
+    row.dataset.kind = kind;
+    row.innerHTML = `<div class="gear-title">${GEAR[kind].title}<span id="gear-count-${kind}"></span></div><div class="gear-strip" id="gear-${kind}"></div>`;
     $('gear-rows').appendChild(row);
     for (const it of ARSENAL[kind]) {
         const card = document.createElement('button');
@@ -1740,7 +1810,6 @@ for (const kind of ARSENAL_KINDS) {
             updateCounts();
             refreshRifle();
             refreshStreaks();
-            card.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
         });
         $(`gear-${kind}`).appendChild(card);
         gearCards[`${kind}:${it.id}`] = card;
@@ -1748,15 +1817,27 @@ for (const kind of ARSENAL_KINDS) {
 }
 function refreshRifle(center = false) {
     $('gear-gold').textContent = state.items.gold;
+    // El maletín: cada hueco con la pieza montada; el elegido, marcado
+    for (const [kind, slot] of Object.entries(caseSlots)) {
+        const it = ARSENAL[kind].find((x) => x.id === state.arsenal.loadout[kind]);
+        const src = gearArt(kind, it), img = slot.querySelector('img');
+        if (img.getAttribute('src') !== src) img.setAttribute('src', src);
+        slot.classList.toggle('on', kind === gearKind);
+    }
+    for (const row of document.querySelectorAll('.gear-row')) row.classList.toggle('hidden', row.dataset.kind !== gearKind);
+    for (const kind of ARSENAL_KINDS) {
+        const n = ARSENAL[kind].filter((x) => state.ownsGear(kind, x.id)).length;
+        $(`gear-count-${kind}`).textContent = `${n}/${ARSENAL[kind].length}`;
+    }
     for (const kind of ARSENAL_KINDS) {
         for (const it of ARSENAL[kind]) {
             const card = gearCards[`${kind}:${it.id}`], on = state.arsenal.loadout[kind] === it.id, owned = state.ownsGear(kind, it.id), price = state.gearPrice(kind, it.id);
             card.classList.toggle('on', on);
             card.classList.toggle('owned', owned && !on);
             card.classList.toggle('short', !owned && state.items.gold < price);
+            card.classList.toggle('empty', !owned);
             const em = on ? L('EQUIPPED', 'MONTADO') : owned ? L('USE', 'USAR') : `${ico('gold')}${price}`;
             if (card.querySelector('em').innerHTML !== em) card.querySelector('em').innerHTML = em;
-            if (on && center) requestAnimationFrame(() => card.scrollIntoView({ inline: 'center', block: 'nearest' }));
         }
     }
 }
@@ -2075,6 +2156,7 @@ function frame(now) {
     if ((clockT -= dt) <= 0) {
         clockT = 0.25;
         updateClock();
+        if (mode === 'farm') refreshDock();
     }
     pollPad(dt);
     keyInput(dt);

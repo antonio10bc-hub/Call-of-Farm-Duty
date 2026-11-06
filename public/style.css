@@ -581,6 +581,7 @@ body.cine .daytime, body.predator .daytime { visibility: hidden; }
 .ks-grenade-ico { --ico: var(--px-ks-grenade); }
 .alien-ico { --ico: var(--px-alien); }
 .merchant-ico { --ico: var(--px-merchant); }
+.home-ico { --ico: var(--px-home); }
 .alarm-ico { --ico: var(--px-alarm); }
 /* Monedas alienígenas: insignia verde */
 .alien-badge { background: #7dff4a; }
@@ -1173,25 +1174,39 @@ body.unlocking .arrow-btn, body.unlocking .corners, body.unlocking .left-badge {
 .gear-gold { display: flex; align-items: center; justify-content: space-between; width: min(560px, 100%); font-size: 8px; color: #c8b89a; }
 .gear-gold .coins-badge { font-size: 11px; }
 .gear-rows { display: flex; flex-direction: column; gap: 12px; width: min(560px, 100%); }
+/* El maletín: espuma gris con puntitos, cantos de aluminio y huecos recortados con la pieza dentro */
+.gear-case { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; width: min(560px, 100%); box-sizing: border-box; padding: 16px 14px 14px; background: #3a3a42 radial-gradient(#33333a 2px, transparent 2px) 0 0 / 10px 10px; border: 8px solid #9aa0a8; border-radius: 10px; box-shadow: 0 8px 0 var(--ink), inset 0 0 0 3px #0a0a0c; }
+.case-slot { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 0; font-family: var(--font); font-size: 8px; color: #c8c8d0; background: none; border: 0; cursor: pointer; }
+.case-rifle { grid-column: 1 / -1; }
+.case-slot .cut { display: flex; align-items: center; justify-content: center; width: 100%; height: 54px; background: #18181c; border: 3px solid #0a0a0c; box-shadow: inset 4px 4px 0 #000; }
+.case-rifle .cut { height: 66px; }
+.case-slot img { height: 100%; image-rendering: pixelated; }
+.case-slot.on .cut { outline: 4px solid var(--yellow); outline-offset: 3px; }
+.case-slot.on b { color: var(--ink); background: var(--yellow); }
+.case-slot b { font-weight: normal; padding: 4px 6px; border: 2px solid #0a0a0c; background: #2a2a30; }
+/* Las piezas de la que se cambia: en fila; las que no tienes, como huecos vacíos (silueta) */
 .gear-row { display: flex; flex-direction: column; gap: 6px; }
-.gear-title { font-size: 10px; color: var(--yellow); text-align: left; }
-.gear-strip { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px calc(50% - 72px) 10px; scrollbar-width: none; }
-.gear-strip::-webkit-scrollbar { display: none; }
-.gear { flex: none; scroll-snap-align: center; display: flex; flex-direction: column; align-items: center; gap: 5px; width: 144px; height: 176px; padding: 8px 6px; font-family: var(--font); color: var(--ink); background: var(--cream); border: 3px solid var(--ink); box-shadow: 0 4px 0 var(--ink); cursor: pointer; }
-.gear:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--ink); }
-.gear img { width: 128px; height: 64px; image-rendering: pixelated; background: #e8dcc0; border: 2px solid rgba(42, 26, 14, .25); }
-.gear b { font-size: 8px; font-weight: normal; line-height: 1.3; min-height: 21px; display: flex; align-items: center; text-align: center; }
-.gear-stats { display: flex; flex-direction: column; gap: 3px; width: 100%; }
-.gear-stat { display: flex; align-items: center; justify-content: space-between; font-size: 6px; color: #6a5440; }
+.gear-row.hidden { display: none; }
+.gear-title { display: flex; justify-content: space-between; font-size: 10px; color: var(--yellow); text-align: left; }
+.gear-title span { color: #c8b89a; font-size: 8px; }
+.gear-strip { display: flex; flex-direction: column; gap: 8px; }
+.gear { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: center; column-gap: 10px; row-gap: 4px; padding: 8px; font-family: var(--font); color: #e8e8f0; text-align: left; background: #2a2a30; border: 3px solid #0a0a0c; box-shadow: 0 4px 0 #0a0a0c; cursor: pointer; }
+.gear:active { transform: translateY(2px); box-shadow: 0 2px 0 #0a0a0c; }
+.gear img { grid-row: 1 / 3; width: 96px; height: 48px; image-rendering: pixelated; background: #18181c; border: 2px solid #0a0a0c; }
+.gear.empty img { filter: brightness(0) invert(1) opacity(.2); }
+.gear b { font-size: 8px; font-weight: normal; line-height: 1.3; }
+.gear-stats { display: flex; gap: 8px; flex-wrap: wrap; }
+.gear-stat { display: flex; align-items: center; gap: 4px; font-size: 6px; color: #a8a8b8; }
 .gear-stat .pips { display: flex; gap: 2px; }
-.gear-stat .pip { width: 6px; height: 6px; background: #d6c6a4; border: 1px solid var(--ink); }
+.gear-stat .pip { width: 6px; height: 6px; background: #4a4a52; border: 1px solid #0a0a0c; }
 .gear-stat .pip.on { background: #17d65a; }
-.gear em { margin-top: auto; display: flex; align-items: center; gap: 4px; font-style: normal; font-size: 7px; padding: 4px 6px; color: #fff; background: #a8957a; border: 2px solid var(--ink); }
+.gear em { grid-row: 1 / 3; grid-column: 3; display: flex; align-items: center; gap: 4px; font-style: normal; font-size: 7px; padding: 5px 7px; color: #fff; background: #5a5a66; border: 2px solid #0a0a0c; }
 .gear em .ico { width: 11px; height: 11px; }
 .gear.owned em { background: #3a7ec8; }
-.gear.on { background: var(--yellow); box-shadow: 0 4px 0 var(--ink), inset 0 0 0 3px #fff; }
+.gear.on { color: var(--ink); background: var(--yellow); }
+.gear.on .gear-stat { color: #5a4a30; }
 .gear.on em { background: #17d65a; text-shadow: 1px 1px 0 var(--ink); }
-.gear.short em { background: var(--barn); }
+.gear.short em { background: #7a3a2a; }
 .gear.bump { animation: badgeBump .4s steps(1); }
 
 /* Balas del cargador: abajo en el centro; recargando, la barra se llena */
@@ -1404,3 +1419,33 @@ body.prologue .snipe-ui > :not(#reticle):not(#btn-aim) { display: none !importan
 .aim-btn.on { transform: translateY(5px) scale(.94); box-shadow: 0 1px 0 var(--ink); background: #ffe03a; }
 @media (hover: hover) and (pointer: fine) { .aim-btn { display: none; } }
 body.cine .aim-btn { display: none !important; }
+
+/* ---------- Carteles del mapa: medallones cuadrados ----------
+   Una ficha cuadrada con su icono; debajo, dentro, la barra de nivel o progreso; arriba a la
+   derecha, un cuadrado verde si hay una mejora lista. El texto solo sale cuando importa (se puede
+   desbloquear, está en venta, la tienda nueva) o al pasar el ratón; si no, se ve el mapa limpio. */
+#bubbles .field-sign { width: 46px; height: 46px; padding: 0 0 6px; gap: 0; justify-content: center; box-sizing: border-box; font-size: 9px; transform: translate(-50%, calc(-100% - 40px)); animation: none; }
+#bubbles .field-sign > .ico { width: 26px; height: 26px; }
+#bubbles .field-sign > .turret-ico { position: absolute; left: -9px; bottom: -9px; width: 18px; height: 18px; background-color: var(--cream); border: 2px solid var(--ink); }
+#bubbles .field-sign > span:not(.ico):not(.pips) { display: none; position: absolute; left: calc(100% + 6px); top: 50%; transform: translateY(-50%); white-space: nowrap; padding: 6px 8px 5px; background: var(--sign, var(--wood)); border: 3px solid var(--ink); box-shadow: 0 3px 0 var(--ink); }
+#bubbles .field-sign:hover > span:not(.ico):not(.pips), #bubbles .field-sign.can-unlock > span:not(.ico):not(.pips), #bubbles .field-sign.for-sale > span:not(.ico):not(.pips), #bubbles .merchant-sign:not(.away) > span:not(.ico):not(.pips) { display: block; }
+#bubbles .field-sign:hover { z-index: 2; }
+#bubbles .field-sign > .pips { position: absolute; left: 4px; right: 4px; bottom: 3px; display: flex; gap: 2px; }
+#bubbles .field-sign .pip { flex: 1; width: auto; height: 4px; background: rgba(0, 0, 0, .45); border: 0; }
+#bubbles .field-sign .pip.on { background: #7dff4a; }
+#bubbles .field-sign .sign-up { position: absolute; right: -9px; top: -9px; width: 14px; height: 14px; clip-path: none; background: #2fbf4a; border: 3px solid var(--ink); filter: none; }
+#bubbles .field-sign.can-unlock, #bubbles .field-sign.ufo-sign:not(.met) { animation: signBob 1.6s steps(2) infinite, signGlow .5s steps(2) infinite; }
+#bubbles .field-sign.ufo-sign { font-size: 22px; padding: 0; }
+#bubbles .field-sign.locked > .ico { width: 18px; height: 20px; }
+@keyframes signBob { 50% { transform: translate(-50%, calc(-100% - 43px)); } }
+#bubbles .ufo-sign > span { display: block; position: static; transform: none; padding: 0; background: none; border: 0; box-shadow: none; }
+
+/* Dock: fila de fichas cuadradas de solo icono, abajo en el centro; un cuadradito rojo avisa */
+.dock { position: absolute; left: 50%; bottom: max(8px, env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; gap: 8px; padding: 6px; background: rgba(42, 26, 14, .55); border: 3px solid var(--ink); }
+.panel:not(.hidden) ~ .dock { display: none; }
+.dock-btn { position: relative; width: 42px; height: 42px; padding: 0; display: flex; align-items: center; justify-content: center; background: var(--cream); border: 3px solid var(--ink); box-shadow: 0 3px 0 var(--ink); cursor: pointer; }
+.dock-btn.hidden { display: none; }
+.dock-btn:active { transform: translateY(3px); box-shadow: none; }
+.dock-btn .ico { width: 24px; height: 24px; }
+.dock-dot { display: none; position: absolute; right: -6px; top: -6px; width: 10px; height: 10px; background: #c8402e; border: 2px solid var(--ink); }
+.dock-btn.alert .dock-dot { display: block; animation: hop .6s steps(2) infinite; }
