@@ -621,7 +621,6 @@ const dock = document.createElement('div');
 dock.className = 'dock';
 dock.id = 'dock';
 $('farm-ui').appendChild(dock);
-let dockField = -1;
 const dockGo = (x, z, open) => {
     if (Math.hypot(rig.fx - x, rig.fz - z) < 3) return open();
     leaveMap(false);
@@ -634,17 +633,7 @@ const DOCK = [
     { id: 'barn', icon: 'ks-grenade', label: L('ARMORY', 'ARMAMENTO'), show: () => state.open('barn'), alert: () => state.canUpgradeBarn,
         go: () => { const b = farm.byId.barn.def; dockGo(b.x, b.z + 1, () => select({ structure: 'barn' })); } },
     { id: 'fields', icon: 'wheat', label: L('FIELDS', 'CAMPOS'), show: () => true, alert: () => FARM.fields.some((f) => fieldNeeds(f.id)),
-        go: () => {
-            // Siguiente campo que pide algo (o, si ninguno, el siguiente abierto)
-            const ids = FARM.fields.map((f) => f.id), pool = ids.filter(fieldNeeds).length ? ids.filter(fieldNeeds) : ids.filter((id) => state.fields[id].unlocked || state.canUnlock(id));
-            if (!pool.length) return;
-            const cur = farm.views.find((v) => Math.hypot(v.rect.cx - rig.fx, v.rect.cz - rig.fz) < 3);
-            if (cur && pool.includes(cur.id) && dockField === cur.id) return select({ field: cur.id });
-            const id = pool[(pool.indexOf(dockField) + 1) % pool.length];
-            dockField = id;
-            const r = farm.views.find((v) => v.id === id).rect;
-            dockGo(r.cx, r.cz, () => select({ field: id }));
-        } },
+        go: () => toggleFieldsPop() },
     { id: 'house', icon: 'home', label: L('FARMHOUSE', 'CASA'), show: () => true, alert: () => state.canUpgradeHouse,
         go: () => { const h = farm.byId.house.def; dockGo(h.x, h.z, () => select({ structure: 'house' })); } },
     { id: 'merchant', icon: 'merchant', label: L('MERCHANT', 'MERCADER'), show: () => !merchantClock.locked, alert: () => farm.camp.open && state.ordersFor(merchantClock.visit).some((o) => state.canDeliver(o)),
@@ -658,6 +647,37 @@ for (const d of DOCK) {
     d.el.innerHTML = `${ico(d.icon)}<i class="dock-dot"></i>`;
     dock.appendChild(d.el);
 }
+// Desplegable de CAMPOS: sube del botón con cada cultivo desbloqueado (su icono, su nombre y si
+// está listo); tocar uno lleva la cámara a su campo (y, si ya estás allí, abre su ficha)
+const fieldsPop = document.createElement('div');
+fieldsPop.className = 'dock-pop hidden';
+fieldsPop.id = 'fields-pop';
+fieldsPop.addEventListener('pointerdown', (e) => e.stopPropagation());
+dock.appendChild(fieldsPop);
+function toggleFieldsPop(open = fieldsPop.classList.contains('hidden')) {
+    fieldsPop.classList.toggle('hidden', !open);
+    DOCK.find((d) => d.id === 'fields').el.classList.toggle('on', open);
+    if (!open) return;
+    sfx.play('ui');
+    fieldsPop.innerHTML = '';
+    const ids = FARM.fields.map((f) => f.id).filter((id) => state.fields[id].unlocked);
+    if (!ids.length) fieldsPop.innerHTML = `<span class="dock-pop-empty">${L('NO CROPS YET', 'AÚN SIN CULTIVOS')}</span>`;
+    for (const id of ids) {
+        const def = FIELD_BY_ID[id], f = state.fields[id], ready = state.isReady(id);
+        const b = uiButton(`dock-pop-btn${ready ? ' ready' : ''}`, () => {
+            toggleFieldsPop(false);
+            const r = farm.views.find((v) => v.id === id).rect;
+            dockGo(r.cx, r.cz, () => select({ field: id }));
+        });
+        b.id = `pop-${id}`;
+        b.innerHTML = `${ico(CROPS[def.crop].icon)}<span>${CROPS[def.crop].name}</span><em>${ready ? L('READY!', '¡LISTO!') : `${L('LV', 'NV')}.${f.level + 1}`}</em>`;
+        fieldsPop.appendChild(b);
+    }
+}
+// Tocar fuera lo cierra
+addEventListener('pointerdown', (e) => {
+    if (!fieldsPop.classList.contains('hidden') && !e.target.closest('#dock')) toggleFieldsPop(false);
+}, true);
 function refreshDock() {
     for (const d of DOCK) {
         d.el.classList.toggle('hidden', !d.show());

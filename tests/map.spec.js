@@ -321,3 +321,21 @@ test('claro del comerciante: un bosque con el surco del ovni, sin niveles ni mej
     await expect(page.locator('#village-up')).toHaveCount(0);
     expect(errors).toEqual([]);
 });
+
+test('dock: CAMPOS despliega los cultivos desbloqueados y tocar uno lleva la cámara a su campo', { tag: '@full' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await openFarm(page);
+    await page.evaluate(() => { game.state.unlock('tomato', Date.now(), true); while (game.revealUnlocked()); game.rig.focus(15, -15); });
+    await page.locator('#dock-fields').click();
+    await expect(page.locator('#fields-pop')).toBeVisible();
+    await expect(page.locator('.dock-pop-btn')).toHaveText([/TRIGO/, /TOMATES/]);
+    await page.locator('#pop-tomato').click();
+    await expect(page.locator('#fields-pop')).toBeHidden();
+    const r = await page.evaluate(() => game.farm.views.find((v) => v.id === 'tomato').rect);
+    await expect.poll(() => page.evaluate(() => [Math.round(game.rig.fx), Math.round(game.rig.fz)])).toEqual([Math.round(r.cx), Math.round(r.cz)]);
+    // Tocar fuera lo cierra
+    await page.locator('#dock-fields').click();
+    await page.mouse.click(200, 200);
+    await expect(page.locator('#fields-pop')).toBeHidden();
+    expect(errors).toEqual([]);
+});
