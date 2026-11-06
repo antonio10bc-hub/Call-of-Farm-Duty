@@ -174,6 +174,11 @@ const SPRITES = {
         rows: ['..KKKKK..', '.KYYYYYK.', 'KYWYOYYYK', 'KYYOOOYYK', 'KYOOOOOYK', 'KYYOOOYYK', 'KYYYOYYYK', '.KYYYYYK.', '..KKKKK..'],
         pal: { K: INK, Y: '#ffd23f', O: '#d99a1a', W: '#fff6b0' },
     },
+    // El trigo mágico del prólogo: espigas de todos los colores con su atadura dorada
+    magic: {
+        rows: ['.R..O..Y..G.', 'RRKOOKYYKGG.', '.RKOKKKYKG..', '..KKCKBKKP..', '...KCCBBPK..', '....KKKKK...', '....KYYYK...', '....KCBPK...', '...KCKBKPK..', '..KCK.K.KPK.', '.KK..K..KK..', '............'],
+        pal: { K: INK, R: '#ff3e5e', O: '#ff9a1f', Y: '#ffe03a', G: '#7dff4a', C: '#23e0d6', B: '#3a7ec8', P: '#b46bff' },
+    },
     merchant: {
         // El alienígena disfrazado: antenas por encima del sombrero, la cabeza verde y la careta
         // de humano (cara pintada, bigote) sujeta con su goma, y la gabardina

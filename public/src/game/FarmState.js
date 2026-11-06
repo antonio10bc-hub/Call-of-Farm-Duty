@@ -21,6 +21,8 @@ const growMs = (id) => CROPS[FIELD_BY_ID[id].crop].growTime * 1000;
 
 export class FarmState {
     constructor(now = Date.now()) {
+        // ¿Ya se ha visto el prólogo? (una partida nueva empieza por él)
+        this.prologue = false;
         this.freeCosts = false; // depuración: las mejoras de campos y granero a 0
         this.freeHome = false; // depuración: las mejoras de la casa y la tienda del ovni a 0
         this.barn = { level: 0 };
@@ -57,6 +59,7 @@ export class FarmState {
         try {
             const d = JSON.parse(localStorage.getItem(KEY) || 'null');
             if (d && d.fields) {
+                this.prologue = d.prologue === undefined ? true : !!d.prologue; // las de antes, ya empezadas
                 for (const c of Object.keys(this.items)) this.items[c] = (d.items && d.items[c]) | 0;
                 this.barn.level = Math.min(BARN.length - 1, Math.max(0, d.barn ? d.barn.level | 0 : (d.rev | 0) < 3 ? 2 : 0));
                 this.house.level = Math.min(HOUSE.length - 1, Math.max(0, d.house ? d.house.level | 0 : (d.rev | 0) < 4 ? 1 : 0));
@@ -99,6 +102,7 @@ export class FarmState {
                 w.left = v3.plot.left | 0;
                 this.barn.level = 2;
                 this.house.level = 1;
+                this.prologue = true;
             }
         } catch {
             /* sin almacenamiento */
@@ -116,7 +120,7 @@ export class FarmState {
 
     save() {
         try {
-            localStorage.setItem(KEY, JSON.stringify({ rev: REV, items: this.items, fields: this.fields, barn: this.barn, house: this.house, arsenal: this.arsenal, ufo: this.ufo, home: this.home, merchant: this.merchant, lands: this.lands }));
+            localStorage.setItem(KEY, JSON.stringify({ rev: REV, prologue: this.prologue, items: this.items, fields: this.fields, barn: this.barn, house: this.house, arsenal: this.arsenal, ufo: this.ufo, home: this.home, merchant: this.merchant, lands: this.lands }));
         } catch {
             /* ignorar */
         }

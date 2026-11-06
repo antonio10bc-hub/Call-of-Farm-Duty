@@ -16,6 +16,7 @@ import { Farm } from './world/Farm.js';
 import { FarmState } from './game/FarmState.js';
 import { Sniper } from './game/Sniper.js';
 import { DayNight } from './game/DayNight.js';
+import { Prologue } from './game/Prologue.js';
 import { Scope } from './ui/Scope.js';
 import { installPixelSprites } from './ui/PixelArt.js';
 import { Sfx } from './core/Audio.js';
@@ -124,6 +125,7 @@ const cropOf = (id) => CROPS[FIELD_BY_ID[id].crop];
 const sniper = new Sniper(THEME, {
     sfx,
     onHit(target, nx, ny) {
+        if (prologue.active) return; // en el prólogo no se recoge nada de verdad
         state.collect(snipeField);
         const x = (nx * 0.5 + 0.5) * innerWidth, y = (-ny * 0.5 + 0.5) * innerHeight;
         popPlus(x, y);
@@ -163,10 +165,10 @@ const sniper = new Sniper(THEME, {
         renderer.flash(0xffffff, 1);
         for (let k = 1; k <= 6; k++) setTimeout(() => renderer.flash(k % 2 ? 0xfff6dc : 0xffffff, 1 - k * 0.12), k * 160);
         for (const def of FARM.fields) {
-            if (def.id === snipeField || !state.isReady(def.id)) continue;
+            if (prologue.active || def.id === snipeField || !state.isReady(def.id)) continue;
             for (let n = state.fields[def.id].left; n > 0; n--) state.collect(def.id);
         }
-        updateCounts(true);
+        if (!prologue.active) updateCounts(true);
         setTimeout(() => banner(L('NUKE!', '¡NUCLEAR!')), 300);
     },
     // El barril ha reventado: el terreno queda limpio y desbloqueado (se guarda ya)
@@ -184,6 +186,7 @@ const sniper = new Sniper(THEME, {
     // Un alienígena (o un ovni, con varias) se ha escapado con algo del campo: se pierde, con su -n
     // rojo donde se fue
     onStolen(target, nx, ny, n = 1) {
+        if (prologue.active) return;
         for (let k = 0; k < n; k++) state.lose(snipeField);
         killPop((nx * 0.5 + 0.5) * innerWidth, (-ny * 0.5 + 0.5) * innerHeight, cropOf(snipeField).icon, 'stolen-pop', `-${n}`);
         medal(L('STOLEN!', '¡ROBADO!'), 'stolen');
@@ -200,6 +203,7 @@ const sniper = new Sniper(THEME, {
     },
     // Ovni pequeño derribado: sus monedas vuelan al contador
     onUfoCoin(n, nx, ny) {
+        if (prologue.active) return;
         state.items.alien += n;
         state.save();
         updateCounts();
@@ -217,11 +221,16 @@ const sniper = new Sniper(THEME, {
         setTimeout(() => banner(L('BOOM!', '¡BUM!')), 150);
     },
     onFinish() {
+        if (prologue.active) return;
         setTimeout(() => banner(L('ALL IN!', '¡COSECHA COMPLETA!')), 250);
         vibrate('kill');
     },
     onDone() {
-        goFarm(true);
+        if (!prologue.active) goFarm(true);
+    },
+    // Prólogo: el disparo al trigo mágico
+    onMagic() {
+        prologue.hitMagic();
     },
     onCorner(i) {
         showCorner(i);
@@ -229,10 +238,88 @@ const sniper = new Sniper(THEME, {
 });
 addLights(sniper.scene);
 
+// ---------- Prólogo ----------
+// Una partida nueva empieza con él (en las pruebas, solo si la URL lleva ?prologue)
+const fineMouse = matchMedia('(pointer: fine)').matches;
+let typer = 0;
+const prologue = new Prologue(THEME, sniper, farm, {
+    sfx,
+    lights: addLights,
+    flash: (c, k) => renderer.flash(c, k),
+    // Bocadillo del trigo mágico, letra a letra (null lo quita)
+    say(text) {
+        const el = $('pro-talk');
+        clearInterval(typer);
+        if (!text) return el.classList.add('hidden');
+        el.classList.remove('hidden', 'in');
+        void el.offsetWidth;
+        el.classList.add('in');
+        let n = 0;
+        $('pro-text').textContent = '';
+        typer = setInterval(() => {
+            n += 2;
+            $('pro-text').textContent = text.slice(0, n);
+            if (n % 6 === 0) sfx.play('tick');
+            if (n >= text.length) clearInterval(typer);
+        }, 40);
+    },
+    // Aviso grande de qué hacer: recolectar a mano o apuntar y disparar (null lo quita)
+    prompt(kind) {
+        const el = $('pro-prompt');
+        if (!kind) return el.classList.add('hidden');
+        el.textContent = kind === 'collect'
+            ? (fineMouse ? L('CLICK TO HARVEST', 'HAZ CLIC PARA RECOLECTAR') : L('TAP TO HARVEST', 'TOCA PARA RECOLECTAR'))
+            : (fineMouse ? L('HOLD RIGHT CLICK TO AIM · RELEASE TO FIRE', 'MANTÉN EL CLIC DERECHO PARA APUNTAR · SUÉLTALO PARA DISPARAR') : L('HOLD YOUR FINGER STILL TO AIM · RELEASE TO FIRE', 'DEJA EL DEDO QUIETO PARA APUNTAR · SUÉLTALO PARA DISPARAR'));
+        el.classList.toggle('aim', kind === 'aim');
+        el.classList.remove('hidden');
+    },
+    popPlus: () => popPlus(innerWidth * 0.62, innerHeight * 0.62),
+    cine(on) {
+        document.body.classList.toggle('cine', on);
+        if (on) touch = pan = pinch = null;
+    },
+    // A la torre, frente a un campo de trigo enorme (el del trigo al máximo), con el rifle de serie
+    enterTower() {
+        const W = FIELD_BY_ID.wheat.levels[FIELD_BY_ID.wheat.levels.length - 1];
+        snipeField = null;
+        sniper.enter({ crop: 'wheat', count: W.sheaves, arena: W.arena, loadout: { scope: 'std', rifle: 'bolt', mag: 'std' } });
+        mode = 'snipe';
+        snipeStart = time;
+        document.body.classList.add('sniping');
+        $('snipe-ui').classList.remove('hidden');
+        startMusic(THEME.sniperMusic);
+    },
+    // Al mapa: la granja de verdad, con todo por hacer
+    toMap() {
+        sniper.leave();
+        sniper.ending = -1;
+        if (document.exitPointerLock && locked()) document.exitPointerLock();
+        document.body.classList.remove('sniping', 'predator', 'fallout', 'scoped');
+        $('nuke-count').classList.add('hidden');
+        $('snipe-ui').classList.add('hidden');
+        $('farm-ui').classList.remove('hidden');
+        $('bubbles').classList.remove('hidden');
+        scope.show(false);
+        mode = 'farm';
+        rig.focus(home.x, home.z);
+        rig.snap();
+        startMusic(THEME.music);
+    },
+    done() {
+        document.body.classList.remove('prologue');
+        dayNight.force = Settings.daytime || null;
+        state.prologue = true;
+        state.save();
+        updateCounts();
+    },
+});
+const prologueLocked = () => prologue.active && prologue.locked;
+
 renderer.onResize = (w, h) => {
     rig.resize(w / h);
     sniper.camera.aspect = w / h;
     sniper.camera.updateProjectionMatrix();
+    prologue.resize(w / h);
     scope.resize(w, h, canvas.style.width.replace('px', ''), canvas.style.height.replace('px', ''));
 };
 renderer.resize();
@@ -900,7 +987,8 @@ document.addEventListener('pointerlockchange', () => document.body.classList.tog
 addEventListener('pointerdown', (e) => {
     sfx.unlock();
     if (!music.playing && Settings.music && sfx.ctx) startMusic(mode === 'snipe' ? THEME.sniperMusic : THEME.music);
-    if (isUi(e) || inCine()) return;
+    if (mode === 'prologue') return prologue.tap();
+    if (isUi(e) || inCine() || prologueLocked()) return;
     if (mode === 'farm') {
         pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
         if (pointers.size === 2) {
@@ -939,7 +1027,7 @@ addEventListener('pointermove', (e) => {
         }
         return;
     }
-    if (mode !== 'snipe') return;
+    if (mode !== 'snipe' || prologueLocked()) return;
     if (e.pointerType === 'mouse' && locked()) {
         sniper.look(e.movementX, e.movementY, S.lookMouse);
         return;
@@ -990,7 +1078,7 @@ addEventListener('pointercancel', (e) => endPointer(e, true));
 // Botones del ratón en primera persona (mousedown/mouseup también ven el segundo botón
 // cuando ya hay otro pulsado, cosa que pointerdown no hace)
 addEventListener('mousedown', (e) => {
-    if (mode !== 'snipe' || isUi(e)) return;
+    if (mode !== 'snipe' || isUi(e) || prologueLocked()) return;
     lockMouse();
     if (e.button === 2) sniper.setAds(true);
     else if (e.button === 0) {
@@ -1016,6 +1104,7 @@ addEventListener('wheel', (e) => {
 
 // Dedo quieto un momento: sube el arma
 function holdCheck() {
+    if (prologueLocked()) return;
     if (mode === 'snipe' && touch && !touch.mouse && !sniper.scoped && !sniper.ks.predator && performance.now() - touch.still > S.holdTime) sniper.setAds(true);
 }
 
@@ -1038,6 +1127,8 @@ addEventListener('keydown', (e) => {
     const k = e.key.toLowerCase();
     keys.add(k);
     if (e.repeat) return;
+    if (mode === 'prologue') return (k === ' ' || k === 'enter') && prologue.tap();
+    if (prologueLocked()) return;
     if (mode === 'farm') {
         if (k === 'escape') select(null);
         if (k === 'enter' || k === ' ') quickAction();
@@ -1071,7 +1162,7 @@ function keyInput(dt) {
 const padPrev = [];
 const curve = (v) => (Math.abs(v) < 0.15 ? 0 : Math.sign(v) * ((Math.abs(v) - 0.15) / 0.85) ** 2);
 function pollPad(dt) {
-    if (inCine()) return;
+    if (inCine() || prologueLocked()) return;
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     const pad = [...pads].find((p) => p);
     if (!pad) return;
@@ -1863,6 +1954,11 @@ tapBtn('btn-home-reset', () => {
 });
 // Borrar el progreso: el primer toque arma el botón y el segundo (antes de 3 s) borra y recarga
 let resetArmed = 0;
+tapBtn('btn-prologue', () => {
+    state.prologue = false;
+    state.save();
+    location.reload();
+});
 tapBtn('btn-reset', () => {
     const el = $('btn-reset');
     if (!resetArmed) {
@@ -1936,6 +2032,11 @@ function frame(now) {
     pollPad(dt);
     keyInput(dt);
     holdCheck();
+    if (prologue.active) prologue.update(dt, time, farmParticles);
+    if (mode === 'prologue') {
+        if (prologue.scene) renderer.render(prologue.scene, prologue.camera, dt);
+        return;
+    }
 
     autoHarvest(dt);
     if (mode === 'farm' || mode === 'toSnipe') {
@@ -2007,6 +2108,12 @@ function frame(now) {
 applyLook();
 if (state.ufo.crashed) farm.crashUfo();
 updateCounts();
+if (!state.prologue && (!CONFIG.test || new URLSearchParams(location.search).has('prologue'))) {
+    mode = 'prologue';
+    document.body.classList.add('prologue');
+    dayNight.force = 'day'; // el prólogo, siempre de día
+    prologue.start();
+}
 requestAnimationFrame(frame);
 // La portada (título) se queda un momento aunque cargue rápido
 setTimeout(() => (window.__loaded = true), 900);
@@ -2016,4 +2123,4 @@ if ('serviceWorker' in navigator && !/^(localhost|127\.)/.test(location.hostname
 }
 
 // Para las pruebas (Playwright)
-window.game = { state, sniper, farm, rig, dayNight, merchantClock, openMerchant, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, upgradeBarn, upgradeHouse, openShop, get cine() { return cine; }, goFarm, select, updateCounts, pause: () => (paused = true) };
+window.game = { state, sniper, farm, rig, prologue, dayNight, merchantClock, openMerchant, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, upgradeBarn, upgradeHouse, openShop, get cine() { return cine; }, goFarm, select, updateCounts, pause: () => (paused = true) };

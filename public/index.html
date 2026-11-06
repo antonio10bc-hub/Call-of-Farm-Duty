@@ -132,6 +132,9 @@
 
     <!-- Cinemática: bandas negras arriba y abajo (el jugador no puede tocar nada) -->
     <div id="letterbox" class="letterbox"><i></i><i></i></div>
+    <!-- Prólogo: el bocadillo del trigo mágico y el aviso de qué hacer -->
+    <div id="pro-talk" class="pro-talk hidden"><i class="pro-face"></i><div><b data-es="TRIGO MÁGICO">MAGIC WHEAT</b><span id="pro-text"></span></div></div>
+    <div id="pro-prompt" class="pro-prompt hidden"></div>
 
     <!-- Tienda del ovni: hoja abajo (arriba se ve la casa cambiar en directo). Dos secciones
          (CASA y PARCELA), sus categorías y las tarjetas de cada una -->
@@ -216,6 +219,7 @@
                 <div id="unlock-rows"></div>
             </div>
             <button id="btn-unlock-all" class="btn btn-small set-btn" data-es="DESBLOQUEAR TODO">UNLOCK EVERYTHING</button>
+            <button id="btn-prologue" class="btn btn-small set-btn" data-es="VER EL PRÓLOGO">WATCH PROLOGUE</button>
             <button id="btn-reset" class="btn btn-danger set-btn" data-es="BORRAR PROGRESO">RESET PROGRESS</button>
         </div>
         <div class="debug-box" id="debug-home">

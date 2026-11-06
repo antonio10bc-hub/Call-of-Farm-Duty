@@ -139,6 +139,7 @@ export class Farm {
         this.buildFences();
         this.buildTrees();
         this.buildWild();
+        this.buildHints();
         this.buildDecor();
         this.buildClouds();
 
@@ -285,7 +286,8 @@ export class Farm {
         entry.mesh.instanceColor.needsUpdate = true;
         for (const e of this.decor) e.positions.forEach((p) => (p.hide = p.hide || this.views.some((v) => inRect(v.rect, p.x, p.z, 0.4))));
         for (const e of this.wild) e.positions.forEach((p) => (p.hide = p.hide || this.cleared(p.x, p.z)));
-        for (const e of [entry, ...this.decor, ...this.wild]) this.layout(e, this.introT);
+        for (const e of this.hints || []) e.positions.forEach((p) => (p.hide = p.hide || !this.fields[p.field].locked));
+        for (const e of [entry, ...this.decor, ...this.wild, ...(this.hints || [])]) this.layout(e, this.introT);
     }
 
     // El granero sube de nivel: el recinto crece (lo abandonado de dentro se aparta y la tierra
@@ -396,6 +398,62 @@ export class Farm {
         pieces.forEach((p, i) => jm.setColorAt(i, _c.setHex(p.color)));
         this.addHulled(0xa8a49c, rocks, 0.3);
         this.wild = this.animated.slice(n0);
+    }
+
+    // Adelantos: en cada terreno aún bloqueado asoman, entre la porquería, unas cuantas plantas de lo
+    // que tendrá (espigas, tomateras, calabazas, maíz). Se van al desbloquearlo
+    buildHints() {
+        const solid = [], thin = [];
+        for (const v of this.views) {
+            if (!v.locked) continue;
+            const Z = v.zone, spots = [];
+            for (let tries = 0; spots.length < 8 && tries < 300; tries++) {
+                const x = Z.x + 0.8 + Math.random() * (Z.w - 1.6), z = Z.z + 0.8 + Math.random() * (Z.d - 1.6);
+                if (FARM.paths.some(([x0, z0, x1, z1]) => x > x0 - 0.7 && x < x1 + 0.7 && z > z0 - 0.7 && z < z1 + 0.7)) continue;
+                if (spots.some(([a, b]) => Math.hypot(a - x, b - z) < 1.7)) continue;
+                spots.push([x, z]);
+            }
+            for (const [x, z] of spots) this.hintPlant(v.crop, x, z, v.id, solid, thin);
+        }
+        this.hints = [];
+        if (solid.length) {
+            const m = this.addHulled(0xffffff, solid, 0.5);
+            solid.forEach((p, i) => m.setColorAt(i, _c.setHex(p.color)));
+            this.hints.push(...this.animated.slice(-2));
+        }
+        if (thin.length) {
+            const m = new THREE.InstancedMesh(box(1, 1, 1), toon(0xffffff), thin.length);
+            thin.forEach((p, i) => m.setColorAt(i, _c.setHex(p.color)));
+            this.hints.push(this.addAnimated(m, thin, 0.5));
+        }
+    }
+
+    // Una planta de muestra de un cultivo (piezas con contorno en solid; tallos finos en thin)
+    hintPlant(crop, x, z, field, solid, thin) {
+        const r = Math.random() * Math.PI;
+        const add = (list, dx, y, dz, sx, sy, sz, color, ry = 0) => list.push({ x: x + dx, y, z: z + dz, sx, sy, sz, ry, color, field });
+        if (crop === 'wheat') {
+            for (let k = 0; k < 6; k++) {
+                const a = k * 1.1 + r, d = 0.08 + (k % 3) * 0.08, h = 0.7 + (k % 2) * 0.2;
+                add(thin, Math.sin(a) * d, h / 2, Math.cos(a) * d, 0.05, h, 0.05, 0xd8b040);
+                add(thin, Math.sin(a) * d, h + 0.12, Math.cos(a) * d, 0.1, 0.24, 0.1, 0xf6cf4a);
+            }
+        } else if (crop === 'tomato') {
+            add(thin, 0.18, 0.5, 0, 0.05, 1.0, 0.05, 0xb07a44);
+            add(solid, 0, 0.28, 0, 0.6, 0.56, 0.55, 0x3d9a34, r);
+            for (const [dx, y, dz] of [[-0.2, 0.42, 0.22], [0.15, 0.55, 0.2], [0.24, 0.3, -0.12]]) add(solid, dx, y, dz, 0.2, 0.2, 0.2, 0xe8352a);
+        } else if (crop === 'pumpkin') {
+            add(solid, 0.3, 0.04, 0.2, 0.6, 0.08, 0.45, 0x4a9a34, r);
+            add(solid, -0.25, 0.04, -0.2, 0.5, 0.08, 0.4, 0x3d8a2c, r + 1);
+            add(solid, 0, 0.24, 0, 0.75, 0.48, 0.64, 0xf08a1e, r);
+            add(solid, 0, 0.53, 0, 0.09, 0.16, 0.09, 0x5a7a2a);
+        } else if (crop === 'corn') {
+            add(thin, 0, 0.9, 0, 0.12, 1.8, 0.12, 0x8ab83a);
+            add(thin, 0.35, 0.7, 0.1, 0.1, 1.4, 0.1, 0x7ab83a);
+            add(solid, 0.1, 1.25, 0.08, 0.17, 0.42, 0.17, 0xffd23f);
+            add(solid, 0, 0.95, 0, 0.6, 0.06, 0.14, 0x7ab83a, r);
+            add(solid, 0, 1.4, 0, 0.5, 0.06, 0.12, 0x6aa832, r + 1.4);
+        }
     }
 
     // Instante en que brota cada planta: al empezar, en ola desde el centro de la granja; al

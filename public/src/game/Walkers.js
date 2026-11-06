@@ -220,7 +220,7 @@ export class Walkers {
 
     update(dt, time) {
         const sn = this.sn, k = sn.nightK || 0;
-        const busy = sn.unlocking || sn.ending >= 0 || sn.field.remaining === 0;
+        const busy = sn.calm || sn.unlocking || sn.ending >= 0 || sn.field.remaining === 0;
         if (!busy && (this.next -= dt) <= 0) {
             // Más seguidos cuanto más grande es el campo, y muchos más de noche
             this.next = rand(W.every[0], W.every[1]) / Math.max(1, Math.sqrt(sn.field.scale || 1)) / (1 + W.night * k);

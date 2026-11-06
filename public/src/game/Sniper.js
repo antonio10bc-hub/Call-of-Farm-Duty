@@ -221,7 +221,7 @@ export class Sniper {
 
     // Salta a la torre vecina (dir: +1 / -1). La mira sigue puesta si lo estaba.
     goCorner(dir) {
-        if (this.move || this.ending >= 0 || this.unlocking || this.ks.predator) return;
+        if (this.move || this.ending >= 0 || this.unlocking || this.lockCorners || this.ks.predator) return;
         const n = this.field.towers.length;
         const to = (this.corner + dir + n) % n;
         this.move = { from: this.pos.clone(), to: this.eyeOf(to), t: 0, idx: to };
@@ -230,7 +230,7 @@ export class Sniper {
 
     // Salta a la torre vecina que queda a la izquierda (side -1) o a la derecha (+1) de la vista
     goSide(side) {
-        if (this.move || this.ending >= 0 || this.unlocking || this.ks.predator) return;
+        if (this.move || this.ending >= 0 || this.unlocking || this.lockCorners || this.ks.predator) return;
         const n = this.field.towers.length;
         const rx = Math.cos(this.lookYaw), rz = -Math.sin(this.lookYaw); // derecha de la vista
         const along = (d) => {
@@ -361,6 +361,15 @@ export class Sniper {
         const muzzle = _o.clone();
         this.particles.burst(_o.x, _o.y, _o.z, 10, [0xffffff, 0xffe03a, 0xff9a1f], { speed: 1.4, up: 0.6, size: 0.04, ttl: 0.16, grav: 0 });
 
+        // Prólogo: el trigo mágico flotando en el centro del campo es el blanco
+        if (this.magic) {
+            const t = this.magic.hit(origin, dir);
+            if (t !== null) {
+                this.drawTracer(origin, dir, muzzle, origin.clone().addScaledVector(dir, t));
+                if (this.hooks.onMagic) this.hooks.onMagic();
+                return true;
+            }
+        }
         if (this.unlocking) return this.fireAtJunk(origin, dir, muzzle);
         const hits = this.field.raycast(origin, dir);
         hits.length = Math.min(hits.length, this.stats.pierce); // lo que atraviesa este rifle
@@ -466,7 +475,7 @@ export class Sniper {
         this.streakMax = Math.max(KS.bar.min, KS.bar.time * KS.bar.decay ** (this.streak - 1));
         this.streakT = this.streakMax;
         if (this.hooks.onMedal && this.streak >= 2 && prev < 4) this.hooks.onMedal({ streak: Math.min(4, this.streak) });
-        for (const k of streakOf('crop')) if (prev < k.at && this.streak >= k.at) this.ks.trigger(k.id);
+        if (!this.scripted) for (const k of streakOf('crop')) if (prev < k.at && this.streak >= k.at) this.ks.trigger(k.id);
     }
 
     // Racha alienígena: cada alienígena abatido suma (no se pierde con el tiempo) y al llegar a
@@ -474,7 +483,7 @@ export class Sniper {
     addAlien(n) {
         const prev = this.aliens;
         this.aliens += n;
-        for (const k of streakOf('alien')) if (prev < k.at && this.aliens >= k.at) this.ks.trigger(k.id);
+        if (!this.scripted) for (const k of streakOf('alien')) if (prev < k.at && this.aliens >= k.at) this.ks.trigger(k.id);
     }
 
     // Lo que hay a menos de r de un punto del suelo (explosiones y fuego): los alienígenas
@@ -670,7 +679,7 @@ export class Sniper {
         this.prevYaw = this.yaw;
         this.prevPitch = this.pitch;
         // La mira tapa el arma cuando está pegada al ojo; guiando el misil, la vista es la suya
-        this.rifle.root.visible = this.adsK < 0.85 && !this.ks.predator;
+        this.rifle.root.visible = this.adsK < 0.85 && !this.ks.predator && !this.hideRifle;
         if (this.ks.predator) {
             this.ks.aimCamera(this.camera);
             this.fov = this.camera.fov;

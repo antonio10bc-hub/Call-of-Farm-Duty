@@ -209,7 +209,7 @@ export class Killstreaks {
         }
         // Escarapelas en las alas
         for (const x of [-5.5, 5.5]) hulled(g, ink, 1.0, 0.04, 1.0, 0xffffff, x, 0.26, 0.8).add(new THREE.Mesh(box(0.55, 0.06, 0.55), mat(0xc8402e)));
-        g.scale.setScalar(1.25);
+        g.scale.setScalar(1.875); // 1.5 veces más grande que antes (las bombas no)
         return g;
     }
 
@@ -250,7 +250,7 @@ export class Killstreaks {
             bomb.add(s);
         }
         const light = hulled(bomb, ink, 0.3, 0.3, 0.3, 0xff2a1a, 0, 2.75, 0);
-        bomb.scale.setScalar(1.3);
+        bomb.scale.setScalar(1.95); // 1.5 veces más grande que antes
         bomb.position.set(f.cx, KS.nuke.height, f.cz);
         this.root.add(bomb);
         sn.setAds(false);
@@ -407,12 +407,12 @@ export class Killstreaks {
                 // La bomba: cae acelerando (llega al suelo justo a cero), se bambolea, deja humo y
                 // la vista la sigue
                 const k = 1 - Math.max(0, N.t) / KS.nuke.countdown, f = sn.field, B = N.bomb;
-                B.position.y = 2.4 + (KS.nuke.height - 2.4) * (1 - k * k);
+                B.position.y = 3.6 + (KS.nuke.height - 3.6) * (1 - k * k);
                 B.rotation.set(Math.sin(N.t * 3) * 0.06, N.t * 0.8, Math.cos(N.t * 2.6) * 0.06);
                 N.light.visible = Math.sin(N.t * 14) > 0;
                 if ((N.trail -= rawDt) <= 0) {
                     N.trail = 0.03;
-                    sn.particles.spawn(f.cx + (Math.random() - 0.5), B.position.y + 4, f.cz + (Math.random() - 0.5), 0, 1, 0, 0.4 + Math.random() * 0.4, 1.4, SMOKE[(Math.random() * 4) | 0], -1);
+                    sn.particles.spawn(f.cx + (Math.random() - 0.5), B.position.y + 6, f.cz + (Math.random() - 0.5), 0, 1, 0, 0.5 + Math.random() * 0.5, 1.4, SMOKE[(Math.random() * 4) | 0], -1);
                 }
                 if (!sn.ks.predator) {
                     const dx = f.cx - sn.pos.x, dz = f.cz - sn.pos.z, dy = B.position.y - sn.pos.y;
