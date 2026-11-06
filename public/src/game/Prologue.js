@@ -376,18 +376,15 @@ export class Prologue {
         planet.add(ring);
         s.add(planet);
         // Tú: un ente blanco y brillante, flotando frente al trigo mágico
-        // Tumbado boca abajo en el aire, con la cabeza hacia el trigo (que también está tumbado,
-        // con las espigas hacia ti): cabeza con cabeza
+        // Flotando de pie frente al trigo, abrazado a una pelota invisible
         this.entity = new THREE.Group();
         const body = this.buildEntity();
         body.rotation.y = Math.PI / 2;
         this.entity.add(body);
-        this.entity.rotation.z = -Math.PI / 2;
-        this.entity.position.set(-1.95, 0, 0);
+        this.entity.position.set(-1.6, 0, 0);
         s.add(this.entity);
         this.magic = new MagicWheat(this.theme.outline);
-        this.magic.root.position.set(1.55, 0, 0);
-        this.magic.root.rotation.z = Math.PI / 2;
+        this.magic.root.position.set(1.5, 0.1, 0);
         this.magic.base = 0;
         this.magic.root.scale.setScalar(0.85);
         s.add(this.magic.root);
@@ -410,11 +407,37 @@ export class Prologue {
             g.add(m);
             return m;
         };
-        part(0.42, 0.42, 0.42, 0, 1.55, 0);
-        part(0.52, 0.7, 0.3, 0, 0.95, 0);
-        this.arms = [part(0.16, 0.62, 0.16, -0.38, 0.95, 0), part(0.16, 0.62, 0.16, 0.38, 0.95, 0)];
-        part(0.18, 0.66, 0.2, -0.13, 0.3, 0);
-        part(0.18, 0.66, 0.2, 0.13, 0.3, 0);
+        // Pose de abrazar una pelota invisible: tronco echado hacia delante, brazos en arco hacia
+        // dentro y rodillas dobladas (mira hacia +z; cada articulación es un grupo que gira)
+        const joint = (parent, x, y, z, rx = 0, ry = 0, rz = 0) => {
+            const j = new THREE.Group();
+            j.position.set(x, y, z);
+            j.rotation.set(rx, ry, rz);
+            parent.add(j);
+            return j;
+        };
+        const add = (parent, w, h, d, x, y, z) => {
+            const m = part(w, h, d, x, y, z);
+            parent.add(m);
+            return m;
+        };
+        const hips = joint(g, 0, 0.75, 0);
+        this.torso = joint(hips, 0, 0, 0, 0.38);
+        add(this.torso, 0.52, 0.7, 0.3, 0, 0.36, 0);
+        add(this.torso, 0.42, 0.42, 0.42, 0, 0.98, 0.04);
+        this.arms = [-1, 1].map((sd) => {
+            const sh = joint(this.torso, sd * 0.35, 0.62, 0, -1.15, 0, sd * 0.55);
+            add(sh, 0.16, 0.36, 0.16, 0, -0.17, 0);
+            const el = joint(sh, 0, -0.34, 0, -0.25, 0, -sd * 1.25);
+            add(el, 0.15, 0.34, 0.15, 0, -0.16, 0);
+            return sh;
+        });
+        for (const sd of [-1, 1]) {
+            const hip = joint(hips, sd * 0.13, 0, 0, -1.0 + (sd > 0 ? 0.25 : 0), 0, sd * 0.08);
+            add(hip, 0.19, 0.4, 0.21, 0, -0.19, 0);
+            const knee = joint(hip, 0, -0.38, 0, 1.55 + (sd > 0 ? 0.2 : 0));
+            add(knee, 0.17, 0.4, 0.19, 0, -0.19, 0);
+        }
         return g;
     }
 
@@ -422,11 +445,13 @@ export class Prologue {
         // La cámara gira despacio alrededor de los dos
         this.orbit += dt * 0.62;
         const r = 9, a = this.orbit + 0.6;
-        this.camera.position.set(Math.sin(a) * r, 2.2 + Math.sin(this.orbit * 0.7) * 1.2, Math.cos(a) * r);
-        this.camera.lookAt(-0.2, 0, 0);
+        this.camera.position.set(Math.sin(a) * r, 2 + Math.sin(this.orbit * 0.7) * 1.2, Math.cos(a) * r);
+        this.camera.lookAt(0, 0.8, 0);
         this.entity.position.y = Math.sin(time * 1.2) * 0.15;
-        this.entity.rotation.z = -Math.PI / 2 + Math.sin(time * 0.8) * 0.04;
-        this.arms.forEach((m, i) => (m.rotation.z = (i ? -1 : 1) * (0.25 + Math.sin(time * 1.1) * 0.05)));
+        this.entity.rotation.z = Math.sin(time * 0.8) * 0.04;
+        // Respira: el tronco y el abrazo laten un poco
+        this.torso.rotation.x = 0.38 + Math.sin(time * 1.1) * 0.05;
+        this.arms.forEach((m, i) => (m.rotation.z = (i ? 1 : -1) * (0.55 + Math.sin(time * 1.1) * 0.06)));
         this.magic.update(dt, time);
         if (Math.random() < dt * 20) {
             const c = this.magic.center(_v);
