@@ -5,7 +5,7 @@
 
 ## Pruebas (Playwright): que no saturen la CPU
 
-Las pruebas renderizan el juego de verdad y son caras. En el Mac usan la GPU real (`channel: 'chromium'` + Metal; en CI, WebGL por software) y el juego en modo prueba (`?test`: menos resolución, sin partículas, 30 fps). Hay 2 workers. Están por áreas en `tests/*.spec.js` (map, unlock, sniper, killstreaks, ufo, debug), con las utilidades en `tests/helpers.js`, y etiquetadas `@smoke` (rápidas y críticas) o `@full`.
+Las pruebas renderizan el juego de verdad y son caras. En el Mac usan la GPU real (`channel: 'chromium'` + Metal; en CI, WebGL por software) y el juego en modo prueba (`?test`: menos resolución, sin partículas, 30 fps). Hay 2 workers. Están por áreas en `tests/*.spec.js` (map, unlock, sniper, killstreaks, ufo, debug, progress, prologue), con las utilidades en `tests/helpers.js`, y etiquetadas `@smoke` (rápidas y críticas) o `@full`.
 
 - Mientras iteras: ejecuta solo las pruebas de lo que cambias, con un worker: `npx playwright test tests/<área>.spec.js --workers=1` o `npx playwright test -g "<nombre>" --workers=1`. `npm run test:related` elige los archivos según lo que ha cambiado desde el último commit.
 - Antes de dar una tarea por terminada: `npm run test:smoke`.

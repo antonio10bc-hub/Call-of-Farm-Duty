@@ -1,50 +1,99 @@
 # Call of Farm Duty
 
-Granja voxel con estética de consola portátil (mismo estudio y estilo que Tank-less): el trigo crece en la granja y lo cosechas desde una torreta con un rifle de francotirador en primera persona.
+Granja voxel con estética de consola portátil (render retro de píxel fino, toon de 3 tonos y contornos de tinta): los cultivos crecen en la granja y los cosechas desde las torres de su campo con un rifle de francotirador en primera persona, mientras los alienígenas intentan robártelos.
 
 ## Cómo se juega
-- **Lo primero:** el terreno del trigo empieza abandonado y lleno de chatarra. Su cartel dice **¡DESBLOQUEAR!**: desde una atalaya lejana hay que acertar al barril rojo encima del montón para volarlo todo y dejar la tierra lista (el montón cambia algo de sitio en cada desbloqueo). Después ya se siembra y se cosecha.
-- **Granja:** dos parcelas valladas: la de los campos y, detrás del granero (por un portón), la de la casa, con un camino que sale por la derecha (por ahí llegará el comerciante). Alrededor, bosque. Se gestiona tocando sus edificios (granero de las rachas de bajas, silo, casa, tractor) y su campo de trigo, que crece solo. Arrastra para moverte; pellizca o usa la rueda para el zoom. Cuando el campo está maduro sale **¡RECOGER!**.
-- **Casa:** empieza en ruinas, con toda su parcela sucia y llena de árboles, matorral y chatarra. 3 niveles (ficha de la casa o su cartel): 1 (8 de trigo) la arregla y limpia alrededor; 2 (20 de trigo) limpia gran parte de la parcela; 3 (35 de trigo + 10 tomates) la limpia entera.
-- **El ovni:** al dejar la casa al máximo, tras un momento se bloquea el control y un ovni cae del cielo y se estrella en un rincón de su parcela. Su cartel (o tocarlo) abre la tienda de Zorg; hasta abrirla la primera vez es una alarma roja con una admiración blanca, y después lleva la cara del alienígena. La tienda es una hoja abajo con la casa encuadrada arriba, que cambia en directo. Dos secciones: **CASA** (tejado, fachada, puerta y marcos ya funcionan; tipo de casa, ventanas, chimenea y porche, PRONTO) y **PARCELA**: 40 cosas (agua, jardín, juegos, estructuras, decoración y de otro mundo), cada una en su hueco fijo de la parcela; se compran una vez y luego se ponen o se quitan. Se paga con **monedas alienígenas**: de vez en cuando cruza el cielo del campo de tiro un ovni pequeño; derribarlo da una moneda (y suma a la racha alienígena). Catálogo y precios en `content/ufo.js`.
-- **Zonas sin limpiar:** lo que cada campo llegará a ocupar en su nivel máximo empieza abandonado (tierra sucia, árboles, matorral, chatarra y piedras), igual que la mitad del granero; al mejorar, el campo crece y lo que gana se limpia.
-- **Mejorar el campo:** encima del campo flota un cartel con su nivel; al tocarlo se abre su ficha, donde **MEJORAR** cuesta 3 de trigo. Hay 5 niveles: el campo crece de 4×3 a 11×11 casillas y su campo de tiro (solo ese, no el del mapa) se hace mucho más grande y con muchas más matas: 18, 36, 64, 100 y 150 (muchas, porque los alienígenas roban), en un campo de 1, 1,2, 1,45, 1,75 y 2,1 veces el tamaño normal. La flecha verde del cartel avisa de que hay trigo para mejorar.
-- **Torreta automática:** con un campo al nivel máximo, su mejora pasa a ser **TORRETA** (trigo: 40 de trigo; tomates: 40 de trigo y 25 tomates). Aparecen sacos terreros en las 4 esquinas del campo y una sola torreta que va saltando cada pocos segundos a la esquina de al lado (a su izquierda o a su derecha, al azar, nunca en diagonal), como el tirador entre torres. Desde ese momento recoge sola lo maduro (una mata cada 4 s, con la partida abierta, y un +1 de trigo saltando de donde da) y mientras tanto no para de tirotear el campo a ráfagas, como una ametralladora. En su campo de tiro hay un mástil en cada torre (por encima de ti, sin taparte la vista) y la torreta salta al de al lado (nunca en diagonal ni al de tu torre): acribilla una mata con una ráfaga y la recoge; tú sigues recogiendo a mano. Lo de la torreta no suma a las rachas. El cartel del campo lleva el icono de la torreta. Ajustes en `TURRETS` (`content/farm.js`).
-- **La cuadrícula de parcelas:** la granja es una cuadrícula de 3×3 parcelas de 30×30, con la de los campos y el granero en el centro, y vallas con portones donde pasan los caminos. Detrás, la de la casa; a su derecha, la del comerciante. A los lados, dos que se compran con oro; las demás (las esquinas y la de abajo) están abandonadas, en sombra y con un poste con candado: de momento no hay nada que desbloquear.
-- **Parcelas en venta:** oeste (15 **monedas de oro**, las del comerciante) y este (25), abandonadas (árboles, matorral y chatarra) y con su cartel de EN VENTA con el precio. Mientras no es tuya se ve en sombra (todo más oscuro y frío) y tiene un poste de SE VENDE junto a su portón. Al comprarla la sombra se retira en una onda dorada desde el poste, el poste salta por los aires y se iza tu bandera: ya es tuya, pero sigue sucia. Luego se desbloquea como cualquier terreno (disparando al barril de su campo) y queda limpia, con el campo de su cultivo nuevo (5 niveles, torreta y campo de tiro); al nivel 5 el campo ocupa casi toda la parcela (26×26, con su margen) y su campo de tiro es enorme. Cada cultivo se dispara distinto:
-  - **Calabazas** (oeste): enormes, entre hojas grandes; aguantan 3 tiros (cada uno las resquebraja, con su hitmarker) y paran la bala.
-  - **Maíz** (este): matas de más de 2 m en hileras (todas en la misma dirección, distinta en cada partida) con dos mazorcas a media altura; las hileras dan colaterales largos y las matas tapan la vista.
-- **Cámara:** se puede alejar mucho más (rueda o pellizco) y el botón **MAPA** (abajo a la izquierda) enseña toda la cuadrícula de un vistazo; otra vez (o acercar), de vuelta a donde estabas.
-- **Poblado del comerciante:** toda su parcela (a la derecha de la de la casa) es su poblado, con 3 niveles que se mejoran desde su hoja (con oro y cosecha: nivel 2, 20 de oro y 60 de trigo; nivel 3, 50 de oro, 120 de trigo y 40 tomates). Nivel 1: solo su claro, y el resto abandonado. Nivel 2: se limpia gran parte y salen un puesto de fruta, dos tiendas de lona, un pozo, farolas por el camino (de noche lucen), paja y un carro. Nivel 3: toda la parcela, con posada, plaza con fuente y bancos, otro puesto, dos casitas, establo con su caballo, árboles, flores y banderas a la entrada. Cada nivel trae un comerciante mejor: 3, 4 y 5 encargos, que paga ×1, ×1,4 y ×1,8.
-- **Comerciante:** su camino sale de la parcela de la casa hacia la derecha y acaba en un claro donde se nota que ya ha estado alguien: la estructura de un puesto vacía, cajas viejas, una hoguera apagada, las rodadas de un carro y un poste con su cartel. Con el reloj de verdad, cada 5 min llega y se queda 4 (pide de todo lo que da la granja, también calabazas y maíz): su carro entra por el camino y aparca, se despliega el toldo de rayas, sale la mercancía y él delante del puesto, y se enciende la hoguera (de noche, también el farol). Su cartel (o tocar su puesto) abre su hoja: los encargos de cosecha (de los campos que hay, en cantidad según su nivel) que paga en **monedas de oro** (más por los tomates); cada visita trae encargos nuevos. Luego recoge y se va por donde vino; mientras, su cartel dice cuánto falta para que vuelva. Ajustes en `content/merchant.js`.
-- **Día y noche:** con el reloj de verdad, 4 min de día y 2 de noche (con transición). De noche el cielo se vuelve azul marino con luz de luna fría, en el campo de tiro sale una luna llena enorme y estrellas, y vienen más alienígenas (el doble de seguidos y hasta 6 a la vez), que brillan en la oscuridad. Arriba a la derecha, un reloj con el sol o la luna y lo que falta para que cambie. Ajustes en `THEME.night` y `THEME.cycle` (`content/theme.js`).
-- **Campo de tomates:** en la otra esquina del cruce de caminos (crece desde ella, como el trigo) hay un terreno abandonado, sucio y lleno de chatarra oxidada. Con el trigo al nivel máximo su cartel pasa a **¡DESBLOQUEAR!**: tocarlo lleva a una sola atalaya, muy lejos (unos 52 m), en un escenario lleno de chatarra, desde la que hay que acertar un disparo al barril rojo encima del montón (tiembla, late y su contorno brilla). La explosión enorme vuela la chatarra, limpia la tierra y vuelve sola al mapa con el campo sembrado. Los tomates gigantes se recogen disparándoles; el campo tiene 5 niveles (de 5×4 a 12×11 casillas; 6, 12, 22, 36 y 56 tomates, con el campo de tiro creciendo igual que el del trigo) y cada mejora cuesta 5 de trigo y 3 tomates. El desbloqueo es igual para cualquier terreno nuevo (`locked` en `content/farm.js`).
-- **Francotirador:** desde una torre en cada esquina del campo, con control de shooter: la vista es libre y la mirilla está en el centro.
-  - Móvil: arrastra para mirar; deja el dedo quieto un momento para subir el arma (zoom), muévelo para afinar (más despacio) y suéltalo para disparar. Desliza desde el borde (o usa las flechas) para cambiar de torre.
-  - Ordenador: el clic de RECOGER ya bloquea el ratón; muévelo para mirar, mantén el botón derecho para apuntar y suéltalo para disparar (el izquierdo dispara al momento). Q/E saltan a la torre de la izquierda/derecha, Esc suelta el ratón, H vuelve a la granja.
-  - Mando: sticks para mirar, LT apuntar (soltar dispara), RT/A disparar, LB/RB torres, B salir.
-  - Precisión: sin la mira subida el tiro se dispersa mucho (no scope; en móvil, un toque rápido dispara desde la cadera). Girar la vista justo antes de disparar también abre el tiro. Al 95% de la subida desaparece la dispersión de cadera y la mira empieza a asentarse (medio segundo, con un leve temblor): un quickscope bien colocado acierta la gran mayoría de las veces. La mirilla se abre según la dispersión.
-  - Colateral: la bala atraviesa todas las matas que pilla en línea hasta tocar el suelo, y las recoge todas.
-  - **Alienígenas ladrones:** en cualquier campo que se cosecha, de vez en cuando aparece uno en un borde (con un rayo verde) y va andando, al trote o corriendo a por una mata (o un tomate); la coge y huye corriendo hacia fuera con ella a cuestas y un aviso rojo encima. Si llega al borde se la lleva (se pierde, con un -1 rojo y la medalla ¡ROBADO!); si se le abate, lo robado se recupera. Si no queda nada que robar, cruzan el campo y se van. Llevan un casco grande de cristal que de noche brilla en verde, latiendo.
-  - **Ovnis ladrones:** algunos ovnis pequeños, en vez de solo cruzar, se paran encima de la zona con más cultivos, bajan y echan un rayo verde que absorbe todo lo que pilla debajo (hasta 8): se ve subir girando hasta la nave, y luego se van con ello. Derribado, lo recuperas todo (y su moneda); si escapa, se pierde todo (un -n rojo). De noche brillan su cúpula, sus luces y la panza. Abatirlo (de un disparo, o con explosiones y fuego) suma a la racha alienígena. Paran la bala, pero lo que haya atravesado antes también se recoge. Al darles con una bala sale un **hitmarker** (aspa blanca en el centro, con su chasquido) y, encima de su cabeza, su **+1** con la cara del alienígena (como el +100 de Call of Duty).
-- **Granero (armamento):** ocupa la mitad de arriba de la primera parcela. Empieza sin mejorar, con un recinto pequeño y el resto abandonado (tierra sucia, árboles a montones, matorral y chatarra). Tiene 5 niveles: los 3 primeros cuestan trigo (5, 15 y 30) y los 2 últimos trigo y tomates (40 + 15 y 60 + 30). Cada nivel agranda el recinto (lo de dentro se limpia), rellena su parte del recinto (1: sacos, cajas, bidones y bandera; 2: red de camuflaje, dos tiendas, farolas y jeep; 3: búnker, cañón antiaéreo y puesto de guardia; 4: helipuerto con helicóptero, radar, depósito de agua y mástil de radio; 5: hangar, tanque, erizos antitanque, banderas y torre con foco). Su menú tiene dos pestañas: **RACHAS** (las dos rachas de bajas, activas siempre: dos paneles iguales, granadas a la izquierda y alienígena a la derecha, con una ficha del mismo tamaño por recompensa; la que tocas queda marcada y su detalle sale debajo) y **FUSIL**, la armería: tres carruseles horizontales (mirilla arriba, rifle en medio, cargador abajo) con 5 piezas cada uno que se compran con **monedas de oro** (la primera de cada uno viene de serie) y se montan tocándolas; cada una se ve distinta (en su ficha y en el fusil en primera persona) y tiene sus pegas, en barritas de 1 a 5:
-    - **Mirillas:** estándar; punto rojo (poco zoom, se sube al instante y muy firme); táctica (más zoom y firme); largo alcance (zoom enorme, lenta y temblona); visión nocturna (de noche ve como de día, con la lente verde). Cada una con su retícula.
-    - **Rifles:** de cerrojo (el de serie, atraviesa 4); semiautomático (dispara muy rápido pero sin colaterales); carabina (corta, buena sin mira); antimaterial (lo atraviesa todo y rompe calabazas de un tiro, pero lento y con mucho retroceso); alienígena (rayos verdes, ligero, atraviesa 6 y hace doble daño).
-    - **Cargadores:** estándar (10 balas); rápido (6, recarga en un momento); ampliado (18, recarga lenta); tambor (40, tarda una eternidad); célula alienígena (8, nunca recarga: las balas se regeneran). Al vaciarse se recarga solo; R (o tocar el contador de balas) recarga antes.
-    - Precios y números en `content/arsenal.js`.
-  - **Racha de granadas** (arriba): cada blanco recogido rellena una barra que se vacía cada vez más deprisa (empieza en 6 s y nunca baja de 2,6 s, para dar tiempo a buscar la siguiente mata); si se vacía, la racha se pierde. Medallas pequeñas: COLATERAL xN y DOBLE / TRIPLE / MULTI KILL. Las granadas salen delante de la cámara con brillo y estela hacia el grupo de blancos más gordo de los que se ven:
-    - 5: **fragmentación**, revienta y recoge lo de alrededor.
-    - 10: **racimo**, revienta pequeña y suelta 6 mini granadas que saltan hacia fuera y revientan al caer.
-    - 15: **incendiaria**, deja un fuego en el suelo unos segundos que va quemando lo que hay dentro (y a los alienígenas que pasen).
-  - **Racha alienígena** (a la izquierda, una torre de rayas que se encienden de una en una, como en Call of Duty, con cada recompensa junto a su raya y la siguiente parpadeando): cada alienígena abatido (a pie o en ovni pequeño) suma 1. No se pierde con el tiempo: se acumula en la partida y vuelve a 0 al entrar de nuevo al campo.
-    - 3: **misil Predator**, la vista pasa a ser cenital; el misil baja solo, se guía moviendo la vista y el gatillo (o un toque) lo acelera. Al tocar el suelo explota, recoge lo que pilla (alienígenas incluidos) y la vista del misil se corta en seco.
-    - 6: **bombardero**, un avión enorme cruza el campo soltando bombas (que también abaten alienígenas) mientras sigues disparando.
-    - 10: **bomba nuclear**, cuenta atrás de 5 s mientras la gran bomba cae del cielo (la vista la sigue) y, al tocar el suelo, lo recoge todo: el campo, los alienígenas (a pie y los ovnis pequeños del cielo) y lo maduro del resto de la granja; deja una neblina amarillenta radiactiva.
-  - Lo que recogen las recompensas suma a la racha de granadas, y los alienígenas que pillan, a la alienígena. Las dos rachas están activas desde el principio. Los números y ajustes están en `content/killstreaks.js`.
-  - Si sueltas mientras el cerrojo recarga, el disparo sale en cuanto está listo. Se puede mirar, apuntar y disparar durante el salto entre torres.
-  - El botón GRANJA vuelve en cualquier momento; lo recogido se guarda.
+
+### El prólogo
+Solo en una partida nueva (en DEBUG, VER EL PRÓLOGO), todo al atardecer, con barras de cine y textos que se pasan tocando:
+1. En primera persona en un campo de trigo enorme: recoges dos matas a mano y aparece el **trigo mágico** (rayo arcoíris, sale de la tierra girando y estalla). Al ir a por él, habla.
+2. En el espacio: tú, un ente blanco y brillante, cabeza con cabeza con el trigo mágico, con la cámara girando alrededor.
+3. En una torre frente a un campo enorme: el rifle sale flotando del trigo, te enseña a apuntar y le disparas. Empieza la cinemática: las tres granadas, el bombardero y la bomba nuclear.
+4. Fundido en blanco y al mapa con todo por hacer. El trigo se despide, te deja su viejo granero (aparece con magia) y se va. A partir de ahí, dependes de ti mismo.
+
+### La granja
+- **Una cuadrícula de 3×3 parcelas** de 30×30 casillas, con vallas y portones donde pasan los caminos. En el centro, la de los campos y el granero; detrás, la de la casa; a su derecha, el claro del mercader; a los lados, dos parcelas que se compran con oro. Las demás (las esquinas y la de abajo) están abandonadas, en sombra y con un poste con candado: de momento no hay nada que desbloquear.
+- **Moverse:** arrastra para mover la cámara; pellizca o usa la rueda para acercar o alejar. El botón **MAPA** (abajo a la izquierda) enseña toda la granja de un vistazo; otra vez (o acercar), de vuelta a donde estabas.
+- **Carteles:** fichas cuadradas sobre cada campo y edificio, con su icono y su barra de nivel; un cuadrado verde avisa de que hay una mejora que te puedes permitir. El texto solo sale cuando importa (desbloquear, en venta, el mercader) o al pasar el ratón. Un campo maduro saca **¡RECOGER!**.
+- **Dock** (abajo en el centro): GRANERO, CAMPOS (abre encima otra barra con las fichas de los cultivos que tienes, cada una con ¡LISTO! o su nivel), CASA y MERCADER. El primer toque lleva la cámara y el segundo abre su ficha; un cuadradito rojo avisa de lo que pide atención.
+
+### La progresión
+Las cosas se van abriendo por pasos, cada una con su cartel grande:
+1. **El granero**, al acabar el prólogo.
+2. **El trigo:** su terreno empieza abandonado y lleno de chatarra. Desde una atalaya lejana hay que acertar al barril rojo del montón (cambia algo de sitio cada vez) para volarlo todo y dejar la tierra sembrada.
+3. **Las rachas de granadas**, con el trigo a nivel 2.
+4. **Los tomates**, con el trigo al máximo (mismo desbloqueo del barril). Desde aquí también cruzan el cielo los ovnis pequeños.
+5. **La racha alienígena**, con los tomates a nivel 2.
+6. **El mercader y la tienda de la casa**, con los tomates al máximo. Con su oro se compran las parcelas de los lados.
+
+### Campos y cosecha
+- **Mejorar un campo** (su ficha): cada nivel lo agranda en el mapa y llena su campo de tiro de más blancos. Hay 5 niveles. Lo que un campo ocupará al máximo empieza abandonado (tierra sucia, árboles, matorral, chatarra) y se va limpiando según crece.
+  - **Trigo:** cada mejora cuesta 3 de trigo. Crece de 4×3 a 11×11 casillas, con 18, 36, 64, 100 y 150 matas (muchas, porque los alienígenas roban).
+  - **Tomates:** cada mejora cuesta 5 de trigo y 3 tomates. Crece de 5×4 a 12×11 casillas, con 6, 12, 22, 36 y 56 tomates gigantes.
+- **Torreta automática:** con un campo al máximo, su mejora pasa a ser **TORRETA**. Los sacos terreros caen en las 4 esquinas y la torreta baja del cielo en paracaídas. Desde entonces:
+  - **En el mapa:** salta de esquina en esquina (a la de al lado, nunca en diagonal), tirotea el campo a ráfagas y recoge sola lo maduro (una mata cada 4 s, con la partida abierta, con su +1).
+  - **En el campo de tiro:** va en lo alto de un mástil en las torres (nunca en la tuya) y acribilla matas para acabar antes.
+  - Lo suyo no suma a las rachas.
+
+### Parcelas en venta
+- **Oeste (15 de oro) y este (25 de oro).** Mientras no son tuyas se ven en sombra, con un poste de SE VENDE junto a su portón.
+- **Al comprarlas,** la sombra se retira en una onda dorada desde el poste, el poste salta por los aires y se iza tu bandera: ya es tuya, pero sigue sucia. Luego se desbloquea con su barril y queda limpia con su cultivo (5 niveles, torreta y campo de tiro). Al nivel 5 el campo ocupa casi toda la parcela (26×26).
+  - **Calabazas** (oeste): enormes, entre hojas grandes. Aguantan 3 tiros (cada uno las resquebraja, con su hitmarker) y paran la bala.
+  - **Maíz** (este): matas de más de 2 m en hileras (cada partida en una dirección) con dos mazorcas a media altura. Las hileras dan colaterales largos y las matas tapan la vista.
+
+### El mercader y el oro
+- **Quién es:** un alienígena muy mal disfrazado de humano (careta plana con su goma, gabardina y sombrero con las antenas asomando). Llega en un ovni disfrazado de coche (una careta gigante de cartón con un coche rojo de perfil) al claro del bosque donde una vez se estrelló una nave: baja al surco, lo recorre pegado al suelo levantando polvo, baja la rampa y sale.
+- **Su ritmo,** con el reloj de verdad: cada 5 min llega y se queda 4; luego se vuelve por donde vino. De noche, farol, guirnalda de bombillas y luz cálida.
+- **Sus encargos:** su hoja trae 3 encargos de cosecha, de los campos que tienes y en cantidad según su nivel, y los paga en **monedas de oro** (más por los tomates y las calabazas). Al cerrar un trato lo celebra: salta, gira y se le cae la careta.
+- **El oro es la única moneda:** monedas de cartón muy falsas, recortadas a tijera y con un $ de rotulador.
+
+### La casa y su tienda
+- **La casa** empieza en ruinas, con toda su parcela sucia. Tiene 3 niveles: el 1 (8 de trigo) la arregla y limpia alrededor; el 2 (20 de trigo), gran parte de la parcela; el 3 (35 de trigo y 10 tomates), toda.
+- **La tienda:** desde que se abre el mercader (tomates al máximo), un cartel sobre la casa abre su tienda, que lleva él y se paga con oro. Es una hoja abajo con la casa encuadrada arriba, que cambia en directo:
+  - **CASA:** tejado, fachada, puerta y marcos. Tipo de casa, ventanas, chimenea y porche están en PRONTO.
+  - **PARCELA:** 40 cosas (agua, jardín, juegos, estructuras, decoración y de otro mundo), cada una en su hueco fijo. Se compran una vez y luego se ponen o se quitan.
+
+### El granero: armamento por clases
+Al estilo «Crear clase» de Call of Duty. Su recinto crece con sus 5 niveles (los 3 primeros cuestan trigo, 5, 15 y 30; los 2 últimos, trigo y tomates, 40 + 15 y 60 + 30), y se llena de cosas: sacos, tiendas, búnker, helipuerto, hangar…
+- **Clases:** a la izquierda, 5 (Francotirador, Cosechador, Espantaaliens y dos más que se abren con el granero a nivel 3 y 5). EQUIPAR CLASE elige la que se lleva al campo.
+- **La clase que se edita** (a la derecha): arma principal, accesorios (mirilla, cargador y un hueco PRÓXIMAMENTE) y dos secciones de rachas, de cultivos y de alienígenas, que se ponen o quitan tocándolas. En el campo de tiro solo saltan las de la clase equipada.
+- **Armería:** tocar el arma o un accesorio abre su lista, un maletín de espuma con el fusil desmontado. Se compra con oro y se monta en esa clase; cada pieza se ve distinta en su dibujo y en el fusil en primera persona, y tiene sus pegas:
+  - **Mirillas:** estándar; punto rojo (poco zoom, se sube al instante, muy firme); táctica (más zoom y firme); largo alcance (zoom enorme, lenta y temblona); visión nocturna (de noche ve como de día, con la lente verde). Cada una con su retícula.
+  - **Rifles:** de cerrojo (atraviesa 4); semiautomático (muy rápido, sin colaterales); carabina (corta, buena sin mira); antimaterial (lo atraviesa todo y rompe calabazas de un tiro, pero lento y con mucho retroceso); alienígena (rayos verdes, atraviesa 6 y hace doble daño).
+  - **Cargadores:** estándar (10 balas); rápido (6, recarga enseguida); ampliado (18, recarga lenta); tambor (40, tarda una eternidad); célula alienígena (8, nunca recarga: las balas se regeneran).
+  - Precios y números en `content/arsenal.js`.
+
+### El campo de tiro
+Desde una torre en cada esquina del campo, con control de shooter: la vista es libre y la mirilla está en el centro.
+- **Móvil:** arrastra en cualquier sitio para mirar. El botón de mira: mantenlo para apuntar, desliza el dedo para afinar y suéltalo para disparar. Un toque rápido dispara sin mira; las flechas < > cambian de torre.
+- **Ordenador:** el ratón mira (el clic de RECOGER ya lo bloquea). Mantén el botón derecho para apuntar y suéltalo para disparar; el izquierdo dispara al momento. R recarga, Q/E cambian de torre, Esc suelta el ratón y H vuelve a la granja.
+- **Mando:** sticks para mirar, LT apunta (soltar dispara), RT/A disparan, LB/RB (o la cruceta) cambian de torre y B sale.
+- **Precisión:** sin la mira subida el tiro se dispersa mucho; girar la vista justo antes de disparar también lo abre. Al subir la mira se asienta en un momento, con un leve temblor (según la mirilla). La mirilla se abre según la dispersión.
+- **Colateral:** la bala atraviesa en línea tantos blancos como permita el rifle.
+- **Cargador:** cada disparo gasta una bala. Al vaciarse recarga solo; R (o tocar el contador de balas) recarga antes.
+- **Alienígenas ladrones:** entran por un borde con un rayo verde, van andando, al trote o corriendo a por una mata, la cogen y huyen con un aviso rojo encima.
+  - Si llegan al borde se la llevan (−1 rojo y ¡ROBADO!); si se les abate, se recupera.
+  - Llevan un casco de cristal que de noche brilla en verde.
+  - Al darles con una bala sale un **hitmarker** y su +1 encima de la cabeza.
+- **Ovnis ladrones:** algunos ovnis pequeños se paran sobre la zona con más cultivos y su rayo verde absorbe hasta 8, que suben girando a la nave. Derribados, se recupera todo; si escapan, se pierde todo. Los ovnis no dan monedas, pero suman a la racha alienígena.
+- **Rachas de bajas** (solo las de tu clase):
+  - **De cultivos** (arriba): cada blanco recogido rellena una barra que se vacía cada vez más deprisa (empieza en 6 s y nunca baja de 2,6 s). A las 5, **fragmentación**; a las 10, **racimo** (6 mini granadas); a las 15, **incendiaria** (un fuego que quema lo de dentro y a los alienígenas que pasen). Medallas: COLATERAL xN y DOBLE / TRIPLE / MULTI KILL.
+  - **Alienígena** (a la izquierda, una torre de rayas que se encienden de una en una): cada alienígena abatido suma 1 y no se pierde hasta salir del campo. A los 3, **misil Predator** (vista cenital, se guía mirando y el gatillo lo acelera; la vista se corta en seco al explotar); a los 6, **bombardero**; a los 10, **bomba nuclear** (cuenta atrás mientras cae; lo recoge todo, alienígenas y ovnis incluidos, y lo maduro del resto de la granja, con neblina radiactiva).
+  - Números en `content/killstreaks.js` (y en DEBUG).
+- El botón GRANJA vuelve en cualquier momento; lo recogido se guarda.
+
+### Día y noche
+Con el reloj de verdad: 4 min de día y 2 de noche, con amanecer y atardecer de 40 s (naranja abajo, morado arriba y el sol grande y bajo).
+- **De noche:** el cielo se vuelve azul marino con luz de luna; en el campo de tiro sale una luna llena enorme con estrellas, y vienen más alienígenas (el doble de seguidos y hasta 6 a la vez), que brillan en la oscuridad.
+- **El reloj** (arriba a la derecha) enseña el sol o la luna y lo que falta para que cambie.
+- Ajustes en `THEME.night`, `THEME.dusk` y `THEME.cycle` (`content/theme.js`).
+
+### Ajustes y depuración
 - **Ajustes:** música, sonido, vibración e idioma.
-- **Debug** (botón discreto abajo a la derecha de la granja), con dos tablas. GRANJA: COSTES 0 (las mejoras de campos y granero gratis), BAJAS POR RACHA (con - / + se elige cuántas bajas pide cada recompensa de las dos rachas; RACHAS POR DEFECTO las devuelve a 5, 10 y 15 las granadas y a 3, 6 y 10 la alienígena), HORA (AUTO con el reloj, o DÍA o NOCHE fijos), COMERCIANTE (AUTO, AQUÍ o FUERA), MONEDAS DE ORO (de 10 en 10), POBLADO AL MÁXIMO, DESBLOQUEAR de uno en uno (cada terreno bloqueado, toda la armería y la torreta de cada campo, que lo desbloquea y lo sube al máximo si hace falta), DESBLOQUEAR TODO (todo eso a la vez) y BORRAR PROGRESO (dos toques: borra la cosecha, los campos y el granero, no los ajustes). Lo de COSTES y BAJAS se recuerda. CASA (a la derecha; en el móvil, debajo): COSTES 0 (mejoras de la casa y la tienda del ovni gratis), NIVEL DE LA CASA (- / +; bajar recarga la página), MONEDAS ALIEN (de 10 en 10), el ovni (ESTRELLARLO YA sin cinemática o VER LA CINEMÁTICA otra vez), DESBLOQUEAR TODO (casa al máximo, ovni estrellado y toda la tienda comprada y puesta) y CASA DE SERIE (colores de siempre y la parcela vacía).
+- **Debug** (botón discreto abajo a la derecha de la granja), con dos tablas:
+  - **GRANJA:** COSTES 0, HORA (AUTO, DÍA o NOCHE), COMERCIANTE (AUTO, AQUÍ o FUERA), MONEDAS DE ORO (de 10 en 10), BAJAS POR RACHA (y RACHAS POR DEFECTO), DESBLOQUEAR de uno en uno (cada terreno, toda la armería y la torreta de cada campo), DESBLOQUEAR TODO, VER EL PRÓLOGO y BORRAR PROGRESO (dos toques; no borra los ajustes).
+  - **CASA:** COSTES 0, NIVEL DE LA CASA, DESBLOQUEAR TODO y CASA DE SERIE.
+  - Lo de COSTES, HORA, COMERCIANTE y BAJAS se recuerda.
 
 ## Desarrollo
 ```
@@ -55,6 +104,6 @@ npm run test:smoke # solo las @smoke (rápidas y críticas)
 npm run test:related  # solo los archivos de pruebas afectados por lo que ha cambiado (un worker)
 npm run build      # dist/ para Vercel
 ```
-Las pruebas están por áreas en `tests/*.spec.js` y abren el juego con `?test` (se dibuja más barato: menos resolución, sin partículas, 30 fps). En el Mac usan la GPU real (Chromium con Metal); en CI o con `PW_GPU=soft`, WebGL por software.
+Las pruebas están por áreas en `tests/*.spec.js` (map, unlock, sniper, killstreaks, ufo, debug, progress y prologue) y abren el juego con `?test`: se dibuja más barato (menos resolución, sin partículas, 30 fps), siempre es de día, el mercader está fuera y la progresión viene abierta (con `?progress`, cerrada, para probarla). En el Mac usan la GPU real (Chromium con Metal); en CI o con `PW_GPU=soft`, WebGL por software.
 
-Web estática con módulos ES y Three.js 0.160 en `public/vendor`. El contenido (tema, cultivos, campo) vive en `public/src/content/`.
+Web estática con módulos ES y Three.js 0.160 en `public/vendor`. El contenido (tema, cultivos, granja, rachas, armería, mercader y tienda) vive en `public/src/content/`.
