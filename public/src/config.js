@@ -35,7 +35,6 @@ export const CONFIG = {
         lookPad: 2.6,       // radianes por segundo con el stick a tope
         adsSlow: 0.3,       // con la mira la vista se mueve más despacio (además del zoom)
         adsTime: 0.24,      // segundos para subir el arma al ojo
-        holdTime: 150,      // ms con el dedo quieto para apuntar
         tapTime: 180,       // ms: un toque más corto que esto dispara desde la cadera
         // Precisión (radianes de dispersión). La bala sale a cualquier punto de un cono:
         hipSpread: 0.2,     // sin mira (no scope): solo acierta de cerca o con suerte
@@ -47,8 +46,6 @@ export const CONFIG = {
         settleSpread: 0.03, // imprecisión de la mira recién subida (se va en settleTime)
         settleSway: 0.012,  // temblor de la mira recién subida
         holdSlop: 9,        // px que puede moverse el dedo y seguir "quieto"
-        edgeSwipe: 40,      // px desde el borde donde un deslizamiento cambia de torre
-        flickDist: 60,      // px de ese deslizamiento
         pitchMin: -1.25,
         pitchMax: 0.7,
         sway: 0.0055,       // vaivén de la respiración con la mira

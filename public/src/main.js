@@ -279,12 +279,14 @@ const prologueHooks = {
         if (!kind) return el.classList.add('hidden');
         el.textContent = kind === 'collect' || kind === 'magic'
             ? (fineMouse ? L('CLICK TO HARVEST', 'HAZ CLIC PARA RECOLECTAR') : L('TAP TO HARVEST', 'TOCA PARA RECOLECTAR'))
-            : (fineMouse ? L('HOLD RIGHT CLICK TO AIM · RELEASE TO FIRE', 'MANTÉN EL CLIC DERECHO PARA APUNTAR · SUÉLTALO PARA DISPARAR') : L('HOLD YOUR FINGER STILL TO AIM · RELEASE TO FIRE', 'DEJA EL DEDO QUIETO PARA APUNTAR · SUÉLTALO PARA DISPARAR'));
+            : (fineMouse ? L('HOLD RIGHT CLICK TO AIM · RELEASE TO FIRE', 'MANTÉN EL CLIC DERECHO PARA APUNTAR · SUÉLTALO PARA DISPARAR') : L('HOLD THE AIM BUTTON · RELEASE IT TO FIRE', 'MANTÉN EL BOTÓN DE MIRA · SUÉLTALO PARA DISPARAR'));
         el.classList.toggle('aim', kind === 'aim');
         el.classList.toggle('magic', kind === 'magic'); // el del trigo mágico, de colores
         el.classList.remove('hidden');
     },
     popPlus: () => popPlus(innerWidth * 0.62, innerHeight * 0.62),
+    // El trigo mágico te deja su viejo granero: aparece solo
+    openBarn: () => openBarn(true),
     cine(on) {
         document.body.classList.toggle('cine', on);
         if (on) touch = pan = pinch = null;
@@ -374,7 +376,7 @@ function refreshGates() {
 }
 
 // El granero se abre: cae en su sitio con polvo y su cartel
-function openBarn() {
+function openBarn(quiet = false) {
     if (!state.openBarn()) return;
     const b = farm.byId.barn;
     refreshGates();
@@ -386,7 +388,7 @@ function openBarn() {
     sfx.play('unlock');
     vibrate('kill');
     updateCounts();
-    setTimeout(() => stage(L('BARN UNLOCKED!', '¡GRANERO DESBLOQUEADO!'), L('NOW CLEAR THE WHEAT FIELD', 'AHORA LIMPIA EL CAMPO DE TRIGO')), 300);
+    if (!quiet) setTimeout(() => stage(L('BARN UNLOCKED!', '¡GRANERO DESBLOQUEADO!'), L('NOW CLEAR THE WHEAT FIELD', 'AHORA LIMPIA EL CAMPO DE TRIGO')), 300);
 }
 
 function updateCounts(bump = false) {
@@ -979,7 +981,7 @@ function enterFarm() {
 //   Ratón: el cursor se bloquea y moverlo mira; mantener el botón derecho apunta y soltarlo
 //   dispara; el izquierdo dispara al momento.
 const pointers = new Map();
-let pan = null, pinch = null, touch = null, edge = null;
+let pan = null, pinch = null, touch = null, aimTouch = null;
 
 function unitsPerPx() {
     return (rig.halfWidth * rig.zoom * 2) / innerWidth;
@@ -1055,11 +1057,7 @@ addEventListener('pointerdown', (e) => {
         return;
     }
     if (mode !== 'snipe' || e.pointerType === 'mouse') return; // el ratón va por mousedown
-    if (e.clientX < S.edgeSwipe || e.clientX > innerWidth - S.edgeSwipe) {
-        edge = { id: e.pointerId, x: e.clientX, y: e.clientY };
-        return;
-    }
-    if (!touch) touch = { id: e.pointerId, lx: e.clientX, ly: e.clientY, ax: e.clientX, ay: e.clientY, still: performance.now(), t: performance.now(), moved: false };
+    if (!touch) touch = { id: e.pointerId, lx: e.clientX, ly: e.clientY, ax: e.clientX, ay: e.clientY, t: performance.now(), moved: false };
 });
 
 addEventListener('pointermove', (e) => {
@@ -1088,26 +1086,18 @@ addEventListener('pointermove', (e) => {
         sniper.look(e.movementX, e.movementY, S.lookMouse);
         return;
     }
-    if (edge && e.pointerId === edge.id) {
-        const dx = e.clientX - edge.x, dy = e.clientY - edge.y;
-        if (Math.abs(dx) > S.flickDist && Math.abs(dx) > Math.abs(dy)) {
-            // Desde el borde izquierdo: torre de la izquierda; desde el derecho: la de la derecha
-            sniper.goSide(dx > 0 ? -1 : 1);
-            edge = null;
-        }
+    // El dedo del botón de mira también mueve la vista (se afina sin soltarlo)
+    if (aimTouch && e.pointerId === aimTouch.id) {
+        sniper.look(e.clientX - aimTouch.lx, e.clientY - aimTouch.ly, S.lookTouch);
+        aimTouch.lx = e.clientX;
+        aimTouch.ly = e.clientY;
         return;
     }
     if (touch && e.pointerId === touch.id) {
         sniper.look(e.clientX - touch.lx, e.clientY - touch.ly, touch.mouse ? S.lookMouse : S.lookTouch);
         touch.lx = e.clientX;
         touch.ly = e.clientY;
-        // Si el dedo se mueve, vuelve a contar el rato que lleva quieto
-        if (Math.hypot(e.clientX - touch.ax, e.clientY - touch.ay) > S.holdSlop) {
-            touch.ax = e.clientX;
-            touch.ay = e.clientY;
-            touch.still = performance.now();
-            touch.moved = true;
-        }
+        if (Math.hypot(e.clientX - touch.ax, e.clientY - touch.ay) > S.holdSlop) touch.moved = true;
     }
 });
 
@@ -1118,14 +1108,23 @@ function endPointer(e, cancel) {
         if (!pan.moved && !cancel) tapMap(e.clientX, e.clientY);
         pan = null;
     }
-    if (edge && e.pointerId === edge.id) edge = null;
+    // Soltar el botón de mira dispara (cancelado, solo la baja)
+    if (aimTouch && e.pointerId === aimTouch.id) {
+        aimTouch = null;
+        $('btn-aim').classList.remove('on');
+        if (mode === 'snipe') sniper.release(!cancel);
+        return;
+    }
     if (touch && e.pointerId === touch.id && !touch.mouse) {
         const t = touch;
         touch = null;
-        if (mode !== 'snipe' || cancel) return sniper.release(false);
-        if (sniper.scoped) sniper.release(true);
-        // Toque rápido sin mover el dedo: disparo desde la cadera (sin mira, impreciso)
-        else if (!t.moved && performance.now() - t.t < S.tapTime) sniper.fire();
+        if (mode !== 'snipe' || cancel) return;
+        // Toque rápido sin mover el dedo: dispara (con la mira subida, apuntando; sin ella, desde
+        // la cadera, impreciso). Mover la vista nunca dispara
+        if (!t.moved && performance.now() - t.t < S.tapTime) {
+            if (sniper.scoped) sniper.release(true);
+            else sniper.fire();
+        }
     }
 }
 addEventListener('pointerup', (e) => endPointer(e, false));
@@ -1139,7 +1138,7 @@ addEventListener('mousedown', (e) => {
     if (e.button === 2) sniper.setAds(true);
     else if (e.button === 0) {
         if (locked()) sniper.fire();
-        else touch = { id: 'mouse', mouse: true, lx: e.clientX, ly: e.clientY, ax: e.clientX, ay: e.clientY, still: Infinity };
+        else touch = { id: 'mouse', mouse: true, lx: e.clientX, ly: e.clientY };
     }
 });
 addEventListener('mousemove', (e) => {
@@ -1158,11 +1157,18 @@ addEventListener('wheel', (e) => {
     if (mode === 'farm' && !inCine()) zoomBy(Math.exp(e.deltaY * 0.0012));
 }, { passive: true });
 
-// Dedo quieto un momento: sube el arma
-function holdCheck() {
-    if (prologueLocked()) return;
-    if (mode === 'snipe' && touch && !touch.mouse && !sniper.scoped && !sniper.ks.predator && performance.now() - touch.still > S.holdTime) sniper.setAds(true);
-}
+// Botón de mira (pantallas táctiles): mantenerlo sube el arma, deslizar el dedo afina la
+// puntería y soltarlo dispara. La vista se mueve arrastrando en cualquier sitio (con otro dedo
+// también, mientras se mantiene la mira)
+$('btn-aim').addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    sfx.unlock();
+    if (mode !== 'snipe' || prologueLocked() || aimTouch) return;
+    aimTouch = { id: e.pointerId, lx: e.clientX, ly: e.clientY };
+    $('btn-aim').classList.add('on');
+    sniper.setAds(true);
+});
 
 function tapMap(x, y) {
     ray.setFromCamera(ndcOf(x, y), rig.camera);
@@ -2000,7 +2006,6 @@ function frame(now) {
     }
     pollPad(dt);
     keyInput(dt);
-    holdCheck();
     if (prologue.active) prologue.update(dt, time, farmParticles);
     if (mode === 'prologue') {
         if (prologue.scene) renderer.render(prologue.scene, prologue.camera, dt);

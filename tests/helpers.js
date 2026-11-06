@@ -55,17 +55,17 @@ async function enterField(page) {
     await page.evaluate(() => { game.sniper.flyers.next = Infinity; game.sniper.walkers.reset(); game.sniper.walkers.next = Infinity; });
 }
 
-// Gesto táctil sintético (pointerType touch) sobre el lienzo: [x, y, ms de espera] por paso
-async function touchPath(page, steps) {
-    await page.evaluate(async (steps) => {
-        const el = document.getElementById('view');
-        const ev = (type, x, y) => el.dispatchEvent(new PointerEvent(type, { pointerId: 7, pointerType: 'touch', clientX: x, clientY: y, bubbles: true, isPrimary: true }));
+// Gesto táctil sintético (pointerType touch) sobre el lienzo (o sobre target): [x, y, ms de espera] por paso
+async function touchPath(page, steps, target = 'view', id = 7) {
+    await page.evaluate(async ([steps, target, id]) => {
+        const el = document.getElementById(target);
+        const ev = (type, x, y) => el.dispatchEvent(new PointerEvent(type, { pointerId: id, pointerType: 'touch', clientX: x, clientY: y, bubbles: true, isPrimary: true }));
         steps.forEach(([type, x, y, wait], i) => (steps[i] = [type, x, y, wait]));
         for (const [type, x, y, wait] of steps) {
             ev(type, x, y);
             if (wait) await new Promise((r) => setTimeout(r, wait));
         }
-    }, steps);
+    }, [steps, target, id]);
 }
 
 // Mira a la siguiente mata, mantiene el botón derecho (sube el arma) y lo suelta: un disparo

@@ -5,7 +5,7 @@ const { test, expect, watchErrors } = require('./helpers');
 test('prólogo: a mano, el trigo mágico, el espacio, la torre, la cinemática y el mapa de cero', { tag: '@full' }, async ({ page }) => {
     test.setTimeout(600_000);
     const errors = watchErrors(page);
-    await page.goto('/?test&prologue');
+    await page.goto('/?test&prologue&progress');
     const pro = () => page.evaluate(() => [game.mode, game.prologue.phase, game.prologue.locked]);
     // Igual que pro(), pero pasando los textos del trigo mágico (no se van solos: hay que tocar)
     const talk = async () => {
@@ -42,6 +42,8 @@ test('prólogo: a mano, el trigo mágico, el espacio, la torre, la cinemática y
     await expect.poll(talk, { timeout: 200_000 }).toEqual(['farm', null, false]);
     expect(await page.evaluate(() => game.dayNight ? game.dayNight.k : 0)).toBe(0);
     expect(await page.evaluate(() => [game.state.prologue, game.state.items.wheat, Object.values(game.state.fields).some((f) => f.unlocked)])).toEqual([true, 0, false]);
+    // El trigo mágico te deja su viejo granero: ya está abierto y solo queda limpiar el trigo
+    expect(await page.evaluate(() => [game.state.barn.open, game.farm.byId.barn.root.visible, game.state.canUnlock('wheat'), game.state.canUnlock('tomato')])).toEqual([true, true, true, false]);
     // Las zonas bloqueadas dejan ver lo que tendrán
     expect(await page.evaluate(() => game.farm.hints.reduce((n, e) => n + e.positions.filter((p) => !p.hide).length, 0))).toBeGreaterThan(20);
     // Ya visto: no vuelve a salir

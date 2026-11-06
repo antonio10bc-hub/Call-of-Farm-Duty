@@ -20,6 +20,8 @@ export const LINES = {
     enough: L('ENOUGH FOOLING AROUND.', 'DÉJATE DE TONTERÍAS.'),
     aim: L('NOW AIM AT ME.', 'AHORA, APÚNTAME.'),
     remember: L("DON'T FORGET WHAT I TAUGHT YOU.", 'NO OLVIDES LO QUE TE HE ENSEÑADO.'),
+    barn: L('YOU CAN USE MY OLD BARN.', 'PUEDES USAR MI VIEJO GRANERO.'),
+    now: L('BUT NOW, YES: NOW YOU ONLY HAVE YOURSELF...', 'PERO AHORA SÍ, AHORA DEPENDES DE TI MISMO...'),
     luck: L('NOW YOU ONLY HAVE YOURSELF. GOOD LUCK.', 'AHORA SOLO DEPENDES DE TI MISMO. BUENA SUERTE.'),
 };
 
@@ -73,9 +75,11 @@ export class Prologue {
     }
 
     // Conversación: el trigo dice estas líneas y cada una se pasa tocando; al acabar, then()
-    talk(lines, then) {
-        this.talking = { lines, i: 0, then };
+    // on: { i: fn } lo que pasa al salir la línea i
+    talk(lines, then, on = {}) {
+        this.talking = { lines, i: 0, then, on };
         this.hooks.say(lines[0]);
+        if (on[0]) on[0]();
     }
 
     // Tocar con un bocadillo abierto: completa la línea si aún se escribe; si no, la siguiente
@@ -86,6 +90,7 @@ export class Prologue {
         this.hooks.sfx.play('ui');
         if (++T.i < T.lines.length) {
             this.hooks.say(T.lines[T.i]);
+            if (T.on[T.i]) T.on[T.i]();
             return true;
         }
         this.talking = null;
@@ -599,7 +604,7 @@ export class Prologue {
         this.magic.root.position.set(15, 0, 18);
         F.root.add(this.magic.root);
         this.leaving = 0;
-        this.after(3.0, () => this.talk([LINES.remember, LINES.luck], () => {
+        this.after(3.0, () => this.talk([LINES.remember, LINES.barn, LINES.now, LINES.luck], () => {
             this.leaving = 0.001;
             this.magic.ring.visible = false; // su anillo del suelo no se va con él: desaparece
             this.hooks.sfx.play('whoosh');
@@ -611,7 +616,7 @@ export class Prologue {
                 this.hooks.cine(false);
                 this.hooks.done();
             });
-        }));
+        }, { 1: () => this.hooks.openBarn() }));
     }
 
     updateMap(dt, time, particles) {
