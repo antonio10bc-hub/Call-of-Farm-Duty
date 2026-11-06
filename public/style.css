@@ -1370,3 +1370,6 @@ body.prologue .snipe-ui > :not(#reticle) { display: none !important; }
 }
 .pro-prompt.aim { font-size: 9px; top: calc(var(--safe-top) + 14px); bottom: auto; }
 @keyframes proPulse { 50% { transform: translateX(-50%) scale(1.06); } }
+/* Línea terminada: flechita que parpadea (toca para seguir) */
+.pro-talk.done::after { content: '▼'; position: absolute; right: 10px; bottom: 6px; font-size: 8px; color: #7b5cff; animation: proNext .8s steps(2) infinite; }
+@keyframes proNext { 50% { opacity: 0; } }

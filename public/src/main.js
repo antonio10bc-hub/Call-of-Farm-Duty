@@ -241,8 +241,8 @@ addLights(sniper.scene);
 // ---------- Prólogo ----------
 // Una partida nueva empieza con él (en las pruebas, solo si la URL lleva ?prologue)
 const fineMouse = matchMedia('(pointer: fine)').matches;
-let typer = 0;
-const prologue = new Prologue(THEME, sniper, farm, {
+let typer = 0, typing = null;
+const prologueHooks = {
     sfx,
     lights: addLights,
     flash: (c, k) => renderer.flash(c, k),
@@ -256,13 +256,26 @@ const prologue = new Prologue(THEME, sniper, farm, {
         el.classList.add('in');
         let n = 0;
         $('pro-text').textContent = '';
+        $('pro-talk').classList.remove('done');
+        typing = text;
         typer = setInterval(() => {
             n += 2;
             $('pro-text').textContent = text.slice(0, n);
             if (n % 6 === 0) sfx.play('tick');
-            if (n >= text.length) clearInterval(typer);
+            if (n >= text.length) prologueHooks.sayFinish();
         }, 40);
     },
+    // Termina de escribir la línea de golpe; true si aún se estaba escribiendo
+    sayFinish() {
+        clearInterval(typer);
+        $('pro-talk').classList.add('done');
+        if (typing === null) return false;
+        $('pro-text').textContent = typing;
+        typing = null;
+        return true;
+    },
+    // Silencio dramático (la música se corta antes de la nuclear)
+    silence: () => music.stop(),
     // Aviso grande de qué hacer: recolectar a mano o apuntar y disparar (null lo quita)
     prompt(kind) {
         const el = $('pro-prompt');
@@ -307,12 +320,15 @@ const prologue = new Prologue(THEME, sniper, farm, {
     },
     done() {
         document.body.classList.remove('prologue');
+        // Sigue siendo de día hasta que el reloj llegue al día de verdad
         dayNight.force = Settings.daytime || null;
+        if (!dayNight.force) dayNight.hold = true;
         state.prologue = true;
         state.save();
         updateCounts();
     },
-});
+};
+const prologue = new Prologue(THEME, sniper, farm, prologueHooks);
 const prologueLocked = () => prologue.active && prologue.locked;
 
 renderer.onResize = (w, h) => {
@@ -988,6 +1004,8 @@ addEventListener('pointerdown', (e) => {
     sfx.unlock();
     if (!music.playing && Settings.music && sfx.ctx) startMusic(mode === 'snipe' ? THEME.sniperMusic : THEME.music);
     if (mode === 'prologue') return prologue.tap();
+    // Con el trigo mágico hablando, tocar pasa el texto
+    if (prologue.talking) return prologue.next();
     if (isUi(e) || inCine() || prologueLocked()) return;
     if (mode === 'farm') {
         pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -1123,8 +1141,9 @@ function tapMap(x, y) {
 const keys = new Set();
 addEventListener('keydown', (e) => {
     sfx.unlock();
-    if (inCine()) return;
     const k = e.key.toLowerCase();
+    if (prologue.talking && !e.repeat && (k === ' ' || k === 'enter')) return prologue.next();
+    if (inCine()) return;
     keys.add(k);
     if (e.repeat) return;
     if (mode === 'prologue') return (k === ' ' || k === 'enter') && prologue.tap();
@@ -1162,10 +1181,12 @@ function keyInput(dt) {
 const padPrev = [];
 const curve = (v) => (Math.abs(v) < 0.15 ? 0 : Math.sign(v) * ((Math.abs(v) - 0.15) / 0.85) ** 2);
 function pollPad(dt) {
-    if (inCine() || prologueLocked()) return;
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     const pad = [...pads].find((p) => p);
     if (!pad) return;
+    // A pasa los textos del trigo mágico
+    if (prologue.talking && pad.buttons[0] && pad.buttons[0].pressed && !padPrev[0]) prologue.next();
+    if (inCine() || prologueLocked() || prologue.talking) return pad.buttons.forEach((b, i) => (padPrev[i] = b.pressed));
     const pressed = (i) => pad.buttons[i] && pad.buttons[i].pressed;
     const down = (i) => pressed(i) && !padPrev[i];
     const up = (i) => !pressed(i) && padPrev[i];

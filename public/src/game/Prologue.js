@@ -72,6 +72,28 @@ export class Prologue {
         this.hooks.say(text);
     }
 
+    // Conversación: el trigo dice estas líneas y cada una se pasa tocando; al acabar, then()
+    talk(lines, then) {
+        this.talking = { lines, i: 0, then };
+        this.hooks.say(lines[0]);
+    }
+
+    // Tocar con un bocadillo abierto: completa la línea si aún se escribe; si no, la siguiente
+    next() {
+        const T = this.talking;
+        if (!T) return false;
+        if (this.hooks.sayFinish()) return true;
+        this.hooks.sfx.play('ui');
+        if (++T.i < T.lines.length) {
+            this.hooks.say(T.lines[T.i]);
+            return true;
+        }
+        this.talking = null;
+        this.hooks.say(null);
+        if (T.then) T.then();
+        return true;
+    }
+
     // ---------- 1. El campo de trigo, a mano ----------
     start() {
         this.phase = 'field';
@@ -178,6 +200,7 @@ export class Prologue {
 
     // Tocar: recoger la siguiente mata (o ir a por el trigo mágico)
     tap() {
+        if (this.talking) return this.next();
         if (this.phase !== 'field' || this.locked || this.reach) return;
         this.hooks.prompt(null);
         this.locked = true;
@@ -201,10 +224,8 @@ export class Prologue {
                 // Al ir a por el trigo mágico, la mano se para a medio camino: él habla
                 if (R.t > 0.35 && !R.spoke) {
                     R.spoke = true;
-                    this.say(LINES.lifetime);
                     this.hooks.sfx.play('secret');
-                    this.after(4.2, () => this.say(LINES.come));
-                    this.after(6.6, () => this.toSpace());
+                    this.talk([LINES.lifetime, LINES.come], () => this.toSpace());
                 }
                 if (R.t > 0.35) this.hand.position.copy(R.to);
             } else if (R.t > 0.35 && !R.grabbed) {
@@ -226,17 +247,7 @@ export class Prologue {
                     this.picked++;
                     if (this.picked === 2) {
                         // Detrás aparece el trigo mágico, brillando
-                        this.after(0.4, () => {
-                            this.magic.root.visible = true;
-                            this.magic.root.scale.setScalar(0.0001);
-                            this.magic.pop = 1;
-                            this.hooks.sfx.play('unlock');
-                            this.particles.burst(-0.1, 1, -2.7, 40, RAINBOW, { speed: 1.6, up: 2, size: 0.05, ttl: 1.2, grav: 1 });
-                        });
-                        this.after(1.4, () => {
-                            this.locked = false;
-                            this.hooks.prompt('collect');
-                        });
+                        this.after(0.4, () => this.magicEntrance());
                     } else {
                         this.locked = false;
                         this.hooks.prompt('collect');
@@ -244,17 +255,85 @@ export class Prologue {
                 }
             }
         }
-        // El trigo mágico: crece de golpe al salir y suelta chispas de colores
+        this.updateEntrance(dt, time);
+        // El trigo mágico: suelta chispas de colores
         const m = this.magic;
         if (m.root.visible) {
-            m.root.scale.setScalar(Math.min(1, m.root.scale.x + dt * 3));
             m.update(dt, time);
             if (Math.random() < dt * 14) this.particles.spawn(-0.1 + (Math.random() - 0.5) * 0.6, 0.6 + Math.random() * 0.8, -2.7 + (Math.random() - 0.5) * 0.6, 0, 0.5, 0, 0.03, 0.9, RAINBOW[(Math.random() * RAINBOW.length) | 0], -0.3);
         }
-        // Respiración de la vista
-        this.camera.position.y = 1.6 + Math.sin(time * 1.4) * 0.01;
+        // Respiración de la vista (y el temblor del estallido)
+        this.shake = Math.max(0, (this.shake || 0) - dt);
+        const sh = this.shake * this.shake * 0.12;
+        this.camera.position.set((Math.random() - 0.5) * sh, 1.6 + Math.sin(time * 1.4) * 0.01 + (Math.random() - 0.5) * sh, 0.4);
         this.particles.update(dt);
         this.particles.sync();
+    }
+
+    // La primera aparición del trigo mágico: un rayo de luz de colores baja del cielo hasta la
+    // tierra, se abre un anillo en el suelo y el trigo sale de la tierra girando, con chispas en
+    // espiral; al final estalla en colores con un fogonazo y la vista tiembla
+    magicEntrance() {
+        const P = this.magic.root.position;
+        const beamMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending });
+        const beam = new THREE.Mesh(box(1, 40, 1), beamMat);
+        beam.position.set(P.x, 20, P.z);
+        beam.scale.set(0.0001, 1, 0.0001);
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0xfff6b0, transparent: true, opacity: 1, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+        const ring = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 16, 1), ringMat);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(P.x, 0.05, P.z);
+        this.scene.add(beam, ring);
+        this.entry = { t: 0, beam, ring, boom: false };
+        this.magic.root.visible = true;
+        this.magic.root.scale.setScalar(0.0001);
+        this.hooks.sfx.play('secret');
+    }
+
+    updateEntrance(dt, time) {
+        const E = this.entry;
+        if (!E) return;
+        E.t += dt;
+        const t = E.t, P = this.magic.root.position, r = this.magic.root;
+        // El rayo: se ensancha, late con los colores del arcoíris y se cierra
+        const bw = t < 0.4 ? t / 0.4 : t < 1.2 ? 1 : Math.max(0, 1 - (t - 1.2) / 0.5);
+        E.beam.scale.set(Math.max(0.0001, bw * (0.7 + Math.sin(t * 30) * 0.1)), 1, Math.max(0.0001, bw * 0.7));
+        E.beam.material.color.setHSL((t * 1.5) % 1, 1, 0.7);
+        // El anillo del suelo se abre y se apaga
+        E.ring.scale.setScalar(0.3 + t * 3.2);
+        E.ring.material.opacity = Math.max(0, 1 - t / 1.6);
+        // El trigo sale de la tierra girando y crece con un rebote
+        const k = Math.min(1, Math.max(0, (t - 0.35) / 0.8));
+        const back = k <= 0 ? 0 : 1 + 2.7 * (k - 1) ** 3 + 1.7 * (k - 1) ** 2;
+        r.scale.setScalar(Math.max(0.0001, back));
+        P.y = -1.2 * (1 - Math.min(1, k * 1.3));
+        r.rotation.y = (1 - k) ** 2 * Math.PI * 6;
+        // Chispas en espiral subiendo alrededor
+        if (t < 1.4) for (let n = 0; n < 3; n++) {
+            const a = time * 9 + n * 2.1, h = (t * 1.6 + n * 0.3) % 1.8;
+            this.particles.spawn(P.x + Math.sin(a) * 0.6, h, P.z + Math.cos(a) * 0.6, 0, 0.8, 0, 0.05, 0.6, RAINBOW[(Math.random() * RAINBOW.length) | 0], 0);
+        }
+        // ¡Estalla! Fogonazo, chispas por todas partes y la vista tiembla
+        if (!E.boom && t > 1.15) {
+            E.boom = true;
+            this.particles.burst(P.x, 1, P.z, 90, RAINBOW, { speed: 3.2, up: 3, size: 0.06, ttl: 1.6, grav: 1.5 });
+            this.hooks.flash(0xffffff, 0.7);
+            this.hooks.sfx.play('unlock');
+            vibrate('kill');
+            this.shake = 0.5;
+        }
+        if (t > 1.9) {
+            this.scene.remove(E.beam, E.ring);
+            E.beam.material.dispose();
+            E.ring.material.dispose();
+            E.ring.geometry.dispose();
+            this.entry = null;
+            r.rotation.y = 0;
+            this.after(0.3, () => {
+                this.locked = false;
+                this.hooks.prompt('collect');
+            });
+        }
     }
 
     // ---------- 2. El espacio ----------
@@ -297,26 +376,28 @@ export class Prologue {
         planet.add(ring);
         s.add(planet);
         // Tú: un ente blanco y brillante, flotando frente al trigo mágico
-        this.entity = this.buildEntity();
-        this.entity.position.set(-1.5, 0, 0);
-        this.entity.rotation.y = Math.PI / 2;
+        // Tumbado boca abajo en el aire, con la cabeza hacia el trigo (que también está tumbado,
+        // con las espigas hacia ti): cabeza con cabeza
+        this.entity = new THREE.Group();
+        const body = this.buildEntity();
+        body.rotation.y = Math.PI / 2;
+        this.entity.add(body);
+        this.entity.rotation.z = -Math.PI / 2;
+        this.entity.position.set(-1.95, 0, 0);
         s.add(this.entity);
         this.magic = new MagicWheat(this.theme.outline);
-        this.magic.root.position.set(1.6, -0.2, 0);
+        this.magic.root.position.set(1.55, 0, 0);
+        this.magic.root.rotation.z = Math.PI / 2;
         this.magic.base = 0;
-        this.magic.root.scale.setScalar(1.3);
+        this.magic.root.scale.setScalar(0.85);
         s.add(this.magic.root);
         this.particles = new Particles(s, 300);
         this.orbit = 0;
         this.hooks.flash(0xffffff, 1);
         this.hooks.sfx.play('secret');
-        this.after(1.4, () => this.say(LINES.eyes));
-        this.after(4.4, () => this.say(LINES.better));
-        this.after(8.4, () => this.say(LINES.show));
-        this.after(11.2, () => {
-            this.say(null);
+        this.after(1.4, () => this.talk([LINES.eyes, LINES.better, LINES.show], () => {
             this.fade = { t: 0, len: 2.6, color: 0xffffff, then: () => this.startTower() };
-        });
+        }));
     }
 
     buildEntity() {
@@ -339,12 +420,12 @@ export class Prologue {
 
     updateSpace(dt, time) {
         // La cámara gira despacio alrededor de los dos
-        this.orbit += dt * 0.32;
-        const r = 6.2, a = this.orbit + 0.6;
-        this.camera.position.set(Math.sin(a) * r, 1.4 + Math.sin(this.orbit * 0.7) * 0.6, Math.cos(a) * r);
-        this.camera.lookAt(0, 0.8, 0);
+        this.orbit += dt * 0.62;
+        const r = 9, a = this.orbit + 0.6;
+        this.camera.position.set(Math.sin(a) * r, 2.2 + Math.sin(this.orbit * 0.7) * 1.2, Math.cos(a) * r);
+        this.camera.lookAt(-0.2, 0, 0);
         this.entity.position.y = Math.sin(time * 1.2) * 0.15;
-        this.entity.rotation.z = Math.sin(time * 0.8) * 0.04;
+        this.entity.rotation.z = -Math.PI / 2 + Math.sin(time * 0.8) * 0.04;
         this.arms.forEach((m, i) => (m.rotation.z = (i ? -1 : 1) * (0.25 + Math.sin(time * 1.1) * 0.05)));
         this.magic.update(dt, time);
         if (Math.random() < dt * 20) {
@@ -373,13 +454,7 @@ export class Prologue {
         sn.lookAt(f.cx, 2.6, f.cz);
         this.locked = true;
         this.hooks.flash(0xffffff, 1);
-        this.after(1.0, () => this.say(LINES.take));
-        this.after(1.8, () => this.giveRifle());
-        this.after(5.2, () => {
-            this.say(LINES.aim);
-            this.hooks.prompt('aim');
-            this.locked = false;
-        });
+        this.after(1.0, () => this.talk([LINES.take], () => this.giveRifle()));
     }
 
     // El rifle sale flotando del trigo hacia arriba, gira, desaparece y aparece en tus manos
@@ -415,6 +490,10 @@ export class Prologue {
                 this.hooks.flash(0xffffff, 0.5);
                 this.hooks.sfx.play('reloaded');
                 vibrate('pickup');
+                this.after(0.8, () => this.talk([LINES.aim], () => {
+                    this.hooks.prompt('aim');
+                    this.locked = false;
+                }));
             }
         }
     }
@@ -444,16 +523,13 @@ export class Prologue {
             const g = ks.grenades[ks.grenades.length - 1];
             if (g) this.show.look = { x: g.x, y: 0.5, z: g.z };
         };
-        this.after(1.4, throwAt('frag'));
-        this.after(3.2, throwAt('cluster'));
-        this.after(5.0, throwAt('fire'));
-        this.after(7.4, () => {
+        this.after(1.0, throwAt('frag'));
+        this.after(1.6, throwAt('cluster'));
+        this.after(2.2, throwAt('fire'));
+        this.after(3.0, () => {
             ks.callBomber();
+            this.show.bomber = true;
             this.show.look = null;
-        });
-        this.after(12.6, () => {
-            this.show.look = null;
-            ks.startNuke();
         });
     }
 
@@ -469,6 +545,17 @@ export class Prologue {
         if (!S) return;
         S.t += dt;
         // La cámara sigue la acción: las granadas, el avión (por delante) y, al final, la bomba
+        // Cuando el bombardero se va: silencio, la vista sube al cielo y, tras la pausa, la nuclear
+        if (S.bomber && !sn.ks.plane && !S.pause) {
+            S.pause = true;
+            this.hooks.silence();
+            const f = sn.field;
+            S.look = { x: f.cx, y: 30, z: f.cz };
+            this.after(1.8, () => {
+                S.look = null;
+                sn.ks.startNuke();
+            });
+        }
         let to = S.look;
         const pl = sn.ks.plane;
         if (pl) to = { x: pl.model.position.x + pl.dir.x * 8, y: pl.model.position.y * 0.5, z: pl.model.position.z + pl.dir.z * 8 };
@@ -502,21 +589,18 @@ export class Prologue {
         this.magic.root.position.set(15, 0, 18);
         F.root.add(this.magic.root);
         this.leaving = 0;
-        this.after(3.0, () => this.say(LINES.remember));
-        this.after(6.4, () => this.say(LINES.luck));
-        this.after(10.2, () => {
-            this.say(null);
+        this.after(3.0, () => this.talk([LINES.remember, LINES.luck], () => {
             this.leaving = 0.001;
             this.hooks.sfx.play('whoosh');
-        });
-        this.after(12, () => {
-            F.root.remove(this.magic.root);
-            this.magic = null;
-            this.phase = null;
-            this.locked = false;
-            this.hooks.cine(false);
-            this.hooks.done();
-        });
+            this.after(1.8, () => {
+                F.root.remove(this.magic.root);
+                this.magic = null;
+                this.phase = null;
+                this.locked = false;
+                this.hooks.cine(false);
+                this.hooks.done();
+            });
+        }));
     }
 
     updateMap(dt, time, particles) {

@@ -8,6 +8,7 @@ const C = THEME.cycle, LEN = C.day + C.night;
 export class DayNight {
     constructor(force = null) {
         this.force = force;
+        this.hold = false; // de día hasta que el reloj llegue al día (al acabar el prólogo)
     }
 
     // Segundos desde que empezó este ciclo
@@ -18,6 +19,10 @@ export class DayNight {
     get k() {
         if (this.force) return this.force === 'night' ? 1 : 0;
         const t = this.t();
+        if (this.hold) {
+            if (t < C.day - C.fade) this.hold = false;
+            else return 0;
+        }
         if (t < C.day) return Math.max(0, (t - (C.day - C.fade)) / C.fade);
         return Math.min(1, Math.max(0, (LEN - t) / C.fade));
     }
@@ -28,7 +33,7 @@ export class DayNight {
 
     // Segundos que faltan para que cambie (de día a noche o al revés); null si está fijado
     get left() {
-        if (this.force) return null;
+        if (this.force || this.hold) return null;
         const t = this.t();
         return t < C.day ? C.day - t : LEN - t;
     }
