@@ -540,6 +540,25 @@ function killPop(x, y, icon = 'alien', cls = '', text = '+1') {
 }
 
 // Lo recogido (espiga o tomate pixelado) vuela a saltos hasta el contador
+// ¡Trato hecho con el mercader! Su retrato salta y gira, se le cae la careta un momento (¡ups!) y,
+// si se le paga (coins: el contador del que salen), las monedas de cartón le vuelan a las manos.
+// Si está en el mapa, en 3D hace lo mismo, con confeti de colores
+function merchantDeal(sheet, coins = null) {
+    const p = sheet.querySelector('.merchant-portrait');
+    p.classList.remove('deal');
+    void p.offsetWidth;
+    p.classList.add('deal');
+    if (coins) {
+        const r = coins.getBoundingClientRect();
+        for (let k = 0; k < 4; k++) setTimeout(() => flyItem('gold', r.x + r.width / 2, r.y + r.height / 2, p, () => sfx.play('coin')), k * 80);
+    }
+    setTimeout(() => sfx.play('hitmark'), 550);
+    if (farm.camp.celebrate()) {
+        const S = MERCHANT.stall;
+        setTimeout(() => farmParticles.burst(S.x, 2.2, S.z, 40, [0xff3e5e, 0xffe03a, 0x7dff4a, 0x3ac8ff, 0xc8955a], { speed: 3, up: 4, size: 0.12, ttl: 1.2, grav: 6 }), 450);
+    }
+}
+
 function flyItem(icon, x, y, target, done) {
     const el = document.createElement('i');
     el.className = `fly-item ${icon}-ico`;
@@ -878,15 +897,30 @@ function buyTurrets(id, force = false) {
     if (mode !== 'farm' || !state.buyTurrets(id, force)) return;
     farm.setTurrets(id);
     const f = farm.fields[id].rect;
+    select(null);
     rig.focus(f.cx, f.cz + 1);
-    rig.shake(0.18);
-    for (const b of farm.fields[id].bases) farmParticles.burst(b.root.position.x, 0.3, b.root.position.z, 14, [THEME.dust, 0x6a7a5a, 0xffe03a], { speed: 2.4, up: 2.4, size: 0.12, ttl: 0.5 });
-    sfx.play('power');
+    sfx.play('whoosh');
     vibrate('pickup');
     updateCounts();
-    stage(L('TURRET ONLINE!', '¡TORRETA EN MARCHA!'), L('IT HARVESTS THE FIELD BY ITSELF', 'RECOGE EL CAMPO SOLA'));
-    refreshPanel();
 }
+// Cada golpe de la llegada de la torreta (Farm.updateDrop): polvo, sonido y temblor; al final, su cartel
+farm.onDrop = (kind, x, z) => {
+    if (kind === 'bag') {
+        farmParticles.burst(x, 0.3, z, 16, [THEME.dust, 0x8a7a5a], { speed: 2.2, up: 1.6, size: 0.14, ttl: 0.5 });
+        rig.shake(0.12);
+        sfx.play('crateBreak');
+    } else if (kind === 'land') {
+        farmParticles.burst(x, 0.6, z, 30, [THEME.dust, 0x6a7a5a, 0xffffff], { speed: 3, up: 2.4, size: 0.16, ttl: 0.7 });
+        rig.shake(0.25);
+        sfx.play('boom');
+        vibrate('kill');
+    } else {
+        farmParticles.burst(x, 1.4, z, 24, [0xffe03a, 0xff9a1f, 0xffffff], { speed: 4, up: 5, size: 0.1, ttl: 0.6 });
+        sfx.play('power');
+        stage(L('TURRET ONLINE!', '¡TORRETA EN MARCHA!'), L('IT HARVESTS THE FIELD BY ITSELF', 'RECOGE EL CAMPO SOLA'));
+        refreshPanel();
+    }
+};
 
 // Recogida automática en el mapa: cada campo con torretas, mientras está maduro, recoge una mata
 // cada poco (lo de las torretas no suma a las rachas). El campo en el que estás disparando lo
@@ -1533,7 +1567,10 @@ $('ufo-shop').addEventListener('click', (e) => {
         if (state.home.placed.includes(it.id)) for (let k = 0; k < 4; k++) farmParticles.burst(it.at.x + (Math.random() - 0.5) * 2, 0.3, it.at.z + (Math.random() - 0.5) * 2, 8, [THEME.dust, 0x7dff4a, 0xffffff], { speed: 2.4, up: 2.4, size: 0.14, ttl: 0.6 });
     } else farm.byId.house.select();
     sfx.play(had ? 'ui' : 'shieldGet');
-    if (!had) say(ZORG.thanks);
+    if (!had) {
+        say(ZORG.thanks);
+        merchantDeal($('ufo-shop'), $('ufo-coins'));
+    }
     updateCounts();
     renderShop();
 });
@@ -1620,6 +1657,7 @@ $('merchant').addEventListener('click', (e) => {
     merchantSay(all ? MERCHANT.lines.done : MERCHANT.lines.thanks);
     const r = b.getBoundingClientRect();
     for (let k = 0; k < 3; k++) setTimeout(() => flyItem('gold', r.x + r.width / 2, r.y, $('merchant-gold'), () => {}), k * 90);
+    merchantDeal($('merchant'));
     updateCounts(true);
     renderMerchant();
 });

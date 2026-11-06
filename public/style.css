@@ -1449,3 +1449,16 @@ body.cine .aim-btn { display: none !important; }
 .dock-btn .ico { width: 24px; height: 24px; }
 .dock-dot { display: none; position: absolute; right: -6px; top: -6px; width: 10px; height: 10px; background: #c8402e; border: 2px solid var(--ink); }
 .dock-btn.alert .dock-dot { display: block; animation: hop .6s steps(2) infinite; }
+
+/* ¡Trato hecho! El retrato del mercader salta dos veces girando y a mitad se le cae la careta */
+.merchant-portrait.deal { animation: dealHop 1.2s steps(12) both; }
+@keyframes dealHop {
+    0% { transform: none; }
+    18% { transform: translateY(-14px) rotate(-12deg); }
+    36% { transform: none; }
+    46% { transform: translateY(-22px) rotate(180deg) scale(1.15); background-image: var(--px-merchant-oops); }
+    60% { transform: translateY(-10px) rotate(340deg); background-image: var(--px-merchant-oops); }
+    72% { transform: translateY(0) rotate(360deg); background-image: var(--px-merchant-oops); }
+    84% { transform: scaleX(1.15) scaleY(.9); background-image: var(--px-merchant); }
+    100% { transform: none; }
+}

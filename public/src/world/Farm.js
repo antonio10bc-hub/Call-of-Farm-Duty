@@ -557,7 +557,75 @@ export class Farm {
         t.yaw = Math.atan2(f.cx - t.root.position.x, f.cz - t.root.position.z);
         t.hopT = TURRETS.hop;
         this.root.add(t.root);
-        if (pop) t.select();
+        if (pop) this.startDrop(v);
+    }
+
+    // La llegada de la torreta (al comprarla): los sacos terreros caen del cielo uno a uno en sus
+    // esquinas; luego baja la torreta en paracaídas, se posa, suelta el paracaídas, gira la cabeza
+    // y suelta una ráfaga de prueba. onDrop(kind, x, z) avisa a main.js de cada golpe ('bag',
+    // 'land', 'ready') para el polvo, el sonido y el temblor.
+    startDrop(v) {
+        const chute = new THREE.Group();
+        const RED = 0xc8402e, WHITE = 0xfff3d6;
+        for (let i = 0; i < 5; i++) {
+            const m = new THREE.Mesh(box(0.5, 0.18, 1.6), toon(i % 2 ? WHITE : RED));
+            m.position.set((i - 2) * 0.46, 2.1 - Math.abs(i - 2) * 0.16, 0);
+            m.rotation.z = -(i - 2) * 0.22;
+            chute.add(m);
+        }
+        for (const s of [-1, 1]) for (const z of [-0.6, 0.6]) {
+            const c = new THREE.Mesh(box(0.03, 1.5, 0.03), toon(0x2a1a0e));
+            c.position.set(s * 0.5, 1.2, z);
+            c.rotation.z = s * 0.4;
+            chute.add(c);
+        }
+        v.turret.root.add(chute);
+        v.drop = { t: 0, chute, y: v.turret.root.position.y, landed: false, bags: v.bases.map(() => false), ready: false };
+        for (const b of v.bases) b.root.position.y = 40;
+        v.turret.root.position.y = 40;
+    }
+
+    updateDrop(v, dt) {
+        const D = v.drop, t = (D.t += dt), T = v.turret, S = T.root.scale.x;
+        // Los sacos: cada uno cae acelerando y se aplasta un poco al llegar
+        v.bases.forEach((b, i) => {
+            const a = 0.15 + i * 0.28, k = Math.min(1, Math.max(0, (t - a) / 0.35));
+            b.root.position.y = 12 * (1 - k * k);
+            const sq = Math.max(0, 1 - (t - a - 0.35) / 0.18);
+            b.root.scale.y = S * (k >= 1 ? 1 - 0.3 * sq : 1);
+            if (k >= 1 && !D.bags[i]) {
+                D.bags[i] = true;
+                if (this.onDrop) this.onDrop('bag', b.root.position.x, b.root.position.z);
+            }
+        });
+        // La torreta en paracaídas: baja balanceándose
+        const k = Math.min(1, Math.max(0, (t - 1.3) / 1.6));
+        T.root.position.y = D.y + 16 * (1 - k);
+        T.root.rotation.z = k < 1 ? Math.sin(t * 3) * 0.12 * (1 - k) : 0;
+        if (k >= 1 && !D.landed) {
+            D.landed = true;
+            if (this.onDrop) this.onDrop('land', T.root.position.x, T.root.position.z);
+        }
+        // Suelta el paracaídas, que cae a un lado y se encoge
+        if (D.landed && D.chute.parent) {
+            const c = Math.min(1, (t - 2.9) / 0.5);
+            D.chute.rotation.z = c * 1.2;
+            D.chute.position.set(c * 0.8, -c * 1.2, 0);
+            D.chute.scale.setScalar(Math.max(0.0001, 1 - c));
+            if (c >= 1) T.root.remove(D.chute);
+        }
+        // Se despereza: la cabeza da dos vueltas y suelta una ráfaga al aire
+        if (t > 3.0) {
+            const s = Math.min(1, (t - 3.0) / 0.7);
+            T.head.rotation.y = T.yaw + s * Math.PI * 4;
+            T.flash.visible = t > 3.3 && Math.sin(t * 60) > 0;
+        }
+        if (t > 3.8) {
+            T.flash.visible = false;
+            T.head.rotation.y = T.yaw;
+            v.drop = null;
+            if (this.onDrop) this.onDrop('ready', T.root.position.x, T.root.position.z);
+        }
     }
 
     // Dónde ha recogido la torreta su última mata (para el +1 del mapa): lo que está acribillando,
@@ -813,7 +881,8 @@ export class Farm {
 
         for (const v of this.views) {
             if (v.locked) continue;
-            if (v.turret) this.updateTurrets(v, dt, (progress[v.id] || 0) >= 1);
+            if (v.drop) this.updateDrop(v, dt);
+            else if (v.turret) this.updateTurrets(v, dt, (progress[v.id] || 0) >= 1);
             const p = progress[v.id] || 0;
             if (v.crop === 'wheat') this.updateWheat(v, time, p);
             else if (v.crop === 'pumpkin') this.updatePumpkin(v, time, p);

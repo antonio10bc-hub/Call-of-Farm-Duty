@@ -190,6 +190,11 @@ const SPRITES = {
         rows: ['..Y......Y..', '...G....G...', '...KKKKKK...', '..KHHHHHHK..', 'KKKRRRRRRKKK', '.KGSSSSSSGK.', '.KBSESSESBK.', '.KGSSSSSSGK.', '.KGSMMMMSGK.', '.KGSSPPSSGK.', '..KKKKKKKK..', '.KCCCGGCCCK.', 'KCCCCCCCCCCK'],
         pal: { K: INK, Y: '#ffe03a', G: '#7dff4a', H: '#4a3a2a', R: '#c8402e', S: '#f3c8a0', E: INK, B: '#3a3a3a', M: '#6a3a22', P: '#c8402e', C: '#8a6a4a' },
     },
+    // El mercader sin la careta (se le ha caído): cara verde y ojos negros enormes
+    merchantOops: {
+        rows: ['..Y......Y..', '...G....G...', '...KKKKKK...', '..KHHHHHHK..', 'KKKRRRRRRKKK', '.KGGGGGGGGK.', '.KGKKGGKKGK.', '.KGKKGGKKGK.', '.KGKKGGKKGK.', '.KGGGGGGGGK.', '..KKKKKKKK..', '.KCCCGGCCCK.', 'KCCCCCCCCCCK'],
+        pal: { K: INK, Y: '#ffe03a', G: '#7dff4a', H: '#4a3a2a', R: '#c8402e', C: '#8a6a4a' },
+    },
     // Una bala (contador del cargador)
     ammo: {
         rows: ['...KK...', '..KYYK..', '..KYYK..', '.KKKKKK.', '.KBBBBK.', '.KBWBBK.', '.KBWBBK.', '.KBBBBK.', '.KBBBBK.', '.KKKKKK.'],

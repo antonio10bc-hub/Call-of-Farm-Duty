@@ -83,6 +83,7 @@ export class MerchantCamp extends VoxelModel {
         this.man = this.buildAlien();
         r.add(this.man);
 
+        this.deal = -1;  // segundos de su baile de trato hecho (-1: no baila)
         this.step = 0;   // por dónde va la llegada (0 = no está; T.open = abierto)
         this.want = 0;   // a dónde va: T.open (llegar) o 0 (irse)
         this.dust = new THREE.Vector3(); // dónde levanta polvo al ir por el surco
@@ -254,6 +255,9 @@ export class MerchantCamp extends VoxelModel {
         const mask = new THREE.Group();
         mask.position.set(0, 1.43, 0.24);
         g.add(mask);
+        g.mask = mask;
+        // Debajo de la careta, su cara de verdad: ojos negros enormes (solo se ve si se le cae)
+        for (const x of [-0.11, 0.11]) this.part(g, 0.12, 0.14, 0.02, 0x0a0a0c, x, 1.47, 0.225, false);
         this.part(mask, 0.36, 0.4, 0.03, 0xf3c8a0, 0, 0, 0);
         for (const x of [-0.08, 0.08]) {
             this.part(mask, 0.05, 0.05, 0.02, 0x2a1a0e, x, 0.06, 0.02, false);
@@ -344,6 +348,14 @@ export class MerchantCamp extends VoxelModel {
         this.dust.set(x + 1.2, 0.1, z);
     }
 
+    // ¡Trato hecho! (al comprarle o venderle algo): su baile con la careta (ver update)
+    celebrate() {
+        if (!this.man.visible || this.deal >= 0) return false;
+        this.manRy = this.man.rotation.y;
+        this.deal = 0;
+        return true;
+    }
+
     update(dt, time, nightK = 0) {
         if (this.step !== this.want) {
             this.step = this.want > this.step ? Math.min(this.want, this.step + dt) : Math.max(this.want, this.step - dt * 1.4);
@@ -361,6 +373,28 @@ export class MerchantCamp extends VoxelModel {
             // vaivén cuando está posado
             u.lights.forEach((l, i) => (l.visible = nightK > 0.5 ? Math.sin(time * 3) > -0.6 : Math.sin(time * 8 + i * 0.8) > -0.2));
             if (this.step === this.want && this.open) u.body.position.y = Math.sin(time * 1.6) * 0.04;
+        }
+        // ¡Trato hecho! Da dos saltos girando, se le cae la careta (se le ve la cara de alienígena),
+        // la caza al vuelo y se la vuelve a poner a toda prisa
+        if (this.deal >= 0) {
+            this.deal += dt;
+            const t = this.deal, m = this.man, M = m.mask;
+            const hop = (a, b) => (t > a && t < b ? Math.sin(((t - a) / (b - a)) * Math.PI) : 0);
+            m.position.y = hop(0, 0.45) * 0.55 + hop(0.5, 0.95) * 0.75;
+            m.rotation.y = this.manRy + (t < 0.95 ? (t / 0.95) * Math.PI * 2 : 0);
+            m.arm.rotation.z = 2.6 + Math.sin(t * 22) * 0.4;
+            // La careta: sale volando en el segundo salto, da vueltas y vuelve a su sitio
+            const k = t < 0.55 ? 0 : t < 1.25 ? (t - 0.55) / 0.7 : 0;
+            M.position.set(0, 1.43 + Math.sin(k * Math.PI) * 0.7, 0.24 + Math.sin(k * Math.PI) * 0.25);
+            M.rotation.set(k * Math.PI * 4, 0, Math.sin(k * Math.PI) * 0.6);
+            if (t > 1.45) {
+                this.deal = -1;
+                m.position.y = 0;
+                m.rotation.y = this.manRy;
+                M.position.set(0, 1.43, 0.24);
+                M.rotation.set(0, 0, 0);
+            }
+            return;
         }
         // Él: respira y, abierto, saluda de vez en cuando
         if (this.man.visible && this.open) {
