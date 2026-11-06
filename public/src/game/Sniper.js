@@ -470,13 +470,18 @@ export class Sniper {
 
     // Racha de granadas: sube y la barra se rellena, cada vez durando menos. Al llegar a cada
     // número se lanza su granada.
+    // Las rachas de un tipo que lleva la clase equipada (ksIds: sus ids; sin clase, todas)
+    streaks(track) {
+        return streakOf(track).filter((k) => !this.ksIds || this.ksIds.includes(k.id));
+    }
+
     addStreak(n) {
         const prev = this.streak;
         this.streak += n;
         this.streakMax = Math.max(KS.bar.min, KS.bar.time * KS.bar.decay ** (this.streak - 1));
         this.streakT = this.streakMax;
         if (this.hooks.onMedal && this.streak >= 2 && prev < 4) this.hooks.onMedal({ streak: Math.min(4, this.streak) });
-        if (!this.scripted && this.tracks.crop) for (const k of streakOf('crop')) if (prev < k.at && this.streak >= k.at) this.ks.trigger(k.id);
+        if (!this.scripted && this.tracks.crop) for (const k of this.streaks('crop')) if (prev < k.at && this.streak >= k.at) this.ks.trigger(k.id);
     }
 
     // Racha alienígena: cada alienígena abatido suma (no se pierde con el tiempo) y al llegar a
@@ -484,7 +489,7 @@ export class Sniper {
     addAlien(n) {
         const prev = this.aliens;
         this.aliens += n;
-        if (!this.scripted && this.tracks.alien) for (const k of streakOf('alien')) if (prev < k.at && this.aliens >= k.at) this.ks.trigger(k.id);
+        if (!this.scripted && this.tracks.alien) for (const k of this.streaks('alien')) if (prev < k.at && this.aliens >= k.at) this.ks.trigger(k.id);
     }
 
     // Lo que hay a menos de r de un punto del suelo (explosiones y fuego): los alienígenas

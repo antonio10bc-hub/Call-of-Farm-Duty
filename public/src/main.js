@@ -5,7 +5,7 @@ import { CROPS } from './content/crops.js';
 import { FARM, FIELD_BY_ID, INFO, TURRETS } from './content/farm.js';
 import { KILLSTREAKS, setStreakCounts, streakOf } from './content/killstreaks.js';
 import { SHOP, SHOP_ITEMS } from './content/ufo.js';
-import { ARSENAL, ARSENAL_KINDS } from './content/arsenal.js';
+import { ARSENAL, ARSENAL_KINDS, CLASSES } from './content/arsenal.js';
 import { gearArt } from './ui/GearArt.js';
 import { MERCHANT, MerchantClock } from './content/merchant.js';
 import { RetroRenderer } from './render/RetroRenderer.js';
@@ -79,6 +79,8 @@ function applyNight(dt = 1) {
     const a = kSmooth < 0 ? 1 : Math.min(1, dt * 1.2);
     kSmooth = kSmooth < 0 ? dayNight.k : kSmooth + (dayNight.k - kSmooth) * a;
     dSmooth = dSmooth < 0 ? dayNight.dusk : dSmooth + (dayNight.dusk - dSmooth) * a;
+    if (Math.abs(dayNight.k - kSmooth) < 0.01) kSmooth = dayNight.k; // al llegar, justo
+    if (Math.abs(dayNight.dusk - dSmooth) < 0.01) dSmooth = dayNight.dusk;
     // (con la mirilla de visión nocturna puesta, de noche se ve casi como de día)
     const nv = mode === 'snipe' && sniper.stats.lens === 'night' && sniper.adsK > 0.6;
     const k = kSmooth * (nv ? 0.15 : 1), d = dSmooth * (nv ? 0.3 : 1), { light, night, dusk } = THEME;
@@ -982,14 +984,15 @@ function updateStreak() {
         $('streak-n').textContent = n;
         $('streak-fill').style.width = `${Math.round(Math.max(0, sniper.streakT / sniper.streakMax) * 40) * 2.5}%`;
         el.classList.toggle('low', sniper.streakT < 1);
-        const next = streakOf('crop').find((k) => k.at > n);
+        const next = sniper.streaks('crop').find((k) => k.at > n);
         $('streak-next').textContent = next ? `${L('NEXT', 'SIGUIENTE')}: ${next.at} ${next.short}` : L('MAX STREAK!', '¡RACHA MÁXIMA!');
     }
     // Lo que queda en el campo (también baja cuando roban)
     const left = String(sniper.field.remaining);
     if (!sniper.unlocking && $('left-count').textContent !== left) $('left-count').textContent = left;
-    $('alien-streak').classList.toggle('hidden', sniper.unlocking || !sniper.tracks.alien);
-    const a = sniper.aliens, steps = streakOf('alien');
+    const a = sniper.aliens, steps = sniper.streaks('alien');
+    $('alien-streak').classList.toggle('hidden', sniper.unlocking || !sniper.tracks.alien || !steps.length);
+    if (!steps.length) return;
     $('as-n').textContent = a;
     renderAlienTower(steps);
     // Las rayas se encienden de una en una; la recompensa que viene, parpadeando
@@ -1074,6 +1077,7 @@ function enterSnipe() {
     const unlock = goSnipe.unlock;
     const def = FIELD_BY_ID[snipeField], arena = def.levels[state.fields[snipeField].level].arena;
     sniper.tracks = { crop: state.open('grenades'), alien: state.open('aliens') };
+    sniper.ksIds = state.arsenal.loadout.ks; // las rachas de la clase equipada
     sniper.flyersOn = state.open('ufos'); // los ovnis pequeños, desde que hay tomates
     sniper.enter(unlock ? { unlock: true, loadout: state.arsenal.loadout } : { crop: def.crop, count: state.fields[snipeField].left, arena, loadout: state.arsenal.loadout, turrets: state.fields[snipeField].turrets });
     document.body.classList.remove('fallout');
@@ -1669,45 +1673,7 @@ tapBtn('merchant-close', () => {
 });
 
 // ---------- Granero: subirlo de nivel y ver las dos rachas de bajas (activas siempre) ----------
-// Dos paneles (granadas y alienígena) con una ficha por recompensa; la tocada queda marcada y su
-// detalle sale debajo
-const ksCards = {};
-let ksSel = KILLSTREAKS[0].id;
-for (const [track, title, how] of [
-    ['crop', L('GRENADE STREAK', 'RACHA DE GRANADAS'), L('HARVEST IN A ROW BEFORE THE BAR RUNS OUT', 'RECOGE SEGUIDO ANTES DE QUE SE VACÍE LA BARRA')],
-    ['alien', L('ALIEN STREAK', 'RACHA ALIENÍGENA'), L('SHOOT ALIENS: IT ADDS UP ALL GAME LONG', 'ABATE ALIENÍGENAS: SE SUMA TODA LA PARTIDA')],
-]) {
-    const col = document.createElement('div');
-    col.className = `ks-col ks-col-${track}`;
-    col.innerHTML = `<div class="ks-track ks-track-${track}"><b>${title}</b><span>${how}</span></div>`;
-    $('ks-cards').appendChild(col);
-    for (const k of KILLSTREAKS.filter((x) => x.track === track)) {
-        const card = document.createElement('button');
-        card.className = 'kc';
-        card.id = `ks-card-${k.id}`;
-        card.innerHTML = `<i class="ks-ico" style="--ico: var(--px-${k.icon})"></i><span class="kc-n"><b></b><small>${track === 'alien' ? L('ALIENS', 'ALIENÍGENAS') : L('IN A ROW', 'SEGUIDAS')}</small></span><span class="kc-name">${k.short}</span>`;
-        card.addEventListener('click', (e) => {
-            e.stopPropagation();
-            ksSel = k.id;
-            sfx.play('ui');
-            refreshStreaks();
-        });
-        col.appendChild(card);
-        ksCards[k.id] = card;
-    }
-}
-
 function refreshStreaks() {
-    for (const k of KILLSTREAKS) {
-        ksCards[k.id].querySelector('.kc-n b').textContent = k.at;
-        ksCards[k.id].classList.toggle('sel', k.id === ksSel);
-    }
-    const k = KILLSTREAKS.find((x) => x.id === ksSel);
-    $('kd-ico').style.setProperty('--ico', `var(--px-${k.icon})`);
-    $('kd-name').textContent = k.name;
-    $('kd-at').textContent = k.track === 'alien' ? `${k.at} ${L('ALIENS SHOT DOWN', 'ALIENÍGENAS ABATIDOS')}` : `${k.at} ${L('HARVESTED IN A ROW', 'RECOGIDAS SEGUIDAS')}`;
-    $('kd-desc').textContent = k.desc;
-    $('ks-detail').style.setProperty('--kd', k.track === 'alien' ? '#7dff4a' : 'var(--yellow)');
     // El granero: su nivel, lo que da el siguiente y lo que cuesta
     const lv = state.barn.level, max = FARM.barn.levels.length - 1;
     $('barn-level').textContent = `${L('BARN', 'GRANERO')} ${L('LV', 'NV')}.${lv}/${max}`;
@@ -1772,30 +1738,18 @@ tapBtn('barn-upgrade', upgradeBarn);
 
 function openStreaks() {
     sfx.play('ui');
+    loEdit = state.arsenal.active;
     refreshStreaks();
     refreshRifle();
+    $('gear-picker').classList.add('hidden');
     $('streaks').classList.remove('hidden');
 }
 
-// Pestañas del granero: RACHAS y RIFLE
-function barnTab(tab) {
-    for (const b of document.querySelectorAll('.barn-tab')) b.classList.toggle('on', b.dataset.tab === tab);
-    $('barn-ks').classList.toggle('hidden', tab !== 'ks');
-    $('barn-rifle').classList.toggle('hidden', tab !== 'rifle');
-    if (tab === 'rifle') refreshRifle(true);
-}
-for (const b of document.querySelectorAll('.barn-tab')) {
-    b.addEventListener('click', (e) => {
-        e.stopPropagation();
-        sfx.play('ui');
-        barnTab(b.dataset.tab);
-    });
-}
-
-// ---------- Armería (pestaña FUSIL del granero) ----------
-// Tres carruseles (mirilla, rifle y cargador). Cada ficha: su dibujo, su nombre, sus
-// características en barritas de 1 a 5 y, abajo, MONTADO, USAR o su precio en oro. Tocarla la
-// compra (si hace falta) y la monta en el fusil.
+// ---------- Armamento: las clases (como «Crear clase» de Call of Duty, simplificado) ----------
+// A la izquierda las clases; a la derecha la que se edita: el arma principal, sus accesorios y dos
+// secciones de rachas de bajas (de cultivos y de alienígenas) que se ponen o quitan tocándolas.
+// Tocar el arma o un accesorio abre su lista (se compra con oro y se monta en esta clase).
+// EQUIPAR CLASE: la que se lleva al campo de tiro.
 const pips = (n) => Array.from({ length: 5 }, (_, i) => `<i class="pip${i < n ? ' on' : ''}"></i>`).join('');
 const clampPip = (v) => Math.max(1, Math.min(5, Math.round(v)));
 const GEAR = {
@@ -1803,28 +1757,76 @@ const GEAR = {
     rifle: { title: L('RIFLE', 'RIFLE'), stats: (x) => [[L('FIRE RATE', 'CADENCIA'), clampPip(1.2 / x.bolt)], [L('PIERCE', 'PERFORA'), [1, 2, 4, 6, 99].indexOf(x.pierce) + 1], [L('DAMAGE', 'DAÑO'), clampPip(x.damage * 2 - 1)]] },
     mag: { title: L('MAGAZINE', 'CARGADOR'), stats: (x) => [[L('ROUNDS', 'BALAS'), x.size <= 6 ? 1 : x.size <= 10 ? 2 : x.size <= 18 ? 3 : 5], [L('RELOAD', 'RECARGA'), x.regen ? 5 : clampPip((4.1 - x.reload) / 0.75)]] },
 };
-const gearCards = {};
-let gearKind = 'rifle'; // la pieza que se está cambiando
-const caseSlots = {};
-for (const kind of ['rifle', 'scope', 'mag']) {
-    const slot = document.createElement('button');
-    slot.className = `case-slot case-${kind}`;
-    slot.id = `case-${kind}`;
-    slot.innerHTML = `<i class="cut"><img alt=""></i><b>${GEAR[kind].title}</b>`;
-    slot.addEventListener('click', (e) => {
+let loEdit = 0;          // la clase que se está editando
+const gearCards = {}, loSlots = {}, ksBtns = {}, classBtns = [];
+const cls = () => state.arsenal.classes[loEdit];
+// Las clases
+CLASSES.forEach((c, i) => {
+    const b = document.createElement('button');
+    b.className = 'lo-class';
+    b.id = `class-${i}`;
+    b.addEventListener('click', (e) => {
         e.stopPropagation();
-        gearKind = kind;
+        if (!state.classOpen(i)) return sfx.play('miss');
+        loEdit = i;
         sfx.play('ui');
-        refreshRifle(true);
+        $('gear-picker').classList.add('hidden');
+        refreshRifle();
     });
-    $('gear-case').appendChild(slot);
-    caseSlots[kind] = slot;
+    $('lo-classes').appendChild(b);
+    classBtns.push(b);
+});
+// Arma principal y accesorios (cada hueco abre su lista)
+for (const kind of ['rifle', 'scope', 'mag']) {
+    const b = document.createElement('button');
+    b.className = `lo-slot lo-${kind}`;
+    b.id = `slot-${kind}`;
+    b.innerHTML = `<img alt=""><span><small>${GEAR[kind].title}</small><b></b></span><em>${L('CHANGE', 'CAMBIAR')} &gt;</em>`;
+    b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sfx.play('ui');
+        openPicker(kind);
+    });
+    $(kind === 'rifle' ? 'lo-main' : 'lo-acc').appendChild(b);
+    loSlots[kind] = b;
 }
+{
+    const soon = document.createElement('div');
+    soon.className = 'lo-slot lo-soon';
+    soon.innerHTML = `<span><small>${L('ATTACHMENT', 'ACCESORIO')}</small><b>${L('SOON', 'PRÓXIMAMENTE')}</b></span>`;
+    $('lo-acc').appendChild(soon);
+}
+// Las rachas: dos secciones (cultivos y alienígenas); tocar una la pone o la quita de la clase
+for (const track of ['crop', 'alien']) {
+    for (const k of KILLSTREAKS.filter((x) => x.track === track)) {
+        const b = document.createElement('button');
+        b.className = `lo-ks lo-ks-${track}`;
+        b.id = `ks-card-${k.id}`;
+        b.title = k.desc;
+        b.innerHTML = `<i class="ks-ico" style="--ico: var(--px-${k.icon})"></i><span class="kc-n"><b>${k.at}</b><small>${track === 'alien' ? L('ALIENS', 'ALIENÍGENAS') : L('IN A ROW', 'SEGUIDAS')}</small></span><span class="kc-name">${k.short}</span><em></em>`;
+        b.addEventListener('click', (e) => {
+            e.stopPropagation();
+            state.toggleStreak(loEdit, k.id);
+            sfx.play(cls().ks.includes(k.id) ? 'reloaded' : 'ui');
+            refreshRifle();
+        });
+        $(`lo-ks-${track}`).appendChild(b);
+        ksBtns[k.id] = b;
+    }
+}
+tapBtn('class-equip', () => {
+    if (!state.useClass(loEdit)) return sfx.play('miss');
+    sfx.play('reloaded');
+    vibrate('pickup');
+    refreshRifle();
+});
+// La lista de un tipo de pieza (en esta clase)
+let pickKind = 'rifle';
 for (const kind of ARSENAL_KINDS) {
     const row = document.createElement('div');
     row.className = 'gear-row';
     row.dataset.kind = kind;
-    row.innerHTML = `<div class="gear-title">${GEAR[kind].title}<span id="gear-count-${kind}"></span></div><div class="gear-strip" id="gear-${kind}"></div>`;
+    row.innerHTML = `<div class="gear-strip" id="gear-${kind}"></div>`;
     $('gear-rows').appendChild(row);
     for (const it of ARSENAL[kind]) {
         const card = document.createElement('button');
@@ -1834,9 +1836,9 @@ for (const kind of ARSENAL_KINDS) {
         card.title = it.desc;
         card.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (state.arsenal.loadout[kind] === it.id) return;
+            if (cls()[kind] === it.id) return $('gear-picker').classList.add('hidden');
             const had = state.ownsGear(kind, it.id);
-            if (!state.equipGear(kind, it.id)) {
+            if (!state.equipGear(kind, it.id, loEdit)) {
                 sfx.play('miss');
                 card.classList.remove('bump');
                 void card.offsetWidth;
@@ -1846,30 +1848,52 @@ for (const kind of ARSENAL_KINDS) {
             sfx.play(had ? 'reloaded' : 'coin');
             vibrate('pickup');
             updateCounts();
+            $('gear-picker').classList.add('hidden');
             refreshRifle();
-            refreshStreaks();
         });
         $(`gear-${kind}`).appendChild(card);
         gearCards[`${kind}:${it.id}`] = card;
     }
 }
-function refreshRifle(center = false) {
+function openPicker(kind) {
+    pickKind = kind;
+    $('picker-title').textContent = GEAR[kind].title;
+    refreshRifle();
+    $('gear-picker').classList.remove('hidden');
+}
+tapBtn('picker-close', () => {
+    sfx.play('ui');
+    $('gear-picker').classList.add('hidden');
+});
+function refreshRifle() {
+    const c = cls(), A = state.arsenal;
     $('gear-gold').textContent = state.items.gold;
-    // El maletín: cada hueco con la pieza montada; el elegido, marcado
-    for (const [kind, slot] of Object.entries(caseSlots)) {
-        const it = ARSENAL[kind].find((x) => x.id === state.arsenal.loadout[kind]);
-        const src = gearArt(kind, it), img = slot.querySelector('img');
+    CLASSES.forEach((def, i) => {
+        const b = classBtns[i], open = state.classOpen(i);
+        const html = open ? `<b>${L(...def.name)}</b>${i === A.active ? `<em>${L('EQUIPPED', 'EQUIPADA')}</em>` : ''}`
+            : `<b>${L('LOCKED', 'BLOQUEADA')}</b><em>${L('BARN', 'GRANERO')} ${L('LV', 'NV')}.${def.open}</em>`;
+        if (b.innerHTML !== html) b.innerHTML = html;
+        b.classList.toggle('on', i === loEdit);
+        b.classList.toggle('lock', !open);
+    });
+    $('class-name').textContent = L(...CLASSES[loEdit].name);
+    const eq = $('class-equip'), using = A.active === loEdit;
+    eq.disabled = using;
+    eq.textContent = using ? L('EQUIPPED', 'EQUIPADA') : L('EQUIP CLASS', 'EQUIPAR CLASE');
+    for (const kind of ['rifle', 'scope', 'mag']) {
+        const it = ARSENAL[kind].find((x) => x.id === c[kind]), slot = loSlots[kind], src = gearArt(kind, it), img = slot.querySelector('img');
         if (img.getAttribute('src') !== src) img.setAttribute('src', src);
-        slot.classList.toggle('on', kind === gearKind);
+        slot.querySelector('b').textContent = it.name;
     }
-    for (const row of document.querySelectorAll('.gear-row')) row.classList.toggle('hidden', row.dataset.kind !== gearKind);
-    for (const kind of ARSENAL_KINDS) {
-        const n = ARSENAL[kind].filter((x) => state.ownsGear(kind, x.id)).length;
-        $(`gear-count-${kind}`).textContent = `${n}/${ARSENAL[kind].length}`;
+    for (const k of KILLSTREAKS) {
+        const on = c.ks.includes(k.id);
+        ksBtns[k.id].classList.toggle('on', on);
+        ksBtns[k.id].querySelector('em').textContent = on ? L('ON', 'PUESTA') : L('OFF', 'QUITADA');
     }
+    for (const row of document.querySelectorAll('.gear-row')) row.classList.toggle('hidden', row.dataset.kind !== pickKind);
     for (const kind of ARSENAL_KINDS) {
         for (const it of ARSENAL[kind]) {
-            const card = gearCards[`${kind}:${it.id}`], on = state.arsenal.loadout[kind] === it.id, owned = state.ownsGear(kind, it.id), price = state.gearPrice(kind, it.id);
+            const card = gearCards[`${kind}:${it.id}`], on = c[kind] === it.id, owned = state.ownsGear(kind, it.id), price = state.gearPrice(kind, it.id);
             card.classList.toggle('on', on);
             card.classList.toggle('owned', owned && !on);
             card.classList.toggle('short', !owned && state.items.gold < price);

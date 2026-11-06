@@ -1,7 +1,8 @@
 import { CROPS } from '../content/crops.js';
 import { FARM, FIELD_BY_ID, LAND_BY_ID } from '../content/farm.js';
 import { SHOP_ITEMS, DEFAULT_LOOK } from '../content/ufo.js';
-import { ARSENAL, ARSENAL_KINDS, DEFAULT_LOADOUT, arsenalItem } from '../content/arsenal.js';
+import { ARSENAL, ARSENAL_KINDS, DEFAULT_LOADOUT, CLASSES, arsenalItem } from '../content/arsenal.js';
+import { KILLSTREAKS } from '../content/killstreaks.js';
 import { MERCHANT } from '../content/merchant.js';
 
 // Estado de la granja: lo recogido de cada cultivo, cada campo (desbloqueado o no, nivel, hora
@@ -30,7 +31,11 @@ export class FarmState {
         this.gatesOff = false; // pruebas y depuración: todo lo de la progresión abierto
         this.house = { level: 0 };
         // Armería (content/arsenal.js): lo comprado ('scope:tac'...) y lo que lleva montado el fusil
-        this.arsenal = { owned: [], loadout: { ...DEFAULT_LOADOUT } };
+        // classes: las clases (rifle, mirilla, cargador y rachas, ks); active: la equipada.
+        // loadout: la equipada (la misma, para lo que solo mira el fusil)
+        const ks = KILLSTREAKS.map((k) => k.id);
+        this.arsenal = { owned: [], active: 0, classes: CLASSES.map(() => ({ ...DEFAULT_LOADOUT, ks: [...ks] })) };
+        this.arsenal.loadout = this.arsenal.classes[0];
         // Lo recogido de cada cultivo y las monedas de oro (gold: la moneda del juego, la paga el
         // comerciante; son de cartón, pero que no se entere nadie)
         this.items = Object.fromEntries([...Object.keys(CROPS), 'gold'].map((c) => [c, 0]));
@@ -68,7 +73,16 @@ export class FarmState {
                 this.house.level = Math.min(HOUSE.length - 1, Math.max(0, d.house ? d.house.level | 0 : (d.rev | 0) < 4 ? 1 : 0));
                 if (d.arsenal) {
                     if (Array.isArray(d.arsenal.owned)) this.arsenal.owned = d.arsenal.owned.filter((k) => { const [kind, id] = k.split(':'); return ARSENAL[kind] && ARSENAL[kind].some((x) => x.id === id); });
-                    for (const kind of ARSENAL_KINDS) if (d.arsenal.loadout && this.ownsGear(kind, d.arsenal.loadout[kind])) this.arsenal.loadout[kind] = d.arsenal.loadout[kind];
+                    // Las clases (las partidas de antes: su fusil pasa a la clase 1)
+                    const saved = Array.isArray(d.arsenal.classes) ? d.arsenal.classes : [d.arsenal.loadout];
+                    saved.forEach((c, i) => {
+                        const C = this.arsenal.classes[i];
+                        if (!c || !C) return;
+                        for (const kind of ARSENAL_KINDS) if (this.ownsGear(kind, c[kind])) C[kind] = c[kind];
+                        if (Array.isArray(c.ks)) C.ks = c.ks.filter((id) => KILLSTREAKS.some((k) => k.id === id));
+                    });
+                    this.arsenal.active = Math.min(CLASSES.length - 1, Math.max(0, d.arsenal.active | 0));
+                    this.arsenal.loadout = this.arsenal.classes[this.arsenal.active];
                 }
                 // Las monedas alienígenas de antes pasan a ser de oro (la única moneda)
                 if (d.items && d.items.alien) this.items.gold += (d.items.alien | 0) * 3;
@@ -246,15 +260,37 @@ export class FarmState {
         return this.freeCosts ? 0 : arsenalItem(kind, id).price;
     }
 
-    // Comprarlo (si no se tenía, con oro) y montarlo en el fusil; false si no llega el oro
-    equipGear(kind, id) {
+    // ¿Está abierta la clase i? (las últimas, con el granero a su nivel)
+    classOpen(i) {
+        return this.gatesOff || this.barn.level >= CLASSES[i].open;
+    }
+
+    // Equipar la clase i (la que se lleva al campo de tiro)
+    useClass(i) {
+        if (!this.classOpen(i)) return false;
+        this.arsenal.active = i;
+        this.arsenal.loadout = this.arsenal.classes[i];
+        this.save();
+        return true;
+    }
+
+    // Poner o quitar una racha de bajas en la clase i
+    toggleStreak(i, id) {
+        const c = this.arsenal.classes[i];
+        c.ks = c.ks.includes(id) ? c.ks.filter((x) => x !== id) : [...c.ks, id];
+        this.save();
+    }
+
+    // Comprarlo (si no se tenía, con oro) y montarlo en la clase ci (la equipada si no se dice);
+    // false si no llega el oro
+    equipGear(kind, id, ci = this.arsenal.active) {
         if (!this.ownsGear(kind, id)) {
             const price = this.gearPrice(kind, id);
             if (this.items.gold < price) return false;
             this.items.gold -= price;
             this.arsenal.owned.push(`${kind}:${id}`);
         }
-        this.arsenal.loadout[kind] = id;
+        this.arsenal.classes[ci][kind] = id;
         this.save();
         return true;
     }

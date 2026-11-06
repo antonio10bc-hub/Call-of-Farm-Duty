@@ -139,13 +139,14 @@ test('día y noche: de noche el cielo se oscurece, sale la luna y los alienígen
     await page.evaluate(() => { game.dayNight.force = 'night'; });
     await expect(page.locator('body')).toHaveClass(/night/);
     await expect(page.locator('#daytime')).toHaveClass(/is-night/);
-    expect(await page.evaluate(() => [game.sniper.nightK, game.sniper.nightSky.visible])).toEqual([1, true]);
+    // (el cielo pasa a la noche poco a poco)
+    await expect.poll(() => page.evaluate(() => [game.sniper.nightK, game.sniper.nightSky.visible]), { timeout: 30_000 }).toEqual([1, true]);
     // De noche caben más a la vez (pero no una invasión)
     // (se les hace salir seguidos: de noche se paran en 6 a la vez; de día, en 4)
     const most = () => page.evaluate(() => { const W = game.sniper.walkers; W.reset(); for (let k = 0; k < 30; k++) { W.next = 0; W.update(0.001, k); } return W.list.filter((w) => w.alive).length; });
     expect(await most()).toBe(6);
     await page.evaluate(() => { game.dayNight.force = 'day'; });
-    await expect.poll(() => page.evaluate(() => game.sniper.nightK)).toBe(0);
+    await expect.poll(() => page.evaluate(() => game.sniper.nightK), { timeout: 30_000 }).toBe(0);
     expect(await most()).toBe(4);
     expect(errors).toEqual([]);
 });

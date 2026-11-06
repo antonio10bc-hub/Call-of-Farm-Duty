@@ -60,6 +60,17 @@ export const ARSENAL = {
 
 export const ARSENAL_KINDS = ['scope', 'rifle', 'mag'];
 export const DEFAULT_LOADOUT = { scope: 'std', rifle: 'bolt', mag: 'std' };
+
+// Clases (como en Call of Duty): conjuntos con nombre de rifle, mirilla, cargador y las rachas de
+// bajas que se llevan (de cultivos y alienígenas). Se usa la equipada. open: con qué nivel del
+// granero se abre cada una
+export const CLASSES = [
+    { name: ['SNIPER', 'FRANCOTIRADOR'], open: 0 },
+    { name: ['HARVESTER', 'COSECHADOR'], open: 0 },
+    { name: ['ALIEN SCARER', 'ESPANTAALIENS'], open: 0 },
+    { name: ['CLASS 4', 'CLASE 4'], open: 3 },
+    { name: ['CLASS 5', 'CLASE 5'], open: 5 },
+];
 export const arsenalItem = (kind, id) => ARSENAL[kind].find((x) => x.id === id) || ARSENAL[kind][0];
 
 // Lo que da al fusil un equipo { scope, rifle, mag }

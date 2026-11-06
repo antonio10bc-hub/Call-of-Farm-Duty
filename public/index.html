@@ -171,20 +171,26 @@
             <div class="barn-head"><b id="barn-level"></b><span id="barn-next"></span></div>
             <button id="barn-upgrade" class="btn upgrade-btn"><span data-es="MEJORAR">UPGRADE</span><span id="barn-cost" class="upgrade-costs"></span></button>
         </div>
-        <div class="barn-tabs">
-            <button id="barn-tab-ks" class="barn-tab on" data-tab="ks" data-es="RACHAS">STREAKS</button>
-            <button id="barn-tab-rifle" class="barn-tab" data-tab="rifle" data-es="FUSIL">RIFLE</button>
+        <!-- Las clases (como «Crear clase»): a la izquierda la lista; a la derecha la que se edita,
+             con su arma, sus accesorios y sus rachas de cultivos y de alienígenas -->
+        <div class="loadout">
+            <div id="lo-classes" class="lo-classes"></div>
+            <div class="lo-edit">
+                <div class="lo-head"><b id="class-name"></b><span class="coins-badge static gold-badge"><span class="ico gold-ico"></span><b id="gear-gold">0</b></span></div>
+                <div class="lo-h" data-es="ARMA PRINCIPAL">PRIMARY WEAPON</div>
+                <div id="lo-main" class="lo-main"></div>
+                <div class="lo-h" data-es="ACCESORIOS">ATTACHMENTS</div>
+                <div id="lo-acc" class="lo-acc"></div>
+                <div class="lo-h lo-h-crop" data-es="RACHAS DE CULTIVOS · TOCA PARA PONER O QUITAR">CROP STREAKS · TAP TO ADD OR REMOVE</div>
+                <div id="lo-ks-crop" class="lo-ks-row"></div>
+                <div class="lo-h lo-h-alien" data-es="RACHAS ALIENÍGENAS · TOCA PARA PONER O QUITAR">ALIEN STREAKS · TAP TO ADD OR REMOVE</div>
+                <div id="lo-ks-alien" class="lo-ks-row"></div>
+                <button id="class-equip" class="btn lo-equip"></button>
+            </div>
         </div>
-        <div id="barn-ks" class="barn-page">
-            <div id="ks-cards" class="ks-cards"></div>
-            <!-- Detalle de la racha marcada -->
-            <div id="ks-detail" class="ks-detail"><i id="kd-ico" class="ks-ico"></i><div class="kd-text"><b id="kd-name"></b><span id="kd-at"></span><small id="kd-desc"></small></div><em data-es="ACTIVA">ACTIVE</em></div>
-        </div>
-        <!-- Armería: mirilla, rifle y cargador, cada uno en su carrusel (los rellena main.js) -->
-        <div id="barn-rifle" class="barn-page hidden">
-            <div class="gear-gold"><span data-es="SE PAGA CON ORO">PAID IN GOLD</span><span class="coins-badge static gold-badge"><span class="ico gold-ico"></span><b id="gear-gold">0</b></span></div>
-            <!-- El maletín: el fusil desmontado en sus huecos de espuma (toca uno para cambiar esa pieza) -->
-            <div id="gear-case" class="gear-case"></div>
+        <!-- Lista de un tipo de pieza para la clase (se compra con oro) -->
+        <div id="gear-picker" class="gear-picker hidden">
+            <div class="picker-head"><b id="picker-title"></b><button id="picker-close" class="panel-x" aria-label="Close" data-es-aria="Cerrar">X</button></div>
             <div id="gear-rows" class="gear-rows"></div>
         </div>
         <button id="btn-streaks-close" class="btn home-btn"><span class="home-icon"></span><span data-es="VOLVER">BACK</span></button>

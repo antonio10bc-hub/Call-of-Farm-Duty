@@ -14,6 +14,8 @@ test('progresión: granero, trigo, granadas, tomates, alienígenas, mercader y t
     await expect(page.locator('#sign-barn')).toContainText('GRANERO');
     await page.locator('#sign-barn').click();
     expect(await page.evaluate(() => [game.state.open('barn'), game.state.canUnlock('wheat'), game.farm.byId.barn.root.visible])).toEqual([true, true, true]);
+    // Las clases 4 y 5 se abren con el granero a nivel 3 y 5
+    expect(await page.evaluate(() => [0, 1, 2, 3, 4].map((i) => game.state.classOpen(i)))).toEqual([true, true, true, false, false]);
     // Trigo a nivel 2: rachas de granadas (con su cartel)
     await page.evaluate(() => { game.state.unlock('wheat'); game.state.fields.wheat.level = 1; game.updateCounts(); });
     expect(await gates()).toEqual([true, true, false, false, false]);

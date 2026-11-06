@@ -1462,3 +1462,69 @@ body.cine .aim-btn { display: none !important; }
     84% { transform: scaleX(1.15) scaleY(.9); background-image: var(--px-merchant); }
     100% { transform: none; }
 }
+
+/* ---------- Armamento por clases ---------- */
+.streaks-screen { justify-content: flex-start; }
+.loadout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 18px; width: min(900px, 100%); align-items: start; }
+.lo-classes { display: flex; flex-direction: column; gap: 8px; }
+.lo-class { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 12px; font-family: var(--font); font-size: 9px; text-align: left; color: #e8d8b8; background: rgba(42, 26, 14, .75); border: 3px solid #6a5a40; cursor: pointer; }
+.lo-class b { font-weight: normal; }
+.lo-class em { font-style: normal; font-size: 7px; color: #8fd14f; }
+.lo-class.on { color: var(--ink); background: var(--yellow); border-color: var(--ink); box-shadow: 0 4px 0 var(--ink); }
+.lo-class.on em { color: #1a6a2a; }
+.lo-class.lock { opacity: .5; cursor: default; }
+.lo-class.lock em { color: #c8b898; }
+.lo-edit { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.lo-head { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--cream); }
+.lo-head b { font-weight: normal; }
+.lo-h { margin-top: 6px; font-size: 8px; color: var(--yellow); text-align: left; }
+.lo-h-alien { color: #8fff5a; }
+.lo-slot { display: flex; align-items: center; gap: 12px; padding: 10px 12px; min-width: 0; font-family: var(--font); color: var(--ink); text-align: left; background: var(--cream); border: 3px solid var(--ink); box-shadow: 0 4px 0 var(--ink); cursor: pointer; }
+.lo-slot:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--ink); }
+.lo-slot img { flex: none; width: 96px; height: 48px; image-rendering: pixelated; background: #2a2a30; border: 2px solid var(--ink); }
+.lo-slot span { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.lo-slot small { font-size: 7px; color: #8a6a4a; }
+.lo-slot b { font-weight: normal; font-size: 10px; }
+.lo-slot em { margin-left: auto; font-style: normal; font-size: 7px; color: #8a6a4a; white-space: nowrap; }
+.lo-main .lo-slot { width: 100%; box-sizing: border-box; }
+.lo-main .lo-slot img { width: 140px; height: 56px; }
+.lo-acc { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.lo-acc .lo-slot { flex-direction: column; align-items: flex-start; gap: 8px; }
+.lo-acc .lo-slot img { width: 100%; height: 40px; }
+.lo-acc .lo-slot em { margin-left: 0; }
+.lo-soon { cursor: default; background: #e0d4b4; border-style: dashed; box-shadow: none; color: #8a6a4a; }
+.lo-ks-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.lo-ks { position: relative; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; align-items: center; gap: 4px 8px; padding: 8px; font-family: var(--font); color: #a89878; text-align: left; background: #3a2a1a; border: 3px dashed #6a5a40; cursor: pointer; }
+.lo-ks .ks-ico { grid-row: 1 / 3; width: 34px; height: 34px; filter: grayscale(1) opacity(.5); }
+.lo-ks .kc-n { display: flex; align-items: baseline; gap: 4px; }
+.lo-ks .kc-n b { font-weight: normal; font-size: 13px; }
+.lo-ks .kc-n small { font-size: 6px; }
+.lo-ks .kc-name { font-size: 7px; }
+.lo-ks em { position: absolute; right: 6px; top: 6px; font-style: normal; font-size: 6px; }
+.lo-ks.on { color: var(--ink); background: var(--yellow); border: 3px solid var(--ink); box-shadow: 0 4px 0 var(--ink); }
+.lo-ks.on .ks-ico { filter: none; }
+.lo-ks.on .kc-n b { color: #c8402e; }
+.lo-ks-alien.on { background: #b8f08a; }
+.lo-equip { margin-top: 8px; align-self: flex-end; padding: 14px 22px; font-size: 12px; background: #2fbf4a; }
+.lo-equip:disabled { background: #8a8a80; color: #e8e8e0; box-shadow: none; }
+/* La lista de piezas de un tipo, encima del menú */
+.gear-picker { position: fixed; left: 50%; top: 50%; z-index: 40; transform: translate(-50%, -50%); width: min(560px, calc(100vw - 24px)); max-height: calc(100vh - 40px); overflow-y: auto; box-sizing: border-box; padding: 14px; display: flex; flex-direction: column; gap: 10px; background: #2a2a30; border: 4px solid var(--ink); box-shadow: 0 10px 0 var(--ink), 0 0 0 100vmax rgba(10, 8, 6, .6); }
+.gear-picker.hidden { display: none; }
+.picker-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--yellow); }
+.picker-head b { font-weight: normal; }
+@media (max-width: 700px) {
+    .loadout { grid-template-columns: minmax(0, 1fr); }
+    .lo-classes { flex-direction: row; overflow-x: auto; }
+    .lo-class { flex: none; }
+    .lo-ks .ks-ico { width: 26px; height: 26px; }
+    .lo-ks em { display: none; }
+}
+.gear.empty img { filter: grayscale(1) brightness(.6); }
+.lo-ks em { display: none; }
+.lo-soon b { font-size: 8px; }
+@media (max-width: 700px) {
+    .lo-acc { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .lo-soon { grid-column: 1 / -1; }
+    .lo-ks .kc-n small { display: none; }
+    .lo-ks .kc-name { font-size: 6px; }
+}

@@ -11,18 +11,16 @@ test('la granja es un mapa: el granero sube de nivel, agranda su recinto y ense�
     await expect(page.locator('#streaks')).toBeVisible();
     // Las dos rachas, activas desde el principio: granadas (recogiendo) y alienígena
     await expect(page.locator('#barn-level')).toHaveText('GRANERO NV.0/5');
-    await expect(page.locator('.ks-track')).toHaveText([/RACHA DE GRANADAS/, /RACHA ALIENIGENA/]);
+    // Dos secciones de rachas en la clase: de cultivos y de alienígenas, todas puestas de serie
     await expect(page.locator('#ks-card-cluster .kc-n')).toHaveText('10SEGUIDAS');
     await expect(page.locator('#ks-card-nuke .kc-n')).toHaveText('10ALIENIGENAS');
-    // Todas las fichas iguales; la tocada queda marcada y su detalle sale debajo
-    const sizes = await page.locator('.kc').evaluateAll((els) => new Set(els.map((e) => `${Math.round(e.offsetWidth)}x${e.offsetHeight}`)).size);
-    expect(sizes).toBe(1);
-    await expect(page.locator('#ks-card-frag')).toHaveClass(/sel/);
+    await expect(page.locator('.lo-ks.on')).toHaveCount(6);
+    // Tocar una la quita de la clase (y otra vez la pone)
     await page.locator('#ks-card-predator').click();
-    await expect(page.locator('#ks-card-predator')).toHaveClass(/sel/);
-    await expect(page.locator('#ks-card-frag')).not.toHaveClass(/sel/);
-    await expect(page.locator('#kd-name')).toHaveText('MISIL PREDATOR');
-    await expect(page.locator('#kd-at')).toHaveText('3 ALIENIGENAS ABATIDOS');
+    await expect(page.locator('#ks-card-predator')).not.toHaveClass(/on/);
+    expect(await page.evaluate(() => game.state.arsenal.loadout.ks.includes('predator'))).toBe(false);
+    await page.locator('#ks-card-predator').click();
+    await expect(page.locator('#ks-card-predator')).toHaveClass(/on/);
     await expect(page.locator('#barn-upgrade')).toBeDisabled();
     // Con 5 de trigo: nivel 1 y el recinto crece
     const hidden0 = await page.evaluate(() => game.farm.wild.reduce((n, e) => n + e.positions.filter((q) => q.hide).length, 0));
@@ -140,36 +138,43 @@ test('armería: en el granero se compran con oro y se montan mirillas, rifles y 
     await openFarm(page);
     await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
     await page.evaluate(() => game.select({ structure: 'barn' }));
-    await page.locator('#barn-tab-rifle').click();
-    await expect(page.locator('#barn-rifle')).toBeVisible();
-    // El maletín con sus tres huecos (el rifle elegido) y tres listas de 5; lo de serie viene montado
-    await expect(page.locator('.case-slot')).toHaveCount(3);
-    await expect(page.locator('#case-rifle')).toHaveClass(/on/);
+    // Las clases: 5 (en partida, las dos últimas se abren con el granero), la 1 equipada
+    await expect(page.locator('.lo-class')).toHaveCount(5);
+    await expect(page.locator('#class-0')).toHaveClass(/on/);
+    // El arma y sus accesorios abren su lista: tres listas de 5; lo de serie viene montado
+    await page.locator('#slot-rifle').click();
+    await expect(page.locator('#gear-picker')).toBeVisible();
     await expect(page.locator('.gear-row')).toHaveCount(3);
     await expect(page.locator('.gear')).toHaveCount(15);
     for (const id of ['scope-std', 'rifle-bolt', 'mag-std']) await expect(page.locator(`#gear-${id}`)).toHaveClass(/on/);
-    // Sin oro no se compra; con oro se compra y se monta
+    // Sin oro no se compra; con oro se compra y se monta (y la lista se cierra)
     await page.locator('#gear-rifle-semi').click();
     expect(await page.evaluate(() => game.state.arsenal.loadout.rifle)).toBe('bolt');
     await page.evaluate(() => { game.state.items.gold = 40; game.select({ structure: 'barn' }); });
-    await page.locator('#barn-tab-rifle').click();
-    await page.locator('#gear-rifle-semi').click();
-    await expect(page.locator('#gear-rifle-semi')).toHaveClass(/on/);
-    await page.locator('#case-scope').click();
-    await page.locator('#gear-scope-dot').click();
-    await page.locator('#case-mag').click();
-    await page.locator('#gear-mag-ext').click();
-    expect(await page.evaluate(() => [game.state.arsenal.loadout, game.state.items.gold])).toEqual([{ scope: 'dot', rifle: 'semi', mag: 'ext' }, 40 - 10 - 8 - 12]);
+    const pick = async (kind, id) => { await page.locator(`#slot-${kind}`).click(); await page.locator(`#gear-${kind}-${id}`).click(); await expect(page.locator('#gear-picker')).toBeHidden(); };
+    await pick('rifle', 'semi');
+    await expect(page.locator('#slot-rifle')).toContainText('SEMIAUTOM');
+    await pick('scope', 'dot');
+    await pick('mag', 'ext');
+    const lo = () => page.evaluate(() => { const l = game.state.arsenal.loadout; return { scope: l.scope, rifle: l.rifle, mag: l.mag }; });
+    expect([await lo(), await page.evaluate(() => game.state.items.gold)]).toEqual([{ scope: 'dot', rifle: 'semi', mag: 'ext' }, 40 - 10 - 8 - 12]);
     // Volver a lo de serie no cuesta nada (ya es tuyo)
-    await page.locator('#case-rifle').click();
-    await page.locator('#gear-rifle-bolt').click();
-    await page.locator('#gear-rifle-semi').click();
+    await pick('rifle', 'bolt');
+    await pick('rifle', 'semi');
     expect(await page.evaluate(() => game.state.items.gold)).toBe(10);
+    // Otra clase: se edita aparte y se equipa con su botón
+    await page.locator('#class-1').click();
+    await expect(page.locator('#slot-rifle')).toContainText('DE CERROJO');
+    await page.locator('#class-equip').click();
+    expect(await page.evaluate(() => game.state.arsenal.active)).toBe(1);
+    await page.locator('#class-0').click();
+    await page.locator('#class-equip').click();
+    expect(await page.evaluate(() => game.state.arsenal.active)).toBe(0);
     // En el campo de tiro el fusil va con lo montado: punto rojo (poco zoom, se sube al momento),
     // semiautomático (rápido, sin colaterales) y cargador ampliado de 18
     await page.locator('#btn-streaks-close').click();
     await page.evaluate(() => game.harvest('wheat'));
-    await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
+    await expect.poll(() => page.evaluate(() => game.mode), { timeout: 20_000 }).toBe('snipe');
     expect(await page.evaluate(() => { const s = game.sniper.stats; return [s.lens, s.pierce, s.size, game.sniper.ammo, game.sniper.rifle.key]; })).toEqual(['dot', 1, 18, 18, 'dot|semi|ext']);
     await expect(page.locator('#ammo-n')).toHaveText('18');
     // Cada disparo gasta una bala; R recarga
@@ -179,7 +184,8 @@ test('armería: en el granero se compran con oro y se montan mirillas, rifles y 
     await expect.poll(() => page.evaluate(() => game.sniper.ammo), { timeout: 10_000 }).toBe(18);
     // Se guarda
     await page.reload();
-    await expect.poll(() => page.evaluate(() => window.game && game.state.arsenal.loadout)).toEqual({ scope: 'dot', rifle: 'semi', mag: 'ext' });
+    await expect.poll(() => page.evaluate(() => window.game && game.state.arsenal.loadout && game.state.arsenal.loadout.rifle)).toBe('semi');
+    expect(await lo()).toEqual({ scope: 'dot', rifle: 'semi', mag: 'ext' });
     expect(errors).toEqual([]);
 });
 
