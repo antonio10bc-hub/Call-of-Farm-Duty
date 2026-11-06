@@ -15,7 +15,7 @@ Solo en una partida nueva (en DEBUG, VER EL PRÓLOGO), todo al atardecer, con ba
 - **Una cuadrícula de 3×3 parcelas** de 30×30 casillas, con vallas y portones donde pasan los caminos. En el centro, la de los campos y el granero; detrás, la de la casa; a su derecha, el claro del mercader; a los lados, dos parcelas que se compran con oro. Las demás (las esquinas y la de abajo) están abandonadas, en sombra y con un poste con candado: de momento no hay nada que desbloquear.
 - **Moverse:** arrastra para mover la cámara; pellizca o usa la rueda para acercar o alejar. El botón **MAPA** (abajo a la izquierda) enseña toda la granja de un vistazo; otra vez (o acercar), de vuelta a donde estabas.
 - **Carteles:** fichas cuadradas sobre cada campo y edificio, con su icono y su barra de nivel; un cuadrado verde avisa de que hay una mejora que te puedes permitir. El texto solo sale cuando importa (desbloquear, en venta, el mercader) o al pasar el ratón. Un campo maduro saca **¡RECOGER!**.
-- **Dock** (abajo en el centro): GRANERO, CAMPOS (abre encima otra barra con las fichas de los cultivos que tienes, cada una con ¡LISTO! o su nivel), CASA y MERCADER. El primer toque lleva la cámara y el segundo abre su ficha; un cuadradito rojo avisa de lo que pide atención.
+- **Dock** (abajo en el centro): GRANERO, CAMPOS (abre encima otra barra con las fichas de los cultivos que tienes, con su nivel en rayitas y un cuadradito rojo si están listos), CASA y MERCADER. El primer toque lleva la cámara y el segundo abre su ficha; un cuadradito rojo avisa de lo que pide atención.
 
 ### La progresión
 Las cosas se van abriendo por pasos, cada una con su cartel grande:
