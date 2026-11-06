@@ -25,6 +25,7 @@ import { Settings } from './core/Settings.js';
 import { L, applyHtmlTexts, switchLang } from './core/I18n.js';
 import { vibrate } from './core/Haptics.js';
 import { clamp } from './core/math.js';
+import { Sky } from './render/Sky.js';
 
 const $ = (id) => document.getElementById(id);
 const INK = THEME.outline;
@@ -53,13 +54,17 @@ setStreakCounts(Settings.streaks);
 
 // Luces de una escena (sol y cielo); se guardan para pasarlas a las de la noche
 const lit = [];
-function addLights(scene) {
+// withSky: con su cúpula de cielo (las escenas en primera persona, que miran al horizonte)
+function addLights(scene, withSky = true) {
     const { light } = THEME;
     const sun = new THREE.DirectionalLight(light.sun, light.sunIntensity);
     sun.position.set(-4, 10, 6);
     const hemi = new THREE.HemisphereLight(light.sky, light.ground, light.hemiIntensity);
     scene.add(sun, hemi);
-    lit.push({ scene, sun, hemi });
+    const sky = withSky ? new Sky() : null;
+    if (sky) scene.add(sky.root);
+    lit.push({ scene, sun, hemi, sky });
+    nightApplied = -1;
 }
 
 // ---------- Día y noche ----------
@@ -67,22 +72,32 @@ function addLights(scene) {
 // fotograma las dos escenas mezclan sus luces y su cielo con los de la noche de luna llena.
 const dayNight = new DayNight(Settings.daytime || (CONFIG.test ? 'day' : null));
 const _cDay = new THREE.Color(), _cNight = new THREE.Color();
-let nightApplied = -1, clockT = 0;
-function applyNight() {
+let nightApplied = -1, duskApplied = -1, clockT = 0, kSmooth = -1, dSmooth = -1;
+const _cDusk = new THREE.Color();
+function applyNight(dt = 1) {
+    // Los cambios forzados (el prólogo, DEBUG) también pasan poco a poco
+    const a = kSmooth < 0 ? 1 : Math.min(1, dt * 1.2);
+    kSmooth = kSmooth < 0 ? dayNight.k : kSmooth + (dayNight.k - kSmooth) * a;
+    dSmooth = dSmooth < 0 ? dayNight.dusk : dSmooth + (dayNight.dusk - dSmooth) * a;
     // (con la mirilla de visión nocturna puesta, de noche se ve casi como de día)
     const nv = mode === 'snipe' && sniper.stats.lens === 'night' && sniper.adsK > 0.6;
-    const k = dayNight.k * (nv ? 0.15 : 1), { light, night } = THEME;
-    sniper.nightK = farm.nightK = dayNight.k; // (los alienígenas brillan igual)
-    if (Math.abs(k - nightApplied) < 0.002) return;
+    const k = kSmooth * (nv ? 0.15 : 1), d = dSmooth * (nv ? 0.3 : 1), { light, night, dusk } = THEME;
+    sniper.nightK = farm.nightK = kSmooth; // (los alienígenas brillan igual)
+    if (Math.abs(k - nightApplied) < 0.002 && Math.abs(d - duskApplied) < 0.002) return;
     nightApplied = k;
-    const mix = (out, a, b) => out.copy(_cDay.setHex(a)).lerp(_cNight.setHex(b), k);
-    for (const { scene, sun, hemi } of lit) {
-        mix(scene.background, THEME.sky, night.sky);
-        mix(sun.color, light.sun, night.sun);
-        sun.intensity = light.sunIntensity + (night.sunIntensity - light.sunIntensity) * k;
-        mix(hemi.color, light.sky, night.hemiSky);
-        mix(hemi.groundColor, light.ground, night.hemiGround);
-        hemi.intensity = light.hemiIntensity + (night.hemiIntensity - light.hemiIntensity) * k;
+    duskApplied = d;
+    const mix = (out, a, b, c) => out.copy(_cDay.setHex(a)).lerp(_cNight.setHex(b), k).lerp(_cDusk.setHex(c), d);
+    const num = (a, b, c) => (a + (b - a) * k) * (1 - d) + c * d;
+    for (const { scene, sun, hemi, sky } of lit) {
+        if (sky) {
+            sky.update(k, d);
+            scene.background.copy(sky.horizon);
+        } else mix(scene.background, THEME.sky, night.sky, 0xf0a070);
+        mix(sun.color, light.sun, night.sun, dusk.sun);
+        sun.intensity = num(light.sunIntensity, night.sunIntensity, dusk.sunIntensity);
+        mix(hemi.color, light.sky, night.hemiSky, dusk.hemiSky);
+        mix(hemi.groundColor, light.ground, night.hemiGround, dusk.hemiGround);
+        hemi.intensity = num(light.hemiIntensity, night.hemiIntensity, dusk.hemiIntensity);
     }
     document.body.classList.toggle('night', k > 0.5);
 }
@@ -97,7 +112,7 @@ function updateClock() {
 // ---------- Granja (mapa) ----------
 const farmScene = new THREE.Scene();
 farmScene.background = new THREE.Color(THEME.sky);
-addLights(farmScene);
+addLights(farmScene, false);
 const farm = new Farm(THEME, state.fields, state.barn.level, state.house.level, state.lands);
 farmScene.add(farm.root);
 const farmParticles = new Particles(farmScene, 600);
@@ -376,19 +391,74 @@ function refreshGates() {
 }
 
 // El granero se abre: cae en su sitio con polvo y su cartel
+// Aparece con magia, como el trigo mágico: un rayo de luz de colores baja del cielo, se abre un
+// anillo en el suelo y el granero (y el silo) salen de la tierra girando, con chispas en espiral;
+// al final, estallido de colores, fogonazo y temblor
+const RAINBOW = [0xff3e5e, 0xff9a1f, 0xffe03a, 0x7dff4a, 0x3ac8ff, 0x9a5aff];
+let barnFx = null;
 function openBarn(quiet = false) {
     if (!state.openBarn()) return;
     const b = farm.byId.barn;
     refreshGates();
-    b.select();
-    farm.byId.silo.select();
     rig.focus(b.def.x, b.def.z + 1);
-    rig.shake(0.3);
-    for (let k = 0; k < 12; k++) farmParticles.burst(b.def.x + (Math.random() - 0.5) * 7, 0.2, b.def.z + (Math.random() - 0.5) * 5, 6, [THEME.dust, 0x8a5a34, 0xffe03a], { speed: 2.6, up: 2.4, size: 0.14, ttl: 0.7 });
-    sfx.play('unlock');
-    vibrate('kill');
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(5, 60, 4), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending }));
+    beam.position.set(b.def.x, 30, b.def.z);
+    beam.scale.set(0.0001, 1, 0.0001);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 20, 1), new THREE.MeshBasicMaterial({ color: 0xfff6b0, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(b.def.x, 0.08, b.def.z);
+    farmScene.add(beam, ring);
+    const parts = [b, farm.byId.silo].map((m) => ({ m, y: m.root.position.y, ry: m.root.rotation.y }));
+    barnFx = { t: 0, beam, ring, parts, boom: false };
+    sfx.play('secret');
     updateCounts();
     if (!quiet) setTimeout(() => stage(L('BARN UNLOCKED!', '¡GRANERO DESBLOQUEADO!'), L('NOW CLEAR THE WHEAT FIELD', 'AHORA LIMPIA EL CAMPO DE TRIGO')), 300);
+}
+
+function updateBarnFx(dt) {
+    const E = barnFx;
+    if (!E) return;
+    E.t += dt;
+    const t = E.t, b = farm.byId.barn.def;
+    // El rayo: se ensancha, late con los colores del arcoíris y se cierra
+    const bw = t < 0.4 ? t / 0.4 : t < 1.3 ? 1 : Math.max(0, 1 - (t - 1.3) / 0.5);
+    E.beam.scale.set(Math.max(0.0001, bw * (0.9 + Math.sin(t * 30) * 0.1)), 1, Math.max(0.0001, bw));
+    E.beam.material.color.setHSL((t * 1.5) % 1, 1, 0.7);
+    E.ring.scale.setScalar(1 + t * 9);
+    E.ring.material.opacity = Math.max(0, 1 - t / 1.6);
+    // Sale de la tierra girando y crece con un rebote
+    const k = Math.min(1, Math.max(0, (t - 0.35) / 0.9));
+    const back = k <= 0 ? 0 : 1 + 2.7 * (k - 1) ** 3 + 1.7 * (k - 1) ** 2;
+    for (const p of E.parts) {
+        p.m.root.scale.setScalar(Math.max(0.0001, back));
+        p.m.root.position.y = p.y - 3 * (1 - Math.min(1, k * 1.3));
+        p.m.root.rotation.y = p.ry + (1 - k) ** 2 * Math.PI * 4;
+    }
+    if (t < 1.5) for (let n = 0; n < 4; n++) {
+        const a = time * 7 + n * 1.6, h = (t * 4 + n) % 7;
+        farmParticles.spawn(b.x + Math.sin(a) * 3.4, h, b.z + Math.cos(a) * 3.4, 0, 1.4, 0, 0.18, 0.7, RAINBOW[(Math.random() * RAINBOW.length) | 0], 0);
+    }
+    if (!E.boom && t > 1.25) {
+        E.boom = true;
+        farmParticles.burst(b.x, 2, b.z, 140, RAINBOW, { speed: 7, up: 6, size: 0.22, ttl: 1.4, grav: 6 });
+        renderer.flash(0xffffff, 0.6);
+        rig.shake(0.6);
+        sfx.play('unlock');
+        vibrate('kill');
+    }
+    if (t > 2) {
+        farmScene.remove(E.beam, E.ring);
+        for (const o of [E.beam, E.ring]) {
+            o.geometry.dispose();
+            o.material.dispose();
+        }
+        for (const p of E.parts) {
+            p.m.root.scale.setScalar(1);
+            p.m.root.position.y = p.y;
+            p.m.root.rotation.y = p.ry;
+        }
+        barnFx = null;
+    }
 }
 
 function updateCounts(bump = false) {
@@ -426,6 +496,7 @@ function banner(text, cls = '') {
 
 // Medallas de la partida (colateral, doble/triple/multi kill): pequeñas, arriba, se apilan
 function medal(text, cls = '') {
+    if (prologue.active) return; // en el prólogo, sin carteles (colateral, multibaja...)
     const feed = $('medals');
     const el = document.createElement('div');
     el.className = `medal ${cls}`;
@@ -916,6 +987,7 @@ function enterSnipe() {
     const unlock = goSnipe.unlock;
     const def = FIELD_BY_ID[snipeField], arena = def.levels[state.fields[snipeField].level].arena;
     sniper.tracks = { crop: state.open('grenades'), alien: state.open('aliens') };
+    sniper.flyersOn = state.open('ufos'); // los ovnis pequeños, desde que hay tomates
     sniper.enter(unlock ? { unlock: true, loadout: state.arsenal.loadout } : { crop: def.crop, count: state.fields[snipeField].left, arena, loadout: state.arsenal.loadout, turrets: state.fields[snipeField].turrets });
     document.body.classList.remove('fallout');
     mode = 'snipe';
@@ -1999,7 +2071,7 @@ function frame(now) {
     const dt = Math.min(CONFIG.sim.maxFrame, (now - last) / 1000);
     last = now;
     time += dt;
-    applyNight();
+    applyNight(dt);
     if ((clockT -= dt) <= 0) {
         clockT = 0.25;
         updateClock();
@@ -2050,6 +2122,7 @@ function frame(now) {
         farmParticles.update(dt);
         farmParticles.sync();
         rig.update(dt);
+        updateBarnFx(dt);
         shopClouds();
         placeBubbles();
         renderer.render(farmScene, rig.camera, dt);
@@ -2083,7 +2156,7 @@ updateCounts();
 if (!state.prologue && (!CONFIG.test || new URLSearchParams(location.search).has('prologue'))) {
     mode = 'prologue';
     document.body.classList.add('prologue');
-    dayNight.force = 'day'; // el prólogo, siempre de día
+    dayNight.force = 'dusk'; // el prólogo, al atardecer
     prologue.start();
 }
 requestAnimationFrame(frame);

@@ -373,6 +373,7 @@ export class FarmState {
             case 'barn': return this.barn.open;
             case 'grenades': return lv('wheat') >= 1;
             case 'aliens': return lv('tomato') >= 1;
+            case 'ufos': return this.fields.tomato.unlocked;
             case 'merchant': case 'shop': return this.fields.tomato.unlocked && this.maxed('tomato');
         }
         return true;

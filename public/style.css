@@ -589,7 +589,7 @@ body.cine .daytime, body.predator .daytime { visibility: hidden; }
 
 /* Cinemática: bandas negras y nada de interfaz encima */
 .letterbox { position: fixed; inset: 0; z-index: 30; pointer-events: none; }
-.letterbox i { position: absolute; left: 0; right: 0; height: 0; background: var(--ink); transition: height .5s steps(5); }
+.letterbox i { position: absolute; left: 0; right: 0; height: 0; background: #000; transition: height .5s steps(5); }
 .letterbox i:first-child { top: 0; }
 .letterbox i:last-child { bottom: 0; }
 body.cine .letterbox { pointer-events: auto; }

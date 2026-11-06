@@ -18,11 +18,12 @@ export const LINES = {
     wow: L('IMPRESSIVE, RIGHT?', '¿IMPRESIONANTE, VERDAD?'),
     anyway: L('ANYWAY, WHERE WAS I.', 'BUENO, A LO QUE IBA.'),
     enough: L('ENOUGH FOOLING AROUND.', 'DÉJATE DE TONTERÍAS.'),
+    tool: L('NO JOB IS HARD WITH THE RIGHT TOOL.', 'NO HAY TRABAJO DIFÍCIL CON LA HERRAMIENTA ADECUADA.'),
     aim: L('NOW AIM AT ME.', 'AHORA, APÚNTAME.'),
     remember: L("DON'T FORGET WHAT I TAUGHT YOU.", 'NO OLVIDES LO QUE TE HE ENSEÑADO.'),
     barn: L('YOU CAN USE MY OLD BARN.', 'PUEDES USAR MI VIEJO GRANERO.'),
-    now: L('BUT NOW, YES: NOW YOU ONLY HAVE YOURSELF...', 'PERO AHORA SÍ, AHORA DEPENDES DE TI MISMO...'),
-    luck: L('NOW YOU ONLY HAVE YOURSELF. GOOD LUCK.', 'AHORA SOLO DEPENDES DE TI MISMO. BUENA SUERTE.'),
+    now: L('NOW, YES: YOU ONLY HAVE YOURSELF.', 'AHORA SÍ, DEPENDES DE TI MISMO.'),
+    luck: L('GOOD LUCK.', 'BUENA SUERTE.'),
 };
 
 // El prólogo: un vistazo a lo que será el juego antes de empezar de cero.
@@ -508,7 +509,7 @@ export class Prologue {
                 this.hooks.flash(0xffffff, 0.5);
                 this.hooks.sfx.play('reloaded');
                 vibrate('pickup');
-                this.after(0.8, () => this.talk([LINES.aim], () => {
+                this.after(0.8, () => this.talk([LINES.tool, LINES.aim], () => {
                     this.hooks.prompt('aim');
                     this.locked = false;
                 }));

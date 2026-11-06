@@ -50,6 +50,34 @@ export class MerchantCamp extends VoxelModel {
         for (const x of [0.36, 0.5]) this.part(this.goods, 0.1, 0.18, 0.1, 0x7dff4a, x, 0.09, -0.12);
         r.add(this.goods);
 
+        // De noche: un farol junto a la mesa, una guirnalda de bombillas hasta el ovni y luz
+        // cálida que los alumbra a él, a su puesto y al ovni (de día, apagado)
+        const L0 = { x: this.table.x + 1.0, z: this.table.z - 0.6 };
+        this.part(r, 0.12, 2.2, 0.12, WOOD2, L0.x, 1.1, L0.z);
+        this.part(r, 0.5, 0.08, 0.08, WOOD2, L0.x - 0.2, 2.2, L0.z);
+        this.lampMat = new THREE.MeshBasicMaterial({ color: 0x8a7a5a });
+        this.own(this.lampMat);
+        const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.34, 0.28), this.lampMat);
+        lamp.position.set(L0.x - 0.4, 1.95, L0.z);
+        r.add(lamp);
+        this.part(r, 0.34, 0.06, 0.34, DARK, L0.x - 0.4, 2.15, L0.z, false);
+        this.bulbs = [];
+        const U = MERCHANT.ufo;
+        for (let i = 1; i <= 9; i++) {
+            const k = i / 10, x = lerp(L0.x - 0.2, U.x - 1.2, k), z = lerp(L0.z, U.z + 0.6, k), y = 2.2 - Math.sin(k * Math.PI) * 0.5 + k * 0.2;
+            const m = new THREE.MeshBasicMaterial({ color: 0x6a6050 });
+            this.own(m);
+            const b = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.14, 0.12), m);
+            b.position.set(x, y, z);
+            r.add(b);
+            this.bulbs.push({ m, c: [0xffe03a, 0xff6a5a, 0x7dff4a, 0x6ac8ff][i % 4] });
+        }
+        this.glow = new THREE.PointLight(0xffc070, 0, 11, 1.4);
+        this.glow.position.set(S.x - 0.6, 3.2, S.z - 0.6);
+        this.ufoGlow = new THREE.PointLight(0xb8ffb0, 0, 9, 1.4);
+        this.ufoGlow.position.set(U.x, 3.4, U.z + 1.5);
+        r.add(this.glow, this.ufoGlow);
+
         this.ufo = this.buildUfo();
         r.add(this.ufo);
         this.man = this.buildAlien();
@@ -321,6 +349,12 @@ export class MerchantCamp extends VoxelModel {
             this.step = this.want > this.step ? Math.min(this.want, this.step + dt) : Math.max(this.want, this.step - dt * 1.4);
             this.pose(this.step, time);
         }
+        // Luces de noche (solo con él aquí)
+        const on = this.present ? Math.max(0, Math.min(1, (nightK - 0.25) / 0.5)) : 0;
+        this.glow.intensity = on * 7 * (0.92 + Math.sin(time * 9) * 0.04);
+        this.ufoGlow.intensity = on * 2.5;
+        this.lampMat.color.setHex(on > 0.1 ? 0xffe9a0 : 0x8a7a5a);
+        this.bulbs.forEach((b, i) => b.m.color.setHex(on > 0.1 && Math.sin(time * 4 + i * 1.3) > -0.5 ? b.c : 0x6a6050));
         const u = this.ufo;
         if (u.visible) {
             // Luces que parpadean (de noche, todas encendidas a la vez de vez en cuando) y un leve

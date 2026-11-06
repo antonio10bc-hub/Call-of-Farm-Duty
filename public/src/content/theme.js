@@ -15,8 +15,10 @@ export const THEME = {
     // día según lo de noche que sea)
     night: { sky: 0x18204a, sun: 0x9fb4ff, sunIntensity: 0.9, hemiSky: 0x4a5a9a, hemiGround: 0x1a2a20, hemiIntensity: 0.75, moon: 0xfff6d8 },
     // Ciclo de día y noche en segundos reales: day de día, night de noche y fade de transición
-    // (al final de cada uno)
-    cycle: { day: 240, night: 120, fade: 15 },
+    // (al final de cada uno: el atardecer y el amanecer)
+    cycle: { day: 240, night: 120, fade: 40 },
+    // Amanecer y atardecer: sol naranja y bajo, luz cálida
+    dusk: { sun: 0xffb070, sunIntensity: 1.9, hemiSky: 0xffd2b0, hemiGround: 0x5a5a3a, hemiIntensity: 1.0 },
     ambient: { kind: 'leaves', colors: [0xb6e070, 0xffe680], rate: 2 },
     music: { root: 60, scale: 'major', tempo: 118, lead: 'triangle', swing: 0.18 },
     sniperMusic: { root: 57, scale: 'dorian', tempo: 100, lead: 'triangle', arp: 'stab' },

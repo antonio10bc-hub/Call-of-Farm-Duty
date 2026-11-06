@@ -4,7 +4,8 @@ const C = THEME.cycle, LEN = C.day + C.night;
 
 // Ciclo de día y noche con el reloj de verdad (así sigue donde iba aunque se recargue la página).
 // k: lo de noche que es, de 0 (día) a 1 (noche cerrada), con su transición al final de cada parte.
-// force: 'day' o 'night' para fijarlo (DEBUG y las pruebas); null, el del reloj.
+// force: 'day', 'night' o 'dusk' (atardecer, el del prólogo) para fijarlo; null, el del reloj.
+// dusk: lo de amanecer/atardecer que es (0..1): sube y baja en cada transición.
 export class DayNight {
     constructor(force = null) {
         this.force = force;
@@ -17,7 +18,7 @@ export class DayNight {
     }
 
     get k() {
-        if (this.force) return this.force === 'night' ? 1 : 0;
+        if (this.force) return this.force === 'night' ? 1 : this.force === 'dusk' ? 0.12 : 0;
         const t = this.t();
         if (this.hold) {
             if (t < C.day - C.fade) this.hold = false;
@@ -25,6 +26,12 @@ export class DayNight {
         }
         if (t < C.day) return Math.max(0, (t - (C.day - C.fade)) / C.fade);
         return Math.min(1, Math.max(0, (LEN - t) / C.fade));
+    }
+
+    get dusk() {
+        if (this.force) return this.force === 'dusk' ? 1 : 0;
+        const k = this.k;
+        return Math.min(1, Math.sin(k * Math.PI) * 1.4);
     }
 
     get night() {
