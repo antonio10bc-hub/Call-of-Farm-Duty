@@ -97,6 +97,27 @@ export class MerchantCamp extends VoxelModel {
         this.part(r, 0.5, 0.3, 0.4, STONE, P.x - 0.3, 1.0, P.z + 0.3).rotation.y = 0.6;
         // Quemaduras alrededor del final
         for (const [dx, dz, s] of [[2.6, -2.2, 1.2], [1.2, 2.3, 0.9], [-1.4, 2.0, 0.8]]) this.part(r, s, 0.03, s * 0.8, 0x3a3028, MERCHANT.ufo.x + dx, 0.015, F.z + dz, false);
+        // A los dos lados del surco, árboles inclinados hacia fuera: los tumbó a medias la onda
+        // expansiva del aterrizaje (más cuanto más cerca del surco y del principio)
+        let i = 0;
+        for (let x = F.to + 0.8; x < F.from + 1.5; x += 1.55, i++) {
+            for (const s of [-1, 1]) {
+                const j = (i * 7 + (s > 0 ? 3 : 0)) % 5, d = 3.0 + j * 0.42 + (i % 2) * 0.3;
+                const z = F.z + s * d, k = Math.min(1, Math.max(0, (x - F.to) / (F.from - F.to)));
+                const tree = new THREE.Group(), sc = 0.8 + ((i * 3 + j) % 4) * 0.12;
+                tree.position.set(x + (j - 2) * 0.18, 0, z);
+                // Inclinado hacia el lado contrario al surco (eje x), con algo de giro propio
+                tree.rotation.set(s * (0.32 + 0.4 * k + (3.6 - Math.min(3.6, d - 2.6)) * 0.05), (j - 2) * 0.12, (j - 2) * 0.05);
+                tree.scale.setScalar(sc);
+                this.part(tree, 0.3, 1.0, 0.3, 0x7a4f2a, 0, 0.5, 0);
+                this.part(tree, 1.5, 0.9, 1.5, 0x3d9a34, 0, 1.35, 0).rotation.y = i * 0.7;
+                this.part(tree, 1.05, 0.7, 1.05, 0x4caf3c, 0, 2.0, 0).rotation.y = i * 0.7 + 0.4;
+                this.part(tree, 0.55, 0.4, 0.55, 0x5cc04a, 0, 2.5, 0);
+                // La tierra levantada de la raíz, del lado del surco
+                this.part(tree, 0.7, 0.18, 0.4, DIRT[(i + j) % 3], 0, 0.06, -s * 0.35);
+                r.add(tree);
+            }
+        }
         // Al principio, donde tocó tierra: dos árboles tumbados y sus tocones
         for (const [x, z, ry] of [[F.from + 1.4, F.z - 2.1, 0.5], [F.from + 0.6, F.z + 2.2, -0.4]]) {
             this.part(r, 0.4, 0.35, 0.4, 0x7a4f2a, x + 1.3, 0.17, z - Math.sin(ry) * 1.3);

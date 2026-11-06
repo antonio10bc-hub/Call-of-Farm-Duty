@@ -12,12 +12,12 @@ const ease = (k) => k * k * (3 - 2 * k);
 const RAINBOW = [0xff3e5e, 0xff9a1f, 0xffe03a, 0x7dff4a, 0x23e0d6, 0x7b5cff, 0xffffff];
 
 export const LINES = {
-    lifetime: L('IF YOU KEEP GOING LIKE THIS, HARVESTING ALL THIS WHEAT IS IMPOSSIBLE. IT WILL TAKE YOU A LIFETIME.', 'SI SIGUES ASÍ, RECOLECTAR TODO ESTE TRIGO ES IMPOSIBLE. ESTO TE LLEVARÁ TODA UNA VIDA.'),
-    come: L('COME. LET ME OPEN YOUR EYES.', 'VEN, QUE TE ABRO LOS OJOS.'),
-    eyes: L('LET ME OPEN YOUR EYES.', 'DEJA QUE TE ABRA LOS OJOS.'),
-    better: L('THERE IS A MUCH MORE EFFICIENT WAY TO HARVEST YOUR CROPS.', 'HAY UNA FORMA MUCHO MÁS EFICIENTE DE RECOLECTAR TUS CULTIVOS.'),
-    show: L('LET ME SHOW YOU.', 'DÉJAME QUE TE LO MUESTRE.'),
-    take: L('TAKE THIS. IT WILL COME IN HANDY.', 'TOMA ESTO. TE SERÁ ÚTIL.'),
+    lifetime: L("IF YOU KEEP GOING LIKE THIS, IT'LL TAKE YOU A LIFETIME.", 'SI SIGUES ASÍ, VAS A TARDAR TODA UNA VIDA.'),
+    come: L('COME, LET ME SHOW YOU SOMETHING.', 'VEN, DEJA QUE TE MUESTRE ALGO.'),
+    space: L('YES, INDEED: WE ARE IN SPACE.', 'EFECTIVAMENTE, ESTAMOS EN EL ESPACIO.'),
+    wow: L('IMPRESSIVE, RIGHT?', '¿IMPRESIONANTE, VERDAD?'),
+    anyway: L('ANYWAY, WHERE WAS I.', 'BUENO, A LO QUE IBA.'),
+    enough: L('ENOUGH FOOLING AROUND.', 'DÉJATE DE TONTERÍAS.'),
     aim: L('NOW AIM AT ME.', 'AHORA, APÚNTAME.'),
     remember: L("DON'T FORGET WHAT I TAUGHT YOU.", 'NO OLVIDES LO QUE TE HE ENSEÑADO.'),
     luck: L('NOW YOU ONLY HAVE YOURSELF. GOOD LUCK.', 'AHORA SOLO DEPENDES DE TI MISMO. BUENA SUERTE.'),
@@ -352,7 +352,7 @@ export class Prologue {
         const sun = new THREE.DirectionalLight(0xfff2d6, 2);
         sun.position.set(-4, 6, 5);
         s.add(sun);
-        // Estrellas (cubitos), un planeta con su anillo a lo lejos
+        // Estrellas (cubitos)
         const N = 700, stars = new THREE.InstancedMesh(box(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff }), N), d = new THREE.Object3D();
         for (let i = 0; i < N; i++) {
             const a = Math.random() * Math.PI * 2, b = Math.acos(Math.random() * 2 - 1), r = 70 + Math.random() * 60;
@@ -363,18 +363,6 @@ export class Prologue {
             stars.setColorAt(i, _c.setHex([0xffffff, 0x9fdcff, 0xffd0e0, 0xfff3a0][i % 4]));
         }
         s.add(stars);
-        const planet = new THREE.Group();
-        planet.position.set(-30, -8, -50);
-        for (const [w, c] of [[12, 0x3a7ec8], [9, 0x5a9e32]]) {
-            const m = new THREE.Mesh(box(w, w, w), toon(c));
-            m.rotation.set(0.3, 0.6, 0.1);
-            planet.add(m);
-        }
-        const ring = new THREE.Mesh(box(26, 0.4, 26), toon(0xe8d8b0));
-        ring.rotation.set(0.35, 0.6, 0.2);
-        ring.scale.set(1, 1, 0.25);
-        planet.add(ring);
-        s.add(planet);
         // Tú: un ente blanco y brillante, flotando frente al trigo mágico
         // Flotando de pie frente al trigo, abrazado a una pelota invisible
         this.entity = new THREE.Group();
@@ -392,7 +380,7 @@ export class Prologue {
         this.orbit = 0;
         this.hooks.flash(0xffffff, 1);
         this.hooks.sfx.play('secret');
-        this.after(1.4, () => this.talk([LINES.eyes, LINES.better, LINES.show], () => {
+        this.after(1.4, () => this.talk([LINES.space, LINES.wow, LINES.anyway], () => {
             this.fade = { t: 0, len: 2.6, color: 0xffffff, then: () => this.startTower() };
         }));
     }
@@ -479,7 +467,7 @@ export class Prologue {
         sn.lookAt(f.cx, 2.6, f.cz);
         this.locked = true;
         this.hooks.flash(0xffffff, 1);
-        this.after(1.0, () => this.talk([LINES.take], () => this.giveRifle()));
+        this.after(1.0, () => this.talk([LINES.enough], () => this.giveRifle()));
     }
 
     // El rifle sale flotando del trigo hacia arriba, gira, desaparece y aparece en tus manos
@@ -570,20 +558,21 @@ export class Prologue {
         if (!S) return;
         S.t += dt;
         // La cámara sigue la acción: las granadas, el avión (por delante) y, al final, la bomba
-        // Cuando el bombardero se va: silencio, la vista sube al cielo y, tras la pausa, la nuclear
-        if (S.bomber && !sn.ks.plane && !S.pause) {
+        // Cuando el bombardero ya llega al otro lado del campo: silencio y la vista sube al cielo,
+        // a donde está a punto de caer la nuclear; al llegar la vista, cae
+        const pl = sn.ks.plane;
+        if (S.bomber && !S.pause && (!pl || pl.dist > pl.len * 0.62)) {
             S.pause = true;
             this.hooks.silence();
             const f = sn.field;
-            S.look = { x: f.cx, y: 30, z: f.cz };
-            this.after(1.8, () => {
+            S.look = { x: f.cx, y: 60, z: f.cz };
+            this.after(1.4, () => {
                 S.look = null;
                 sn.ks.startNuke();
             });
         }
         let to = S.look;
-        const pl = sn.ks.plane;
-        if (pl) to = { x: pl.model.position.x + pl.dir.x * 8, y: pl.model.position.y * 0.5, z: pl.model.position.z + pl.dir.z * 8 };
+        if (pl && !S.pause) to = { x: pl.model.position.x + pl.dir.x * 8, y: pl.model.position.y * 0.5, z: pl.model.position.z + pl.dir.z * 8 };
         if (to && !sn.ks.nuke) {
             const dx = to.x - sn.pos.x, dz = to.z - sn.pos.z, dy = to.y - sn.pos.y;
             const yaw = Math.atan2(-dx, -dz), pitch = Math.atan2(dy, Math.hypot(dx, dz)), a = 1 - Math.exp(-dt * 2.5);
