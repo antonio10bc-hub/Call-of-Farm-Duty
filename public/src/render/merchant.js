@@ -70,7 +70,7 @@ export class MerchantCamp extends VoxelModel {
             const b = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.14, 0.12), m);
             b.position.set(x, y, z);
             r.add(b);
-            this.bulbs.push({ m, c: [0xffe03a, 0xff6a5a, 0x7dff4a, 0x6ac8ff][i % 4] });
+            this.bulbs.push({ m, mesh: b, c: [0xffe03a, 0xff6a5a, 0x7dff4a, 0x6ac8ff][i % 4] });
         }
         this.glow = new THREE.PointLight(0xffc070, 0, 11, 1.4);
         this.glow.position.set(S.x - 0.6, 3.2, S.z - 0.6);
@@ -82,6 +82,9 @@ export class MerchantCamp extends VoxelModel {
         r.add(this.ufo);
         this.man = this.buildAlien();
         r.add(this.man);
+
+        // El surco, los árboles tumbados, la mesa y el cartel no se mueven: en pocas mallas
+        this.bake([r], [this.ufo, this.man, this.goods, lamp, ...this.bulbs.map((b) => b.mesh)]);
 
         this.deal = -1;  // segundos de su baile de trato hecho (-1: no baila)
         this.step = 0;   // por dónde va la llegada (0 = no está; T.open = abierto)

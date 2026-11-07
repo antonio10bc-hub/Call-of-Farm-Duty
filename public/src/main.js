@@ -1495,7 +1495,7 @@ const inCine = () => !!(cine && cine.locked);
 // Sin nubes delante con la tienda abierta
 function shopClouds() {
     const clear = !$('ufo-shop').classList.contains('hidden');
-    for (const c of farm.clouds) c.visible = !clear;
+    farm.cloudMesh.visible = farm.cloudHull.visible = !clear;
 }
 
 // La casa con lo que lleva puesto de la tienda (colores de tejado, fachada, puerta y marcos)

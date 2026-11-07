@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { box, toon, outline, OUTLINE } from './materials.js';
+import { box, toon, outline, OUTLINE, bakeGroup } from './materials.js';
 
 // Base de los modelos voxel: cajas con su casco de contorno y unos efectos compartidos por
 // todas las piezas (fx.fade: aparecer/desaparecer con trama; fx.flash: destello blanco).
@@ -33,6 +33,14 @@ export class VoxelModel {
         if (outlined) m.add(new THREE.Mesh(box(w + OUTLINE * 2, h + OUTLINE * 2, d + OUTLINE * 2), this.outlineMat));
         parent.add(m);
         return m;
+    }
+
+    // Junta las piezas fijas de cada grupo de units en una malla por material (muchas menos
+    // llamadas de dibujo). keep: lo que se mueve, parpadea o cambia por separado (se queda tal
+    // cual, con lo de dentro); cada grupo de units, por su lado (los que se muestran u ocultan)
+    bake(units, keep = []) {
+        const stop = new Set([...units, ...keep].filter(Boolean));
+        for (const u of units) if (u) bakeGroup(u, (o) => stop.has(o));
     }
 
     // Al tocarlo en el mapa: destello y un bote de gelatina

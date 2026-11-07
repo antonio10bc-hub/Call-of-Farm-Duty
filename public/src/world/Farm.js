@@ -44,6 +44,12 @@ const houseClear = (level) => {
     return c ? rectOf(c) : { x: 0, z: 0, w: 0, d: 0 };
 };
 const YARD = [0xc4b08a, 0xb8a47e]; // tierra apisonada del recinto del granero
+// Trozos del valle de 64×64 casillas: cada malla grande del paisaje se parte así para que lo que
+// queda fuera de cámara no se dibuje
+const CHUNK = 64;
+const chunkKey = (x, z) => `${Math.floor(x / CHUNK)},${Math.floor(z / CHUNK)}`;
+// Dónde está en el mundo una entrada animada [x, y, z] (las de una parcela, ya colocadas por layout)
+const worldOf = (p) => (p.world ? [p.x, p.y, p.z] : p._w ? [p._w[0], p._w[1] + p.y, p._w[2]] : [p.x, p.y, p.z]);
 
 // Tronco y tres pisos de copa por árbol (cajas para addHulled)
 function treeParts(spots, world = false) {
@@ -188,6 +194,12 @@ export class Farm {
             this.groupAt(l.post.x + (l.post.x < 0 ? 0.5 : -0.5), l.post.z).add(post.root);
             return [l.id, post];
         }));
+        // Lo grande (el paisaje, el bosque y la maleza), en trozos: lo que queda fuera de cámara no se
+        // dibuja. Las listas que guardan sus entradas (lo abandonado, la decoración...) se quedan
+        // con los trozos
+        const big = (e) => e.positions.length > 600 && !this.floor.entries.includes(e);
+        for (const key of ['wild', 'decor', 'hints']) if (this[key]) this[key] = this[key].flatMap((e) => (big(e) ? this.chunkify(e) : [e]));
+        for (const e of [...this.animated]) if (big(e) && e.positions.every((p) => p.world)) this.chunkify(e);
         this.initShade();
     }
 
@@ -215,24 +227,87 @@ export class Farm {
             const l = landAt(t.c + 0.5, t.r + 0.5);
             t.land = l ? l.id : null;
         }
-        this.floor = { tiles };
-        const floor = new THREE.InstancedMesh(box(1, 0.3, 1), toon(0xffffff), tiles.length);
-        tiles.forEach((t, i) => this.paintTile(floor, t, i));
-        this.floor.entry = this.addAnimated(floor, tiles.map((t) => ({ x: t.wx, y: t.h + this.tileY(t.k), z: t.wz, sx: t.s, sz: t.s, world: true })));
-        if (old) {
-            this.animated = this.animated.filter((e) => e !== old.entry);
-            old.entry.mesh.removeFromParent();
-            old.entry.mesh.dispose();
-            this.layout(this.floor.entry, this.introT);
+        // En trozos del valle (lo que queda fuera de cámara no se dibuja); cada casilla sabe en qué
+        // malla está (t.mesh) y en qué sitio (t.i)
+        this.floor = { tiles, entries: [] };
+        const mat = toon(0xffffff), groups = new Map();
+        for (const t of tiles) {
+            const key = chunkKey(t.wx, t.wz);
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(t);
         }
+        for (const list of groups.values()) {
+            const mesh = new THREE.InstancedMesh(box(1, 0.3, 1), mat, list.length);
+            list.forEach((t, i) => {
+                t.mesh = mesh;
+                t.i = i;
+                this.paintTile(mesh, t, i);
+            });
+            const e = this.addAnimated(mesh, list.map((t) => ({ x: t.wx, y: t.h + this.tileY(t.k), z: t.wz, sx: t.s, sz: t.s, world: true })));
+            this.cullable(e);
+            this.floor.entries.push(e);
+            if (old) this.layout(e, this.introT);
+        }
+        if (old) {
+            this.animated = this.animated.filter((e) => !old.entries.includes(e));
+            for (const e of old.entries) {
+                e.mesh.removeFromParent();
+                e.mesh.dispose();
+            }
+        }
+    }
+
+    // Que la cámara pueda saltarse una malla de trozos fuera de su vista: su esfera, con margen
+    // para la caída y el bote de la entrada
+    cullable(e) {
+        const m = e.mesh, lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+        let big = 0;
+        for (const p of e.positions) {
+            const v = worldOf(p);
+            for (let a = 0; a < 3; a++) {
+                lo[a] = Math.min(lo[a], v[a]);
+                hi[a] = Math.max(hi[a], v[a]);
+            }
+            big = Math.max(big, p.sx || 1, p.sy || 1, p.sz || 1);
+        }
+        lo[1] -= 3;
+        const c = new THREE.Vector3((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2);
+        m.boundingSphere = new THREE.Sphere(c, Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]) / 2 + big * 1.3 + 1);
+        m.frustumCulled = true;
+    }
+
+    // Parte una entrada grande (en el mundo) en trozos del valle, cada uno su malla
+    chunkify(entry) {
+        const { mesh, positions, delays } = entry, groups = new Map();
+        positions.forEach((p, i) => {
+            const w = worldOf(p), key = chunkKey(w[0], w[2]);
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(i);
+        });
+        const out = [];
+        for (const idx of groups.values()) {
+            const m = new THREE.InstancedMesh(mesh.geometry, mesh.material, idx.length);
+            if (mesh.instanceColor) idx.forEach((j, i) => m.setColorAt(i, _c.fromArray(mesh.instanceColor.array, j * 3)));
+            m.instanceMatrix.setUsage(mesh.instanceMatrix.usage);
+            const e = { mesh: m, positions: idx.map((j) => positions[j]), delays: idx.map((j) => delays[j]), hull: entry.hull };
+            this.root.add(m);
+            this.animated.push(e);
+            this.layout(e, this.introT);
+            this.cullable(e);
+            out.push(e);
+        }
+        this.animated = this.animated.filter((e) => e !== entry);
+        mesh.removeFromParent();
+        mesh.dispose();
+        return out;
     }
 
     tileY(k) {
         return k && k.field ? -0.12 : k && k.path ? -0.17 : -0.15;
     }
 
-    paintTile(mesh, { wx, wz, k }, i) {
-        const { theme } = this, c = Math.floor(wx), r = Math.floor(wz); // (las vetas, por las casillas del mundo)
+    paintTile(mesh, t, i) {
+        const { theme } = this, { k } = t, c = Math.floor(t.wx), r = Math.floor(t.wz); // (las vetas, por las casillas del mundo)
         const col = k && k.field
             ? (k.locked ? JUNK.ground[mod(c * 7 + r * 5 + mod(c * r, 3), JUNK.ground.length)]
                 : CROPS[this.fields[k.field].crop].pasture ? PASTURE[mod(c * 3 + r * 5, 3)] : theme.soil[r & 1]) // (el prado, de hierba)
@@ -241,9 +316,8 @@ export class Farm {
             : k && k.yard ? YARD[mod(c + r, 2)] : theme.grass[mod(c * 5 + r * 3 + mod(c * r, 3), 3)];
         _c.setHex(col).offsetHSL(0, 0, (Math.random() - 0.5) * theme.grassJitter);
         // (su color de verdad se guarda: si es de una parcela sin comprar, se ve en sombra)
-        const t = this.floor ? this.floor.tiles[i] : null;
-        if (t) t.col = [_c.r, _c.g, _c.b];
-        mesh.setColorAt(i, t ? this.shadeColor(t.col, t.land, t.c + 0.5, t.r + 0.5) : _c);
+        t.col = [_c.r, _c.g, _c.b];
+        mesh.setColorAt(i, this.shadeColor(t.col, t.land, t.c + 0.5, t.r + 0.5));
     }
 
     // ---------- Parcelas en venta: en sombra hasta comprarlas ----------
@@ -277,11 +351,8 @@ export class Farm {
     }
 
     applyShade() {
-        const floor = this.floor.entry.mesh;
-        this.floor.tiles.forEach((t, i) => {
-            if (t.land) floor.setColorAt(i, this.shadeColor(t.col, t.land, t.c + 0.5, t.r + 0.5));
-        });
-        floor.instanceColor.needsUpdate = true;
+        for (const t of this.floor.tiles) if (t.land) t.mesh.setColorAt(t.i, this.shadeColor(t.col, t.land, t.c + 0.5, t.r + 0.5));
+        for (const e of this.floor.entries) e.mesh.instanceColor.needsUpdate = true;
         for (const { e, lands, base } of this.shaded) {
             e.positions.forEach((p, i) => {
                 if (!lands[i]) return;
@@ -323,11 +394,10 @@ export class Farm {
     refreshGround() {
         const changed = this.floor.tiles.some((t) => (t.subs || [[t.c, t.r]]).some(([c, r]) => kindKey(this.kindAt(c, r)) !== kindKey(t.k)));
         if (changed) this.buildFloor();
-        const { entry } = this.floor;
         for (const e of this.decor) e.positions.forEach((p) => (p.hide = p.hide || this.views.some((v) => inRect(v.rect, p.x, p.z, 0.4))));
         for (const e of this.wild) e.positions.forEach((p) => (p.hide = p.hide || this.cleared(p.x, p.z)));
         for (const e of this.hints || []) e.positions.forEach((p) => (p.hide = p.hide || !this.fields[p.field].locked));
-        for (const e of [entry, ...this.decor, ...this.wild, ...(this.hints || [])]) this.layout(e, this.introT);
+        for (const e of [...this.decor, ...this.wild, ...(this.hints || [])]) this.layout(e, this.introT);
     }
 
     // El granero sube de nivel: el recinto crece (lo abandonado de dentro se aparta y la tierra
@@ -363,20 +433,33 @@ export class Farm {
     // matorral, chatarra y piedras; se apartan cuando el recinto o el campo crecen encima
     buildWild() {
         const trees = [], bush = [], pieces = [], rocks = [];
-        const taken = []; // [x, z, radio]: árboles, matas y piedras sin meterse unos en otros
+        // Lo ya puesto (árboles, matas y piedras sin meterse unos en otros), en una rejilla de 2×2
+        // casillas: así cada sitio nuevo solo se compara con lo de alrededor
+        const taken = new Map(), cell = (x, z) => `${Math.floor(x / 2)},${Math.floor(z / 2)}`;
+        const crowded = (x, z, m) => {
+            const cx = Math.floor(x / 2), cz = Math.floor(z / 2);
+            for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) {
+                for (const [a, b, r] of taken.get(`${cx + dx},${cz + dz}`) || []) if (Math.hypot(a - x, b - z) < r + m) return true;
+            }
+            return false;
+        };
         const zones = [{ Z: this.zone, k: 1 }, { Z: this.houseZone, k: 0.8 }, { Z: this.villageZone, k: 1.6, forest: true }, ...this.views.map((v) => ({ Z: v.zone, k: 0.55 })), ...FARM.lands.map((l) => ({ Z: rectOf(l.rect), k: l.soon ? 0.3 : 0.5 }))];
         for (const { Z, k, forest } of zones) {
-            const free = (x, z, m) => inRect(Z, x, z) && !onPathWorld(toWorld(x, z), m) && !taken.some(([a, b, r]) => Math.hypot(a - x, b - z) < r + m) && !this.hintSpots.some(([hx, hz]) => Math.hypot(hx - x, hz - z) < m + 0.8) && !inRect(this.yard, x, z, m) && !inRect(this.houseYard, x, z, m) && !inRect(this.villageYard, x, z, m) && !this.views.some((v) => inRect(v.rect, x, z, m))
+            // (de lo más barato a lo más caro de comprobar)
+            const free = (x, z, m) => inRect(Z, x, z) && !inRect(this.yard, x, z, m) && !inRect(this.houseYard, x, z, m) && !inRect(this.villageYard, x, z, m) && !this.views.some((v) => inRect(v.rect, x, z, m))
                 && !FARM.paths.some(([x0, z0, x1, z1]) => x > x0 - m && x < x1 + m && z > z0 - m && z < z1 + m)
                 && !FARM.structures.some((st) => Math.abs(x - st.x) < st.w / 2 + m && Math.abs(z - st.z) < st.d / 2 + m)
-                && !FARM.lands.some((l) => Math.hypot(x - l.post.x, z - l.post.z) < m + 1.2); // (ni sobre su poste)
+                && !FARM.lands.some((l) => Math.hypot(x - l.post.x, z - l.post.z) < m + 1.2) // (ni sobre su poste)
+                && !crowded(x, z, m) && !this.hintSpots.some(([hx, hz]) => Math.hypot(hx - x, hz - z) < m + 0.8) && !onPathWorld(toWorld(x, z), m);
             const spots = (n, m) => {
                 const out = [];
                 for (let j = 0, tries = 0; j < n && tries < n * 30; tries++) {
                     const x = Z.x + Math.random() * Z.w, z = Z.z + Math.random() * Z.d;
                     if (!free(x, z, m)) continue;
                     out.push([x, z]);
-                    taken.push([x, z, m]);
+                    const key = cell(x, z);
+                    if (!taken.has(key)) taken.set(key, []);
+                    taken.get(key).push([x, z, m]);
                     j++;
                 }
                 return out;
@@ -829,27 +912,49 @@ export class Farm {
         this.decor = this.animated.slice(n0);
     }
 
+    // Nubes de cajas que cruzan el valle de lado a lado de la pantalla (todas en dos mallas: la
+    // de color y la de contorno; cada fotograma se recolocan sus piezas)
     buildClouds() {
-        const mat = toon(this.theme.clouds), hullMat = outline(this.theme.outline);
+        const V = FARM.valley, parts = [];
         this.clouds = [];
-        for (let i = 0; i < 12; i++) {
-            const g = new THREE.Group();
-            const parts = 3 + (i % 3);
-            for (let k = 0; k < parts; k++) {
-                const w = 1.6 + Math.random() * 1.6, h = 0.6 + Math.random() * 0.4, d = 1.2 + Math.random();
-                const m = new THREE.Mesh(box(1, 1, 1), mat);
-                m.scale.set(w, h, d);
-                m.position.set(k * 1.1 - parts * 0.55, Math.random() * 0.3, (Math.random() - 0.5) * 0.8);
-                const o = new THREE.Mesh(box(1, 1, 1), hullMat);
-                o.scale.set(w + OUTLINE * 2, h + OUTLINE * 2, d + OUTLINE * 2);
-                o.position.copy(m.position);
-                g.add(m, o);
+        for (let i = 0; i < 18; i++) {
+            const c = { u: Math.random() * V.w, v: 40 + Math.random() * (V.h - 30), y: 10 + Math.random() * 4, speed: 0.3 + Math.random() * 0.3, parts: [] };
+            const n = 3 + (i % 3);
+            for (let k = 0; k < n; k++) {
+                c.parts.push({ dx: k * 1.1 - n * 0.55, dy: Math.random() * 0.3, dz: (Math.random() - 0.5) * 0.8, w: 1.6 + Math.random() * 1.6, h: 0.6 + Math.random() * 0.4, d: 1.2 + Math.random() });
             }
-            g.position.set(Math.random() * 50 - 10, 9 + Math.random() * 4, Math.random() * 80 - 40);
-            g.userData.speed = 0.3 + Math.random() * 0.3;
-            this.root.add(g);
-            this.clouds.push(g);
+            parts.push(...c.parts);
+            this.clouds.push(c);
         }
+        this.cloudMesh = new THREE.InstancedMesh(box(1, 1, 1), toon(this.theme.clouds), parts.length);
+        this.cloudHull = new THREE.InstancedMesh(box(1, 1, 1), outline(this.theme.outline), parts.length);
+        for (const m of [this.cloudMesh, this.cloudHull]) {
+            m.frustumCulled = false;
+            m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+            this.root.add(m);
+        }
+        this.updateClouds(0);
+    }
+
+    updateClouds(dt) {
+        const V = FARM.valley;
+        let i = 0;
+        for (const c of this.clouds) {
+            c.u += c.speed * dt;
+            if (c.u > V.w + 30) c.u = -30;
+            const [x, z] = V.toXZ(c.u, c.v);
+            for (const p of c.parts) {
+                for (const [m, o] of [[this.cloudMesh, 0], [this.cloudHull, OUTLINE * 2]]) {
+                    _d.position.set(x + p.dx, c.y + p.dy, z + p.dz);
+                    _d.rotation.set(0, 0, 0);
+                    _d.scale.set(p.w + o, p.h + o, p.d + o);
+                    _d.updateMatrix();
+                    m.setMatrixAt(i, _d.matrix);
+                }
+                i++;
+            }
+        }
+        this.cloudMesh.instanceMatrix.needsUpdate = this.cloudHull.instanceMatrix.needsUpdate = true;
     }
 
     dynamic(v, mesh) {
@@ -904,9 +1009,15 @@ export class Farm {
             let turn = 0;
             if (p.world) _d.position.set(p.x, p.y - (1 - k) * 3, p.z);
             else {
-                const w = toWorld(p.x, p.z, p.y - (1 - k) * 3);
-                _d.position.set(w.x, w.y, w.z);
-                turn = w.place ? (w.place.rot || 0) * (Math.PI / 2) : 0; // girado como su parcela
+                // (dónde cae en el mundo se calcula una vez por sitio: estirar la parcela cuesta)
+                if (p._lx !== p.x || p._lz !== p.z) {
+                    const w = toWorld(p.x, p.z);
+                    p._lx = p.x;
+                    p._lz = p.z;
+                    p._w = [w.x, w.y, w.z, w.place ? (w.place.rot || 0) * (Math.PI / 2) : 0]; // (girado como su parcela)
+                }
+                _d.position.set(p._w[0], p._w[1] + p.y - (1 - k) * 3, p._w[2]);
+                turn = p._w[3];
             }
             _d.rotation.set(p.rx || 0, (p.ry || 0) + turn, p.rz || 0);
             // Lo apartado (bajo el campo) se encoge del todo: aplanado solo, su contorno quedaría como una mancha
@@ -980,10 +1091,7 @@ export class Farm {
             }
         }
 
-        for (const c of this.clouds) {
-            c.position.x += c.userData.speed * dt;
-            if (c.position.x > this.size + 25) c.position.x = -25;
-        }
+        this.updateClouds(dt);
     }
 
     // Cuánto ha brotado una planta (con rebote) y a qué tamaño va por su crecimiento p

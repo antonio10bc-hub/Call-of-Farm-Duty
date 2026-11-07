@@ -208,6 +208,8 @@ export class Barn extends VoxelModel {
         this.part(g, 0.5, 0.4, 0.5, 0x3a3a3a, 13.2, 3.15, 3);
         this.part(g, 0.36, 0.3, 0.06, 0xfff6c0, 13.2, 3.15, 2.73, false);
         this.setLevel(0);
+        // Lo fijo, en pocas mallas (cada nivel por su lado: se muestran al subir)
+        this.bake([this.root, ...this.levels], [this.vane, this.light, this.radar, this.rotor, this.mast]);
     }
 
     // Enseña lo construido hasta el nivel n (0 = el granero sin mejorar)
@@ -238,6 +240,7 @@ export class Silo extends VoxelModel {
         for (const s of [-1, 1]) this.part(b, 0.05, H, 0.05, 0x6a6a72, 0.6 + s * 0.14, H / 2, 0.68, false);
         for (let y = 0.3; y < H; y += 0.3) this.part(b, 0.3, 0.04, 0.04, 0x6a6a72, 0.6, y, 0.68, false);
         this.top = H + 1.2;
+        this.bake([b]);
     }
 
     update(dt) {
@@ -308,6 +311,7 @@ export class House extends VoxelModel {
         }
         for (const [x, z, a] of [[-1.9, -0.4, 0.4], [2.2, 0.2, 1.2], [-0.9, 1.9, 2.0]]) this.part(r, 1.4, 0.08, 0.16, PLANK, x, 0.08, z).rotation.y = a;
         this.setLevel(0);
+        this.bake([this.whole, this.ruin], Object.values(this.paint).flat()); // (lo que se pinta en la tienda, aparte)
     }
 
     // Pinta cada parte con su color (colors: { roof: [c, c2], walls, door, frames })
@@ -356,6 +360,7 @@ export class Ufo extends VoxelModel {
             leg.rotation.set(Math.cos(a) * 0.4, 0, -Math.sin(a) * 0.4);
         }
         this.top = 2.4;
+        this.bake([this.root], this.lights); // (las luces parpadean: aparte)
     }
 
     update(dt, time) {
@@ -389,6 +394,7 @@ export class Tower extends VoxelModel {
         for (const s of [-1, 1]) this.part(b, 0.06, H, 0.06, WOOD2, s * 0.22, H / 2, S + 0.25, false);
         for (let y = 0.3; y < H; y += 0.32) this.part(b, 0.5, 0.05, 0.05, WOOD2, 0, y, S + 0.25, false);
         this.top = H + 2.2;
+        this.bake([b]);
     }
 
     update(dt) {
@@ -422,6 +428,7 @@ export class Tractor extends VoxelModel {
             }
         }
         this.top = 2.6;
+        this.bake([b]);
     }
 
     update(dt) {
@@ -557,6 +564,7 @@ export class LandPost extends VoxelModel {
         this.part(this.cloth, 0.9, 0.3, 0.05, 0xc8402e, 0.5, -0.15, 0);
         this.flag.add(this.cloth);
         this.root.add(this.flag);
+        this.bake([this.post, this.flag, this.cloth]);
         this.owned = false;
         this.anim = -1; // segundos desde que se compró (-1: sin animación)
         this.setOwned(false, false);

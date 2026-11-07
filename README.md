@@ -109,3 +109,9 @@ npm run build      # dist/ para Vercel
 Las pruebas están por áreas en `tests/*.spec.js` (map, unlock, sniper, killstreaks, ufo, debug, progress y prologue) y abren el juego con `?test`: se dibuja más barato (menos resolución, sin partículas, 30 fps), siempre es de día, el mercader está fuera y la progresión viene abierta (con `?progress`, cerrada, para probarla). En el Mac usan la GPU real (Chromium con Metal); en CI o con `PW_GPU=soft`, WebGL por software.
 
 Web estática con módulos ES y Three.js 0.160 en `public/vendor`. El contenido (tema, cultivos, granja, rachas, armería, mercader y tienda) vive en `public/src/content/`.
+
+### Rendimiento
+- **Publicación** (`scripts/build.mjs`): el juego y three.js van en un solo `src/main.<huella>.js` minificado (pedido desde el principio con `modulepreload`) y el CSS en `style.<huella>.css`. Con la huella en el nombre no cambian nunca: Vercel los sirve con caché de un año (`vercel.json`) y el service worker los da de su copia sin esperar a la red; la página siempre se pide a la red primero.
+- **Llamadas de dibujo:** las piezas fijas de cada modelo (granero, silo, casa, tractor, postes, torres, ovnis y el campamento del mercader con su surco) se juntan en una malla por material (`bake` en `render/VoxelModel.js`). Las nubes son dos mallas instanciadas.
+- **Lo que no se ve no se dibuja:** el paisaje, el suelo de las parcelas, el bosque y la maleza van en trozos de 64×64 casillas con su esfera, y la cámara se salta los que quedan fuera.
+- **Carga:** el reparto de árboles y matas usa una rejilla para no comparar cada uno con todos; dónde cae en el mundo cada pieza de una parcela se calcula una vez.

@@ -1,7 +1,8 @@
 // Service worker: permite jugar sin conexión sin quedarse con versiones viejas.
 //
-// Estrategia "primero la red": con conexión siempre se descarga lo último (y se guarda una
-// copia); sin conexión, o si la red tarda demasiado, se usa la copia guardada.
+// Estrategia "primero la red" para la página: con conexión siempre se descarga lo último (y se
+// guarda una copia); sin conexión, o si la red tarda demasiado, se usa la copia guardada. Los
+// archivos con huella en el nombre (los de cada versión publicada), de la copia guardada.
 // La primera visita guarda la estructura básica al instalarse, y la página le envía la
 // lista de todo lo que ha cargado (módulos, iconos...) para que también lo guarde.
 const CACHE = 'cofd-v50';
@@ -43,8 +44,20 @@ self.addEventListener('fetch', (event) => {
     const url = new URL(req.url);
     if (req.method !== 'GET' || url.origin !== self.location.origin) return;
 
-    event.respondWith(networkFirst(req));
+    // Los archivos con huella en el nombre (main.<huella>.js, style.<huella>.css) no cambian
+    // nunca, y la fuente y los iconos casi nunca: de la copia guardada, sin esperar a la red
+    const fixed = /\.[0-9a-f]{10}\.(js|css)$/.test(url.pathname) || /\/(fonts|icons)\//.test(url.pathname);
+    event.respondWith(fixed ? cacheFirst(req) : networkFirst(req));
 });
+
+async function cacheFirst(req) {
+    const cache = await caches.open(CACHE);
+    const hit = await cache.match(req);
+    if (hit) return hit;
+    const res = await fetch(req);
+    if (res.ok) cache.put(req, res.clone());
+    return res;
+}
 
 async function networkFirst(req) {
     const cache = await caches.open(CACHE);

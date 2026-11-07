@@ -62,3 +62,62 @@ export function outline(color, fx) {
 }
 
 export const OUTLINE = 0.05;
+
+// Junta varias geometrías de caja (ya colocadas) en una sola: una llamada de dibujo en vez de muchas
+export function mergeBoxes(list) {
+    let nv = 0, ni = 0;
+    for (const g of list) {
+        nv += g.attributes.position.count;
+        ni += g.index.count;
+    }
+    const pos = new Float32Array(nv * 3), nor = new Float32Array(nv * 3), uv = new Float32Array(nv * 2);
+    const idx = nv > 65535 ? new Uint32Array(ni) : new Uint16Array(ni);
+    let v = 0, i = 0;
+    for (const g of list) {
+        const a = g.attributes;
+        pos.set(a.position.array, v * 3);
+        nor.set(a.normal.array, v * 3);
+        if (a.uv) uv.set(a.uv.array, v * 2);
+        for (let k = 0; k < g.index.count; k++) idx[i + k] = g.index.array[k] + v;
+        v += a.position.count;
+        i += g.index.count;
+    }
+    const out = new THREE.BufferGeometry();
+    out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    out.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+    out.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    out.setIndex(new THREE.BufferAttribute(idx, 1));
+    out.computeBoundingSphere();
+    return out;
+}
+
+// Junta las piezas fijas de un grupo (una malla por material): las que no se mueven, no se
+// encienden ni cambian de material por separado. stop(o): lo que se deja tal cual (con lo de dentro)
+export function bakeGroup(group, stop = () => false) {
+    group.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(group.matrixWorld).invert(), M = new THREE.Matrix4();
+    const byMat = new Map(), done = [];
+    const simple = (o) => o.isMesh && !o.isInstancedMesh && o.visible && o.geometry.index && o.geometry.attributes.normal && !stop(o);
+    const visit = (o) => {
+        if (o !== group && stop(o)) return;
+        // (una pieza con algo que no se puede juntar colgando, se queda)
+        if (o !== group && simple(o) && o.children.every((c) => simple(c) && !c.children.length)) {
+            for (const m of [o, ...o.children]) {
+                M.multiplyMatrices(inv, m.matrixWorld);
+                if (!byMat.has(m.material)) byMat.set(m.material, []);
+                byMat.get(m.material).push(m.geometry.clone().applyMatrix4(M));
+            }
+            done.push(o);
+            return;
+        }
+        for (const c of [...o.children]) visit(c);
+    };
+    visit(group);
+    if (done.length < 2) return;
+    for (const o of done) o.removeFromParent();
+    for (const [mat, list] of byMat) {
+        const m = new THREE.Mesh(mergeBoxes(list), mat);
+        group.add(m);
+        for (const g of list) g.dispose();
+    }
+}
