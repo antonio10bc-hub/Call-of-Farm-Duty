@@ -38,6 +38,46 @@ export function terrainH(x, z) {
     return quant(Math.max(0, h) * smooth(0, 4, waterDist(x, z)));
 }
 
+// La rejilla del suelo: bloques de 4×4 casillas (alineados con las parcelas, que empiezan en
+// casillas pares) y, cerca de una parcela, partidos en 2×2. Sin solapes: cada punto, una celda.
+const GX0 = -116, GZ0 = -112, GNX = 63, GNZ = 61;
+const nearPlace = (x, z) => PLACES.some((P) => x > P.at[0] - 14 && x < P.at[0] + 44 && z > P.at[1] - 14 && z < P.at[1] + 44);
+// ¿Esta celda de 2×2 queda entera bajo el suelo de una parcela? (entonces no hace falta)
+const underFloor = (x, z) => PLACES.some((P) => x >= P.at[0] && x < P.at[0] + 30 && z >= P.at[1] && z < P.at[1] + 30
+    && [[0.5, 0.5], [1.5, 0.5], [0.5, 1.5], [1.5, 1.5]].every(([a, b]) => inParcelShape(P, x - P.at[0] + a, z - P.at[1] + b)));
+const inSquare = (x, z) => PLACES.find((P) => x >= P.at[0] && x < P.at[0] + 30 && z >= P.at[1] && z < P.at[1] + 30);
+let cellMap = null;
+function groundCells() {
+    if (cellMap) return cellMap.list;
+    const list = [], map = new Map();
+    for (let j = 0; j < GNZ; j++) for (let i = 0; i < GNX; i++) {
+        const x0 = GX0 + i * 4, z0 = GZ0 + j * 4;
+        if (nearPlace(x0 + 2, z0 + 2)) {
+            for (const [a, b] of [[0, 0], [2, 0], [0, 2], [2, 2]]) {
+                const x = x0 + a, z = z0 + b, P = inSquare(x + 1, z + 1);
+                if (P && underFloor(x, z)) continue;
+                const c = { x: x + 1, z: z + 1, s: 2, h: P ? P.h : terrainH(x + 1, z + 1), inSq: !!P };
+                list.push(c);
+                map.set(`${x >> 1},${z >> 1}`, c);
+            }
+        } else {
+            const c = { x: x0 + 2, z: z0 + 2, s: 4, h: terrainH(x0 + 2, z0 + 2), inSq: false };
+            list.push(c);
+            for (const [a, b] of [[0, 0], [2, 0], [0, 2], [2, 2]]) map.set(`${(x0 + a) >> 1},${(z0 + b) >> 1}`, c);
+        }
+    }
+    cellMap = { list, map };
+    return list;
+}
+// La altura del suelo en un punto (la de su celda; bajo una parcela, la de la parcela)
+export function cellH(x, z) {
+    groundCells();
+    const c = cellMap.map.get(`${Math.floor(x) >> 1},${Math.floor(z) >> 1}`);
+    if (c) return Math.max(0, c.h);
+    const P = inSquare(x, z);
+    return P ? P.h : 0;
+}
+
 // Los caminos: cada uno, una curva desde una puerta hasta la otra; las casillas que pisa, con su
 // altura (de la de una parcela a la de la otra, a saltitos)
 const roadCells = new Map(); // "x,z" -> { x, z, y, bridge }
@@ -96,28 +136,18 @@ export function buildScenery(farm) {
         list.forEach((p, i) => m.setColorAt(i, new THREE.Color(p.c)));
         return m;
     };
-    const grass = [], earth = [], hedge = [];
-    // ---------- La base de cada parcela ----------
+    const earth = [], hedge = [];
+    // ---------- El seto de cada parcela (por su borde, con hueco en las puertas) ----------
     for (const P of PLACES) {
         const gates = P.gates.map((_, i) => gateWorld(P.id, i));
-        // (en celdas de 2×2: el borde sigue siendo irregular y pesa la cuarta parte)
         for (let z = P.at[1] - 8; z < P.at[1] + 38; z += 2) for (let x = P.at[0] - 8; x < P.at[0] + 38; x += 2) {
             const cx = x + 1, cz = z + 1, r = rimOf(P, cx, cz);
-            // Dentro del cuadrado, solo donde la forma de la parcela lo recorta (ahí también hierba)
-            const inSq = x >= P.at[0] && x < P.at[0] + 30 && z >= P.at[1] && z < P.at[1] + 30;
-            if (inSq && [[0.5, 0.5], [1.5, 0.5], [0.5, 1.5], [1.5, 1.5]].every(([a, b]) => inParcelShape(P, x - P.at[0] + a, z - P.at[1] + b))) continue;
-            const lvl = r.out <= r.reach + 0.5 ? 1 : 0;
-            if (!lvl || roadCells.has(`${x},${z}`) || roadCells.has(`${x + 1},${z + 1}`)) continue;
-            const top = P.h * lvl;
-            grass.push({ x: cx, y: top - 0.15 - (inSq ? 0.03 : 0), z: cz, sx: 2, sy: 0.3, sz: 2, c: theme.grass[((x >> 1) * 5 + (z >> 1) * 3) & 1] });
-            if (top > 0.1) earth.push({ x: cx, y: (top - 0.6) / 2, z: cz, sx: 2, sy: top + 0.01, sz: 2, c: ((x + z) >> 1) & 1 ? 0x8a5a34 : 0x7a4f2a });
-            // El seto, por el borde de arriba (con hueco en las puertas)
-            if (lvl === 1 && r.out > r.reach - 1 && (x + z) % 2 === 0 && !gates.some((g) => Math.hypot(g.x - cx, g.z - cz) < 4.5)) {
-                hedge.push({ x: cx, y: top + 0.35, z: cz, sx: 0.95, sy: 0.7, sz: 0.95, ry: ((x * 7 + z) % 3) * 0.2 });
-            }
+            if (r.inside || r.out > r.reach + 0.5 || r.out <= r.reach - 1 || (x + z) % 2 !== 0) continue;
+            if (onRoad(cx, cz, 1) || gates.some((g) => Math.hypot(g.x - cx, g.z - cz) < 4.5)) continue;
+            hedge.push({ x: cx, y: cellH(cx, cz) + 0.35, z: cz, sx: 0.95, sy: 0.7, sz: 0.95, ry: ((x * 7 + z) % 3) * 0.2 });
         }
-        // Bajo las parcelas altas, la tierra (tapada por el borde, pero sin huecos al mirar de lado)
-        if (P.h > 0.1) earth.push({ x: P.at[0] + 15, y: (P.h - 0.6) / 2, z: P.at[1] + 15, sx: 30, sy: P.h + 0.01, sz: 30, c: 0x7a4f2a });
+        // Bajo las parcelas altas, la tierra (un poco por dentro: sus caras no chocan con las del suelo)
+        if (P.h > 0.1) earth.push({ x: P.at[0] + 15, y: (P.h - 0.6) / 2, z: P.at[1] + 15, sx: 29.8, sy: P.h + 0.01, sz: 29.8, c: 0x7a4f2a });
     }
     // ---------- Caminos (con terraplén donde van altos) y puentes ----------
     const road = [], deck = [], rails = [];
@@ -131,11 +161,9 @@ export function buildScenery(farm) {
             }
             continue;
         }
-        road.push({ x: c.x, y: c.y - 0.13, z: c.z, sx: 1, sy: 0.3, sz: 1, c: theme.path[(Math.floor(c.x) + Math.floor(c.z)) & 1] });
-        if (c.y > 0.2) earth.push({ x: c.x, y: (c.y - 0.6) / 2, z: c.z, sx: 1, sy: c.y + 0.01, sz: 1, c: 0x8a5a34 });
+        road.push({ x: c.x, y: cellH(c.x, c.z) - 0.09, z: c.z, sx: 1, sy: 0.3, sz: 1, c: theme.path[(Math.floor(c.x) + Math.floor(c.z)) & 1] });
     }
     colored(earth, 0.5, false);
-    colored(grass, 0.5, false);
     colored(road, 0.6, false);
     const hm = farm.addHulled(0xffffff, W(hedge), 0.7);
     hedge.forEach((_, i) => hm.setColorAt(i, new THREE.Color(theme.leaves[i % 3])));
@@ -173,16 +201,18 @@ export function buildScenery(farm) {
             acc = 0;
             const s = i % 2 ? 1 : -1, x = b.x - (dz / L) * 2 * s, z = b.z + (dx / L) * 2 * s;
             if (wet(x, z, 0.5) || inPlace(x, z, 1)) continue;
-            posts.push({ x, y: b.y + 1.1, z, sx: 0.14, sy: 2.2, sz: 0.14 });
-            heads.push({ x, y: b.y + 2.35, z, sx: 0.36, sy: 0.36, sz: 0.36 });
+            const g = cellH(x, z);
+            posts.push({ x, y: g + 1.1, z, sx: 0.14, sy: 2.2, sz: 0.14 });
+            heads.push({ x, y: g + 2.35, z, sx: 0.36, sy: 0.36, sz: 0.36 });
         }
         // La señal a la salida (con la tabla hacia el camino) y, en los ramales PRONTO, la barrera
         const s0 = R.pts[Math.min(8, R.pts.length - 1)], s1 = R.pts[Math.min(11, R.pts.length - 1)];
         const ang = Math.atan2(s1.x - s0.x, s1.z - s0.z), nx = Math.cos(ang) * 1.8, nz = -Math.sin(ang) * 1.8;
-        signs.push({ x: s0.x + nx, y: s0.y + 0.8, z: s0.z + nz, sx: 0.14, sy: 1.6, sz: 0.14 });
-        boards.push({ x: s0.x + nx + Math.sin(ang) * 0.35, y: s0.y + 1.4, z: s0.z + nz + Math.cos(ang) * 0.35, sx: 0.1, sy: 0.4, sz: 1.1, ry: ang, c: R.soon ? 0xd8d0c8 : 0xf3ead2 });
+        const sg = cellH(s0.x + nx, s0.z + nz);
+        signs.push({ x: s0.x + nx, y: sg + 0.8, z: s0.z + nz, sx: 0.14, sy: 1.6, sz: 0.14 });
+        boards.push({ x: s0.x + nx + Math.sin(ang) * 0.35, y: sg + 1.4, z: s0.z + nz + Math.cos(ang) * 0.35, sx: 0.1, sy: 0.4, sz: 1.1, ry: ang, c: R.soon ? 0xd8d0c8 : 0xf3ead2 });
         if (R.soon) {
-            const e = R.pts[Math.max(0, R.pts.length - 4)];
+            const e0 = R.pts[Math.max(0, R.pts.length - 4)], e = { x: e0.x, z: e0.z, y: cellH(e0.x, e0.z) };
             for (const k of [-1.4, 1.4]) signs.push({ x: e.x + Math.cos(ang) * k, y: e.y + 0.45, z: e.z - Math.sin(ang) * k, sx: 0.16, sy: 0.9, sz: 0.16 });
             boards.push({ x: e.x, y: e.y + 0.75, z: e.z, sx: 3, sy: 0.22, sz: 0.14, ry: ang + Math.PI / 2, c: 0xc8402e });
             boards.push({ x: e.x, y: e.y + 0.75, z: e.z, sx: 1, sy: 0.24, sz: 0.16, ry: ang + Math.PI / 2, c: 0xfff3d6 });
@@ -193,24 +223,17 @@ export function buildScenery(farm) {
     farm.addHulled(0x7a4f2a, W(signs), 0.8);
     colored(boards, 0.85);
 
-    // ---------- El relieve: columnas de 2×2 casillas hasta su altura (los escalones se ven) ----------
-    const land = [], soil = [], C = 4, X0 = -116, Z0 = -112, NX = 63, NZ = 61, H = [];
+    // ---------- El suelo de fuera (y los recortes de las parcelas): la rejilla única ----------
+    // Cada celda, una columna: hierba arriba y, si algún vecino está más bajo, la tierra del escalón
+    const land = [], soil = [];
     const GR = [0x7fc84e, 0x86cc52, 0x8fd45a, 0x98d862, 0xa2dc6a, 0xaede76];
-    for (let j = 0; j < NZ; j++) for (let i = 0; i < NX; i++) {
-        const cx = X0 + i * C + C / 2, cz = Z0 + j * C + C / 2;
-        H[j * NX + i] = inPlace(cx, cz, 1) ? -1 : terrainH(cx, cz);
-    }
-    for (let j = 0; j < NZ; j++) for (let i = 0; i < NX; i++) {
-        const h = H[j * NX + i];
-        if (h < 0.3) continue;
-        const cx = X0 + i * C + C / 2, cz = Z0 + j * C + C / 2;
-        land.push({ x: cx, y: h - 0.2, z: cz, sx: C, sy: 0.4, sz: C, c: GR[Math.min(GR.length - 1, Math.round(h / 1.5))] });
-        // La tierra solo donde se ve: en el borde de un escalón (algún vecino más bajo)
-        const lower = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([di, dj]) => {
-            const n = H[(j + dj) * NX + i + di];
-            return n !== undefined && n >= 0 && n < h - 0.01;
-        });
-        if (lower) soil.push({ x: cx, y: (h - 0.4 - 0.45) / 2, z: cz, sx: C, sy: h - 0.4 + 0.45, sz: C, c: (i + j) % 3 ? 0x8a5a34 : 0x7a4f2a });
+    for (const c of groundCells()) {
+        if (c.h < 0.3) continue;
+        const top = c.h - (c.inSq ? 0.1 : 0); // (dentro del cuadrado, bajo el suelo de la parcela)
+        land.push({ x: c.x, y: top - 0.2, z: c.z, sx: c.s, sy: 0.4, sz: c.s, c: GR[Math.min(GR.length - 1, Math.round(c.h / 1.5))] });
+        const e = c.s / 2 + 1;
+        const lower = [[e, 0], [-e, 0], [0, e], [0, -e]].some(([dx, dz]) => cellH(c.x + dx, c.z + dz) < c.h - 0.01);
+        if (lower) soil.push({ x: c.x, y: (top - 0.4 - 0.45) / 2, z: c.z, sx: c.s, sy: top - 0.4 + 0.45, sz: c.s, c: (Math.floor(c.x) + Math.floor(c.z)) % 3 ? 0x8a5a34 : 0x7a4f2a });
     }
     colored(land, 0.4, false);
     colored(soil, 0.4, false);
@@ -234,7 +257,7 @@ export function buildScenery(farm) {
         const near = wet(x, z, 5) ? 1.2 : 0;
         if (clump(x, z) + near < 0.9 && Math.random() > 0.08) continue;
         if (spots.some(([a, b]) => Math.abs(a - x) < 1.7 && Math.abs(b - z) < 1.7)) continue;
-        spots.push([x, z, terrainH(x, z)]);
+        spots.push([x, z, cellH(x, z)]);
     }
     return spots;
 }

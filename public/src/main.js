@@ -1390,7 +1390,6 @@ addEventListener('keydown', (e) => {
     if (mode === 'farm') {
         if (k === 'escape') select(null);
         if (k === 'enter' || k === ' ') quickAction();
-        if (k === 'r') rotateView();
         return;
     }
     if (mode !== 'snipe') return;
@@ -1471,13 +1470,6 @@ tapBtn('panel-upgrade', () => {
     else if (selected.structure === 'house') upgradeHouse();
 });
 tapBtn('panel-close', () => select(null));
-// Girar la vista del mapa 90° (las parcelas están a distintas alturas: así se ve lo de detrás)
-function rotateView() {
-    if (mode !== 'farm' || inCine()) return;
-    rig.yawTarget += Math.PI / 2;
-    sfx.play('ui');
-}
-tapBtn('btn-rotate', rotateView);
 tapBtn('btn-map', () => {
     if (mapView) {
         leaveMap();

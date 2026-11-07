@@ -1560,6 +1560,3 @@ body.cine .aim-btn { display: none !important; }
 .lo-class { min-height: 44px; justify-content: center; }
 
 /* Girar la vista 90°: encima de MAPA, con una flecha curva hecha a cuadritos */
-.rotate-btn { bottom: calc(max(8px, env(safe-area-inset-bottom)) + 44px); }
-.rotate-ico { position: relative; width: 16px; height: 16px; border: 3px solid var(--ink); border-right-color: transparent; border-radius: 0; box-sizing: border-box; }
-.rotate-ico::after { content: ''; position: absolute; right: -6px; top: -5px; border: 5px solid transparent; border-left: 6px solid var(--ink); transform: rotate(45deg); }
