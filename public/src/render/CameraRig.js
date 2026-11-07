@@ -15,6 +15,8 @@ export class CameraRig {
         this.z = 0;
         this.fx = 0;
         this.fz = 0;
+        this.fy = 0; // altura del suelo donde se mira (las parcelas están a distintas alturas)
+        this.y = 0;
         this.zoom = 1;
         this.zoomTarget = 1;
         this.yaw = 0;
@@ -47,9 +49,10 @@ export class CameraRig {
         this.halfWidth = this.dist * tanH;
     }
 
-    focus(x, z) {
+    focus(x, z, y = this.fy) {
         this.fx = x;
         this.fz = z;
+        this.fy = y;
     }
 
     snap() {
@@ -57,6 +60,7 @@ export class CameraRig {
         this.z = this.clampZ(this.fz);
         this.zoom = this.zoomTarget;
         this.yaw = this.yawTarget;
+        this.y = this.fy;
     }
 
     // Los límites encogen con el zoom: de cerca se puede centrar algo pegado al borde.
@@ -83,6 +87,7 @@ export class CameraRig {
         this.x = damp(this.x, this.clampX(this.fx), k, dt);
         this.z = damp(this.z, this.clampZ(this.fz), k, dt);
         this.zoom = damp(this.zoom, this.zoomTarget, 4, dt);
+        this.y = damp(this.y, this.fy, 3, dt);
         this.yaw = damp(this.yaw, this.yawTarget, 4, dt);
 
         const s = this.trauma * this.trauma * 0.4;
@@ -94,9 +99,9 @@ export class CameraRig {
         const tx = this.x + sx, tz = this.z + sz;
         this.camera.position.set(
             tx + Math.sin(this.yaw) * Math.cos(p) * d,
-            Math.sin(p) * d,
+            this.y + Math.sin(p) * d,
             tz + Math.cos(this.yaw) * Math.cos(p) * d
         );
-        this.camera.lookAt(tx, 0, tz);
+        this.camera.lookAt(tx, this.y, tz);
     }
 }

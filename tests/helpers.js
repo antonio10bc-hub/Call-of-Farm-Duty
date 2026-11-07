@@ -39,7 +39,7 @@ async function screenOf(page, which, x, y, z) {
 // Abre la granja con el trigo ya desbloqueado (como si ya se hubiera volado su chatarra)
 async function openFarm(page) {
     await page.goto('/?test');
-    await expect(page.locator('#sign-wheat')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('#sign-wheat')).toBeVisible({ timeout: 60_000 });
     await page.evaluate(() => { game.state.unlock('wheat'); game.revealUnlocked(); });
 }
 

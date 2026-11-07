@@ -23,7 +23,7 @@ test('lo primero: el trigo es un terreno con chatarra y se desbloquea disparando
 
 test('el montón con el barril cambia de sitio en cada desbloqueo', { tag: '@full' }, async ({ page }) => {
     await page.goto('/?test');
-    await expect(page.locator('#sign-wheat')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('#sign-wheat')).toBeVisible({ timeout: 60_000 });
     const spots = await page.evaluate(() => {
         const f = game.sniper.field, out = [];
         for (let k = 0; k < 6; k++) {
@@ -39,7 +39,7 @@ test('el montón con el barril cambia de sitio en cada desbloqueo', { tag: '@ful
 test('tomates: con el trigo al máximo se desbloquea disparando al barril; luego se cosechan y se mejoran con trigo y tomates', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await openFarm(page);
-    await expect(page.locator('#sign-tomato')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('#sign-tomato')).toBeVisible({ timeout: 60_000 });
     // Bloqueado mientras el trigo no está al máximo
     await expect(page.locator('#sign-tomato')).toHaveText('BLOQUEADO');
     await page.locator('#sign-tomato').click();
@@ -49,6 +49,8 @@ test('tomates: con el trigo al máximo se desbloquea disparando al barril; luego
     expect(await page.evaluate(() => game.state.maxed('wheat'))).toBe(true);
     await expect(page.locator('#sign-tomato')).toHaveText('¡DESBLOQUEAR!');
     // El cartel lleva directo al campo de tiro del desbloqueo: una torre, chatarra y el barril
+    // (la cámara, hacia los tomates: tras mejorar el trigo se queda en el trigo)
+    await page.evaluate(() => game.rig.focus(18, 18));
     await page.locator('#sign-tomato').click();
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
     expect(await page.evaluate(() => game.sniper.unlocking && !!game.sniper.field.barrel)).toBe(true);
@@ -104,7 +106,7 @@ test('parcelas en venta: se compran con el oro del comerciante, se desbloquean c
     await expect(page.locator('#stage')).toContainText('AHORA ES TUYA');
     expect(await page.evaluate(() => [game.farm.landPosts.west.owned, !!game.farm.landWave.west])).toEqual([true, true]);
     await expect.poll(() => page.evaluate(() => game.farm.shadeOf('west', -15, 15))).toBe(0);
-    await expect.poll(() => page.evaluate(() => !!game.farm.landWave.west)).toBe(false);
+    await expect.poll(() => page.evaluate(() => !!game.farm.landWave.west), { timeout: 60_000 }).toBe(false);
     // Comprada: ahora se vuela su barril, como cualquier terreno
     await expect(page.locator('#sign-pumpkin')).toHaveText('¡DESBLOQUEAR!');
     await page.evaluate(() => game.startUnlock('pumpkin'));

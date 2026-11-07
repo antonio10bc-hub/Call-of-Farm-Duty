@@ -1,81 +1,157 @@
 import * as THREE from 'three';
 import { box, toon } from '../render/materials.js';
+import { PLACES, ROADS, gateWorld, inParcelShape } from '../content/farm.js';
+import { RIVER, OUT, waterDist, groundRaw, quant } from './terrain.js';
 
-// El paisaje alrededor de la granja (fuera de la cuadrícula de parcelas), compuesto para que se
-// vea bonito desde el mapa: al fondo (arriba en pantalla, hacia -x -z) una cordillera con nieve;
-// delante, colinas escalonadas; un río que baja de las montañas, rodea la granja por el oeste y
-// el sur y se va hacia el este, con un puente de madera donde lo cruza el camino principal; y
-// arboledas a las faldas de las colinas y a la orilla del río. Todo con cubos y contorno.
-//   farm   la granja (usa su addHulled/addAnimated para que entre con la ola del principio)
-// blocked(x, z): si ahí hay río, colina o montaña (para no plantar árboles encima)
+// El mundo alrededor de las parcelas (todo en coordenadas del mundo, world: true):
+//  - cada parcela sobre su base: una loma de tierra a su altura, de borde irregular (no se ve el
+//    cuadrado), con un talud escalonado si está alta y un seto por el borde (con hueco en sus puertas)
+//  - caminos de tierra curvos entre las puertas, que suben y bajan a saltitos, con puentes de
+//    madera donde cruzan el agua, farolas que se encienden de noche y postes con su señal
+//  - un río que baja de las montañas por el valle, entre las parcelas, hasta un lago
+//  - colinas escalonadas, una cordillera con nieve al fondo y bosque por los huecos
+// blocked(x, z): si ahí no cabe un árbol (agua, parcela, camino, colina o montaña)
 
-// El río: puntos por los que pasa y su anchura en cada tramo (más ancho río abajo)
-const RIVER = [
-    [-76, -58, 2.5], [-58, -42, 3.5], [-46, -22, 4.5], [-44, 8, 5], [-42, 40, 5],
-    [-34, 66, 5.5], [-12, 77, 5.5], [15, 79, 6], [45, 76, 6], [76, 84, 6.5], [110, 104, 7], [160, 140, 7.5],
-];
-// Colinas escalonadas: centro, radio y escalones
-const HILLS = [
-    [-74, -18, 8, 2], [-28, -70, 10, 3], [10, -74, 9, 2], [44, -68, 8, 2], [80, -38, 10, 3], [90, 22, 8, 2],
-    [-74, 92, 9, 2], [92, 62, 7, 2], [-70, 40, 8, 2],
-];
-// La cordillera del fondo: centro, anchura de la base y altura
+const HILLS = []; // (las colinas ya son el relieve: world/terrain.js)
 const PEAKS = [
-    [-87, -26, 52, 29], [-72, -59, 60, 38], [-43, -80, 58, 33], [-10, -87, 52, 28], [22, -91, 46, 23],
-    [-101, 8, 44, 21], [-107, -53, 44, 25], [-69, -101, 50, 28], [54, -90, 40, 19], [-117, 43, 40, 16],
+    [-140, -70, 56, 34], [-110, -126, 64, 42], [-60, -150, 60, 38], [-6, -156, 54, 32], [50, -150, 50, 28],
+    [-164, -10, 46, 26], [-160, -120, 44, 30], [104, -136, 44, 24], [-176, 46, 40, 20], [-100, -180, 50, 30],
 ];
-// Arboledas: centro, radio y cuántos árboles
-const GROVES = [
-    [-48, -78, 14, 34], [-82, -26, 12, 26], [-80, 50, 12, 24], [-58, 104, 10, 16], [26, -84, 14, 30],
-    [64, -84, 12, 22], [96, -10, 12, 22], [100, 44, 10, 16], [70, 104, 12, 18], [-20, 104, 10, 14],
-    [-100, -60, 10, 18], [-26, -96, 10, 18], [118, -60, 10, 14],
-];
+// ¿Agua? (río, lago o el río que sale del lago); m: margen
+const wet = (x, z, m = 0) => waterDist(x, z) < m + (m ? 0 : 0.0001);
+const inPlace = (x, z, m = 0) => PLACES.some((P) => x >= P.at[0] - m && x < P.at[0] + 30 + m && z >= P.at[1] - m && z < P.at[1] + 30 + m);
 
-const segDist = (x, z, a, b) => {
-    const dx = b[0] - a[0], dz = b[1] - a[1], L = dx * dx + dz * dz;
-    const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L));
-    return { d: Math.hypot(x - a[0] - dx * t, z - a[1] - dz * t), w: a[2] + (b[2] - a[2]) * t };
+const smooth = (a, b, x) => {
+    const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+    return t * t * (3 - 2 * t);
 };
-// Lo cerca que está del río (y su media anchura ahí)
-function riverAt(x, z) {
-    let best = { d: Infinity, w: 3 };
-    for (let i = 0; i < RIVER.length - 1; i++) {
-        const r = segDist(x, z, RIVER[i], RIVER[i + 1]);
-        if (r.d < best.d) best = r;
+// La altura del terreno: la natural, que se funde con la de cada parcela al acercarse a ella
+// (así una parcela en una colina queda arriba sin escalón raro) y llana junto al agua
+export function terrainH(x, z) {
+    let h = groundRaw(x, z);
+    for (const P of PLACES) {
+        const r = rimOf(P, x, z);
+        if (r.inside || r.out <= r.reach) return P.h;
+        const w = 1 - smooth(r.reach, r.reach + 12, r.out);
+        if (w > 0) h += (P.h - h) * w;
     }
-    return best;
+    return quant(Math.max(0, h) * smooth(0, 4, waterDist(x, z)));
 }
 
+// Los caminos: cada uno, una curva desde una puerta hasta la otra; las casillas que pisa, con su
+// altura (de la de una parcela a la de la otra, a saltitos)
+const roadCells = new Map(); // "x,z" -> { x, z, y, bridge }
+const roadCurves = [];
+function buildRoads() {
+    for (const R of ROADS) {
+        const A = gateWorld(...R[0]);
+        const B = R[1] === 'soon' ? { x: R[2][0], z: R[2][1], y: A.y, ox: 0, oz: 0, soon: true } : gateWorld(...R[1]);
+        const len = Math.hypot(B.x - A.x, B.z - A.z);
+        const p0 = [A.x, A.z], p1 = [A.x + A.ox * len * 0.25, A.z + A.oz * len * 0.25];
+        const p2 = [B.x + B.ox * len * 0.25, B.z + B.oz * len * 0.25], p3 = [B.x, B.z];
+        const pts = [];
+        for (let t = 0; t <= 1.0001; t += 0.4 / len) {
+            const u = 1 - t, x = u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0];
+            const z = u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1];
+            // Sube y baja con el terreno (junto a las puertas, a la altura de su parcela)
+            pts.push({ x, z, y: t < 0.04 ? A.y : t > 0.96 ? B.y : terrainH(x, z) });
+        }
+        roadCurves.push({ A, B, pts, soon: !!B.soon });
+        for (const p of pts) {
+            for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+                const cx = Math.floor(p.x) + dx, cz = Math.floor(p.z) + dz;
+                if (Math.hypot(cx + 0.5 - p.x, cz + 0.5 - p.z) > 1.35 || inPlace(cx + 0.5, cz + 0.5)) continue;
+                const key = `${cx},${cz}`;
+                if (!roadCells.has(key)) roadCells.set(key, { x: cx + 0.5, z: cz + 0.5, y: p.y, bridge: wet(cx + 0.5, cz + 0.5, 0.6) });
+            }
+        }
+    }
+}
+buildRoads();
+const onRoad = (x, z, m = 2) => {
+    for (let dz = -m; dz <= m; dz++) for (let dx = -m; dx <= m; dx++) if (roadCells.has(`${Math.floor(x) + dx},${Math.floor(z) + dz}`)) return true;
+    return false;
+};
+
 export function blocked(x, z) {
-    const r = riverAt(x, z);
-    if (r.d < r.w / 2 + 2) return true;
+    if (wet(x, z, 2) || inPlace(x, z, 5) || onRoad(x, z, 2)) return true;
     if (HILLS.some(([hx, hz, R]) => Math.hypot(x - hx, z - hz) < R + 1)) return true;
     return PEAKS.some(([px, pz, W]) => Math.hypot(x - px, z - pz) < W * 0.55);
 }
 
-// Dónde cruza el camino principal (x 14..16) el río: para el puente y para cortar el camino
-export const BRIDGE = (() => {
-    let z = 60;
-    for (let k = 60; k < 120; k += 0.5) if (riverAt(15, k).d < riverAt(15, z).d) z = k;
-    return { x: 15, z, half: riverAt(15, z).w / 2 + 1.6 };
-})();
+// El borde irregular de cada parcela: cuánto sobresale la base del cuadrado (de 2 a 4 casillas)
+function rimOf(P, x, z) {
+    const lx = x - P.at[0], lz = z - P.at[1];
+    const ox = Math.max(-lx, lx - 30, 0), oz = Math.max(-lz, lz - 30, 0);
+    const a = Math.atan2(lz - 15, lx - 15), seed = P.at[0] * 0.37 + P.at[1] * 0.11;
+    const reach = 3 + Math.sin(a * 5 + seed) * 1.1 + Math.sin(a * 11 + seed * 3) * 0.6;
+    return { out: Math.hypot(ox, oz), reach, inside: lx >= 0 && lx < 30 && lz >= 0 && lz < 30 };
+}
 
 export function buildScenery(farm) {
+    const W = (list) => list.map((p) => ({ ...p, world: true }));
     const theme = farm.theme;
-    // ---------- El río: casillas de agua (dos tonos) con su orilla de arena ----------
-    const water = [], bank = [];
-    for (let z = -100; z < 160; z++) for (let x = -130; x < 180; x++) {
-        const cx = x + 0.5, cz = z + 0.5, r = riverAt(cx, cz);
-        if (r.d > r.w / 2 + 1.3) continue;
-        if (cx > -30 && cx < 60 && cz > -30 && cz < 60) continue; // nunca dentro de las parcelas
-        if (r.d <= r.w / 2) water.push({ x: cx, y: -0.27, z: cz, sx: 1, sy: 0.08, sz: 1, color: (Math.floor(cx * 0.5) + Math.floor(cz * 0.5)) & 1 ? 0x4aa8e0 : 0x3f98d4, deep: r.d < r.w / 4 });
-        else bank.push({ x: cx, y: -0.27, z: cz, sx: 1, sy: 0.06, sz: 1 });
+    const colored = (list, delay, hull = true) => {
+        const m = hull ? farm.addHulled(0xffffff, W(list), delay) : farm.addAnimated(new THREE.InstancedMesh(box(1, 1, 1), toon(0xffffff), Math.max(1, list.length)), W(list), delay).mesh;
+        list.forEach((p, i) => m.setColorAt(i, new THREE.Color(p.c)));
+        return m;
+    };
+    const grass = [], earth = [], hedge = [];
+    // ---------- La base de cada parcela ----------
+    for (const P of PLACES) {
+        const gates = P.gates.map((_, i) => gateWorld(P.id, i));
+        // (en celdas de 2×2: el borde sigue siendo irregular y pesa la cuarta parte)
+        for (let z = P.at[1] - 8; z < P.at[1] + 38; z += 2) for (let x = P.at[0] - 8; x < P.at[0] + 38; x += 2) {
+            const cx = x + 1, cz = z + 1, r = rimOf(P, cx, cz);
+            // Dentro del cuadrado, solo donde la forma de la parcela lo recorta (ahí también hierba)
+            const inSq = x >= P.at[0] && x < P.at[0] + 30 && z >= P.at[1] && z < P.at[1] + 30;
+            if (inSq && [[0.5, 0.5], [1.5, 0.5], [0.5, 1.5], [1.5, 1.5]].every(([a, b]) => inParcelShape(P, x - P.at[0] + a, z - P.at[1] + b))) continue;
+            const lvl = r.out <= r.reach + 0.5 ? 1 : 0;
+            if (!lvl || roadCells.has(`${x},${z}`) || roadCells.has(`${x + 1},${z + 1}`)) continue;
+            const top = P.h * lvl;
+            grass.push({ x: cx, y: top - 0.15 - (inSq ? 0.03 : 0), z: cz, sx: 2, sy: 0.3, sz: 2, c: theme.grass[((x >> 1) * 5 + (z >> 1) * 3) & 1] });
+            if (top > 0.1) earth.push({ x: cx, y: (top - 0.6) / 2, z: cz, sx: 2, sy: top + 0.01, sz: 2, c: ((x + z) >> 1) & 1 ? 0x8a5a34 : 0x7a4f2a });
+            // El seto, por el borde de arriba (con hueco en las puertas)
+            if (lvl === 1 && r.out > r.reach - 1 && (x + z) % 2 === 0 && !gates.some((g) => Math.hypot(g.x - cx, g.z - cz) < 4.5)) {
+                hedge.push({ x: cx, y: top + 0.35, z: cz, sx: 0.95, sy: 0.7, sz: 0.95, ry: ((x * 7 + z) % 3) * 0.2 });
+            }
+        }
+        // Bajo las parcelas altas, la tierra (tapada por el borde, pero sin huecos al mirar de lado)
+        if (P.h > 0.1) earth.push({ x: P.at[0] + 15, y: (P.h - 0.6) / 2, z: P.at[1] + 15, sx: 30, sy: P.h + 0.01, sz: 30, c: 0x7a4f2a });
     }
-    const wm = new THREE.InstancedMesh(box(1, 1, 1), toon(0xffffff), water.length);
-    water.forEach((p, i) => wm.setColorAt(i, new THREE.Color(p.deep ? 0x2f84c4 : p.color)));
-    farm.addAnimated(wm, water, 0.6);
-    farm.addAnimated(new THREE.InstancedMesh(box(1, 1, 1), toon(0xd9c48a), bank.length), bank, 0.6);
-    // Destellos sobre el agua (se mueven río abajo en update)
+    // ---------- Caminos (con terraplén donde van altos) y puentes ----------
+    const road = [], deck = [], rails = [];
+    for (const c of roadCells.values()) {
+        if (c.bridge) {
+            const y = Math.max(c.y, 0.25);
+            deck.push({ x: c.x, y: y + 0.05, z: c.z, sx: 1, sy: 0.2, sz: 1 });
+            // Barandilla en los lados que no siguen siendo camino
+            for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+                if (!roadCells.has(`${Math.floor(c.x) + dx},${Math.floor(c.z) + dz}`)) rails.push({ x: c.x + dx * 0.45, y: y + 0.45, z: c.z + dz * 0.45, sx: dx ? 0.12 : 1, sy: 0.5, sz: dz ? 0.12 : 1 });
+            }
+            continue;
+        }
+        road.push({ x: c.x, y: c.y - 0.13, z: c.z, sx: 1, sy: 0.3, sz: 1, c: theme.path[(Math.floor(c.x) + Math.floor(c.z)) & 1] });
+        if (c.y > 0.2) earth.push({ x: c.x, y: (c.y - 0.6) / 2, z: c.z, sx: 1, sy: c.y + 0.01, sz: 1, c: 0x8a5a34 });
+    }
+    colored(earth, 0.5, false);
+    colored(grass, 0.5, false);
+    colored(road, 0.6, false);
+    const hm = farm.addHulled(0xffffff, W(hedge), 0.7);
+    hedge.forEach((_, i) => hm.setColorAt(i, new THREE.Color(theme.leaves[i % 3])));
+    farm.addHulled(0x9a6a3a, W(deck), 0.7);
+    farm.addHulled(0x7a4f2a, W(rails), 0.75);
+
+    // ---------- Agua: río, lago y su salida (dos tonos y orilla de arena) ----------
+    const water = [], bank = [];
+    for (let z = -120; z < 140; z += 2) for (let x = -70; x < 160; x += 2) {
+        const cx = x + 1, cz = z + 1;
+        if (inPlace(cx, cz, 3) || roadCells.has(`${x},${z}`) || roadCells.has(`${x + 1},${z + 1}`)) continue;
+        if (wet(cx, cz, 0.4)) water.push({ x: cx, y: -0.27, z: cz, sx: 2, sy: 0.08, sz: 2, c: (Math.floor(cx * 0.25) + Math.floor(cz * 0.25)) & 1 ? 0x4aa8e0 : 0x3f98d4 });
+        else if (wet(cx, cz, 2)) bank.push({ x: cx, y: -0.27, z: cz, sx: 2, sy: 0.06, sz: 2, c: 0xd9c48a });
+    }
+    colored(water, 0.6, false);
+    colored(bank, 0.6, false);
     farm.riverGlints = [];
     const gm = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.75 });
     for (let k = 0; k < 40; k++) {
@@ -85,75 +161,96 @@ export function buildScenery(farm) {
         farm.riverGlints.push(m);
     }
 
-    // ---------- El puente de madera del camino principal ----------
-    const B = BRIDGE, WOOD = 0x9a6a3a, WOOD2 = 0x7a4f2a, deck = [], rails = [];
-    for (let z = B.z - B.half; z <= B.z + B.half; z += 0.5) deck.push({ x: B.x, y: 0.12, z, sx: 3.6, sy: 0.16, sz: 0.44 });
-    for (const sx of [-1, 1]) {
-        rails.push({ x: B.x + sx * 1.9, y: 0.55, z: B.z, sx: 0.14, sy: 0.12, sz: B.half * 2 });
-        for (let z = B.z - B.half; z <= B.z + B.half + 0.01; z += B.half / 2) rails.push({ x: B.x + sx * 1.9, y: 0.32, z, sx: 0.16, sy: 0.6, sz: 0.16 });
-    }
-    farm.addHulled(WOOD, deck, 0.7);
-    farm.addHulled(WOOD2, rails, 0.75);
-
-    // ---------- Colinas escalonadas (hierba, cada escalón algo más claro) ----------
-    const hills = [];
-    const GR = [0x5f9e38, 0x6aaa3e, 0x78b848, 0x86c452];
-    for (const [hx, hz, R, L] of HILLS) {
-        for (let k = 0; k < L; k++) {
-            const r = R * (1 - k / (L + 0.6)), y = 0.6 + k * 1.2;
-            // Dos cajas cruzadas por escalón: de lejos se lee redondeada
-            hills.push({ x: hx, y: y - 0.6, z: hz, sx: r * 2, sy: 1.2, sz: r * 1.5, color: GR[k] });
-            hills.push({ x: hx, y: y - 0.6, z: hz, sx: r * 1.5, sy: 1.2, sz: r * 2, color: GR[k] });
+    // ---------- Farolas (cada tanto, a un lado del camino) y postes con señal ----------
+    farm.lampMat = new THREE.MeshBasicMaterial({ color: 0x8a7a5a });
+    const posts = [], heads = [], signs = [], boards = [];
+    for (const R of roadCurves) {
+        let acc = 0;
+        for (let i = 1; i < R.pts.length; i++) {
+            const a = R.pts[i - 1], b = R.pts[i], dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1;
+            acc += L;
+            if (acc < 10) continue;
+            acc = 0;
+            const s = i % 2 ? 1 : -1, x = b.x - (dz / L) * 2 * s, z = b.z + (dx / L) * 2 * s;
+            if (wet(x, z, 0.5) || inPlace(x, z, 1)) continue;
+            posts.push({ x, y: b.y + 1.1, z, sx: 0.14, sy: 2.2, sz: 0.14 });
+            heads.push({ x, y: b.y + 2.35, z, sx: 0.36, sy: 0.36, sz: 0.36 });
+        }
+        // La señal a la salida (con la tabla hacia el camino) y, en los ramales PRONTO, la barrera
+        const s0 = R.pts[Math.min(8, R.pts.length - 1)], s1 = R.pts[Math.min(11, R.pts.length - 1)];
+        const ang = Math.atan2(s1.x - s0.x, s1.z - s0.z), nx = Math.cos(ang) * 1.8, nz = -Math.sin(ang) * 1.8;
+        signs.push({ x: s0.x + nx, y: s0.y + 0.8, z: s0.z + nz, sx: 0.14, sy: 1.6, sz: 0.14 });
+        boards.push({ x: s0.x + nx + Math.sin(ang) * 0.35, y: s0.y + 1.4, z: s0.z + nz + Math.cos(ang) * 0.35, sx: 0.1, sy: 0.4, sz: 1.1, ry: ang, c: R.soon ? 0xd8d0c8 : 0xf3ead2 });
+        if (R.soon) {
+            const e = R.pts[Math.max(0, R.pts.length - 4)];
+            for (const k of [-1.4, 1.4]) signs.push({ x: e.x + Math.cos(ang) * k, y: e.y + 0.45, z: e.z - Math.sin(ang) * k, sx: 0.16, sy: 0.9, sz: 0.16 });
+            boards.push({ x: e.x, y: e.y + 0.75, z: e.z, sx: 3, sy: 0.22, sz: 0.14, ry: ang + Math.PI / 2, c: 0xc8402e });
+            boards.push({ x: e.x, y: e.y + 0.75, z: e.z, sx: 1, sy: 0.24, sz: 0.16, ry: ang + Math.PI / 2, c: 0xfff3d6 });
         }
     }
-    const hm = farm.addHulled(0xffffff, hills.map((p) => ({ ...p, y: p.y + 0.6 })), 0.8);
-    hills.forEach((p, i) => hm.setColorAt(i, new THREE.Color(p.color)));
+    farm.addHulled(0x4a4a52, W(posts), 0.8);
+    farm.addAnimated(new THREE.InstancedMesh(box(1, 1, 1), farm.lampMat, Math.max(1, heads.length)), W(heads), 0.8);
+    farm.addHulled(0x7a4f2a, W(signs), 0.8);
+    colored(boards, 0.85);
 
-    // ---------- La cordillera: pirámides escalonadas de roca con nieve arriba ----------
+    // ---------- El relieve: columnas de 2×2 casillas hasta su altura (los escalones se ven) ----------
+    const land = [], soil = [], C = 4, X0 = -116, Z0 = -112, NX = 63, NZ = 61, H = [];
+    const GR = [0x7fc84e, 0x86cc52, 0x8fd45a, 0x98d862, 0xa2dc6a, 0xaede76];
+    for (let j = 0; j < NZ; j++) for (let i = 0; i < NX; i++) {
+        const cx = X0 + i * C + C / 2, cz = Z0 + j * C + C / 2;
+        H[j * NX + i] = inPlace(cx, cz, 1) ? -1 : terrainH(cx, cz);
+    }
+    for (let j = 0; j < NZ; j++) for (let i = 0; i < NX; i++) {
+        const h = H[j * NX + i];
+        if (h < 0.3) continue;
+        const cx = X0 + i * C + C / 2, cz = Z0 + j * C + C / 2;
+        land.push({ x: cx, y: h - 0.2, z: cz, sx: C, sy: 0.4, sz: C, c: GR[Math.min(GR.length - 1, Math.round(h / 1.5))] });
+        // La tierra solo donde se ve: en el borde de un escalón (algún vecino más bajo)
+        const lower = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([di, dj]) => {
+            const n = H[(j + dj) * NX + i + di];
+            return n !== undefined && n >= 0 && n < h - 0.01;
+        });
+        if (lower) soil.push({ x: cx, y: (h - 0.4 - 0.45) / 2, z: cz, sx: C, sy: h - 0.4 + 0.45, sz: C, c: (i + j) % 3 ? 0x8a5a34 : 0x7a4f2a });
+    }
+    colored(land, 0.4, false);
+    colored(soil, 0.4, false);
+    // ---------- La cordillera: pirámides escalonadas de roca, nevadas arriba ----------
     const rock = [];
-    for (const [px, pz, W, H] of PEAKS) {
+    for (const [px, pz, Wd, H] of PEAKS) {
         const steps = 7, h = H / steps;
         for (let k = 0; k < steps; k++) {
-            const w = W * (1 - k / steps), snow = k >= steps - 2;
-            const c = snow ? 0xf4f6fa : k % 2 ? 0x8a8a96 : 0x7a7a88;
-            rock.push({ x: px + Math.sin(k * 1.7) * 1.5, y: k * h + h / 2, z: pz + Math.cos(k * 1.3) * 1.5, sx: w, sy: h, sz: w * 0.85, ry: 0.15 * k, color: c });
+            const w = Wd * (1 - k / steps);
+            rock.push({ x: px + Math.sin(k * 1.7) * 1.5, y: k * h + h / 2, z: pz + Math.cos(k * 1.3) * 1.5, sx: w, sy: h, sz: w * 0.85, ry: 0.15 * k, c: k >= steps - 2 ? 0xf4f6fa : k % 2 ? 0x8a8a96 : 0x7a7a88 });
         }
     }
-    const rm = farm.addHulled(0xffffff, rock, 1);
-    rock.forEach((p, i) => rm.setColorAt(i, new THREE.Color(p.color)));
+    colored(rock, 1);
 
-    // ---------- Arboledas (además de los árboles sueltos de alrededor de la valla) ----------
+    // ---------- Bosque por los huecos: más tupido en manchas (y a la orilla del agua) ----------
     const spots = [];
-    for (const [gx, gz, R, n] of GROVES) {
-        for (let k = 0, tries = 0; k < n && tries < n * 20; tries++) {
-            const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * R, x = gx + Math.cos(a) * d, z = gz + Math.sin(a) * d;
-            if (blocked(x, z) || spots.some(([sx, sz]) => Math.hypot(sx - x, sz - z) < 1.8)) continue;
-            spots.push([x, z]);
-            k++;
-        }
-    }
-    // A la orilla del río, de vez en cuando
-    for (let i = 0; i < RIVER.length - 1; i++) {
-        const [ax, az, w] = RIVER[i], [bx, bz] = RIVER[i + 1];
-        for (let t = 0.1; t < 1; t += 0.22) {
-            const x = ax + (bx - ax) * t, z = az + (bz - az) * t, nx = -(bz - az), nz = bx - ax, L = Math.hypot(nx, nz), s = Math.random() < 0.5 ? -1 : 1;
-            const px = x + (nx / L) * s * (w / 2 + 3 + Math.random() * 2), pz = z + (nz / L) * s * (w / 2 + 3 + Math.random() * 2);
-            if (!blocked(px, pz) && !(px > -32 && px < 62 && pz > -32 && pz < 62) && Math.abs(px - 15) > 4) spots.push([px, pz]);
-        }
+    const clump = (x, z) => Math.sin(x * 0.11 + 1.3) + Math.sin(z * 0.13 - 0.7) + Math.sin((x + z) * 0.07 + 2.1);
+    for (let tries = 0; spots.length < 380 && tries < 30000; tries++) {
+        const x = -120 + Math.random() * 260, z = -120 + Math.random() * 250;
+        if (blocked(x, z)) continue;
+        const near = wet(x, z, 5) ? 1.2 : 0;
+        if (clump(x, z) + near < 0.9 && Math.random() > 0.08) continue;
+        if (spots.some(([a, b]) => Math.abs(a - x) < 1.7 && Math.abs(b - z) < 1.7)) continue;
+        spots.push([x, z, terrainH(x, z)]);
     }
     return spots;
 }
 
-// Los destellos del río bajan con la corriente
+// Los destellos bajan con el río; las farolas se encienden de noche
 export function updateScenery(farm, dt) {
+    if (farm.lampMat) farm.lampMat.color.setHex((farm.nightK || 0) > 0.35 ? 0xffe9a0 : 0x8a7a5a);
     if (!farm.riverGlints) return;
+    const path = [...RIVER, ...OUT];
     for (const m of farm.riverGlints) {
-        m.userData.t = (m.userData.t + dt * 0.012) % 1;
-        const f = m.userData.t * (RIVER.length - 1), i = Math.floor(f), k = f - i, a = RIVER[i], b = RIVER[i + 1];
+        m.userData.t = (m.userData.t + dt * 0.01) % 1;
+        const f = m.userData.t * (path.length - 1), i = Math.floor(f), k = f - i, a = path[i], b = path[i + 1];
         const off = Math.sin(m.id * 1.7) * a[2] * 0.3;
         const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz);
         m.position.set(a[0] + dx * k - (dz / L) * off, -0.17, a[1] + dz * k + (dx / L) * off);
         m.rotation.y = Math.atan2(dx, dz) + Math.PI / 2;
-        m.visible = Math.sin(m.userData.t * 300 + m.id) > -0.2;
+        m.visible = !roadCells.has(`${Math.floor(m.position.x)},${Math.floor(m.position.z)}`) && Math.sin(m.userData.t * 300 + m.id) > -0.2;
     }
 }

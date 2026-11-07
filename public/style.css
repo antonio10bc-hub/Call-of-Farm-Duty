@@ -1435,7 +1435,7 @@ body.cine .aim-btn { display: none !important; }
 #bubbles .field-sign .pip { flex: 1; width: auto; height: 4px; background: rgba(0, 0, 0, .45); border: 0; }
 #bubbles .field-sign .pip.on { background: #7dff4a; }
 #bubbles .field-sign .sign-up { position: absolute; right: -9px; top: -9px; width: 14px; height: 14px; clip-path: none; background: #2fbf4a; border: 3px solid var(--ink); filter: none; }
-#bubbles .field-sign.can-unlock, #bubbles .field-sign.ufo-sign:not(.met) { animation: signBob 1.6s steps(2) infinite, signGlow .5s steps(2) infinite; }
+#bubbles .field-sign.can-unlock, #bubbles .field-sign.ufo-sign:not(.met) { animation: signGlow .5s steps(2) infinite; }
 #bubbles .field-sign.ufo-sign { font-size: 22px; padding: 0; }
 #bubbles .field-sign.locked > .ico { width: 18px; height: 20px; }
 @keyframes signBob { 50% { transform: translate(-50%, calc(-100% - 43px)); } }
@@ -1558,3 +1558,8 @@ body.cine .aim-btn { display: none !important; }
 .lo-ks .ks-ico { width: 32px; height: 32px; }
 .lo-ks { grid-template-columns: 32px 1fr; padding: 10px 8px; }
 .lo-class { min-height: 44px; justify-content: center; }
+
+/* Girar la vista 90°: encima de MAPA, con una flecha curva hecha a cuadritos */
+.rotate-btn { bottom: calc(max(8px, env(safe-area-inset-bottom)) + 44px); }
+.rotate-ico { position: relative; width: 16px; height: 16px; border: 3px solid var(--ink); border-right-color: transparent; border-radius: 0; box-sizing: border-box; }
+.rotate-ico::after { content: ''; position: absolute; right: -6px; top: -5px; border: 5px solid transparent; border-left: 6px solid var(--ink); transform: rotate(45deg); }

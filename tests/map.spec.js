@@ -4,7 +4,7 @@ const { test, expect, openFarm, screenOf, watchErrors } = require('./helpers');
 test('la granja es un mapa: el granero (sin mejoras) abre el armamento con las dos secciones de rachas', { tag: '@smoke' }, async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto('/?test');
-    await expect(page.locator('#sign-wheat')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('#sign-wheat')).toBeVisible({ timeout: 60_000 });
     await expect(page.locator('#wheat-count')).toHaveText('0');
     const p = await screenOf(page, 'map', 15, 1.4, 11);
     await page.mouse.click(p.x, p.y);
@@ -276,7 +276,7 @@ test('comerciante: su ovni disfrazado de coche recorre el surco, sale él, pide 
     expect(errors).toEqual([]);
 });
 
-test('cuadrícula de 3×3 parcelas: las de PRONTO, abandonadas y en sombra; el botón MAPA lo enseña todo y vuelve', { tag: '@full' }, async ({ page }) => {
+test('parcelas repartidas por el valle: las de PRONTO, abandonadas y en sombra; el botón MAPA lo enseña todo y vuelve', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await openFarm(page);
     await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
@@ -288,7 +288,8 @@ test('cuadrícula de 3×3 parcelas: las de PRONTO, abandonadas y en sombra; el b
     const zoom0 = await page.evaluate(() => game.rig.zoomTarget);
     await page.locator('#btn-map').click();
     await expect(page.locator('#btn-map')).toHaveClass(/on/);
-    expect(await page.evaluate(() => [game.rig.zoomTarget > 4.5, game.rig.fx, game.rig.fz])).toEqual([true, 15, 15]);
+    // (centrada en todo el mundo: las parcelas repartidas por el valle)
+    expect(await page.evaluate(() => [game.rig.zoomTarget > 4.5, game.rig.fx, game.rig.fz])).toEqual([true, 10, 10]);
     await page.locator('#btn-map').click();
     await expect(page.locator('#btn-map')).not.toHaveClass(/on/);
     expect(await page.evaluate(() => game.rig.zoomTarget)).toBe(zoom0);

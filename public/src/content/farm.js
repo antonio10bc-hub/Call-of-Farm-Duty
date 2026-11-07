@@ -1,4 +1,5 @@
 import { L } from '../core/I18n.js';
+import { groundRaw, quant } from '../world/terrain.js';
 
 // Plano de la granja (en casillas). Cada edificio se puede tocar para ver su ficha.
 //   kind      modelo que se construye (render/structures.js)
@@ -170,8 +171,6 @@ export const FARM = {
     // Caminos de tierra: rectángulos de casillas [x0, z0, x1, z1) (el final no entra)
     paths: [
         [14, 13, 16, 60],   // camino principal hacia el sur (cruza la parcela de abajo)
-        [14, 60, 16, 75],   // ... sale por el portón hasta el puente del río (world/Scenery.js)
-        [14, 83, 16, 112],  // ... y sigue al otro lado
         [-2, 15, 32, 16],   // entre el granero y los campos (y a los portones de las parcelas oeste y este)
         [14, -13, 16, 9],   // de la casa a la trasera del granero (por el portón)
         [17, -16, 34, -14], // de la casa al claro del bosque donde aterriza el comerciante
@@ -219,4 +218,88 @@ for (const v of GRID) {
         FARM.fences.push({ from: [v, a0], to: [v, a1], ...(gx ? { gap: [gx[2], gx[3]] } : {}) });
         FARM.fences.push({ from: [a0, v], to: [a1, v], ...(gz ? { gap: [gz[2], gz[3]] } : {}) });
     }
+}
+
+// ---------- Composición del mapa ----------
+// Cada parcela de 30×30 casillas guarda su lógica en sus coordenadas de siempre (from: su esquina
+// en la cuadrícula de antes), pero se ve en otro sitio del mapa: repartidas sin filas ni columnas
+// por el valle (at: la esquina de su sitio), algunas giradas (rot: cuartos de vuelta) y cada una a
+// la altura del terreno donde cae (h, de world/terrain.js): en una colina, alta; junto al río, baja.
+//   gates  dónde sale cada camino de la parcela (en sus coordenadas de siempre, en su borde)
+export const PLACES = [
+    { id: 'farm', from: [0, 0], at: [0, 0], rot: 0, gates: [[15, 30], [0, 15.5], [30, 15.5], [15, 0], [30, 25]] },
+    { id: 'house', from: [0, -30], at: [14, -52], rot: 0, gates: [[15, 0], [30, -15], [0, -15]] },
+    { id: 'merchant', from: [30, -30], at: [66, -72], rot: 1, gates: [[30, -15]] },
+    { id: 'west', from: [-30, 0], at: [-72, -12], rot: 3, gates: [[0, 15.5]] },
+    { id: 'east', from: [30, 0], at: [54, 16], rot: 0, gates: [[30, 15.5], [60, 15]] },
+    { id: 'nw', from: [-30, -30], at: [-48, -68], rot: 1, gates: [[0, -15]] },
+    { id: 'south', from: [0, 30], at: [-4, 58], rot: 2, gates: [[15, 30], [30, 45], [0, 45]] },
+    { id: 'se', from: [30, 30], at: [62, 64], rot: 3, gates: [[30, 45]] },
+    { id: 'sw', from: [-30, 30], at: [-76, 42], rot: 1, gates: [[0, 45], [-30, 45]] },
+];
+for (const P of PLACES) P.h = quant(groundRaw(P.at[0] + 15, P.at[1] + 15));
+// Caminos entre parcelas: [parcela, puerta] a [parcela, puerta]; sin destino ('soon'), un ramal
+// que se pierde hacia fuera con su barrera de PRÓXIMAMENTE (hueco para futuras parcelas)
+export const ROADS = [
+    [['farm', 3], ['house', 0]],
+    [['farm', 1], ['west', 0]],
+    [['farm', 2], ['east', 0]],
+    [['farm', 0], ['south', 0]],
+    [['house', 1], ['merchant', 0]],
+    [['house', 2], ['nw', 0]],
+    [['south', 1], ['se', 0]],
+    [['south', 2], ['sw', 0]],
+    [['east', 1], 'soon', [124, 34]],
+    [['sw', 1], 'soon', [-108, 74]],
+];
+const placeOf = (x, z) => PLACES.find(({ from: [x0, z0] }) => x >= x0 && x < x0 + 30 && z >= z0 && z < z0 + 30);
+// Un punto de la parcela P (en sus coordenadas de siempre), en el mundo: girado sobre su centro
+// (como el grupo de la parcela: rotation.y = rot·90°) y llevado a su sitio y su altura
+export function placeToWorld(P, x, z, y = 0) {
+    const a = (P.rot || 0) * (Math.PI / 2), c = Math.round(Math.cos(a)), s = Math.round(Math.sin(a));
+    const dx = x - P.from[0] - 15, dz = z - P.from[1] - 15;
+    return { x: P.at[0] + 15 + dx * c + dz * s, y: y + P.h, z: P.at[1] + 15 - dx * s + dz * c, place: P };
+}
+// Y al revés: un punto del mundo, en las coordenadas de siempre de la parcela P
+export function worldToPlace(P, x, z) {
+    const a = (P.rot || 0) * (Math.PI / 2), c = Math.round(Math.cos(a)), s = Math.round(Math.sin(a));
+    const dx = x - P.at[0] - 15, dz = z - P.at[1] - 15;
+    return { x: P.from[0] + 15 + dx * c - dz * s, z: P.from[1] + 15 + dx * s + dz * c };
+}
+// De las coordenadas de siempre (de una parcela) al mundo (fuera de las parcelas, tal cual)
+export function toWorld(x, z, y = 0) {
+    const P = placeOf(x, z);
+    return P ? placeToWorld(P, x, z, y) : { x, y, z, place: null };
+}
+// Una puerta de una parcela, en el mundo, y hacia dónde sale (ox, oz)
+export function gateWorld(id, i) {
+    const P = PLACES.find((p) => p.id === id), [gx, gz] = P.gates[i];
+    const lx = gx - P.from[0], lz = gz - P.from[1];
+    const ox = lx <= 0 ? -1 : lx >= 30 ? 1 : 0, oz = lz <= 0 ? -1 : lz >= 30 ? 1 : 0;
+    const w = placeToWorld(P, gx, gz), o = placeToWorld(P, gx + ox, gz + oz);
+    return { x: w.x, z: w.z, y: P.h, ox: Math.round(o.x - w.x), oz: Math.round(o.z - w.z) };
+}
+// Lo que abarca el mundo (para la cámara)
+FARM.world = { x0: -100, z0: -96, x1: 120, z1: 116 };
+FARM.view = { ...FARM.world };
+
+// La forma de una parcela (no un cuadrado): un cuadrado de esquinas muy redondeadas con el borde
+// ondulado; lx, lz: el punto, desde su esquina (0..30). Igual aunque la parcela esté girada
+export function inParcelShape(P, lx, lz) {
+    const u = (lx - 15) / 15, v = (lz - 15) / 15, a = Math.atan2(v, u), seed = (P.at[0] * 7 + P.at[1] * 3) % 6;
+    const R = 1 - 0.05 * (1 + Math.sin(a * 4 + seed)) - 0.025 * (1 + Math.sin(a * 8 + seed * 2));
+    return Math.abs(u) ** 3.4 + Math.abs(v) ** 3.4 <= R ** 3.4;
+}
+// ¿Dentro de la forma de su parcela? (un punto en las coordenadas de siempre; fuera de las
+// parcelas, sí)
+export function inShapeOf(x, z) {
+    const P = placeOf(x, z);
+    return !P || inParcelShape(P, x - P.from[0], z - P.from[1]);
+}
+// La forma de un campo (no un rectángulo): una mancha de esquinas redondeadas y borde irregular
+// dentro de su rectángulo f, distinta en cada campo (seed)
+export function inFieldShape(f, seed, x, z) {
+    const u = (x - f.cx) / (f.w / 2), v = (z - f.cz) / (f.d / 2), a = Math.atan2(v, u);
+    const R = 1 - 0.05 * (1 + Math.sin(a * 3 + seed)) - 0.03 * (1 + Math.sin(a * 7 + seed * 2.3));
+    return Math.abs(u) ** 2.6 + Math.abs(v) ** 2.6 <= R ** 2.6;
 }

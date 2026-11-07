@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { THEME } from './content/theme.js';
 import { CROPS } from './content/crops.js';
-import { FARM, FIELD_BY_ID, INFO, TURRETS } from './content/farm.js';
+import { FARM, FIELD_BY_ID, INFO, TURRETS, toWorld } from './content/farm.js';
 import { KILLSTREAKS, setStreakCounts, streakOf } from './content/killstreaks.js';
 import { SHOP, SHOP_ITEMS } from './content/ufo.js';
 import { ARSENAL, ARSENAL_KINDS, CLASSES } from './content/arsenal.js';
@@ -118,23 +118,34 @@ addLights(farmScene, false);
 const farm = new Farm(THEME, state.fields, state.barn.level, state.house.level, state.lands);
 farmScene.add(farm.root);
 const farmParticles = new Particles(farmScene, 600);
+// Lo de la granja se pide en las coordenadas de siempre de cada parcela (la lógica no sabe dónde
+// está en el mapa): farmFx y rig.focus lo pasan al mundo (farmParticles y rigFocus: ya en el mundo)
+const farmFx = {
+    spawn: (x, y, z, ...r) => { const w = toWorld(x, z, y); return farmParticles.spawn(w.x, w.y, w.z, ...r); },
+    burst: (x, y, z, ...r) => { const w = toWorld(x, z, y); return farmParticles.burst(w.x, w.y, w.z, ...r); },
+};
 const rig = new CameraRig(M);
 rig.free = true;
 rig.setBounds(M.view, M.view);
 rig.yaw = rig.yawTarget = M.yaw;
+const rigFocus = rig.focus.bind(rig);
+rig.focus = (x, z) => {
+    const w = toWorld(x, z);
+    rigFocus(w.x, w.z, w.y);
+};
 const home = { x: 15, z: 18 };
 rig.focus(home.x, home.z);
 rig.snap();
 // La sombra de una parcela recién comprada se retira: destellos dorados por donde pasa
-farm.onLandWave = (x, z) => farmParticles.burst(x, 0.3, z, 3, [0xffd23f, 0xfff6b0, 0xffffff], { speed: 1.2, up: 3, size: 0.12, ttl: 0.6 });
+farm.onLandWave = (x, z) => farmFx.burst(x, 0.3, z, 3, [0xffd23f, 0xfff6b0, 0xffffff], { speed: 1.2, up: 3, size: 0.12, ttl: 0.6 });
 // Bala de una torreta automática en el mapa: polvo y paja donde da (y su ruido, una de cada dos)
 farm.onTurretHit = (x, z, n) => {
-    farmParticles.burst(x, 0.4, z, 5, [0xffe9a0, 0xd9b77a, THEME.dust], { speed: 1.4, up: 2, size: 0.08, ttl: 0.4 });
+    farmFx.burst(x, 0.4, z, 5, [0xffe9a0, 0xd9b77a, THEME.dust], { speed: 1.4, up: 2, size: 0.08, ttl: 0.4 });
     if (mode === 'farm' && n % 2) sfx.play('turret');
 };
 farm.onLand = (m) => {
     const p = m.root.position;
-    farmParticles.burst(p.x, 0.1, p.z, 18, [THEME.dust, 0xd9b77a], { speed: 2.4, up: 1.4, size: 0.14, ttl: 0.5 });
+    farmFx.burst(p.x, 0.1, p.z, 18, [THEME.dust, 0xd9b77a], { speed: 2.4, up: 1.4, size: 0.14, ttl: 0.5 });
     rig.shake(0.18);
     sfx.play('drop');
 };
@@ -404,11 +415,11 @@ function openBarn(quiet = false) {
     refreshGates();
     rig.focus(b.def.x, b.def.z + 1);
     const beam = new THREE.Mesh(new THREE.BoxGeometry(5, 60, 4), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending }));
-    beam.position.set(b.def.x, 30, b.def.z);
+    farm.world(b.def.x, 30, b.def.z, beam.position);
     beam.scale.set(0.0001, 1, 0.0001);
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 20, 1), new THREE.MeshBasicMaterial({ color: 0xfff6b0, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
     ring.rotation.x = -Math.PI / 2;
-    ring.position.set(b.def.x, 0.08, b.def.z);
+    farm.world(b.def.x, 0.08, b.def.z, ring.position);
     farmScene.add(beam, ring);
     const parts = [b, farm.byId.silo].map((m) => ({ m, y: m.root.position.y, ry: m.root.rotation.y }));
     barnFx = { t: 0, beam, ring, parts, boom: false };
@@ -438,11 +449,11 @@ function updateBarnFx(dt) {
     }
     if (t < 1.5) for (let n = 0; n < 4; n++) {
         const a = time * 7 + n * 1.6, h = (t * 4 + n) % 7;
-        farmParticles.spawn(b.x + Math.sin(a) * 3.4, h, b.z + Math.cos(a) * 3.4, 0, 1.4, 0, 0.18, 0.7, RAINBOW[(Math.random() * RAINBOW.length) | 0], 0);
+        farmFx.spawn(b.x + Math.sin(a) * 3.4, h, b.z + Math.cos(a) * 3.4, 0, 1.4, 0, 0.18, 0.7, RAINBOW[(Math.random() * RAINBOW.length) | 0], 0);
     }
     if (!E.boom && t > 1.25) {
         E.boom = true;
-        farmParticles.burst(b.x, 2, b.z, 140, RAINBOW, { speed: 7, up: 6, size: 0.22, ttl: 1.4, grav: 6 });
+        farmFx.burst(b.x, 2, b.z, 140, RAINBOW, { speed: 7, up: 6, size: 0.22, ttl: 1.4, grav: 6 });
         renderer.flash(0xffffff, 0.6);
         rig.shake(0.6);
         sfx.play('unlock');
@@ -557,7 +568,7 @@ function merchantDeal(sheet, coins = null) {
     setTimeout(() => sfx.play('hitmark'), 550);
     if (farm.camp.celebrate()) {
         const S = MERCHANT.stall;
-        setTimeout(() => farmParticles.burst(S.x, 2.2, S.z, 40, [0xff3e5e, 0xffe03a, 0x7dff4a, 0x3ac8ff, 0xc8955a], { speed: 3, up: 4, size: 0.12, ttl: 1.2, grav: 6 }), 450);
+        setTimeout(() => farmFx.burst(S.x, 2.2, S.z, 40, [0xff3e5e, 0xffe03a, 0x7dff4a, 0x3ac8ff, 0xc8955a], { speed: 3, up: 4, size: 0.12, ttl: 1.2, grav: 6 }), 450);
     }
 }
 
@@ -622,7 +633,8 @@ dock.className = 'dock';
 dock.id = 'dock';
 $('farm-ui').appendChild(dock);
 const dockGo = (x, z, open) => {
-    if (Math.hypot(rig.fx - x, rig.fz - z) < 3) return open();
+    const w = toWorld(x, z);
+    if (Math.hypot(rig.fx - w.x, rig.fz - w.z) < 3) return open();
     leaveMap(false);
     select(null);
     rig.focus(x, z);
@@ -752,28 +764,28 @@ function placeBubbles() {
     houseSign.classList.toggle('hidden', !show);
     merchantSign.classList.toggle('hidden', !show || merchantClock.locked);
     if (show) {
-        _b.set(MERCHANT.stall.x, 3.1, MERCHANT.stall.z).project(rig.camera);
-        merchantSign.style.left = `${(_b.x * 0.5 + 0.5) * innerWidth}px`;
-        merchantSign.style.top = `${(-_b.y * 0.5 + 0.5) * innerHeight}px`;
+        farm.world(MERCHANT.stall.x, 3.1, MERCHANT.stall.z, _b).project(rig.camera);
+        merchantSign.style.left = `${Math.round((_b.x * 0.5 + 0.5) * innerWidth)}px`;
+        merchantSign.style.top = `${Math.round((-_b.y * 0.5 + 0.5) * innerHeight)}px`;
     }
     const ufoOn = show && state.open('shop') && !cine;
     ufoSign.classList.toggle('hidden', !ufoOn);
     if (ufoOn) {
         const h = farm.byId.house;
-        _b.set(h.def.x + 2.4, h.top + 0.8, h.def.z - 2.4).project(rig.camera);
-        ufoSign.style.left = `${(_b.x * 0.5 + 0.5) * innerWidth}px`;
-        ufoSign.style.top = `${(-_b.y * 0.5 + 0.5) * innerHeight}px`;
+        farm.world(h.def.x + 2.4, h.top + 0.8, h.def.z - 2.4, _b).project(rig.camera);
+        ufoSign.style.left = `${Math.round((_b.x * 0.5 + 0.5) * innerWidth)}px`;
+        ufoSign.style.top = `${Math.round((-_b.y * 0.5 + 0.5) * innerHeight)}px`;
     }
     if (show) {
         const house = farm.byId.house;
-        _b.set(house.def.x, (house.level ? house.top : 1.8) - 1.2, house.def.z).project(rig.camera);
-        houseSign.style.left = `${(_b.x * 0.5 + 0.5) * innerWidth}px`;
-        houseSign.style.top = `${(-_b.y * 0.5 + 0.5) * innerHeight}px`;
+        farm.world(house.def.x, (house.level ? house.top : 1.8) - 1.2, house.def.z, _b).project(rig.camera);
+        houseSign.style.left = `${Math.round((_b.x * 0.5 + 0.5) * innerWidth)}px`;
+        houseSign.style.top = `${Math.round((-_b.y * 0.5 + 0.5) * innerHeight)}px`;
         const barn = farm.byId.barn;
         // (el cartel ya sube un poco por su cuenta: con esto queda justo sobre el tejado)
-        _b.set(barn.def.x, barn.top - 1.4, barn.def.z).project(rig.camera);
-        armory.style.left = `${(_b.x * 0.5 + 0.5) * innerWidth}px`;
-        armory.style.top = `${(-_b.y * 0.5 + 0.5) * innerHeight}px`;
+        farm.world(barn.def.x, barn.top - 1.4, barn.def.z, _b).project(rig.camera);
+        armory.style.left = `${Math.round((_b.x * 0.5 + 0.5) * innerWidth)}px`;
+        armory.style.top = `${Math.round((-_b.y * 0.5 + 0.5) * innerHeight)}px`;
     }
     for (const def of FARM.fields) {
         const id = def.id, bubble = bubbles[id], sign = signs[id];
@@ -785,7 +797,7 @@ function placeBubbles() {
         sign.classList.toggle('hidden', !show);
         if (!show) continue;
         farm.fieldTop(id, _b).project(rig.camera);
-        const x = `${(_b.x * 0.5 + 0.5) * innerWidth}px`, y = `${(-_b.y * 0.5 + 0.5) * innerHeight}px`;
+        const x = `${Math.round((_b.x * 0.5 + 0.5) * innerWidth)}px`, y = `${Math.round((-_b.y * 0.5 + 0.5) * innerHeight)}px`;
         sign.style.left = bubble.style.left = x;
         sign.style.top = bubble.style.top = y;
     }
@@ -928,16 +940,16 @@ function buyTurrets(id, force = false) {
 // Cada golpe de la llegada de la torreta (Farm.updateDrop): polvo, sonido y temblor; al final, su cartel
 farm.onDrop = (kind, x, z) => {
     if (kind === 'bag') {
-        farmParticles.burst(x, 0.3, z, 16, [THEME.dust, 0x8a7a5a], { speed: 2.2, up: 1.6, size: 0.14, ttl: 0.5 });
+        farmFx.burst(x, 0.3, z, 16, [THEME.dust, 0x8a7a5a], { speed: 2.2, up: 1.6, size: 0.14, ttl: 0.5 });
         rig.shake(0.12);
         sfx.play('crateBreak');
     } else if (kind === 'land') {
-        farmParticles.burst(x, 0.6, z, 30, [THEME.dust, 0x6a7a5a, 0xffffff], { speed: 3, up: 2.4, size: 0.16, ttl: 0.7 });
+        farmFx.burst(x, 0.6, z, 30, [THEME.dust, 0x6a7a5a, 0xffffff], { speed: 3, up: 2.4, size: 0.16, ttl: 0.7 });
         rig.shake(0.25);
         sfx.play('boom');
         vibrate('kill');
     } else {
-        farmParticles.burst(x, 1.4, z, 24, [0xffe03a, 0xff9a1f, 0xffffff], { speed: 4, up: 5, size: 0.1, ttl: 0.6 });
+        farmFx.burst(x, 1.4, z, 24, [0xffe03a, 0xff9a1f, 0xffffff], { speed: 4, up: 5, size: 0.1, ttl: 0.6 });
         sfx.play('power');
         stage(L('TURRET ONLINE!', '¡TORRETA EN MARCHA!'), L('IT HARVESTS THE FIELD BY ITSELF', 'RECOGE EL CAMPO SOLA'));
         refreshPanel();
@@ -959,7 +971,7 @@ function autoHarvest(dt) {
         // En el mapa, un +1 con el cultivo sale de donde acaban de acribillar
         const at = mode === 'farm' && farm.turretSpot(id);
         if (at) {
-            _b.set(at.x, 1.4, at.z).project(rig.camera);
+            farm.world(at.x, 1.4, at.z, _b).project(rig.camera);
             if (_b.z < 1) killPop((_b.x * 0.5 + 0.5) * innerWidth, (-_b.y * 0.5 + 0.5) * innerHeight, CROPS[def.crop].icon, 'auto-pop');
         }
     }
@@ -971,7 +983,7 @@ function upgradeField(id) {
     const f = farm.fields[id].rect;
     rig.focus(f.cx, f.cz + 1);
     rig.shake(0.14);
-    for (let k = 0; k < 6; k++) farmParticles.burst(f.x + Math.random() * f.w, 0.2, f.z + Math.random() * f.d, 6, [THEME.dust, 0xd9b77a, 0xffe03a], { speed: 2, up: 1.6, size: 0.12, ttl: 0.5 });
+    for (let k = 0; k < 6; k++) farmFx.burst(f.x + Math.random() * f.w, 0.2, f.z + Math.random() * f.d, 6, [THEME.dust, 0xd9b77a, 0xffe03a], { speed: 2, up: 1.6, size: 0.12, ttl: 0.5 });
     sfx.play('power');
     vibrate('pickup');
     updateCounts();
@@ -988,7 +1000,7 @@ function revealUnlocked() {
         const f = v.rect;
         rig.focus(f.cx, f.cz + 1);
         rig.shake(0.2);
-        for (let k = 0; k < 10; k++) farmParticles.burst(f.x + Math.random() * f.w, 0.2, f.z + Math.random() * f.d, 6, [THEME.dust, 0x8a5a34, 0x6f8a3a], { speed: 2.4, up: 2, size: 0.14, ttl: 0.6 });
+        for (let k = 0; k < 10; k++) farmFx.burst(f.x + Math.random() * f.w, 0.2, f.z + Math.random() * f.d, 6, [THEME.dust, 0x8a5a34, 0x6f8a3a], { speed: 2.4, up: 2, size: 0.14, ttl: 0.6 });
         setTimeout(() => stage(L('LAND CLEARED!', '¡TERRENO LIMPIO!'), `${FIELD_BY_ID[v.id].name} ${L('UNLOCKED', 'DESBLOQUEADO')}`), 300);
         return true;
     }
@@ -1185,21 +1197,21 @@ let mapView = null; // { x, z, zoom } de antes
 function enterMap() {
     if (mode !== 'farm' || inCine() || mapView) return;
     select(null);
-    mapView = { x: rig.fx, z: rig.fz, zoom: rig.zoomTarget };
-    const B = FARM.bounds, w = B.x1 - B.x0, d = B.z1 - B.z0;
-    rig.focus((B.x0 + B.x1) / 2, (B.z0 + B.z1) / 2);
+    mapView = { x: rig.fx, z: rig.fz, y: rig.fy, zoom: rig.zoomTarget };
+    const B = FARM.world, w = B.x1 - B.x0, d = B.z1 - B.z0;
+    rigFocus((B.x0 + B.x1) / 2, (B.z0 + B.z1) / 2, 0);
     // (girado 45°, la cuadrícula ocupa su diagonal en pantalla; en vertical, se recortan un poco
     // sus esquinas de los lados para que no quede diminuta)
     const portrait = innerHeight > innerWidth;
     // (con margen: alrededor se ve el paisaje, el río y las montañas)
-    rig.zoomTarget = Math.max((w * 1.42 * (portrait ? 0.7 : 1)) / (rig.halfWidth * 2), (d * 1.42) / (rig.halfDepth * 2)) * 1.3;
+    rig.zoomTarget = Math.max((w * 1.42 * (portrait ? 0.7 : 1)) / (rig.halfWidth * 2), (d * 1.42) / (rig.halfDepth * 2)) * 1.15;
     $('btn-map').classList.add('on');
     sfx.play('ui');
 }
 function leaveMap(back = true) {
     if (!mapView) return;
     if (back) {
-        rig.focus(mapView.x, mapView.z);
+        rigFocus(mapView.x, mapView.z, mapView.y);
         rig.zoomTarget = mapView.zoom;
     }
     mapView = null;
@@ -1378,6 +1390,7 @@ addEventListener('keydown', (e) => {
     if (mode === 'farm') {
         if (k === 'escape') select(null);
         if (k === 'enter' || k === ' ') quickAction();
+        if (k === 'r') rotateView();
         return;
     }
     if (mode !== 'snipe') return;
@@ -1458,6 +1471,13 @@ tapBtn('panel-upgrade', () => {
     else if (selected.structure === 'house') upgradeHouse();
 });
 tapBtn('panel-close', () => select(null));
+// Girar la vista del mapa 90° (las parcelas están a distintas alturas: así se ve lo de detrás)
+function rotateView() {
+    if (mode !== 'farm' || inCine()) return;
+    rig.yawTarget += Math.PI / 2;
+    sfx.play('ui');
+}
+tapBtn('btn-rotate', rotateView);
 tapBtn('btn-map', () => {
     if (mapView) {
         leaveMap();
@@ -1494,7 +1514,9 @@ function applyLook() {
 
 // La cámara encuadra en la mitad de arriba (la tienda tapa la de abajo) un punto de la parcela
 function frameShop(x, z, zoom) {
-    rig.focus(x + 4 * zoom, z + 4 * zoom);
+    // (el desplazamiento, ya en el mundo: si no, podría caer fuera de la parcela)
+    const w = toWorld(x, z);
+    rigFocus(w.x + 4 * zoom, w.z + 4 * zoom, w.y);
     rig.zoomTarget = zoom;
 }
 
@@ -1589,7 +1611,7 @@ $('ufo-shop').addEventListener('click', (e) => {
     // Lo de la parcela: la cámara va a su hueco para verlo aparecer
     if (it.at) {
         frameShop(it.at.x, it.at.z, 0.9);
-        if (state.home.placed.includes(it.id)) for (let k = 0; k < 4; k++) farmParticles.burst(it.at.x + (Math.random() - 0.5) * 2, 0.3, it.at.z + (Math.random() - 0.5) * 2, 8, [THEME.dust, 0x7dff4a, 0xffffff], { speed: 2.4, up: 2.4, size: 0.14, ttl: 0.6 });
+        if (state.home.placed.includes(it.id)) for (let k = 0; k < 4; k++) farmFx.burst(it.at.x + (Math.random() - 0.5) * 2, 0.3, it.at.z + (Math.random() - 0.5) * 2, 8, [THEME.dust, 0x7dff4a, 0xffffff], { speed: 2.4, up: 2.4, size: 0.14, ttl: 0.6 });
     } else farm.byId.house.select();
     sfx.play(had ? 'ui' : 'shieldGet');
     if (!had) {
@@ -1624,7 +1646,7 @@ function updateMerchant(dt) {
     // El ovni levanta polvo y tierra al ir por el surco
     if (farm.camp.gliding && Math.random() < dt * 30) {
         const D = farm.camp.dust;
-        farmParticles.burst(D.x, D.y, D.z + (Math.random() - 0.5) * 1.6, 3, [THEME.dust, 0x8a5a34, 0xa8885a], { speed: 1.6, up: 1.4, size: 0.14, ttl: 0.6 });
+        farmFx.burst(D.x, D.y, D.z + (Math.random() - 0.5) * 1.6, 3, [THEME.dust, 0x8a5a34, 0xa8885a], { speed: 1.6, up: 1.4, size: 0.14, ttl: 0.6 });
     }
 }
 
@@ -1723,7 +1745,7 @@ function upgradeHouse() {
     const h = farm.byId.house, c = FARM.house.levels[state.house.level].clear;
     rig.focus(h.def.x, h.def.z + 1);
     rig.shake(0.2);
-    for (let k = 0; k < 16; k++) farmParticles.burst(c[0] + Math.random() * (c[2] - c[0]), 0.2, c[1] + Math.random() * (c[3] - c[1]), 6, [THEME.dust, 0x8a5a34, 0x6f8a3a], { speed: 2.4, up: 2, size: 0.14, ttl: 0.6 });
+    for (let k = 0; k < 16; k++) farmFx.burst(c[0] + Math.random() * (c[2] - c[0]), 0.2, c[1] + Math.random() * (c[3] - c[1]), 6, [THEME.dust, 0x8a5a34, 0x6f8a3a], { speed: 2.4, up: 2, size: 0.14, ttl: 0.6 });
     sfx.play('power');
     vibrate('pickup');
     updateCounts();
@@ -1740,7 +1762,7 @@ function upgradeBarn() {
     rig.focus(b.def.x, b.def.z + 1);
     rig.shake(0.2);
     const y = FARM.barn.levels[state.barn.level].yard;
-    for (let k = 0; k < 14; k++) farmParticles.burst(y[0] + Math.random() * (y[2] - y[0]), 0.2, y[1] + Math.random() * (y[3] - y[1]), 6, [THEME.dust, 0x8a5a34, 0x6f8a3a], { speed: 2.4, up: 2, size: 0.14, ttl: 0.6 });
+    for (let k = 0; k < 14; k++) farmFx.burst(y[0] + Math.random() * (y[2] - y[0]), 0.2, y[1] + Math.random() * (y[3] - y[1]), 6, [THEME.dust, 0x8a5a34, 0x6f8a3a], { speed: 2.4, up: 2, size: 0.14, ttl: 0.6 });
     sfx.play('power');
     vibrate('pickup');
     updateCounts();
@@ -2267,8 +2289,8 @@ function frame(now) {
         for (const v of farm.views) {
             const f = v.rect;
             if (progress[v.id] < 1 || Math.random() > dt * 4 * Math.sqrt((f.w * f.d) / 20)) continue;
-            weatherParticle(farmParticles, 'sparkle', f.x + Math.random() * f.w, f.z + Math.random() * f.d, Math.random() < 0.5 ? 0xffffff : 0xffe03a);
-            farmParticles.y[farmParticles.n - 1] = 1.1;
+            weatherParticle(farmFx, 'sparkle', f.x + Math.random() * f.w, f.z + Math.random() * f.d, Math.random() < 0.5 ? 0xffffff : 0xffe03a);
+            farmParticles.y[farmParticles.n - 1] = 1.1 + toWorld(f.x, f.z).y;
         }
         if (Math.random() < dt * THEME.ambient.rate) {
             const c = THEME.ambient.colors;
