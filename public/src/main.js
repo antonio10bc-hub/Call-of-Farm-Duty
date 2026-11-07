@@ -598,7 +598,7 @@ const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.ceil(s) % 60).padStart(2
 // Encima de cada campo: un cartel flotante con su nivel (tocarlo abre su ficha para mejorarlo)
 // y, cuando está maduro, la burbuja de RECOGER. En un terreno bloqueado el cartel lleva un
 // candado; cuando ya se puede desbloquear dice ¡DESBLOQUEAR! y tocarlo lleva al barril.
-const signs = {}, bubbles = {};
+const signs = {}, wasReady = {};
 const uiButton = (cls, onTap) => {
     const b = document.createElement('button');
     b.className = cls;
@@ -729,8 +729,6 @@ function refreshArmory() {
 
 for (const def of FARM.fields) {
     const id = def.id;
-    bubbles[id] = uiButton('bubble hidden', () => harvest(id));
-    bubbles[id].innerHTML = `${ico(CROPS[def.crop].icon)}<span>${L('HARVEST!', '¡RECOGER!')}</span>`;
     signs[id] = uiButton('field-sign hidden', () => (state.canUnlock(id) ? startUnlock(id) : select({ field: id })));
     signs[id].id = `sign-${id}`;
 }
@@ -746,9 +744,8 @@ function refreshSigns() {
         el.classList.toggle('can-unlock', can);
         el.classList.toggle('for-sale', forSale);
         el.classList.toggle('can-up', state.canUpgrade(id) || state.canBuyTurrets(id) || (forSale && state.canBuyLand(land.id)));
-        const lvPips = def.levels.map((_, i) => `<i class="pip${i <= f.level ? ' on' : ''}"></i>`).join('');
         const html = f.unlocked
-            ? `${ico(CROPS[def.crop].icon)}${f.turrets ? ico('turret') : ''}<span class="sign-level">${L('LV', 'NV')}.${f.level + 1}</span><span class="pips">${lvPips}</span><i class="sign-up"></i>`
+            ? `${ico(CROPS[def.crop].icon)}${f.turrets ? ico('turret') : ''}<span class="sign-level">${L('LV', 'NV')}.${f.level + 1}</span><span class="grow"><i></i></span><i class="sign-ready"></i><i class="sign-up"></i>`
             : forSale ? `${ico('gold')}<span>${state.landPrice(land.id)}</span><i class="sign-up"></i>`
             : can ? `${ico('barrel')}<span>${L('UNLOCK!', '¡DESBLOQUEAR!')}</span>` : `${ico('lock')}<span>${L('LOCKED', 'BLOQUEADO')}</span>`;
         if (el.innerHTML !== html) el.innerHTML = html;
@@ -788,18 +785,24 @@ function placeBubbles() {
         armory.style.top = `${Math.round((-_b.y * 0.5 + 0.5) * innerHeight)}px`;
     }
     for (const def of FARM.fields) {
-        const id = def.id, bubble = bubbles[id], sign = signs[id];
-        const on = show && state.isReady(id);
-        if (on && bubble.classList.contains('hidden')) {
-            bubble.classList.remove('hidden');
-            sfx.play('itemSpawn');
-        } else if (!on) bubble.classList.add('hidden');
+        // Un solo medallón por cultivo: creciendo (barrita que se llena) o listo (amarillo con
+        // su «!»); al tocarlo, la ficha de abajo con RECOGER y lo que le falta
+        const id = def.id, sign = signs[id], f = state.fields[id];
+        const ready = f.unlocked && state.isReady(id);
+        if (show && ready && !wasReady[id]) sfx.play('itemSpawn');
+        wasReady[id] = show && ready;
+        sign.classList.toggle('ready', ready);
         sign.classList.toggle('hidden', !show);
+        if (show && f.unlocked) {
+            const bar = sign.querySelector('.grow > i');
+            const w = `${ready ? 100 : Math.round(state.progress(id) * 10) * 10}%`;
+            if (bar && bar.style.width !== w) bar.style.width = w;
+        }
         if (!show) continue;
         farm.fieldTop(id, _b).project(rig.camera);
         const x = `${Math.round((_b.x * 0.5 + 0.5) * innerWidth)}px`, y = `${Math.round((-_b.y * 0.5 + 0.5) * innerHeight)}px`;
-        sign.style.left = bubble.style.left = x;
-        sign.style.top = bubble.style.top = y;
+        sign.style.left = x;
+        sign.style.top = y;
     }
 }
 

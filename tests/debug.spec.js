@@ -4,7 +4,7 @@ const { test, expect, enterField, openFarm, shootNext, watchErrors } = require('
 test('ajustes: borrar el progreso pide confirmación y deja la granja como al empezar', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await openFarm(page);
-    await expect(page.locator('.bubble:not(.hidden)')).toHaveCount(1, { timeout: 30_000 });
+    await expect(page.locator('#bubbles .field-sign.ready')).toHaveCount(1, { timeout: 30_000 });
     await page.evaluate(() => { game.state.wheat = 7; game.upgradeField('wheat'); });
     expect(await page.evaluate(() => [game.state.fields.wheat.level, game.state.wheat])).toEqual([1, 4]);
     await page.locator('#btn-debug').click();
@@ -87,7 +87,7 @@ test('debug: DESBLOQUEAR TODO limpia todos los terrenos sin requisitos', { tag: 
     expect(await page.evaluate(() => [game.farm.fields.wheat.locked, game.farm.fields.tomato.locked])).toEqual([false, false]);
     await expect(page.locator('#sign-wheat')).toHaveText('NV.1');
     await expect(page.locator('#sign-tomato')).toHaveText('NV.1');
-    await expect(page.locator('.bubble:not(.hidden)')).toHaveCount(5); // trigo, tomates, calabazas, maíz y leche
+    await expect(page.locator('#bubbles .field-sign.ready')).toHaveCount(5); // trigo, tomates, calabazas, maíz y leche
     expect(await page.evaluate(() => game.state.lands)).toEqual({ west: true, east: true, nw: true });
     await expect(page.locator('#farm-tomato')).toBeVisible();
     expect(errors).toEqual([]);

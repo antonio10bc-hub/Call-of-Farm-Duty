@@ -6,7 +6,7 @@ test('lo primero: el trigo es un terreno con chatarra y se desbloquea disparando
     await page.goto('/?test');
     await expect(page.locator('#sign-wheat')).toHaveText('¡DESBLOQUEAR!', { timeout: 30_000 });
     await expect(page.locator('#sign-tomato')).toHaveText('BLOQUEADO');
-    await expect(page.locator('.bubble:not(.hidden)')).toHaveCount(0);
+    await expect(page.locator('#bubbles .field-sign.ready')).toHaveCount(0);
     expect(await page.evaluate(() => game.farm.fields.wheat.locked)).toBe(true);
     await page.locator('#sign-wheat').click();
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
@@ -17,7 +17,7 @@ test('lo primero: el trigo es un terreno con chatarra y se desbloquea disparando
     // Terreno limpio y sembrado: el trigo ya está listo para recoger
     expect(await page.evaluate(() => [game.state.fields.wheat.unlocked, game.farm.fields.wheat.locked])).toEqual([true, false]);
     await expect(page.locator('#sign-wheat')).toHaveText('NV.1');
-    await expect(page.locator('.bubble:not(.hidden)')).toHaveCount(1);
+    await expect(page.locator('#bubbles .field-sign.ready')).toHaveCount(1);
     expect(errors).toEqual([]);
 });
 

@@ -43,7 +43,7 @@ test('la granja es un mapa: el granero (sin mejoras) abre el armamento con las d
 test('mejorar el campo: cuesta 3 de trigo, lo hace más grande y con más matas', { tag: '@smoke' }, async ({ page }) => {
     const errors = watchErrors(page);
     await openFarm(page);
-    await expect(page.locator('.bubble:not(.hidden)')).toHaveCount(1, { timeout: 30_000 });
+    await expect(page.locator('#bubbles .field-sign.ready')).toHaveCount(1, { timeout: 30_000 });
     const before = await page.evaluate(() => ({ w: game.farm.fields.wheat.rect.w, d: game.farm.fields.wheat.rect.d, left: game.state.fields.wheat.left, stalks: game.farm.fields.wheat.plants.length }));
     // El cartel flotante dice el nivel y al tocarlo abre la ficha del campo
     await expect(page.locator('#sign-wheat')).toHaveText('NV.1');
@@ -63,7 +63,7 @@ test('mejorar el campo: cuesta 3 de trigo, lo hace más grande y con más matas'
     await expect(page.locator('#panel-title')).toHaveText('CAMPO DE TRIGO NV.2');
     await expect(page.locator('#sign-wheat')).toHaveText('NV.2');
     // En el campo de tiro salen todas las matas del nivel nuevo
-    await page.locator('.bubble:not(.hidden)').click();
+    await page.locator('#panel-action').click();
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
     expect(await page.evaluate(() => game.sniper.field.remaining)).toBe(after.left);
     // Se guarda: al recargar sigue en el nivel 2

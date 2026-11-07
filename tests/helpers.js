@@ -43,11 +43,17 @@ async function openFarm(page) {
     await page.evaluate(() => { game.state.unlock('wheat'); game.revealUnlocked(); });
 }
 
+// Toca el medallón de un cultivo listo y RECOGER en su ficha
+async function harvestFirst(page) {
+    const sign = page.locator('#bubbles .field-sign.ready').first();
+    await expect(sign).toBeVisible({ timeout: 30_000 });
+    await sign.click();
+    await page.locator('#panel-action').click();
+}
+
 async function enterField(page) {
     await openFarm(page);
-    const bubble = page.locator('.bubble:not(.hidden)').first();
-    await expect(bubble).toBeVisible({ timeout: 30_000 });
-    await bubble.click();
+    await harvestFirst(page);
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
     await expect.poll(() => page.evaluate(() => game.sniper.field.sheaves.every((s) => s.landed)), { timeout: 20_000 }).toBe(true);
     // Sin ovnis pequeños ni alienígenas a pie que se crucen en los disparos de las pruebas (sus
@@ -115,8 +121,7 @@ async function aimAndShoot(page, where) {
 async function enterBigField(page) {
     await openFarm(page);
     await page.evaluate(() => { game.state.wheat = 12; for (let i = 0; i < 4; i++) game.upgradeField('wheat'); game.state.wheat = 0; game.select(null); });
-    const bubble = page.locator('.bubble:not(.hidden)').first();
-    await bubble.click();
+    await harvestFirst(page);
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
     await expect.poll(() => page.evaluate(() => game.sniper.field.sheaves.every((s) => s.landed)), { timeout: 20_000 }).toBe(true);
     // Sin ovnis pequeños ni alienígenas a pie que se crucen en los disparos de las pruebas (sus
