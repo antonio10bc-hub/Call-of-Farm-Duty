@@ -46,8 +46,8 @@ const YARD = [0xc4b08a, 0xb8a47e]; // tierra apisonada del recinto del granero
 // Tronco y tres pisos de copa por árbol (cajas para addHulled)
 function treeParts(spots, world = false) {
     const trunks = [], leaves = [];
-    spots.forEach(([x, z, g = 0], i) => {
-        const s = 0.8 + Math.random() * 0.6;
+    spots.forEach(([x, z, g = 0, s0], i) => {
+        const s = s0 || 0.8 + Math.random() * 0.6;
         trunks.push({ x, y: g + 0.5 * s, z, sx: 0.3 * s, sy: 1.0 * s, sz: 0.3 * s, world });
         leaves.push({ x, y: g + 1.35 * s, z, sx: 1.5 * s, sy: 0.9 * s, sz: 1.5 * s, ry: i * 0.7, k: 0, world });
         leaves.push({ x, y: g + 2.0 * s, z, sx: 1.05 * s, sy: 0.7 * s, sz: 1.05 * s, ry: i * 0.7 + 0.4, k: 1, world });
@@ -344,24 +344,26 @@ export class Farm {
     // matorral, chatarra y piedras; se apartan cuando el recinto o el campo crecen encima
     buildWild() {
         const trees = [], bush = [], pieces = [], rocks = [];
+        const taken = []; // [x, z, radio]: árboles, matas y piedras sin meterse unos en otros
         const zones = [{ Z: this.zone, k: 1 }, { Z: this.houseZone, k: 0.8 }, { Z: this.villageZone, k: 1.6, forest: true }, ...this.views.map((v) => ({ Z: v.zone, k: 0.55 })), ...FARM.lands.map((l) => ({ Z: rectOf(l.rect), k: l.soon ? 0.3 : 0.5 }))];
         for (const { Z, k, forest } of zones) {
-            const free = (x, z, m) => inRect(Z, x, z) && inShapeOf(x, z) && !this.hintSpots.some(([hx, hz]) => Math.hypot(hx - x, hz - z) < m + 0.8) && !inRect(this.yard, x, z, m) && !inRect(this.houseYard, x, z, m) && !inRect(this.villageYard, x, z, m) && !this.views.some((v) => inRect(v.rect, x, z, m))
+            const free = (x, z, m) => inRect(Z, x, z) && inShapeOf(x, z) && !taken.some(([a, b, r]) => Math.hypot(a - x, b - z) < r + m) && !this.hintSpots.some(([hx, hz]) => Math.hypot(hx - x, hz - z) < m + 0.8) && !inRect(this.yard, x, z, m) && !inRect(this.houseYard, x, z, m) && !inRect(this.villageYard, x, z, m) && !this.views.some((v) => inRect(v.rect, x, z, m))
                 && !FARM.paths.some(([x0, z0, x1, z1]) => x > x0 - m && x < x1 + m && z > z0 - m && z < z1 + m)
                 && !FARM.structures.some((st) => Math.abs(x - st.x) < st.w / 2 + m && Math.abs(z - st.z) < st.d / 2 + m);
             const spots = (n, m) => {
                 const out = [];
                 for (let j = 0, tries = 0; j < n && tries < n * 30; tries++) {
                     const x = Z.x + Math.random() * Z.w, z = Z.z + Math.random() * Z.d;
-                    if (!free(x, z, m) || out.some(([a, b]) => Math.hypot(a - x, b - z) < m * 1.6)) continue;
+                    if (!free(x, z, m)) continue;
                     out.push([x, z]);
+                    taken.push([x, z, m]);
                     j++;
                 }
                 return out;
             };
             // Cantidades según el tamaño de la zona (k: en los campos, algo menos de árbol)
             const area = Z.w * Z.d;
-            trees.push(...spots(Math.round(area * 0.18 * k), 0.9));
+            trees.push(...spots(Math.round(area * 0.18 * k), 1.05));
             bush.push(...spots(Math.round(area * 0.28), 0.45).map(([x, z]) => ({ x, y: 0.22, z, sx: 0.7 + Math.random() * 0.5, sy: 0.44, sz: 0.6 + Math.random() * 0.4, ry: Math.random() * 3 })));
             // El bosque del comerciante: solo árboles, matorral y piedras (sin chatarra)
             if (!forest) pieces.push(...junkyard({ x0: Z.x, z0: Z.z, x1: Z.x + Z.w, z1: Z.z + Z.d, px: 9999, pz: 9999, count: Math.round(area * 0.3), s: 0.42, layers: [], inside: (x, z) => free(x, z, 0.4) }).pieces);

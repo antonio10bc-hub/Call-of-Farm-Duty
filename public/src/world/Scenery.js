@@ -256,8 +256,11 @@ export function buildScenery(farm) {
         if (blocked(x, z)) continue;
         const near = wet(x, z, 5) ? 1.2 : 0;
         if (clump(x, z) + near < 0.9 && Math.random() > 0.08) continue;
-        if (spots.some(([a, b]) => Math.abs(a - x) < 1.7 && Math.abs(b - z) < 1.7)) continue;
-        spots.push([x, z, cellH(x, z)]);
+        // Copas sin meterse unas en otras, y sin pisar un escalón (todo el árbol en la misma altura)
+        const s = 0.8 + Math.random() * 0.6, g = cellH(x, z), r = 0.8 * s;
+        if (spots.some(([a, b, , sb]) => Math.hypot(a - x, b - z) < (s + sb) * 0.95)) continue;
+        if ([[r, r], [-r, r], [r, -r], [-r, -r]].some(([dx, dz]) => Math.abs(cellH(x + dx, z + dz) - g) > 0.01)) continue;
+        spots.push([x, z, g, s]);
     }
     return spots;
 }
