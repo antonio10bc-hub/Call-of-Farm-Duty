@@ -170,6 +170,8 @@ export const FARM = {
     // Caminos de tierra: rectángulos de casillas [x0, z0, x1, z1) (el final no entra)
     paths: [
         [14, 13, 16, 60],   // camino principal hacia el sur (cruza la parcela de abajo)
+        [14, 60, 16, 75],   // ... sale por el portón hasta el puente del río (world/Scenery.js)
+        [14, 83, 16, 112],  // ... y sigue al otro lado
         [-2, 15, 32, 16],   // entre el granero y los campos (y a los portones de las parcelas oeste y este)
         [14, -13, 16, 9],   // de la casa a la trasera del granero (por el portón)
         [17, -16, 34, -14], // de la casa al claro del bosque donde aterriza el comerciante

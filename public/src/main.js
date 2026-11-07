@@ -1191,7 +1191,8 @@ function enterMap() {
     // (girado 45°, la cuadrícula ocupa su diagonal en pantalla; en vertical, se recortan un poco
     // sus esquinas de los lados para que no quede diminuta)
     const portrait = innerHeight > innerWidth;
-    rig.zoomTarget = Math.max((w * 1.42 * (portrait ? 0.7 : 1)) / (rig.halfWidth * 2), (d * 1.42) / (rig.halfDepth * 2)) * 0.9;
+    // (con margen: alrededor se ve el paisaje, el río y las montañas)
+    rig.zoomTarget = Math.max((w * 1.42 * (portrait ? 0.7 : 1)) / (rig.halfWidth * 2), (d * 1.42) / (rig.halfDepth * 2)) * 1.3;
     $('btn-map').classList.add('on');
     sfx.play('ui');
 }

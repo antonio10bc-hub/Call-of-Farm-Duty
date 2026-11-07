@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { box, toon, outline, OUTLINE } from '../render/materials.js';
+import { buildScenery, updateScenery, blocked } from './Scenery.js';
 import { easeOutBack } from '../core/math.js';
 import { STRUCTURES, Turret, Sandbags, LandPost } from '../render/structures.js';
 import { Plot } from '../render/props.js';
@@ -33,7 +34,7 @@ const PASTURE = [0xa8e070, 0x9ad962, 0xb4e67a]; // hierba fresca del prado de la
 // La parcela en venta en la que cae un punto (o ninguna)
 const landAt = (x, z) => FARM.lands.find(({ rect: [x0, z0, x1, z1] }) => x >= x0 && x < x1 && z >= z0 && z < z1);
 // Parcela sin comprar: todo más oscuro y frío, como en sombra (se multiplica por esto)
-const SHADE = [0.4, 0.43, 0.56];
+const SHADE = [0.62, 0.66, 0.78];
 const WAVE = 18; // m/s a los que se retira la sombra al comprarla
 // Lo limpio de la parcela de la casa en un nivel (nada en el 0)
 const houseClear = (level) => {
@@ -138,6 +139,7 @@ export class Farm {
             else this.buildPlants(v);
         }
         this.buildFences();
+        this.groves = buildScenery(this);
         this.buildTrees();
         this.pickHints();
         this.buildWild();
@@ -326,7 +328,7 @@ export class Farm {
     // matorral, chatarra y piedras; se apartan cuando el recinto o el campo crecen encima
     buildWild() {
         const trees = [], bush = [], pieces = [], rocks = [];
-        const zones = [{ Z: this.zone, k: 1 }, { Z: this.houseZone, k: 0.8 }, { Z: this.villageZone, k: 1.6, forest: true }, ...this.views.map((v) => ({ Z: v.zone, k: 0.55 })), ...FARM.lands.map((l) => ({ Z: rectOf(l.rect), k: 1 }))];
+        const zones = [{ Z: this.zone, k: 1 }, { Z: this.houseZone, k: 0.8 }, { Z: this.villageZone, k: 1.6, forest: true }, ...this.views.map((v) => ({ Z: v.zone, k: 0.55 })), ...FARM.lands.map((l) => ({ Z: rectOf(l.rect), k: l.soon ? 0.3 : 0.5 }))];
         for (const { Z, k, forest } of zones) {
             const free = (x, z, m) => inRect(Z, x, z) && !this.hintSpots.some(([hx, hz]) => Math.hypot(hx - x, hz - z) < m + 0.8) && !inRect(this.yard, x, z, m) && !inRect(this.houseYard, x, z, m) && !inRect(this.villageYard, x, z, m) && !this.views.some((v) => inRect(v.rect, x, z, m))
                 && !FARM.paths.some(([x0, z0, x1, z1]) => x > x0 - m && x < x1 + m && z > z0 - m && z < z1 + m)
@@ -751,16 +753,17 @@ export class Farm {
     buildTrees() {
         const spots = [], B = FARM.bounds;
         const onPath = (x, z) => FARM.paths.some(([x0, z0, x1, z1]) => x > x0 - 2.5 && x < x1 + 2.5 && z > z0 - 2.5 && z < z1 + 2.5);
-        for (let k = 0, tries = 0; k < 420 && tries < 5000; tries++) {
-            const x = B.x0 - 26 + Math.random() * (B.x1 - B.x0 + 52), z = B.z0 - 26 + Math.random() * (B.z1 - B.z0 + 52);
+        // Junto a la valla, un borde de árboles (menos que antes: el resto va en arboledas)
+        for (let k = 0, tries = 0; k < 130 && tries < 5000; tries++) {
+            const x = B.x0 - 16 + Math.random() * (B.x1 - B.x0 + 32), z = B.z0 - 16 + Math.random() * (B.z1 - B.z0 + 32);
             const out = Math.max(B.x0 - x, x - B.x1, B.z0 - z, z - B.z1); // distancia por fuera de la valla
-            if (out < 1.6 || onPath(x, z)) continue;
+            if (out < 1.6 || onPath(x, z) || blocked(x, z)) continue;
             // Más tupido cerca de la valla
-            if (Math.random() > 1.15 - out / 30) continue;
+            if (Math.random() > 1.1 - out / 14) continue;
             spots.push([x, z]);
             k++;
         }
-        spots.push([1.6, 28.6]);
+        spots.push([1.6, 28.6], ...this.groves);
         const { trunks, leaves } = treeParts(spots);
         this.addHulled(0x7a4f2a, trunks, 0.4);
         const lm = this.addHulled(0xffffff, leaves, 0.45);
@@ -887,6 +890,7 @@ export class Farm {
             m.update(dt, time);
         });
         this.plot.update(dt, time);
+        updateScenery(this, dt);
         this.camp.update(dt, time, this.nightK || 0);
         for (const post of Object.values(this.landPosts)) post.update(dt, time);
         this.updateLandWaves(dt);
