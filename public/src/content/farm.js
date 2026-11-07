@@ -1,5 +1,5 @@
 import { L } from '../core/I18n.js';
-import { REGIONS, regionAt, toUV, toXZ, VW, VH } from '../world/valley.js';
+import { REGIONS, G, GN, cellX, cellZ, regionAt, toUV, toXZ, VW, VH } from '../world/valley.js';
 
 // Plano de la granja (en casillas). Cada edificio se puede tocar para ver su ficha.
 //   kind      modelo que se construye (render/structures.js)
@@ -58,12 +58,12 @@ export const FARM = {
     // casita arreglada y limpio alrededor; 2: gran parte de la parcela; 3: toda (clear).
     //   cost   lo que cuesta llegar a ese nivel
     house: {
-        zone: [1, -29, 29, -1],
+        zone: [0, -30, 30, 0], // (toda la parcela: en el mapa llena su zona)
         levels: [
             { clear: null },
             { clear: [10, -20, 21, -10], cost: { wheat: 8 } },
             { clear: [4, -26, 26, -4], cost: { wheat: 20 } },
-            { clear: [1, -29, 29, -1], cost: { wheat: 35, tomato: 10 } },
+            { clear: [0, -30, 30, 0], cost: { wheat: 35, tomato: 10 } },
         ],
     },
     structures: [
@@ -135,7 +135,7 @@ export const FARM = {
                 { w: 10, d: 9, sheaves: 10, arena: 1.25, sign: 0xb07a44 },
                 { w: 15, d: 14, sheaves: 15, arena: 1.55, sign: 0x5a9e32 },
                 { w: 20, d: 19, sheaves: 22, arena: 1.9, sign: 0x3a7ec8 },
-                { w: 26, d: 26, sheaves: 32, arena: 2.4, sign: 0xc8402e },
+                { w: 28, d: 28, sheaves: 32, arena: 2.4, sign: 0xc8402e },
             ],
         },
         {
@@ -151,7 +151,7 @@ export const FARM = {
                 { w: 10, d: 9, sheaves: 30, arena: 1.25, sign: 0xb07a44 },
                 { w: 15, d: 14, sheaves: 52, arena: 1.55, sign: 0x5a9e32 },
                 { w: 20, d: 19, sheaves: 84, arena: 1.9, sign: 0x3a7ec8 },
-                { w: 26, d: 26, sheaves: 140, arena: 2.4, sign: 0xc8402e },
+                { w: 28, d: 28, sheaves: 140, arena: 2.4, sign: 0xc8402e },
             ],
         },
         {
@@ -168,7 +168,7 @@ export const FARM = {
                 { w: 10, d: 9, sheaves: 6, arena: 1.25, sign: 0xb07a44 },
                 { w: 15, d: 14, sheaves: 9, arena: 1.55, sign: 0x5a9e32 },
                 { w: 20, d: 19, sheaves: 13, arena: 1.9, sign: 0x3a7ec8 },
-                { w: 26, d: 26, sheaves: 18, arena: 2.4, sign: 0xc8402e },
+                { w: 28, d: 28, sheaves: 18, arena: 2.4, sign: 0xc8402e },
             ],
         },
     ],
@@ -227,9 +227,10 @@ for (const v of GRID) {
 
 // ---------- Composición del mapa ----------
 // Cada parcela de 30×30 casillas guarda su lógica en sus coordenadas de siempre (from: su esquina
-// en la cuadrícula de antes), pero se ve en su zona del valle (world/valley.js): se coloca donde
-// mejor cabe dentro de ella (at: su esquina en el mundo), a la altura de la zona (h). Su forma es
-// la de la zona: lo que cae fuera, no es de la parcela; lo que la zona tiene de más, es su margen.
+// en la cuadrícula de antes), pero en el mapa rellena su zona entera del valle (world/valley.js):
+// su centro va al punto más hondo de la zona y desde ahí se estira (o se encoge) en cada dirección
+// hasta el borde de la zona. Lo de cerca del centro (el granero, la casa, el cruce) queda tal cual;
+// lo de fuera se reparte hasta el borde. En el campo de tiro todo sigue siendo cuadrado.
 //   gates  por dónde salen sus caminos (en sus coordenadas de siempre, en su borde)
 export const PLACES = [
     { id: 'farm', from: [0, 0], gates: [[15, 30], [0, 15.5], [30, 15.5], [15, 0]] },
@@ -245,61 +246,107 @@ export const PLACES = [
     { id: 'west2', from: [60, 0], gates: [] },
     { id: 'east2', from: [60, 30], gates: [] },
 ];
-// Dónde cabe mejor cada parcela en su zona: prueba esquinas (pares, como las celdas del valle) y
-// se queda con la que más casillas suyas deja dentro (las del centro cuentan doble; el agua, en contra)
-for (const P of PLACES) {
-    P.ri = REGIONS.findIndex((r) => r.place === P.id);
-    P.rot = 0;
-    const R = REGIONS[P.ri], [sx, sz] = toXZ(...R.seeds[0]);
-    let best = null;
-    for (let az = Math.round(sz / 2) * 2 - 44; az <= sz + 14; az += 2) for (let ax = Math.round(sx / 2) * 2 - 44; ax <= sx + 14; ax += 2) {
-        let score = 0;
-        for (let lz = 1; lz < 30; lz += 2) for (let lx = 1; lx < 30; lx += 2) {
-            const r = regionAt(ax + lx, az + lz);
-            score += r === P.ri ? (Math.abs(lx - 15) < 11 && Math.abs(lz - 15) < 11 ? 2 : 1) : r === -2 ? -4 : 0;
-        }
-        score -= Math.hypot(ax + 15 - sx, az + 15 - sz) * 0.01;
-        if (!best || score > best.score) best = { score, ax, az };
+const NA = 96; // direcciones en las que se mide la zona desde su centro
+{
+    // Lo lejos que está cada celda del borde de su zona (para buscar el centro de cada una)
+    const N = GN * GN, depth = new Int16Array(N).fill(-1), q = [];
+    for (let k = 0; k < N; k++) {
+        if (G.reg[k] < 0 || G.water[k]) continue;
+        const i = k % GN, nb = [i > 0 ? k - 1 : -1, i < GN - 1 ? k + 1 : -1, k - GN, k + GN];
+        if (nb.some((j) => j < 0 || j >= N || G.reg[j] !== G.reg[k] || G.water[j])) { depth[k] = 0; q.push(k); }
     }
-    P.at = [best.ax, best.az];
-    P.h = R.h;
+    for (let qi = 0; qi < q.length; qi++) {
+        const k = q[qi], i = k % GN;
+        for (const j of [i > 0 ? k - 1 : -1, i < GN - 1 ? k + 1 : -1, k - GN, k + GN]) {
+            if (j < 0 || j >= N || depth[j] >= 0 || G.reg[j] !== G.reg[k] || G.water[j]) continue;
+            depth[j] = depth[k] + 1;
+            q.push(j);
+        }
+    }
+    for (const P of PLACES) {
+        P.ri = REGIONS.findIndex((r) => r.place === P.id);
+        P.rot = 0;
+        const R = REGIONS[P.ri], [sx, sz] = toXZ(...R.seeds[0]);
+        // El centro: la celda más honda (y, entre las igual de hondas, la más cerca de su semilla)
+        let best = -1, bs = -Infinity;
+        for (let k = 0; k < N; k++) {
+            if (G.reg[k] !== P.ri || G.water[k]) continue;
+            const sc = depth[k] - Math.hypot(cellX(k) - sx, cellZ(k) - sz) * 0.02;
+            if (sc > bs) { bs = sc; best = k; }
+        }
+        P.c = [cellX(best), cellZ(best)];
+        P.at = [P.c[0] - 15, P.c[1] - 15];
+        P.h = R.h;
+        // Hasta dónde llega la zona en cada dirección (sin pasarse: el mínimo con las de al lado)
+        const raw = [];
+        for (let a = 0; a < NA; a++) {
+            const ang = (a / NA) * Math.PI * 2, dx = Math.cos(ang), dz = Math.sin(ang);
+            let t = 0;
+            while (t < 90 && regionAt(P.c[0] + dx * t, P.c[1] + dz * t) === P.ri) t += 0.5;
+            raw.push(Math.max(2, t - 0.6));
+        }
+        P.reach = raw.map((_, a) => Math.min(...[-1, 0, 1].map((d) => raw[(a + d + NA) % NA])));
+        // Lo de dentro de este radio queda sin estirar (el granero, la casa, el cruce de caminos)
+        P.core = Math.min(6, Math.min(...P.reach) * 0.6);
+    }
+}
+// Cuánto llega la zona de P en la dirección ang (interpolado entre las medidas)
+function reachAt(P, ang) {
+    const f = ((ang / (Math.PI * 2)) * NA + NA) % NA, i = Math.floor(f), k = f - i;
+    return P.reach[i] * (1 - k) + P.reach[(i + 1) % NA] * k;
+}
+// Del cuadrado a la zona: un desplazamiento (dx, dz) desde el centro del cuadrado, en el mundo
+function stretch(P, dx, dz, inverse = false) {
+    const d = Math.hypot(dx, dz);
+    if (d <= P.core) return [dx, dz];
+    const ang = Math.atan2(dz, dx), sq = 15 / Math.max(Math.abs(Math.cos(ang)), Math.abs(Math.sin(ang))), r = reachAt(P, ang);
+    const d2 = inverse ? P.core + ((d - P.core) * (sq - P.core)) / (r - P.core) : P.core + ((d - P.core) * (r - P.core)) / (sq - P.core);
+    return [(dx / d) * d2, (dz / d) * d2];
 }
 const placeOf = (x, z) => PLACES.find(({ from: [x0, z0] }) => x >= x0 && x < x0 + 30 && z >= z0 && z < z0 + 30);
-// Un punto de la parcela P (en sus coordenadas de siempre), en el mundo: girado sobre su centro
-// (como el grupo de la parcela: rotation.y = rot·90°) y llevado a su sitio y su altura
+// Un punto de la parcela P (en sus coordenadas de siempre), en el mundo: estirado hasta su zona
 export function placeToWorld(P, x, z, y = 0) {
-    const a = (P.rot || 0) * (Math.PI / 2), c = Math.round(Math.cos(a)), s = Math.round(Math.sin(a));
-    const dx = x - P.from[0] - 15, dz = z - P.from[1] - 15;
-    return { x: P.at[0] + 15 + dx * c + dz * s, y: y + P.h, z: P.at[1] + 15 - dx * s + dz * c, place: P };
+    const [dx, dz] = stretch(P, x - P.from[0] - 15, z - P.from[1] - 15);
+    return { x: P.c[0] + dx, y: y + P.h, z: P.c[1] + dz, place: P };
 }
 // Y al revés: un punto del mundo, en las coordenadas de siempre de la parcela P
 export function worldToPlace(P, x, z) {
-    const a = (P.rot || 0) * (Math.PI / 2), c = Math.round(Math.cos(a)), s = Math.round(Math.sin(a));
-    const dx = x - P.at[0] - 15, dz = z - P.at[1] - 15;
-    return { x: P.from[0] + 15 + dx * c - dz * s, z: P.from[1] + 15 + dx * s + dz * c };
+    const [dx, dz] = stretch(P, x - P.c[0], z - P.c[1], true);
+    return { x: P.from[0] + 15 + dx, z: P.from[1] + 15 + dz };
+}
+// Lo que se cuelga del grupo de una parcela (que solo la lleva a su sitio, sin estirar): dónde
+// tiene que ir dentro del grupo un punto de sus coordenadas de siempre para caer donde toca
+export function stretchLocal(x, z) {
+    const P = placeOf(x, z);
+    if (!P) return { x, z };
+    const [dx, dz] = stretch(P, x - P.from[0] - 15, z - P.from[1] - 15);
+    return { x: P.from[0] + 15 + dx, z: P.from[1] + 15 + dz };
 }
 // De las coordenadas de siempre (de una parcela) al mundo (fuera de las parcelas, tal cual)
 export function toWorld(x, z, y = 0) {
     const P = placeOf(x, z);
     return P ? placeToWorld(P, x, z, y) : { x, y, z, place: null };
 }
+// La parcela que cubre un punto del mundo: la de su zona (los rincones a los que no llega su
+// cuadrado estirado toman lo de su borde más cercano)
+export function floorPlace(x, z) {
+    const ri = regionAt(x, z);
+    return ri < 0 ? null : PLACES.find((p) => p.ri === ri) || null;
+}
 // Una puerta de una parcela, en el mundo, y hacia dónde sale (ox, oz)
 export function gateWorld(id, i) {
     const P = PLACES.find((p) => p.id === id), [gx, gz] = P.gates[i];
     const lx = gx - P.from[0], lz = gz - P.from[1];
     const ox = lx <= 0 ? -1 : lx >= 30 ? 1 : 0, oz = lz <= 0 ? -1 : lz >= 30 ? 1 : 0;
-    const w = placeToWorld(P, gx, gz), o = placeToWorld(P, gx + ox, gz + oz);
-    return { x: w.x, z: w.z, y: P.h, ox: Math.round(o.x - w.x), oz: Math.round(o.z - w.z) };
+    const w = placeToWorld(P, gx - ox * 0.01, gz - oz * 0.01);
+    return { x: w.x, z: w.z, y: P.h, ox, oz };
 }
-// ¿Este punto (en las coordenadas de siempre) es de su parcela? (dentro de su zona del valle)
-export function inShapeOf(x, z) {
-    const P = placeOf(x, z);
-    if (!P) return true;
-    const w = placeToWorld(P, x, z);
-    return regionAt(w.x, w.z) === P.ri;
+// ¿Este punto (en las coordenadas de siempre) es de su parcela? (ahora la parcela entera cae en su zona)
+export function inShapeOf() {
+    return true;
 }
 // El poste de cada parcela en venta: a un lado de su centro (fuera de su campo al máximo, que
-// ocupa del 2 al 28), del lado que mira a la granja y siempre dentro de su zona
+// ocupa del 1 al 29), del lado que mira a la granja
 {
     const F = PLACES[0], fx = F.at[0] + 15, fz = F.at[1] + 15;
     for (const l of FARM.lands) {
@@ -307,10 +354,7 @@ export function inShapeOf(x, z) {
         const dx = fx - cx, dz = fz - cz;
         const sides = [[Math.sign(dx) || 1, 0], [0, Math.sign(dz) || 1], [-(Math.sign(dx) || 1), 0], [0, -(Math.sign(dz) || 1)]];
         if (Math.abs(dz) > Math.abs(dx)) [sides[0], sides[1]] = [sides[1], sides[0]];
-        let post = null;
-        for (const [ox, oz] of sides) for (const t of [13.6, 12, 9, 6]) {
-            if (!post && inShapeOf(P.from[0] + 15 + ox * t, P.from[1] + 15 + oz * t)) post = { x: P.from[0] + 15 + ox * t, z: P.from[1] + 15 + oz * t };
-        }
+        const [ox, oz] = sides[0], post = { x: P.from[0] + 15 + ox * 14.4, z: P.from[1] + 15 + oz * 14.4 };
         l.post = post || { x: P.from[0] + 15, z: P.from[1] + 15 };
     }
 }

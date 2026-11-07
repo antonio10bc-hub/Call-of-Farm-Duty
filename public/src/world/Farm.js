@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { box, toon, outline, OUTLINE } from '../render/materials.js';
-import { buildScenery, updateScenery } from './Scenery.js';
+import { buildScenery, updateScenery, onPathWorld } from './Scenery.js';
+import { G, GN, cellX, cellZ } from './valley.js';
 import { easeOutBack } from '../core/math.js';
 import { STRUCTURES, Turret, Sandbags, LandPost } from '../render/structures.js';
 import { Plot } from '../render/props.js';
@@ -9,7 +10,7 @@ import { MERCHANT } from '../content/merchant.js';
 import { junkyard, barrelParts, JUNK } from '../render/junk.js';
 import { CROPS } from '../content/crops.js';
 import { buildCow, animateCow } from '../render/cow.js';
-import { FARM, TURRETS, PLACES, toWorld, worldToPlace, inShapeOf, inFieldShape } from '../content/farm.js';
+import { FARM, TURRETS, PLACES, toWorld, worldToPlace, inShapeOf, inFieldShape, stretchLocal, floorPlace } from '../content/farm.js';
 
 const _d = new THREE.Object3D();
 const _c = new THREE.Color();
@@ -140,17 +141,7 @@ export class Farm {
         far.position.set(this.cx, -0.31, this.cz);
         root.add(far);
 
-        // Casillas: hierba, caminos, tierra arada en surcos y tierra sucia de los terrenos
-        // abandonados. Las de las parcelas y las de los caminos que salen de ellas
-        const tiles = [], B = FARM.bounds;
-        const xMax = Math.max(B.x1, ...FARM.paths.map((p) => p[2])), zMax = Math.max(B.z1, ...FARM.paths.map((p) => p[3]));
-        for (let r = B.z0; r < zMax; r++) for (let c = B.x0; c < xMax; c++) {
-            const k = this.kindAt(c, r);
-            if ((inParcel(c, r) && inShapeOf(c + 0.5, r + 0.5)) || (k && k.path)) tiles.push({ c, r, k });
-        }
-        const floor = new THREE.InstancedMesh(box(1, 0.3, 1), toon(0xffffff), tiles.length);
-        tiles.forEach((t, i) => this.paintTile(floor, t, i));
-        this.floor = { tiles, entry: this.addAnimated(floor, tiles.map(({ c, r, k }) => ({ x: c + 0.5, y: this.tileY(k), z: r + 0.5 }))) };
+        this.buildFloor();
 
         for (const v of this.views) {
             if (v.locked) this.buildJunk(v);
@@ -167,7 +158,8 @@ export class Farm {
         // Edificios
         this.structures = FARM.structures.map((s) => {
             const model = new STRUCTURES[s.kind](theme.outline);
-            model.root.position.set(s.x, 0, s.z);
+            const at = stretchLocal(s.x, s.z);
+            model.root.position.set(at.x, 0, at.z);
             model.root.rotation.y = (s.ry || 0) * (Math.PI / 2);
             model.def = s;
             model.base = { y: 0 };
@@ -188,7 +180,8 @@ export class Farm {
         // Parcelas en venta: su poste de SE VENDE (o tu bandera) y su sombra
         this.landPosts = Object.fromEntries(FARM.lands.map((l) => {
             const post = new LandPost(theme.outline, !!l.soon);
-            post.root.position.set(l.post.x, 0, l.post.z);
+            const at = stretchLocal(l.post.x, l.post.z);
+            post.root.position.set(at.x, 0, at.z);
             // (de cara hacia fuera de su parcela)
             post.root.rotation.y = Math.atan2(l.post.x - (l.rect[0] + l.rect[2]) / 2, l.post.z - (l.rect[1] + l.rect[3]) / 2);
             post.setOwned(this.landOwned[l.id], false);
@@ -198,12 +191,48 @@ export class Farm {
         this.initShade();
     }
 
+    // Casillas: hierba, caminos, tierra arada en surcos y tierra sucia de los terrenos abandonados.
+    // Cada casilla de la zona de una parcela (en el mundo), con lo que le toca de su cuadrado
+    // estirado (c, r: la casilla de sus coordenadas de siempre). Donde las cuatro casillas de una
+    // celda de 2×2 son lo mismo (y no campo ni camino), una sola pieza: menos cubos. Se rehace
+    // entera cuando algo cambia (un campo crece, se limpia la casa...)
+    buildFloor() {
+        const old = this.floor, tiles = [];
+        for (let k = 0; k < GN * GN; k++) {
+            if (!G.inside[k] || G.water[k] || G.reg[k] < 0) continue;
+            const P = floorPlace(cellX(k), cellZ(k));
+            if (!P) continue;
+            const sub = [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]].map(([a, b]) => {
+                const wx = cellX(k) + a, wz = cellZ(k) + b, l = worldToPlace(P, wx, wz);
+                const c = Math.min(P.from[0] + 29, Math.max(P.from[0], Math.floor(l.x))), r = Math.min(P.from[1] + 29, Math.max(P.from[1], Math.floor(l.z)));
+                return { c, r, k: this.kindAt(c, r), wx, wz, h: P.h, s: 1 };
+            });
+            const key = kindKey(sub[0].k);
+            if (key !== 'field' && key !== 'path' && sub.every((t) => kindKey(t.k) === key)) tiles.push({ ...sub[0], wx: cellX(k), wz: cellZ(k), s: 2, subs: sub.map((t) => [t.c, t.r]) });
+            else tiles.push(...sub);
+        }
+        for (const t of tiles) {
+            const l = landAt(t.c + 0.5, t.r + 0.5);
+            t.land = l ? l.id : null;
+        }
+        this.floor = { tiles };
+        const floor = new THREE.InstancedMesh(box(1, 0.3, 1), toon(0xffffff), tiles.length);
+        tiles.forEach((t, i) => this.paintTile(floor, t, i));
+        this.floor.entry = this.addAnimated(floor, tiles.map((t) => ({ x: t.wx, y: t.h + this.tileY(t.k), z: t.wz, sx: t.s, sz: t.s, world: true })));
+        if (old) {
+            this.animated = this.animated.filter((e) => e !== old.entry);
+            old.entry.mesh.removeFromParent();
+            old.entry.mesh.dispose();
+            this.layout(this.floor.entry, this.introT);
+        }
+    }
+
     tileY(k) {
         return k && k.field ? -0.12 : k && k.path ? -0.17 : -0.15;
     }
 
-    paintTile(mesh, { c, r, k }, i) {
-        const { theme } = this;
+    paintTile(mesh, { wx, wz, k }, i) {
+        const { theme } = this, c = Math.floor(wx), r = Math.floor(wz); // (las vetas, por las casillas del mundo)
         const col = k && k.field
             ? (k.locked ? JUNK.ground[mod(c * 7 + r * 5 + mod(c * r, 3), JUNK.ground.length)]
                 : CROPS[this.fields[k.field].crop].pasture ? PASTURE[mod(c * 3 + r * 5, 3)] : theme.soil[r & 1]) // (el prado, de hierba)
@@ -214,7 +243,7 @@ export class Farm {
         // (su color de verdad se guarda: si es de una parcela sin comprar, se ve en sombra)
         const t = this.floor ? this.floor.tiles[i] : null;
         if (t) t.col = [_c.r, _c.g, _c.b];
-        mesh.setColorAt(i, t ? this.shadeColor(t.col, t.land, c + 0.5, r + 0.5) : _c);
+        mesh.setColorAt(i, t ? this.shadeColor(t.col, t.land, t.c + 0.5, t.r + 0.5) : _c);
     }
 
     // ---------- Parcelas en venta: en sombra hasta comprarlas ----------
@@ -235,13 +264,7 @@ export class Farm {
     // Lo que se oscurece: el suelo y lo abandonado (árboles, matorral, chatarra, piedras y el
     // montón del barril) que cae en una parcela en venta. Se guarda su color de verdad
     initShade() {
-        this.floor.tiles.forEach((t, i) => {
-            const l = landAt(t.c + 0.5, t.r + 0.5);
-            t.land = l ? l.id : null;
-            const a = this.floor.entry.mesh.instanceColor.array;
-            t.col = [a[i * 3], a[i * 3 + 1], a[i * 3 + 2]];
-        });
-        this.shaded = [];
+        this.shaded = []; // (el suelo ya guarda su color y su parcela al hacerse: buildFloor)
         for (const e of [...this.wild, ...this.views.flatMap((v) => v.junk || [])]) {
             if (e.hull) continue;
             const lands = e.positions.map((p) => (landAt(p.x, p.z) || {}).id || null);
@@ -259,11 +282,6 @@ export class Farm {
             if (t.land) floor.setColorAt(i, this.shadeColor(t.col, t.land, t.c + 0.5, t.r + 0.5));
         });
         floor.instanceColor.needsUpdate = true;
-        // El margen de su zona (fuera del cuadrado de la parcela), igual
-        if (this.margin) {
-            for (const m of this.margin.cells) this.margin.mesh.setColorAt(m.i, this.shadeColor(!m.field || this.fields[m.field].locked ? m.wild : m.col, m.land, m.lx, m.lz));
-            this.margin.mesh.instanceColor.needsUpdate = true;
-        }
         for (const { e, lands, base } of this.shaded) {
             e.positions.forEach((p, i) => {
                 if (!lands[i]) return;
@@ -303,20 +321,13 @@ export class Farm {
     // Vuelve a pintar las casillas que han cambiado (un campo crece o se limpia) y aparta la
     // decoración que queda debajo de los campos
     refreshGround() {
-        const { tiles, entry } = this.floor;
-        tiles.forEach((t, i) => {
-            const k = this.kindAt(t.c, t.r);
-            if (kindKey(k) === kindKey(t.k)) return;
-            t.k = k;
-            entry.positions[i].y = this.tileY(k);
-            this.paintTile(entry.mesh, t, i);
-        });
-        entry.mesh.instanceColor.needsUpdate = true;
+        const changed = this.floor.tiles.some((t) => (t.subs || [[t.c, t.r]]).some(([c, r]) => kindKey(this.kindAt(c, r)) !== kindKey(t.k)));
+        if (changed) this.buildFloor();
+        const { entry } = this.floor;
         for (const e of this.decor) e.positions.forEach((p) => (p.hide = p.hide || this.views.some((v) => inRect(v.rect, p.x, p.z, 0.4))));
         for (const e of this.wild) e.positions.forEach((p) => (p.hide = p.hide || this.cleared(p.x, p.z)));
         for (const e of this.hints || []) e.positions.forEach((p) => (p.hide = p.hide || !this.fields[p.field].locked));
         for (const e of [entry, ...this.decor, ...this.wild, ...(this.hints || [])]) this.layout(e, this.introT);
-        if (this.margin) this.applyShade(); // (el margen de una parcela recién limpiada, de hierba)
     }
 
     // El granero sube de nivel: el recinto crece (lo abandonado de dentro se aparta y la tierra
@@ -355,7 +366,7 @@ export class Farm {
         const taken = []; // [x, z, radio]: árboles, matas y piedras sin meterse unos en otros
         const zones = [{ Z: this.zone, k: 1 }, { Z: this.houseZone, k: 0.8 }, { Z: this.villageZone, k: 1.6, forest: true }, ...this.views.map((v) => ({ Z: v.zone, k: 0.55 })), ...FARM.lands.map((l) => ({ Z: rectOf(l.rect), k: l.soon ? 0.3 : 0.5 }))];
         for (const { Z, k, forest } of zones) {
-            const free = (x, z, m) => inRect(Z, x, z) && inShapeOf(x, z) && !taken.some(([a, b, r]) => Math.hypot(a - x, b - z) < r + m) && !this.hintSpots.some(([hx, hz]) => Math.hypot(hx - x, hz - z) < m + 0.8) && !inRect(this.yard, x, z, m) && !inRect(this.houseYard, x, z, m) && !inRect(this.villageYard, x, z, m) && !this.views.some((v) => inRect(v.rect, x, z, m))
+            const free = (x, z, m) => inRect(Z, x, z) && !onPathWorld(toWorld(x, z), m) && !taken.some(([a, b, r]) => Math.hypot(a - x, b - z) < r + m) && !this.hintSpots.some(([hx, hz]) => Math.hypot(hx - x, hz - z) < m + 0.8) && !inRect(this.yard, x, z, m) && !inRect(this.houseYard, x, z, m) && !inRect(this.villageYard, x, z, m) && !this.views.some((v) => inRect(v.rect, x, z, m))
                 && !FARM.paths.some(([x0, z0, x1, z1]) => x > x0 - m && x < x1 + m && z > z0 - m && z < z1 + m)
                 && !FARM.structures.some((st) => Math.abs(x - st.x) < st.w / 2 + m && Math.abs(z - st.z) < st.d / 2 + m)
                 && !FARM.lands.some((l) => Math.hypot(x - l.post.x, z - l.post.z) < m + 1.2); // (ni sobre su poste)
@@ -483,30 +494,40 @@ export class Farm {
     //   Maíz: dos por casilla, altas, con su hoja y la mazorca.
     buildPlants(v, old = null, fromCenter = false) {
         if (CROPS[v.crop].pasture) return this.buildHerd(v);
-        const f = v.rect, wheat = v.crop === 'wheat', n = { wheat: PER_TILE, corn: 2 }[v.crop] || 1;
+        const f = v.rect, wheat = v.crop === 'wheat', n0 = { wheat: PER_TILE, corn: 2 }[v.crop] || 1;
         const prev = new Map(v.plants.map((s) => [s.key, s]));
         v.plants = [];
-        for (let a = 0; a < f.w * n; a++) for (let b = 0; b < f.d * n; b++) {
-            const key = `${f.x * n + a},${f.z * n + b}`;
-            const x = f.x + (a + 0.5) / n, z = f.z + (b + 0.5) / n;
-            if (!this.inField(v, Math.floor(x) + 0.5, Math.floor(z) + 0.5) || !inShapeOf(x, z)) continue; // (su forma)
-            const keep = prev.get(key);
-            if (keep) {
-                v.plants.push(keep);
-                continue;
+        for (let tx = f.x; tx < f.x + f.w; tx++) for (let tz = f.z; tz < f.z + f.d; tz++) {
+            if (!this.inField(v, tx + 0.5, tz + 0.5)) continue; // (su forma)
+            // Donde la parcela se estira para llenar su zona, más plantas por casilla (las mismas por
+            // casilla del mundo)
+            const a0 = stretchLocal(tx, tz), a1 = stretchLocal(tx + 1, tz), a2 = stretchLocal(tx, tz + 1);
+            const k = Math.sqrt(Math.abs((a1.x - a0.x) * (a2.z - a0.z) - (a1.z - a0.z) * (a2.x - a0.x)));
+            const n = Math.max(1, Math.min(n0 + 3, Math.round(n0 * k)));
+            for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) {
+                const key = `${tx},${tz},${a},${b},${n}`;
+                const x = tx + (a + 0.5) / n, z = tz + (b + 0.5) / n;
+                const keep = prev.get(key);
+                if (keep) {
+                    v.plants.push(keep);
+                    continue;
+                }
+                const j = wheat ? 0.12 : n > 1 ? 0.15 : 0.2;
+                const w = stretchLocal(x, z);
+                v.plants.push({
+                    key,
+                    wx: w.x,
+                    wz: w.z,
+                    t0: this.sproutTime(v, x, z, old, fromCenter),
+                    x: x + (Math.random() - 0.5) * j,
+                    z: z + (Math.random() - 0.5) * j,
+                    h: wheat ? 0.75 + Math.random() * 0.3 : 0.85 + Math.random() * 0.25,
+                    ph: Math.random() * 6,
+                    tilt: (Math.random() - 0.5) * 0.12,
+                    ry: Math.random() * Math.PI,
+                    tone: Math.random(),
+                });
             }
-            const j = wheat ? 0.12 : n > 1 ? 0.15 : 0.2;
-            v.plants.push({
-                key,
-                t0: this.sproutTime(v, x, z, old, fromCenter),
-                x: x + (Math.random() - 0.5) * j,
-                z: z + (Math.random() - 0.5) * j,
-                h: wheat ? 0.75 + Math.random() * 0.3 : 0.85 + Math.random() * 0.25,
-                ph: Math.random() * 6,
-                tilt: (Math.random() - 0.5) * 0.12,
-                ry: Math.random() * Math.PI,
-                tone: Math.random(),
-            });
         }
         for (const m of v.meshes) {
             if (m.parent) m.parent.remove(m);
@@ -586,8 +607,8 @@ export class Farm {
         if (v.turret) return;
         const f = v.rect, m = 0.5, S = 1.35;
         v.bases = [[f.x + m, f.z + m], [f.x + f.w - m, f.z + m], [f.x + f.w - m, f.z + f.d - m], [f.x + m, f.z + f.d - m]].map(([x, z]) => {
-            const b = new Sandbags(this.theme.outline);
-            b.root.position.set(x, 0, z);
+            const b = new Sandbags(this.theme.outline), at = stretchLocal(x, z);
+            b.root.position.set(at.x, 0, at.z);
             b.root.scale.setScalar(S);
             this.groupAt(f.cx, f.cz).add(b.root);
             if (pop) b.select();
@@ -702,7 +723,8 @@ export class Farm {
         if (!t.tgt && (t.cool = (t.cool || 0) - dt) <= 0) {
             const s = v.plants[(Math.random() * v.plants.length) | 0];
             t.tgt = { x: s.x, z: s.z };
-            t.aimAt(s.x, s.z, 1.3);
+            const w = stretchLocal(s.x, s.z);
+            t.aimAt(w.x, w.z, 1.3);
             t.shots = TURRETS.burst;
             t.next = 0;
             t.wait = 0.8;
@@ -977,7 +999,7 @@ export class Farm {
             const h = s.h * this.grow(s, p);
             // El viento: una ola que recorre el campo
             const sway = s.tilt + Math.sin(time * 1.6 - s.x * 0.5 - s.z * 0.3 + s.ph * 0.3) * (ready ? 0.12 : 0.06);
-            _d.position.set(s.x - Math.sin(sway) * h / 2, Math.cos(sway) * h / 2, s.z);
+            _d.position.set(s.wx - Math.sin(sway) * h / 2, Math.cos(sway) * h / 2, s.wz);
             _d.rotation.set(0, 0, sway);
             _d.scale.set(0.05, Math.max(0.0001, h), 0.05);
             _d.updateMatrix();
@@ -986,7 +1008,7 @@ export class Farm {
             stalkMesh.setColorAt(i, _c.setHex(stages[st]).offsetHSL(0, 0, (s.tone - 0.5) * 0.08));
             // Espiga: aparece al final del crecimiento, en la punta
             const e = p < 0.7 ? 0.0001 : Math.min(1, (p - 0.7) / 0.3);
-            _d.position.set(s.x - Math.sin(sway) * (h + 0.1), Math.cos(sway) * (h + 0.1), s.z);
+            _d.position.set(s.wx - Math.sin(sway) * (h + 0.1), Math.cos(sway) * (h + 0.1), s.wz);
             _d.scale.set(0.1 * e, 0.24 * e, 0.1 * e);
             _d.updateMatrix();
             earMesh.setMatrixAt(i, _d.matrix);
@@ -1003,13 +1025,13 @@ export class Farm {
             const sway = Math.sin(time * 1.4 - s.x * 0.4 - s.z * 0.3 + s.ph) * 0.04;
             const leaves = [[0.55, 0.32, 0.25], [0.45, 0.28, 0.55], [0.3, 0.22, 0.82]];
             leaves.forEach(([w, lh, y], k) => {
-                _d.position.set(s.x + Math.sin(sway) * y * h, y * h, s.z);
+                _d.position.set(s.wx + Math.sin(sway) * y * h, y * h, s.wz);
                 _d.rotation.set(0, s.ry + k * 0.5, sway);
                 _d.scale.set(w * g, Math.max(0.0001, lh * g), w * g);
                 _d.updateMatrix();
                 leafMesh.setMatrixAt(i * 3 + k, _d.matrix);
             });
-            _d.position.set(s.x - 0.18, 0.6 * h, s.z - 0.18);
+            _d.position.set(s.wx - 0.18, 0.6 * h, s.wz - 0.18);
             _d.rotation.set(0, 0, 0);
             _d.scale.set(0.05, Math.max(0.0001, 1.2 * h), 0.05);
             _d.updateMatrix();
@@ -1019,7 +1041,7 @@ export class Farm {
             _c.setHex(T.unripe).lerp(_c2.setHex(s.tone < 0.5 ? T.fruit : T.fruitDark), ripe);
             for (let k = 0; k < 2; k++) {
                 const a = s.ry + k * Math.PI, y = (0.38 + k * 0.22) * h;
-                _d.position.set(s.x + Math.sin(a) * 0.24 + Math.sin(sway) * y, y, s.z + Math.cos(a) * 0.24);
+                _d.position.set(s.wx + Math.sin(a) * 0.24 + Math.sin(sway) * y, y, s.wz + Math.cos(a) * 0.24);
                 _d.rotation.set(0, a, 0);
                 _d.scale.setScalar(Math.max(0.0001, 0.26 * e));
                 _d.updateMatrix();
@@ -1068,7 +1090,8 @@ export class Farm {
                 }
             }
             const g = s.cow.g, intro = Math.min(1, Math.max(0, (this.clock - s.t0) / 0.4));
-            g.position.set(s.x, 0, s.z);
+            const w = stretchLocal(s.x, s.z);
+            g.position.set(w.x, 0, w.z);
             g.rotation.y = s.ry;
             g.scale.setScalar(intro <= 0 ? 0.0001 : 0.62 * easeOutBack(intro));
             animateCow(s.cow, dt, time, speed, Math.min(1, p));
@@ -1083,20 +1106,20 @@ export class Farm {
             const g = this.grow(s, p), sway = Math.sin(time * 1.2 - s.x * 0.4 + s.ph) * 0.05;
             for (let k = 0; k < 2; k++) {
                 const a = s.ry + k * 2.2;
-                _d.position.set(s.x + Math.sin(a) * 0.25 * g, 0.06 * g, s.z + Math.cos(a) * 0.25 * g);
+                _d.position.set(s.wx + Math.sin(a) * 0.25 * g, 0.06 * g, s.wz + Math.cos(a) * 0.25 * g);
                 _d.rotation.set(sway, a, 0);
                 _d.scale.set(0.45 * g, Math.max(0.0001, 0.06 * g), 0.4 * g);
                 _d.updateMatrix();
                 leafMesh.setMatrixAt(i * 2 + k, _d.matrix);
             }
             const e = p < 0.25 ? 0.0001 : Math.min(1, (p - 0.25) / 0.4) * (0.5 + 0.5 * ripe) * g;
-            _d.position.set(s.x, 0.22 * e, s.z);
+            _d.position.set(s.wx, 0.22 * e, s.wz);
             _d.rotation.set(0, s.ry, 0);
             _d.scale.set(0.62 * e, Math.max(0.0001, 0.44 * e), 0.62 * e);
             _d.updateMatrix();
             fruitMesh.setMatrixAt(i, _d.matrix);
             fruitMesh.setColorAt(i, _c.setHex(P.unripe).lerp(_c2.setHex(s.tone < 0.5 ? P.fruit : P.fruitDark), ripe));
-            _d.position.set(s.x, 0.46 * e + 0.04, s.z);
+            _d.position.set(s.wx, 0.46 * e + 0.04, s.wz);
             _d.scale.set(0.08 * e, Math.max(0.0001, 0.14 * e), 0.08 * e);
             _d.updateMatrix();
             stemMesh.setMatrixAt(i, _d.matrix);
@@ -1110,7 +1133,7 @@ export class Farm {
         v.plants.forEach((s, i) => {
             const h = s.h * 1.7 * this.grow(s, p);
             const sway = Math.sin(time * 1.3 - s.x * 0.4 - s.z * 0.2 + s.ph * 0.3) * 0.07;
-            _d.position.set(s.x - Math.sin(sway) * h / 2, Math.cos(sway) * h / 2, s.z);
+            _d.position.set(s.wx - Math.sin(sway) * h / 2, Math.cos(sway) * h / 2, s.wz);
             _d.rotation.set(0, 0, sway);
             _d.scale.set(0.08, Math.max(0.0001, h), 0.08);
             _d.updateMatrix();
@@ -1118,14 +1141,14 @@ export class Farm {
             stalkMesh.setColorAt(i, _c.setHex(C.stages[st]).offsetHSL(0, 0, (s.tone - 0.5) * 0.08));
             for (let k = 0; k < 2; k++) {
                 const a = s.ry + k * Math.PI, y = h * (0.4 + k * 0.25);
-                _d.position.set(s.x + Math.sin(a) * 0.14 - Math.sin(sway) * y, y, s.z + Math.cos(a) * 0.14);
+                _d.position.set(s.wx + Math.sin(a) * 0.14 - Math.sin(sway) * y, y, s.wz + Math.cos(a) * 0.14);
                 _d.rotation.set(0, a, 0.7 * (k ? -1 : 1));
                 _d.scale.set(0.05, Math.max(0.0001, 0.38 * h / 1.6), 0.12);
                 _d.updateMatrix();
                 leafMesh.setMatrixAt(i * 2 + k, _d.matrix);
             }
             const e = p < 0.6 ? 0.0001 : Math.min(1, (p - 0.6) / 0.4);
-            _d.position.set(s.x + Math.sin(s.ry) * 0.08 - Math.sin(sway) * h * 0.65, h * 0.65, s.z + Math.cos(s.ry) * 0.08);
+            _d.position.set(s.wx + Math.sin(s.ry) * 0.08 - Math.sin(sway) * h * 0.65, h * 0.65, s.wz + Math.cos(s.ry) * 0.08);
             _d.rotation.set(0, s.ry, 0.3);
             _d.scale.set(0.1 * e, Math.max(0.0001, 0.24 * e), 0.1 * e);
             _d.updateMatrix();

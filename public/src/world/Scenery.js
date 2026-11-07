@@ -1,32 +1,22 @@
 import * as THREE from 'three';
 import { box, toon } from '../render/materials.js';
-import { JUNK } from '../render/junk.js';
-import { FARM, PLACES, gateWorld, worldToPlace } from '../content/farm.js';
+import { PLACES, gateWorld, floorPlace } from '../content/farm.js';
 import { G, REGIONS, GN, CELL, cellIndex, cellX, cellZ, MOUNT, SLOPE, RIVER_PATHS, BRIDGES, toXZ, hash, regionAt, groundAt } from './valley.js';
 
 // Todo lo de fuera de las parcelas (en coordenadas del mundo, world: true), sacado del valle
 // (world/valley.js), celda a celda:
 //  - el suelo: cada celda, una columna (hierba arriba y, donde el vecino está más bajo, la tierra
-//    del escalón). Bajo el cuadrado de cada parcela no hay hierba (está su suelo), solo la tierra
+//    del escalón). En la zona de cada parcela no hay hierba (está su suelo), solo la tierra
 //  - la montaña por franjas: verde abajo, luego tierra, luego roca gris y nieve solo en la cumbre
-//  - el margen de cada parcela (lo que su zona tiene fuera de su cuadrado), a su altura; si es de
-//    una parcela sin comprar, en sombra como ella
 //  - caminos de tierra por las fronteras entre parcelas (del lado bajo) y desde las salidas de la
 //    granja y la casa; puentes sobre el río; farolas que se encienden de noche
 //  - el lago, la cascada que lo llena y el río que sale de él, con su arena en la orilla
 //  - setos donde una parcela da al agua o al monte, y bosque por las laderas y las zonas sin uso
 
 const N = GN * GN;
-const placeOfReg = (ri) => PLACES.find((P) => P.ri === ri);
-// ¿Esta celda queda bajo el suelo de su parcela? (de su zona y dentro de su cuadrado)
-function underFloor(k) {
-    const ri = G.reg[k];
-    if (ri < 0 || G.water[k]) return false;
-    const P = placeOfReg(ri), x = cellX(k), z = cellZ(k);
-    return !!P && x >= P.at[0] && x < P.at[0] + 30 && z >= P.at[1] && z < P.at[1] + 30;
-}
+// ¿Esta celda queda bajo el suelo de una parcela? (la parcela, estirada, llena su zona)
 const FLOOR = new Uint8Array(N);
-for (let k = 0; k < N; k++) FLOOR[k] = underFloor(k) ? 1 : 0;
+for (let k = 0; k < N; k++) FLOOR[k] = G.inside[k] && !G.water[k] && G.reg[k] >= 0 && floorPlace(cellX(k), cellZ(k)) ? 1 : 0;
 
 // Las franjas de la montaña: verde, tierra, roca y (solo en la cumbre) nieve
 function mountainBand(h, k) {
@@ -87,9 +77,12 @@ const addPath = (x, z) => {
     });
 })();
 const onPath = (x, z, m = 1) => {
-    for (let dz = -m; dz <= m; dz++) for (let dx = -m; dx <= m; dx++) if (pathTiles.has(`${Math.floor(x) + dx},${Math.floor(z) + dz}`)) return true;
+    const r = Math.ceil(m);
+    for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) if (pathTiles.has(`${Math.floor(x) + dx},${Math.floor(z) + dz}`)) return true;
     return false;
 };
+// ¿Pisa un camino (o está a menos de m)? Un punto del mundo { x, z }
+export const onPathWorld = (w, m = 0) => onPath(w.x, w.z, m);
 
 // Puentes: de orilla a orilla, de través al río, con un trozo de camino a cada lado
 const bridges = BRIDGES.map(([u, v]) => {
@@ -124,7 +117,7 @@ export function buildScenery(farm) {
     };
 
     // ---------- El suelo: una columna por celda ----------
-    const caps = [], margin = [], marginCells = [], soil = [], water = [], hedge = [], rocks = [];
+    const caps = [], soil = [], water = [], hedge = [], rocks = [];
     const lowest = (x, z, e) => Math.min(...[[e, 0], [-e, 0], [0, e], [0, -e]].map(([dx, dz]) => {
         const k = cellIndex(x + dx, z + dz);
         return k < 0 || !G.inside[k] ? -1 : G.h[k];
@@ -155,29 +148,20 @@ export function buildScenery(farm) {
         // La tierra del escalón (bajo el suelo de una parcela, justo hasta él)
         const capTop = FLOOR[k] ? top - 0.3 : top - 0.4;
         if (low < capTop - 0.01) soil.push({ x, y: (capTop + low - 0.2) / 2, z, sx: s, sy: capTop - low + 0.2, sz: s, c: side });
-        if (FLOOR[k]) continue;
-        if (ri >= 0) {
-            // Margen de una parcela: su hierba (en sombra si es de una sin comprar)
-            const P = placeOfReg(ri), land = FARM.lands.find((l) => l.id === (P && P.id));
-            const col = new THREE.Color(c);
-            margin.push({ x, y: top - 0.2, z, sx: s, sy: 0.4, sz: s, c });
-            if (land) {
-                // (sin limpiar, de tierra sucia como su parcela: wild; limpia, de hierba: col)
-                const l = worldToPlace(P, x, z), w = new THREE.Color(JUNK.ground[Math.floor(hash(k, 4, 8) * JUNK.ground.length)]);
-                marginCells.push({ i: margin.length - 1, land: land.id, field: land.field, lx: l.x, lz: l.z, col: [col.r, col.g, col.b], wild: [w.r, w.g, w.b] });
-            }
+        if (FLOOR[k]) {
             // Seto donde la parcela da al agua o al monte (a la mitad de la celda de ese lado)
             for (const [dx, dz] of [[s, 0], [-s, 0], [0, s], [0, -s]]) {
                 const r = regionAt(x + dx, z + dz);
                 if (r >= 0 || r === -3 || onPath(x + dx * 0.25, z + dz * 0.25, 0)) continue;
                 if (hash(k, dx + 3, dz + 5) < 0.75) hedge.push({ x: x + dx * 0.25, y: top + 0.35, z: z + dz * 0.25, sx: 0.95, sy: 0.7, sz: 0.95, ry: hash(k, dx, dz) * 0.6 });
             }
-        } else caps.push({ x, y: top - 0.2, z, sx: s, sy: 0.4, sz: s, c });
+            continue;
+        }
+        caps.push({ x, y: top - 0.2, z, sx: s, sy: 0.4, sz: s, c });
     }
     colored(caps, 0.4, false);
     colored(soil, 0.4, false);
     colored(water, 0.6, false);
-    farm.margin = { mesh: colored(margin, 0.4, false), cells: marginCells };
     const hm = farm.addHulled(0xffffff, W(hedge), 0.7);
     hedge.forEach((_, i) => hm.setColorAt(i, new THREE.Color(theme.leaves[i % 3])));
     colored(rocks, 0.8);
@@ -214,8 +198,7 @@ export function buildScenery(farm) {
     for (const key of pathTiles.keys()) {
         const [x, z] = key.split(',').map(Number);
         if (hash(x, z, 77) > 0.06 || lamps.some(([a, b]) => Math.hypot(a - x, b - z) < 14)) continue;
-        const side = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dz]) => !pathTiles.has(`${x + dx},${z + dz}`) && regionAt(x + dx + 0.5, z + dz + 0.5) >= 0
-            && !FLOOR[cellIndex(x + dx + 0.5, z + dz + 0.5)]);
+        const side = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dz]) => !pathTiles.has(`${x + dx},${z + dz}`) && regionAt(x + dx + 0.5, z + dz + 0.5) >= 0);
         if (!side) continue;
         const lx = x + side[0] + 0.5, lz = z + side[1] + 0.5, g = groundAt(lx, lz);
         lamps.push([x, z]);
@@ -232,10 +215,8 @@ export function buildScenery(farm) {
         const ri = G.reg[k], top = G.h[k];
         let p;
         if (ri === MOUNT || ri === SLOPE) p = mountainBand(top, k) === 0 ? 0.32 : mountainBand(top, k) === 1 ? 0.05 : 0;
-        else if (ri >= 0) {
-            const P = placeOfReg(ri), l = P && FARM.lands.find((q) => q.id === P.id);
-            p = P && P.id === 'merchant' ? 0.3 : l && l.soon ? 0.1 : 0.015;
-        } else continue;
+        else if (ri >= 0) p = 0.2; // (rincones de una zona a los que no llega su parcela)
+        else continue;
         if (hash(k, 11, 13) >= p) continue;
         const x = cellX(k) + (hash(k, 1, 9) - 0.5), z = cellZ(k) + (hash(k, 2, 9) - 0.5), s = 0.8 + hash(k, 3, 9) * 0.6, r = 0.8 * s;
         if (onPath(x, z, 1) || lampNear(x, z) || regionAt(x, z) === -2) continue;
