@@ -21,7 +21,8 @@ const PER_TILE = 3; // tallos de trigo por lado de cada casilla de campo
 // Casillas que ocupa un campo en un nivel (crece desde su esquina fija hacia dx, dz)
 function fieldRect(def, level) {
     const { w, d } = def.levels[level], c = def.corner;
-    const x = c.dx < 0 ? c.x - w : c.x, z = c.dz < 0 ? c.z - d : c.z;
+    // (center: crece desde su centro, hacia todos los lados)
+    const x = c.center ? Math.round(c.x - w / 2) : c.dx < 0 ? c.x - w : c.x, z = c.center ? Math.round(c.z - d / 2) : c.dz < 0 ? c.z - d : c.z;
     return { x, z, w, d, cx: x + w / 2, cz: z + d / 2 };
 }
 const inRect = (f, x, z, m = 0) => x >= f.x - m && x < f.x + f.w + m && z >= f.z - m && z < f.z + f.d + m;
@@ -188,7 +189,8 @@ export class Farm {
         this.landPosts = Object.fromEntries(FARM.lands.map((l) => {
             const post = new LandPost(theme.outline, !!l.soon);
             post.root.position.set(l.post.x, 0, l.post.z);
-            post.root.rotation.y = Math.atan2(15 - l.post.x, 15 - l.post.z);
+            // (de cara hacia fuera de su parcela)
+            post.root.rotation.y = Math.atan2(l.post.x - (l.rect[0] + l.rect[2]) / 2, l.post.z - (l.rect[1] + l.rect[3]) / 2);
             post.setOwned(this.landOwned[l.id], false);
             this.groupAt(l.post.x + (l.post.x < 0 ? 0.5 : -0.5), l.post.z).add(post.root);
             return [l.id, post];
@@ -257,6 +259,11 @@ export class Farm {
             if (t.land) floor.setColorAt(i, this.shadeColor(t.col, t.land, t.c + 0.5, t.r + 0.5));
         });
         floor.instanceColor.needsUpdate = true;
+        // El margen de su zona (fuera del cuadrado de la parcela), igual
+        if (this.margin) {
+            for (const m of this.margin.cells) this.margin.mesh.setColorAt(m.i, this.shadeColor(!m.field || this.fields[m.field].locked ? m.wild : m.col, m.land, m.lx, m.lz));
+            this.margin.mesh.instanceColor.needsUpdate = true;
+        }
         for (const { e, lands, base } of this.shaded) {
             e.positions.forEach((p, i) => {
                 if (!lands[i]) return;
@@ -309,6 +316,7 @@ export class Farm {
         for (const e of this.wild) e.positions.forEach((p) => (p.hide = p.hide || this.cleared(p.x, p.z)));
         for (const e of this.hints || []) e.positions.forEach((p) => (p.hide = p.hide || !this.fields[p.field].locked));
         for (const e of [entry, ...this.decor, ...this.wild, ...(this.hints || [])]) this.layout(e, this.introT);
+        if (this.margin) this.applyShade(); // (el margen de una parcela recién limpiada, de hierba)
     }
 
     // El granero sube de nivel: el recinto crece (lo abandonado de dentro se aparta y la tierra
@@ -349,7 +357,8 @@ export class Farm {
         for (const { Z, k, forest } of zones) {
             const free = (x, z, m) => inRect(Z, x, z) && inShapeOf(x, z) && !taken.some(([a, b, r]) => Math.hypot(a - x, b - z) < r + m) && !this.hintSpots.some(([hx, hz]) => Math.hypot(hx - x, hz - z) < m + 0.8) && !inRect(this.yard, x, z, m) && !inRect(this.houseYard, x, z, m) && !inRect(this.villageYard, x, z, m) && !this.views.some((v) => inRect(v.rect, x, z, m))
                 && !FARM.paths.some(([x0, z0, x1, z1]) => x > x0 - m && x < x1 + m && z > z0 - m && z < z1 + m)
-                && !FARM.structures.some((st) => Math.abs(x - st.x) < st.w / 2 + m && Math.abs(z - st.z) < st.d / 2 + m);
+                && !FARM.structures.some((st) => Math.abs(x - st.x) < st.w / 2 + m && Math.abs(z - st.z) < st.d / 2 + m)
+                && !FARM.lands.some((l) => Math.hypot(x - l.post.x, z - l.post.z) < m + 1.2); // (ni sobre su poste)
             const spots = (n, m) => {
                 const out = [];
                 for (let j = 0, tries = 0; j < n && tries < n * 30; tries++) {

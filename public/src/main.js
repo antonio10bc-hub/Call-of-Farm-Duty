@@ -1189,9 +1189,9 @@ function panBy(dx, dy) {
     const u = unitsPerPx(), y = rig.yaw, sp = Math.sin((M.pitch * Math.PI) / 180);
     // Derecha de la pantalla y "hacia dentro" sobre el suelo
     const rx = Math.cos(y), rz = -Math.sin(y), fx = -Math.sin(y), fz = -Math.cos(y);
-    const B = FARM.view;
-    rig.fx = clamp(rig.fx - rx * dx * u + fx * dy * u / sp, B.x0 + 2, B.x1 - 2);
-    rig.fz = clamp(rig.fz - rz * dx * u + fz * dy * u / sp, B.z0 + 2, B.z1 - 2);
+    // (sin salirse del valle: se limita en el plano de la pantalla, u de lado y v de fondo)
+    const V = FARM.valley, [pu, pv] = V.toUV(rig.fx - rx * dx * u + fx * dy * u / sp, rig.fz - rz * dx * u + fz * dy * u / sp);
+    [rig.fx, rig.fz] = V.toXZ(clamp(pu, 8, V.w - 8), clamp(pv, 14, V.h - 6));
 }
 
 // Vista global: toda la cuadrícula de parcelas (encuadrada al ancho y al alto de la pantalla);
@@ -1201,13 +1201,12 @@ function enterMap() {
     if (mode !== 'farm' || inCine() || mapView) return;
     select(null);
     mapView = { x: rig.fx, z: rig.fz, y: rig.fy, zoom: rig.zoomTarget };
-    const B = FARM.world, w = B.x1 - B.x0, d = B.z1 - B.z0;
-    rigFocus((B.x0 + B.x1) / 2, (B.z0 + B.z1) / 2, 0);
-    // (girado 45°, la cuadrícula ocupa su diagonal en pantalla; en vertical, se recortan un poco
-    // sus esquinas de los lados para que no quede diminuta)
-    const portrait = innerHeight > innerWidth;
-    // (con margen: alrededor se ve el paisaje, el río y las montañas)
-    rig.zoomTarget = Math.max((w * 1.42 * (portrait ? 0.7 : 1)) / (rig.halfWidth * 2), (d * 1.42) / (rig.halfDepth * 2)) * 1.15;
+    // Todo el valle: de lado a lado (en vertical, recortando un poco los lados para que no quede
+    // diminuto) y del pie de las montañas a la llanura de abajo
+    const V = FARM.valley, portrait = innerHeight > innerWidth;
+    // (un poco hacia el fondo: que se vean las montañas de arriba)
+    rigFocus(...V.toXZ(V.w / 2, V.h / 2 - 12), 0);
+    rig.zoomTarget = Math.max((V.w * (portrait ? 0.72 : 1)) / (rig.halfWidth * 2), (V.h + 24) / (rig.halfDepth * 2)) * 1.05;
     $('btn-map').classList.add('on');
     sfx.play('ui');
 }

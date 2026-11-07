@@ -288,8 +288,8 @@ test('parcelas repartidas por el valle: las de PRONTO, abandonadas y en sombra; 
     const zoom0 = await page.evaluate(() => game.rig.zoomTarget);
     await page.locator('#btn-map').click();
     await expect(page.locator('#btn-map')).toHaveClass(/on/);
-    // (centrada en todo el mundo: las parcelas repartidas por el valle)
-    expect(await page.evaluate(() => [game.rig.zoomTarget > 4.5, game.rig.fx, game.rig.fz])).toEqual([true, 10, 10]);
+    // (centrada en todo el valle, un poco hacia las montañas del fondo)
+    expect(await page.evaluate(() => [game.rig.zoomTarget > 4.5, Math.round(game.rig.fx * 10) / 10, Math.round(game.rig.fz * 10) / 10])).toEqual([true, -8.5, -8.5]);
     await page.locator('#btn-map').click();
     await expect(page.locator('#btn-map')).not.toHaveClass(/on/);
     expect(await page.evaluate(() => game.rig.zoomTarget)).toBe(zoom0);
@@ -318,7 +318,8 @@ test('dock: CAMPOS abre encima otra barra con los cultivos desbloqueados y tocar
     await expect(page.locator('.dock-pop-btn')).toHaveText([/TRIGO/, /TOMATES/]);
     await page.locator('#pop-tomato').click();
     await expect(page.locator('#fields-pop')).toBeHidden();
-    const r = await page.evaluate(() => game.farm.views.find((v) => v.id === 'tomato').rect);
+    // (la cámara va al centro del campo, en su sitio del valle)
+    const r = await page.evaluate(() => { const v = game.farm.views.find((q) => q.id === 'tomato').rect, w = game.farm.world(v.cx, 0, v.cz); return { cx: w.x, cz: w.z }; });
     await expect.poll(() => page.evaluate(() => [Math.round(game.rig.fx), Math.round(game.rig.fz)])).toEqual([Math.round(r.cx), Math.round(r.cz)]);
     // Tocar fuera lo cierra
     await page.locator('#dock-fields').click();

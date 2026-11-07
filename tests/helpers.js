@@ -31,7 +31,8 @@ function watchErrors(page) {
 async function screenOf(page, which, x, y, z) {
     return page.evaluate(([which, x, y, z]) => {
         const cam = which === 'map' ? game.rig.camera : game.sniper.camera;
-        const v = cam.position.clone().set(x, y, z).project(cam);
+        // (en el mapa, el punto va en las coordenadas de siempre de su parcela: se lleva a su sitio del valle)
+        const v = (which === 'map' ? game.farm.world(x, y, z) : cam.position.clone().set(x, y, z)).project(cam);
         return { x: (v.x * 0.5 + 0.5) * innerWidth, y: (-v.y * 0.5 + 0.5) * innerHeight, z: v.z };
     }, [which, x, y, z]);
 }

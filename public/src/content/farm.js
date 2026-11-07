@@ -1,5 +1,5 @@
 import { L } from '../core/I18n.js';
-import { groundRaw, quant } from '../world/terrain.js';
+import { REGIONS, regionAt, toUV, toXZ, VW, VH } from '../world/valley.js';
 
 // Plano de la granja (en casillas). Cada edificio se puede tocar para ver su ficha.
 //   kind      modelo que se construye (render/structures.js)
@@ -11,6 +11,7 @@ export const FARM = {
     parcels: [
         [0, 0, 30, 30],
         [0, -30, 30, 0],
+        [30, -30, 60, 0], // el claro del mercader
     ],
     // Las demás parcelas de la cuadrícula de 3×3 (la de los campos, con el granero, en el
     // centro). Las que se compran con el oro del comerciante (price) empiezan abandonadas (árboles,
@@ -20,17 +21,20 @@ export const FARM = {
     // Sin comprar se ven oscuras (como en sombra) y con su poste (SE VENDE o PRONTO); al comprarla
     // la oscuridad se retira en una onda desde el poste, que salta, y queda tu bandera.
     //   price   monedas de oro que cuesta
-    //   post    dónde está el poste (y luego la bandera)
+    //   post    dónde está el poste (y luego la bandera): se calcula al repartir el valle (abajo)
     lands: [
-        { id: 'west', rect: [-30, 0, 0, 30], price: 15, field: 'pumpkin', post: { x: -1.1, z: 13.2 }, name: L('WEST PLOT', 'PARCELA OESTE') },
-        { id: 'east', rect: [30, 0, 60, 30], price: 25, field: 'corn', post: { x: 31.1, z: 13.2 }, name: L('EAST PLOT', 'PARCELA ESTE') },
-        { id: 'nw', rect: [-30, -30, 0, 0], price: 40, field: 'milk', post: { x: -1.1, z: -12.8 }, name: L('NORTH-WEST PLOT', 'PARCELA NOROESTE') },
-        { id: 'sw', rect: [-30, 30, 0, 60], soon: true, post: { x: -1.4, z: 31.4 } },
-        { id: 'south', rect: [0, 30, 30, 60], soon: true, post: { x: 17.4, z: 32.2 } },
-        { id: 'se', rect: [30, 30, 60, 60], soon: true, post: { x: 31.4, z: 31.4 } },
+        { id: 'west', rect: [-30, 0, 0, 30], price: 15, field: 'pumpkin', name: L('WEST PLOT', 'PARCELA OESTE') },
+        { id: 'east', rect: [30, 0, 60, 30], price: 25, field: 'corn', name: L('EAST PLOT', 'PARCELA ESTE') },
+        { id: 'nw', rect: [-30, -30, 0, 0], price: 40, field: 'milk', name: L('NORTH-WEST PLOT', 'PARCELA NOROESTE') },
+        { id: 'sw', rect: [-30, 30, 0, 60], soon: true },
+        { id: 'south', rect: [0, 30, 30, 60], soon: true },
+        { id: 'se', rect: [30, 30, 60, 60], soon: true },
+        // Las otras mitades de la orilla alta, la cañada y la parcela de abajo: para lo que venga
+        { id: 'nw2', rect: [60, -30, 90, 0], soon: true },
+        { id: 'west2', rect: [60, 0, 90, 30], soon: true },
+        { id: 'east2', rect: [60, 30, 90, 60], soon: true },
     ],
-    bounds: { x0: -30, z0: -30, x1: 60, z1: 60 }, // toda la cuadrícula de parcelas
-    view: { x0: -30, z0: -30, x1: 60, z1: 60 },   // hasta dónde se mueve la cámara
+    bounds: { x0: -30, z0: -30, x1: 90, z1: 60 }, // todas las parcelas (en sus coordenadas de siempre)
     // Vallas: tramos rectos de [x, z] a [x, z]; gap: hueco [desde, hasta] a lo largo del tramo
     // (las de la cuadrícula, con sus portones, al final del archivo)
     fences: [],
@@ -122,7 +126,7 @@ export const FARM = {
             id: 'pumpkin',
             crop: 'pumpkin',
             name: L('PUMPKIN PATCH', 'CAMPO DE CALABAZAS'),
-            corner: { x: -2, z: 2, dx: -1, dz: 1 }, // junto al portón de la parcela oeste
+            corner: { x: -15, z: 15, center: true }, // crece desde el centro de su parcela
             cost: { wheat: 8, pumpkin: 2 },
             turrets: { wheat: 40, pumpkin: 10 },
             locked: { land: 'west', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
@@ -138,7 +142,7 @@ export const FARM = {
             id: 'corn',
             crop: 'corn',
             name: L('CORN FIELD', 'CAMPO DE MAÍZ'),
-            corner: { x: 32, z: 2, dx: 1, dz: 1 }, // junto al portón de la parcela este
+            corner: { x: 45, z: 15, center: true },
             cost: { wheat: 6, corn: 5 },
             turrets: { wheat: 40, corn: 30 },
             locked: { land: 'east', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
@@ -154,7 +158,7 @@ export const FARM = {
             id: 'milk',
             crop: 'milk',
             name: L('COW PASTURE', 'PRADO DE VACAS'),
-            corner: { x: -2, z: -2, dx: -1, dz: -1 }, // junto a la esquina de la casa y la parcela oeste
+            corner: { x: -15, z: -15, center: true },
             cost: { wheat: 10, milk: 3 },
             turrets: { wheat: 40, milk: 12 },
             locked: { land: 'nw', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
@@ -170,11 +174,12 @@ export const FARM = {
     ],
     // Caminos de tierra: rectángulos de casillas [x0, z0, x1, z1) (el final no entra)
     paths: [
-        [14, 13, 16, 60],   // camino principal hacia el sur (cruza la parcela de abajo)
-        [-2, 15, 32, 16],   // entre el granero y los campos (y a los portones de las parcelas oeste y este)
-        [14, -13, 16, 9],   // de la casa a la trasera del granero (por el portón)
-        [17, -16, 34, -14], // de la casa al claro del bosque donde aterriza el comerciante
-        [-2, -16, 13, -14], // de la casa al portón del prado de vacas (a la izquierda)
+        [14, 13, 16, 30],   // camino principal hacia el sur
+        [0, 15, 30, 16],    // entre el granero y los campos (a las salidas oeste y este)
+        [14, 0, 16, 9],     // a la trasera del granero (sale por el norte)
+        [14, -13, 16, 0],   // de la casa hacia la granja (sale por el sur)
+        [17, -16, 30, -14], // de la casa hacia el este
+        [0, -16, 13, -14],  // de la casa hacia el oeste
     ],
 };
 
@@ -222,36 +227,43 @@ for (const v of GRID) {
 
 // ---------- Composición del mapa ----------
 // Cada parcela de 30×30 casillas guarda su lógica en sus coordenadas de siempre (from: su esquina
-// en la cuadrícula de antes), pero se ve en otro sitio del mapa: repartidas sin filas ni columnas
-// por el valle (at: la esquina de su sitio), algunas giradas (rot: cuartos de vuelta) y cada una a
-// la altura del terreno donde cae (h, de world/terrain.js): en una colina, alta; junto al río, baja.
-//   gates  dónde sale cada camino de la parcela (en sus coordenadas de siempre, en su borde)
+// en la cuadrícula de antes), pero se ve en su zona del valle (world/valley.js): se coloca donde
+// mejor cabe dentro de ella (at: su esquina en el mundo), a la altura de la zona (h). Su forma es
+// la de la zona: lo que cae fuera, no es de la parcela; lo que la zona tiene de más, es su margen.
+//   gates  por dónde salen sus caminos (en sus coordenadas de siempre, en su borde)
 export const PLACES = [
-    { id: 'farm', from: [0, 0], at: [0, 0], rot: 0, gates: [[15, 30], [0, 15.5], [30, 15.5], [15, 0], [30, 25]] },
-    { id: 'house', from: [0, -30], at: [14, -52], rot: 0, gates: [[15, 0], [30, -15], [0, -15]] },
-    { id: 'merchant', from: [30, -30], at: [66, -72], rot: 1, gates: [[30, -15]] },
-    { id: 'west', from: [-30, 0], at: [-72, -12], rot: 3, gates: [[0, 15.5]] },
-    { id: 'east', from: [30, 0], at: [54, 16], rot: 0, gates: [[30, 15.5], [60, 15]] },
-    { id: 'nw', from: [-30, -30], at: [-48, -68], rot: 1, gates: [[0, -15]] },
-    { id: 'south', from: [0, 30], at: [-4, 58], rot: 2, gates: [[15, 30], [30, 45], [0, 45]] },
-    { id: 'se', from: [30, 30], at: [62, 64], rot: 3, gates: [[30, 45]] },
-    { id: 'sw', from: [-30, 30], at: [-76, 42], rot: 1, gates: [[0, 45], [-30, 45]] },
+    { id: 'farm', from: [0, 0], gates: [[15, 30], [0, 15.5], [30, 15.5], [15, 0]] },
+    { id: 'house', from: [0, -30], gates: [[15, 0], [30, -15], [0, -15]] },
+    { id: 'merchant', from: [30, -30], gates: [] },
+    { id: 'west', from: [-30, 0], gates: [] },
+    { id: 'east', from: [30, 0], gates: [] },
+    { id: 'nw', from: [-30, -30], gates: [] },
+    { id: 'south', from: [0, 30], gates: [] },
+    { id: 'se', from: [30, 30], gates: [] },
+    { id: 'sw', from: [-30, 30], gates: [] },
+    { id: 'nw2', from: [60, -30], gates: [] },
+    { id: 'west2', from: [60, 0], gates: [] },
+    { id: 'east2', from: [60, 30], gates: [] },
 ];
-for (const P of PLACES) P.h = quant(groundRaw(P.at[0] + 15, P.at[1] + 15));
-// Caminos entre parcelas: [parcela, puerta] a [parcela, puerta]; sin destino ('soon'), un ramal
-// que se pierde hacia fuera con su barrera de PRÓXIMAMENTE (hueco para futuras parcelas)
-export const ROADS = [
-    [['farm', 3], ['house', 0]],
-    [['farm', 1], ['west', 0]],
-    [['farm', 2], ['east', 0]],
-    [['farm', 0], ['south', 0]],
-    [['house', 1], ['merchant', 0]],
-    [['house', 2], ['nw', 0]],
-    [['south', 1], ['se', 0]],
-    [['south', 2], ['sw', 0]],
-    [['east', 1], 'soon', [124, 34]],
-    [['sw', 1], 'soon', [-108, 74]],
-];
+// Dónde cabe mejor cada parcela en su zona: prueba esquinas (pares, como las celdas del valle) y
+// se queda con la que más casillas suyas deja dentro (las del centro cuentan doble; el agua, en contra)
+for (const P of PLACES) {
+    P.ri = REGIONS.findIndex((r) => r.place === P.id);
+    P.rot = 0;
+    const R = REGIONS[P.ri], [sx, sz] = toXZ(...R.seeds[0]);
+    let best = null;
+    for (let az = Math.round(sz / 2) * 2 - 44; az <= sz + 14; az += 2) for (let ax = Math.round(sx / 2) * 2 - 44; ax <= sx + 14; ax += 2) {
+        let score = 0;
+        for (let lz = 1; lz < 30; lz += 2) for (let lx = 1; lx < 30; lx += 2) {
+            const r = regionAt(ax + lx, az + lz);
+            score += r === P.ri ? (Math.abs(lx - 15) < 11 && Math.abs(lz - 15) < 11 ? 2 : 1) : r === -2 ? -4 : 0;
+        }
+        score -= Math.hypot(ax + 15 - sx, az + 15 - sz) * 0.01;
+        if (!best || score > best.score) best = { score, ax, az };
+    }
+    P.at = [best.ax, best.az];
+    P.h = R.h;
+}
 const placeOf = (x, z) => PLACES.find(({ from: [x0, z0] }) => x >= x0 && x < x0 + 30 && z >= z0 && z < z0 + 30);
 // Un punto de la parcela P (en sus coordenadas de siempre), en el mundo: girado sobre su centro
 // (como el grupo de la parcela: rotation.y = rot·90°) y llevado a su sitio y su altura
@@ -279,23 +291,34 @@ export function gateWorld(id, i) {
     const w = placeToWorld(P, gx, gz), o = placeToWorld(P, gx + ox, gz + oz);
     return { x: w.x, z: w.z, y: P.h, ox: Math.round(o.x - w.x), oz: Math.round(o.z - w.z) };
 }
-// Lo que abarca el mundo (para la cámara)
-FARM.world = { x0: -100, z0: -96, x1: 120, z1: 116 };
-FARM.view = { ...FARM.world };
-
-// La forma de una parcela (no un cuadrado): un cuadrado de esquinas muy redondeadas con el borde
-// ondulado; lx, lz: el punto, desde su esquina (0..30). Igual aunque la parcela esté girada
-export function inParcelShape(P, lx, lz) {
-    const u = (lx - 15) / 15, v = (lz - 15) / 15, a = Math.atan2(v, u), seed = (P.at[0] * 7 + P.at[1] * 3) % 6;
-    const R = 1 - 0.05 * (1 + Math.sin(a * 4 + seed)) - 0.025 * (1 + Math.sin(a * 8 + seed * 2));
-    return Math.abs(u) ** 3.4 + Math.abs(v) ** 3.4 <= R ** 3.4;
-}
-// ¿Dentro de la forma de su parcela? (un punto en las coordenadas de siempre; fuera de las
-// parcelas, sí)
+// ¿Este punto (en las coordenadas de siempre) es de su parcela? (dentro de su zona del valle)
 export function inShapeOf(x, z) {
     const P = placeOf(x, z);
-    return !P || inParcelShape(P, x - P.from[0], z - P.from[1]);
+    if (!P) return true;
+    const w = placeToWorld(P, x, z);
+    return regionAt(w.x, w.z) === P.ri;
 }
+// El poste de cada parcela en venta: a un lado de su centro (fuera de su campo al máximo, que
+// ocupa del 2 al 28), del lado que mira a la granja y siempre dentro de su zona
+{
+    const F = PLACES[0], fx = F.at[0] + 15, fz = F.at[1] + 15;
+    for (const l of FARM.lands) {
+        const P = PLACES.find((p) => p.id === l.id), cx = P.at[0] + 15, cz = P.at[1] + 15;
+        const dx = fx - cx, dz = fz - cz;
+        const sides = [[Math.sign(dx) || 1, 0], [0, Math.sign(dz) || 1], [-(Math.sign(dx) || 1), 0], [0, -(Math.sign(dz) || 1)]];
+        if (Math.abs(dz) > Math.abs(dx)) [sides[0], sides[1]] = [sides[1], sides[0]];
+        let post = null;
+        for (const [ox, oz] of sides) for (const t of [13.6, 12, 9, 6]) {
+            if (!post && inShapeOf(P.from[0] + 15 + ox * t, P.from[1] + 15 + oz * t)) post = { x: P.from[0] + 15 + ox * t, z: P.from[1] + 15 + oz * t };
+        }
+        l.post = post || { x: P.from[0] + 15, z: P.from[1] + 15 };
+    }
+}
+// Lo que abarca el valle: en la pantalla (u, v) y en el mundo (para la cámara)
+FARM.valley = { w: VW, h: VH, toUV, toXZ };
+FARM.world = { x0: -VW * 0.71, z0: -VH * 0.71, x1: VW * 0.71, z1: VH * 0.71 };
+FARM.view = { ...FARM.world };
+
 // La forma de un campo (no un rectángulo): una mancha de esquinas redondeadas y borde irregular
 // dentro de su rectángulo f, distinta en cada campo (seed)
 export function inFieldShape(f, seed, x, z) {
