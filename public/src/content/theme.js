@@ -12,8 +12,8 @@ export const THEME = {
     flowers: [0xffffff, 0xffe03a, 0xff8fb0],
     light: { sun: 0xfff2d6, sky: 0xdaf2ff, ground: 0x6a8a3a, sunIntensity: 2.2, hemiIntensity: 1.1 },
     // Noche de luna llena: cielo azul marino, luz de luna azulada y fría (se mezcla con la del
-    // día según lo de noche que sea)
-    night: { sky: 0x18204a, sun: 0x9fb4ff, sunIntensity: 0.9, hemiSky: 0x4a5a9a, hemiGround: 0x1a2a20, hemiIntensity: 0.75, moon: 0xfff6d8 },
+    // día según lo de noche que sea). Sutil: se nota que es de noche, pero se ve todo
+    night: { sky: 0x1e2a5a, sun: 0xb4c4ff, sunIntensity: 1.45, hemiSky: 0x7888c0, hemiGround: 0x3a4a4a, hemiIntensity: 1.0, moon: 0xfff6d8 },
     // Ciclo de día y noche en segundos reales: day de día, night de noche y fade de transición
     // (al final de cada uno: el atardecer y el amanecer)
     cycle: { day: 240, night: 120, fade: 40 },

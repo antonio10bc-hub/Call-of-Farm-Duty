@@ -14,6 +14,7 @@ import { Flyers } from './Flyers.js';
 import { Walkers } from './Walkers.js';
 import { Turrets } from './Turrets.js';
 import { MysteryBox } from './MysteryBox.js';
+import { WONDER_ZOOM } from '../content/mysterybox.js';
 import { loadoutStats } from '../content/arsenal.js';
 
 const S = CONFIG.sniper;
@@ -214,11 +215,13 @@ export class Sniper {
         this.box.reset();
     }
 
-    // El arma de la caja sorpresa: sustituye al rifle (con su munición, sin recargas) hasta gastarla
+    // El arma de la caja sorpresa: sustituye al rifle (un solo cargador, sin recargas) hasta
+    // gastarla. Sin mirilla de francotirador: al apuntar sube al centro, con poco zoom, firme y
+    // rápida, y se apunta con su propia mira
     giveSpecial(w) {
         this.base = this.base || this.stats;
         this.special = w;
-        this.stats = { ...this.base, bolt: w.rate, pierce: w.pierce || 1, damage: w.mode === 'bullet' ? 1 : 3, size: w.ammo, reload: 0, regen: 0, tracer: w.tracer || this.base.tracer, recoil: w.mode === 'rocket' ? 1.6 : 0.45 };
+        this.stats = { ...this.base, zoom: WONDER_ZOOM, ads: 0.15, steady: 0.3, lens: null, bolt: w.rate, pierce: w.pierce || 1, damage: 3, size: w.ammo, reload: 0, regen: 0, tracer: w.tracer || this.base.tracer, recoil: w.mode === 'rocket' ? 1.6 : 0.45 };
         this.ammo = w.ammo;
         this.reloadT = this.bolt = 0;
         this.rifle.setSpecial(w.id);
@@ -331,7 +334,6 @@ export class Sniper {
     release(fire = true) {
         if (this.ks.predator) return false;
         if (!this.scoped) return false;
-        if (this.special && this.special.auto) fire = false; // (la ametralladora ya dispara sola)
         if (fire && (this.bolt > 0 || this.reloadT > 0 || this.ammo <= 0) && this.ending < 0) {
             this.pending = true;
             return false;
@@ -429,7 +431,7 @@ export class Sniper {
             }
         }
         if (this.unlocking) return this.fireAtJunk(origin, dir, muzzle);
-        // Lanzacohetes, pistola de rayos y ballesta: su proyectil
+        // Bazuca, pistola de rayos y ballesta: su proyectil
         if (this.special && this.special.mode !== 'bullet') {
             this.box.launch(this.special, origin, dir, muzzle);
             return true;
@@ -673,8 +675,6 @@ export class Sniper {
         this.flyers.update(dt, time);
         this.walkers.update(dt, time);
         this.box.update(dt, time);
-        // La ametralladora de la caja dispara sola mientras se mantiene la mira
-        if (this.special && this.special.auto && this.scoped && this.adsK > 0.5 && this.canFire && !this.ks.predator) this.fire();
         this.updateNightSky();
         if (this.crop) this.checkEnd();
         this.turrets.update(dt);
@@ -750,7 +750,7 @@ export class Sniper {
         this.prevYaw = this.yaw;
         this.prevPitch = this.pitch;
         // La mira tapa el arma cuando está pegada al ojo; guiando el misil, la vista es la suya
-        this.rifle.root.visible = this.adsK < 0.85 && !this.ks.predator && !this.hideRifle;
+        this.rifle.root.visible = (this.adsK < 0.85 || !!this.special) && !this.ks.predator && !this.hideRifle;
         if (this.ks.predator) {
             this.ks.aimCamera(this.camera);
             this.fov = this.camera.fov;

@@ -31,8 +31,8 @@ Las cosas se van abriendo por pasos, cada una con su cartel grande:
 
 ### Campos y cosecha
 - **Mejorar un campo** (su ficha): cada nivel lo agranda en el mapa y llena su campo de tiro de más blancos. Hay 5 niveles. Lo que un campo ocupará al máximo empieza abandonado (tierra sucia, árboles, matorral, chatarra) y se va limpiando según crece.
-  - **Trigo:** cada mejora cuesta 3 de trigo. Crece de 4×3 a 11×11 casillas, con 18, 36, 64, 100 y 150 matas (muchas, porque los alienígenas roban).
-  - **Tomates:** cada mejora cuesta 5 de trigo y 3 tomates. Crece de 5×4 a 12×11 casillas, con 6, 12, 22, 36 y 56 tomates gigantes.
+  - **Trigo:** cada mejora cuesta 3 de trigo. Crece de 4×3 a 11×11 casillas, con 18, 40, 80, 140 y 240 matas (muchas, porque los alienígenas roban).
+  - **Tomates:** cada mejora cuesta 5 de trigo y 3 tomates. Crece de 5×4 a 12×11 casillas, con 8, 18, 40, 80 y 150 tomates gigantes (al máximo, el campo a rebosar).
 - **Torreta automática:** con un campo al máximo, su mejora pasa a ser **TORRETA**. Los sacos terreros caen en las 4 esquinas y la torreta baja del cielo en paracaídas. Desde entonces:
   - **En el mapa:** salta de esquina en esquina (a la de al lado, nunca en diagonal), tirotea el campo a ráfagas y recoge sola lo maduro (una mata cada 4 s, con la partida abierta, con su +1).
   - **En el campo de tiro:** va en lo alto de un mástil en las torres (nunca en la tuya) y acribilla matas para acabar antes.
@@ -42,12 +42,12 @@ Las cosas se van abriendo por pasos, cada una con su cartel grande:
 ### Parcelas en venta
 - **Oeste (15 de oro), este (25 de oro) y noroeste (40 de oro).** Mientras no son tuyas se ven en sombra, con un poste de SE VENDE junto a su portón.
 - **Al comprarlas,** la sombra se retira en una onda dorada desde el poste, el poste salta por los aires y se iza tu bandera: ya es tuya, pero sigue sucia. Luego se desbloquea con su barril y queda limpia con su cultivo (5 niveles, torreta y campo de tiro). Al nivel 5 el campo ocupa casi toda la parcela (28×28), que en el mapa llena su zona.
-  - **Calabazas** (oeste): enormes, entre hojas grandes. Aguantan 3 tiros (cada uno las resquebraja, con su hitmarker) y paran la bala.
-  - **Maíz** (este): matas de más de 2 m en hileras (cada partida en una dirección) con dos mazorcas a media altura. Las hileras dan colaterales largos y las matas tapan la vista.
-  - **Vacas** (noroeste, con su camino desde la casa): su campo es un prado de hierba fresca donde pastan. En el campo de tiro corren por todo el prado, cada una a su ritmo (unas al paso, otras al galope), y se les va hinchando la ubre; llena (rosa y temblando, a veces con un mugido) es el blanco: un tiro a la ubre da un **cubo de leche**. Ordeñada, sigue corriendo con la ubre vacía. Un cubo por vaca: 4, 6, 9, 13 y 18 según el nivel; cada mejora cuesta 10 de trigo y 3 cubos. Los alienígenas a pie no las persiguen, pero un ovni ladrón puede llevarse una entera con su rayo. El mercader compra la leche.
+  - **Calabazas** (oeste): enormes, entre hojas grandes (6, 10, 16, 26 y 40). Aguantan 3 tiros (cada uno las resquebraja, con su hitmarker) y paran la bala.
+  - **Maíz** (este): matas de más de 2 m en hileras (cada partida en una dirección) con dos mazorcas a media altura: 16, 36, 72, 140 y 260 mazorcas (al máximo, un maizal a rebosar). Las hileras dan colaterales largos y las matas tapan la vista.
+  - **Vacas** (noroeste, con su camino desde la casa): su campo es un prado de hierba fresca donde pastan. En el campo de tiro corren por todo el prado, cada una a su ritmo (unas al paso, otras al galope), y se les va hinchando la ubre; llena (rosa y temblando, a veces con un mugido) es el blanco: un tiro a la ubre da un **cubo de leche**. Ordeñada, sigue corriendo con la ubre vacía. Un cubo por vaca: 4, 6, 10, 15 y 22 según el nivel; cada mejora cuesta 10 de trigo y 3 cubos. Los alienígenas a pie no las persiguen, pero un ovni ladrón puede llevarse una entera con su rayo. El mercader compra la leche.
 
 ### El mercader y el oro
-- **Quién es:** un alienígena muy mal disfrazado de humano (careta plana con su goma, gabardina y sombrero con las antenas asomando). Llega en un ovni disfrazado de coche (una careta gigante de cartón con un coche rojo de perfil) al claro del bosque donde una vez se estrelló una nave: baja al surco, lo recorre pegado al suelo levantando polvo, baja la rampa y sale.
+- **Quién es:** un alienígena muy mal disfrazado de humano (careta plana con su goma, gabardina y sombrero con las antenas asomando). Llega en un ovni disfrazado de coche (una careta gigante de cartón con un coche rojo de perfil) al claro del bosque donde una vez se estrelló una nave y dejó un surco largo y ancho que cruza la parcela de punta a punta: baja al surco, lo recorre pegado al suelo levantando polvo, baja la rampa y sale.
 - **Su ritmo,** con el reloj de verdad: cada 5 min llega y se queda 4; luego se vuelve por donde vino. De noche, farol, guirnalda de bombillas y luz cálida.
 - **Sus encargos:** su hoja trae 3 encargos de cosecha, de los campos que tienes y en cantidad según su nivel, y los paga en **monedas de oro** (más por los tomates y las calabazas). Al cerrar un trato lo celebra: salta, gira y se le cae la careta.
 - **El oro es la única moneda:** monedas de cartón muy falsas, recortadas a tijera y con un $ de rotulador.
@@ -61,8 +61,8 @@ Las cosas se van abriendo por pasos, cada una con su cartel grande:
 ### El granero: armamento por clases
 Al estilo «Crear clase» de Call of Duty. El granero no se mejora: se queda como está, y su menú es solo el de las clases.
 - **Clases:** a la izquierda, 5 (Francotirador, Cosechador, Espantaaliens y dos más: la 4 se abre con los tomates y la 5 con el mercader). EQUIPAR CLASE elige la que se lleva al campo.
-- **La clase que se edita** (a la derecha): arma principal, accesorios (mirilla, cargador y un hueco PRÓXIMAMENTE) y dos secciones de rachas, de cultivos y de alienígenas, que se ponen o quitan tocándolas. En el campo de tiro solo saltan las de la clase equipada.
-- **Armería:** tocar el arma o un accesorio abre su lista, un maletín de espuma con el fusil desmontado. Se compra con oro y se monta en esa clase; cada pieza se ve distinta en su dibujo y en el fusil en primera persona, y tiene sus pegas:
+- **La clase que se edita** (a la derecha): arma principal, accesorios (mirilla y cargador) y dos secciones de rachas, de cultivos y de alienígenas, que se ponen o quitan tocándolas. En el campo de tiro solo saltan las de la clase equipada.
+- **Armería:** tocar el arma o un accesorio abre su lista, un maletín de espuma con el fusil desmontado. Se compra con oro y se monta en esa clase; cada pieza se ve distinta en su foto y en el fusil en primera persona (las fotos no son dibujos: son las piezas de verdad renderizadas en 3D a píxeles, `ui/GearArt.js`; la del arma principal, el fusil entero tal cual va montado), y tiene sus pegas:
   - **Mirillas:** estándar; punto rojo (poco zoom, se sube al instante, muy firme); táctica (más zoom y firme); largo alcance (zoom enorme, lenta y temblona); visión nocturna (de noche ve como de día, con la lente verde). Cada una con su retícula.
   - **Rifles:** de cerrojo (atraviesa 4); semiautomático (muy rápido, sin colaterales); carabina (corta, buena sin mira); antimaterial (lo atraviesa todo y rompe calabazas de un tiro, pero lento y con mucho retroceso); alienígena (rayos verdes, atraviesa 6 y hace doble daño).
   - **Cargadores:** estándar (10 balas); rápido (6, recarga enseguida); ampliado (18, recarga lenta); tambor (40, tarda una eternidad); célula alienígena (8, nunca recarga: las balas se regeneran).
@@ -87,13 +87,14 @@ Desde una torre en cada esquina del campo, con control de shooter: la vista es l
   - Números en `content/killstreaks.js` (y en DEBUG).
 - **Caja sorpresa** (como la de Kino der Toten en el modo zombis de Black Ops): mientras se recoge, de vez en cuando aparece una caja de madera con «?» pintados arriba en una torre que no es la tuya (en su plataforma, a los pies de donde te pones, en la esquina que da al campo y con un «?» grande en la tapa), con un rayo de luz azul hasta el cielo y un «?» flotando encima; su flecha de torre parpadea en azul. Espera 30 s.
   - Disparada desde otra torre no hace nada (¡DESDE SU TORRE!). Salta a su torre y dispárale: se abre la tapa, las armas giran por encima cada vez más despacio y la que toca te vuela a las manos.
-  - **Ametralladora** (90 balas, dispara sola mientras mantienes la mira), **lanzacohetes** (6 cohetes que revientan donde dan), **pistola de rayos** (20 rayos verdes con su explosión) o **ballesta explosiva** (8 virotes que se clavan, pitan y revientan al segundo).
-  - Las armas no se recargan: al gastar la munición vuelve tu rifle. Números en `content/mysterybox.js`; los modelos, en `render/wonder.js`.
+  - **Bazuca** (6 cohetes que revientan donde dan), **pistola de rayos** (20 rayos verdes con su explosión) o **ballesta explosiva** (8 virotes que se clavan, pitan y revientan al segundo).
+  - No llevan mirilla de francotirador: al apuntar, el arma sube al centro con poco zoom y se apunta con su propia mira (alza y punto de mira).
+  - Tienen un solo cargador y no se recargan: al gastarlo vuelve tu fusil. Números en `content/mysterybox.js`; los modelos, en `render/wonder.js`.
 - El botón GRANJA vuelve en cualquier momento; lo recogido se guarda.
 
 ### Día y noche
 Con el reloj de verdad: 4 min de día y 2 de noche, con amanecer y atardecer de 40 s (naranja abajo, morado arriba y el sol grande y bajo).
-- **De noche:** el cielo se vuelve azul marino con luz de luna; en el campo de tiro sale una luna llena enorme y cuadrada con estrellas, y vienen más alienígenas (el doble de seguidos y hasta 6 a la vez), que brillan en la oscuridad.
+- **De noche:** el cielo se vuelve azul marino con luz de luna (sutil: se nota que es de noche pero se ve todo); en el campo de tiro sale una luna llena enorme y cuadrada con estrellas, y vienen más alienígenas (el doble de seguidos y hasta 6 a la vez), que brillan en la oscuridad.
 - **El reloj** (arriba a la derecha) enseña el sol o la luna y lo que falta para que cambie.
 - Ajustes en `THEME.night`, `THEME.dusk` y `THEME.cycle` (`content/theme.js`).
 

@@ -1880,12 +1880,6 @@ for (const kind of ['rifle', 'scope', 'mag']) {
     $(kind === 'rifle' ? 'lo-main' : 'lo-acc').appendChild(b);
     loSlots[kind] = b;
 }
-{
-    const soon = document.createElement('div');
-    soon.className = 'lo-slot lo-soon';
-    soon.innerHTML = `<span><small>${L('ATTACHMENT', 'ACCESORIO')}</small><b>${L('SOON', 'PRÓXIMAMENTE')}</b></span>`;
-    $('lo-acc').appendChild(soon);
-}
 // Las rachas: dos secciones (cultivos y alienígenas); tocar una la pone o la quita de la clase
 for (const track of ['crop', 'alien']) {
     for (const k of KILLSTREAKS.filter((x) => x.track === track)) {
@@ -1971,7 +1965,9 @@ function refreshRifle() {
     eq.disabled = using;
     eq.textContent = using ? L('EQUIPPED', 'EQUIPADA') : L('EQUIP CLASS', 'EQUIPAR CLASE');
     for (const kind of ['rifle', 'scope', 'mag']) {
-        const it = ARSENAL[kind].find((x) => x.id === c[kind]), slot = loSlots[kind], src = gearArt(kind, it), img = slot.querySelector('img');
+        // (el arma principal, con la foto del fusil entero tal cual va montado)
+        const it = ARSENAL[kind].find((x) => x.id === c[kind]), slot = loSlots[kind], img = slot.querySelector('img');
+        const src = kind === 'rifle' ? gearArt('loadout', { scope: c.scope, rifle: c.rifle, mag: c.mag }) : gearArt(kind, it);
         if (img.getAttribute('src') !== src) img.setAttribute('src', src);
         slot.querySelector('b').textContent = it.name;
     }
@@ -2366,10 +2362,13 @@ function frame(now) {
     }
     if (mode === 'snipe' || mode === 'toFarm') {
         sniper.update(dt);
-        $('snipe-ui').classList.toggle('scoped', sniper.scoped);
-        document.body.classList.toggle('scoped', sniper.scoped);
-        scope.show(sniper.fov < (S.fov + sniper.stats.zoom) * 0.5);
-        scope.setLens(sniper.stats.lens);
+        // (las armas de la caja no llevan mirilla de francotirador: se apunta con la suya y la
+        // mirilla de siempre en el centro)
+        const sniperScope = sniper.scoped && !sniper.special;
+        $('snipe-ui').classList.toggle('scoped', sniperScope);
+        document.body.classList.toggle('scoped', sniperScope);
+        scope.show(!sniper.special && sniper.fov < (S.fov + sniper.stats.zoom) * 0.5);
+        if (sniper.stats.lens) scope.setLens(sniper.stats.lens);
         scope.setReady(sniper.canFire);
         updateAmmo();
         // La mirilla se abre con la dispersión: así se ve cuánto puede fallar el tiro

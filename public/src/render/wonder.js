@@ -5,23 +5,19 @@ import { box, toon, OUTLINE } from './materials.js';
 // piezas sirven para el arma en primera persona (RifleModel.setSpecial) y para las que giran sobre
 // la caja. Cada pieza: [ancho, alto, fondo, color, x, y, z, sin contorno (brilla)]
 //   muzzle   dónde sale el disparo
+//   sight    altura de su mira (alza y punto de mira): al apuntar queda a la altura del ojo
+//   sightX   a qué lado está (la de la bazuca, en el costado izquierdo del tubo)
 export const WONDER_LOOK = {
-    // Ametralladora (RPK): culata, cajón, tambor verde, guardamanos, cañón con su bípode y asa
-    mg: {
-        muzzle: -1.12,
-        parts: [
-            [0.12, 0.14, 0.32, 0x3a3a3a, 0, -0.03, 0.28], [0.08, 0.14, 0.08, 0x2a2a2a, 0, -0.14, 0.12],
-            [0.14, 0.14, 0.42, 0x4a4a4a, 0, 0, -0.08], [0.16, 0.22, 0.22, 0x6a7a5a, 0, -0.17, -0.12],
-            [0.12, 0.1, 0.3, 0x6a4a2a, 0, -0.01, -0.42], [0.05, 0.05, 0.52, 0x2a2a2a, 0, 0.02, -0.8],
-            [0.08, 0.08, 0.08, 0x3a3a3a, 0, 0.02, -1.07], [0.03, 0.24, 0.03, 0x2a2a2a, 0.06, -0.12, -0.66],
-            [0.03, 0.24, 0.03, 0x2a2a2a, -0.06, -0.12, -0.66], [0.04, 0.06, 0.18, 0x2a2a2a, 0, 0.11, -0.08],
-        ],
-    },
-    // Lanzacohetes: el tubo verde, la cabeza del cohete asomando con su punta roja, empuñaduras y
-    // la tobera de atrás
+    // Bazuca: el tubo verde, la cabeza del cohete asomando con su punta roja, empuñaduras, la
+    // tobera de atrás y su mira al costado izquierdo (alza atrás y punto de mira amarillo delante,
+    // cada uno en su soporte)
     rpg: {
         muzzle: -1.26,
+        sight: 0.1,
+        sightX: -0.24,
         parts: [
+            [0.16, 0.04, 0.05, 0x2a2a2a, -0.15, 0.05, -0.05], [0.07, 0.06, 0.03, 0x2a2a2a, -0.24, 0.08, -0.05],
+            [0.16, 0.04, 0.05, 0x2a2a2a, -0.15, 0.05, -0.68], [0.025, 0.06, 0.025, 0xffe03a, -0.24, 0.08, -0.68, true],
             [0.16, 0.16, 1.2, 0x5a6a3a, 0, 0.02, -0.25], [0.24, 0.24, 0.3, 0x6a7a5a, 0, 0.02, -0.97],
             [0.13, 0.13, 0.13, 0xc8402e, 0, 0.02, -1.17], [0.07, 0.17, 0.08, 0x2a2a2a, 0, -0.13, 0.05],
             [0.07, 0.17, 0.08, 0x2a2a2a, 0, -0.13, -0.3], [0.04, 0.1, 0.06, 0x2a2a2a, 0.1, 0.12, -0.3],
@@ -32,7 +28,9 @@ export const WONDER_LOOK = {
     // aleta arriba y el plato de la boca
     ray: {
         muzzle: -0.78,
+        sight: 0.17,
         parts: [
+            [0.02, 0.04, 0.03, 0x7dff4a, 0, 0.13, -0.66, true],
             [0.12, 0.16, 0.42, 0xc8402e, 0, 0, -0.2], [0.1, 0.24, 0.12, 0x3a2a2a, 0, -0.18, 0],
             [0.08, 0.08, 0.3, 0xc0c8d0, 0, 0.02, -0.55], [0.04, 0.1, 0.3, 0xc0c8d0, 0, 0.12, -0.2],
             [0.2, 0.2, 0.04, 0xc0c8d0, 0, 0.02, -0.72],
@@ -43,6 +41,7 @@ export const WONDER_LOOK = {
     // Ballesta explosiva: culata de madera, palas, cuerda, mirilla y el virote con su carga roja
     xbow: {
         muzzle: -0.76,
+        sight: 0.16,
         parts: [
             [0.1, 0.12, 0.6, 0x8a5a2a, 0, -0.02, 0], [0.08, 0.16, 0.1, 0x5a3a1a, 0, -0.14, 0.16],
             [0.9, 0.06, 0.08, 0x3a3a3a, 0, 0.02, -0.36], [0.86, 0.015, 0.015, 0xf3ead2, 0, 0.03, -0.26, true],

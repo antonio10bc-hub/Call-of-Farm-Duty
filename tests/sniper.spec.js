@@ -1,6 +1,6 @@
 // Pruebas de el campo de tiro: controles (dedo, ratón, teclado), colaterales y los cultivos de las
 // parcelas que se compran (calabazas, maíz y las vacas del prado) y la caja sorpresa.
-const { test, expect, aimAndShoot, enterBigField, enterField, openFarm, shootNext, touchPath, watchErrors } = require('./helpers');
+const { test, expect, aimAndShoot, enterBigField, enterField, frames, openFarm, shootNext, touchPath, watchErrors } = require('./helpers');
 
 // Al campo de tiro de un cultivo de las parcelas que se compran (desbloqueado a la fuerza)
 async function enterCrop(page, id) {
@@ -175,13 +175,20 @@ test('caja sorpresa: sale en otra torre; desde lejos no se abre, desde su torre 
     await expect(page.locator('#ammo')).toHaveClass(/special/);
     const name = await page.evaluate(() => game.sniper.special.name);
     await expect(page.locator('#ammo-name')).toHaveText(name);
-    // El lanzacohetes: el cohete vuela y revienta lo que pilla
-    await page.evaluate(() => { game.sniper.endSpecial(); game.sniper.box.pick = 1; game.sniper.giveSpecial(game.sniper.box.weapon); });
-    await expect(page.locator('#ammo-name')).toHaveText('LANZACOHETES');
+    // La bazuca: sin mirilla de francotirador (se apunta con la suya), el cohete vuela y revienta
+    // lo que pilla
+    await page.evaluate(() => { game.sniper.endSpecial(); game.sniper.box.pick = 0; game.sniper.giveSpecial(game.sniper.box.weapon); });
+    await expect(page.locator('#ammo-name')).toHaveText('BAZUCA');
     const before = await page.evaluate(() => game.state.wheat);
     const sheaf = '(() => { const s = game.sniper.field.sheaves.find((x) => x.alive); return s && { x: s.x, y: 0.9, z: s.z }; })()';
     await expect.poll(() => page.evaluate(() => game.sniper.canFire)).toBe(true);
-    await aimAndShoot(page, sheaf);
+    await page.evaluate((s) => { const p = eval(s); game.sniper.lookAt(p.x, p.y, p.z); }, sheaf);
+    await page.mouse.down({ button: 'right' });
+    await expect.poll(() => page.evaluate(() => game.sniper.adsK)).toBe(1);
+    await frames(page, 4);
+    expect(await page.evaluate(() => [document.body.classList.contains('scoped'), game.sniper.rifle.root.visible, game.sniper.fov > 30])).toEqual([false, true, true]);
+    await expect(page.locator('#scope')).toBeHidden();
+    await page.mouse.up({ button: 'right' });
     await expect.poll(() => page.evaluate(() => game.state.wheat), { timeout: 5_000 }).toBeGreaterThan(before);
     // Sin munición, otra vez el rifle
     await page.evaluate(() => { game.sniper.ammo = 1; });

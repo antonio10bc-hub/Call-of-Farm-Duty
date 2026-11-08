@@ -34,11 +34,12 @@ export class MerchantCamp extends VoxelModel {
         this.table = { x: S.x - 1.3, z: S.z - 0.5 };
         for (const [dx, dz] of [[-0.5, -0.3], [0.5, -0.3], [-0.5, 0.3], [0.5, 0.3]]) this.part(r, 0.08, 0.7, 0.08, 0x6a6a72, this.table.x + dx, 0.35, this.table.z + dz, false);
         this.part(r, 1.3, 0.08, 0.8, 0xf3ead2, this.table.x, 0.72, this.table.z);
-        this.part(r, 0.14, 1.6, 0.14, WOOD2, 33.4, 0.8, -13.4);
-        this.part(r, 0.9, 0.55, 0.1, WOOD, 33.4, 1.45, -13.4);
-        this.part(r, 0.36, 0.36, 0.04, 0xc8955a, 33.4, 1.45, -13.33, false);
-        this.part(r, 0.26, 0.24, 0.02, 0xffd23f, 33.39, 1.46, -13.3, false);
-        this.part(r, 0.05, 0.18, 0.02, 0x6a3a1a, 33.4, 1.45, -13.285, false);
+        const P = { x: S.x - 3.2, z: S.z + 3.2 }; // (el cartel del camino)
+        this.part(r, 0.14, 1.6, 0.14, WOOD2, P.x, 0.8, P.z);
+        this.part(r, 0.9, 0.55, 0.1, WOOD, P.x, 1.45, P.z);
+        this.part(r, 0.36, 0.36, 0.04, 0xc8955a, P.x, 1.45, P.z + 0.07, false);
+        this.part(r, 0.26, 0.24, 0.02, 0xffd23f, P.x - 0.01, 1.46, P.z + 0.1, false);
+        this.part(r, 0.05, 0.18, 0.02, 0x6a3a1a, P.x, 1.45, P.z + 0.115, false);
 
         // Mercancía sobre la mesa: un saco de grano, una cesta de tomates, tarros y una balanza
         this.goods = new THREE.Group();
@@ -96,7 +97,7 @@ export class MerchantCamp extends VoxelModel {
     // Ancho del surco en x (estrecho al principio, donde tocó tierra; ancho al final)
     furrowWidth(x) {
         const F = MERCHANT.furrow, k = (F.from - x) / (F.from - F.to);
-        return lerp(1.1, F.w, Math.min(1, Math.max(0, k)));
+        return lerp(1.6, F.w, Math.min(1, Math.max(0, k)));
     }
 
     buildFurrow() {
@@ -112,9 +113,9 @@ export class MerchantCamp extends VoxelModel {
         for (let x = F.to - 0.6; x < F.from + 0.4; x += 0.75) {
             const w = this.furrowWidth(x), k = Math.min(1, Math.max(0, (F.from - x) / (F.from - F.to)));
             for (const s of [-1, 1]) {
-                const h = lerp(0.18, 0.75, k) * (0.75 + ((n * 37) % 10) / 20);
+                const h = lerp(0.25, 0.95, k) * (0.75 + ((n * 37) % 10) / 20);
                 const z = F.z + s * (w / 2 + 0.35 + ((n * 13) % 5) * 0.05);
-                const clod = this.part(r, 0.7 + ((n * 7) % 3) * 0.12, h, 0.55 + k * 0.2, DIRT[n % 3], x, h / 2, z);
+                const clod = this.part(r, 0.7 + ((n * 7) % 3) * 0.12, h, 0.6 + k * 0.3, DIRT[n % 3], x, h / 2, z);
                 clod.rotation.y = ((n * 11) % 7) * 0.1 - 0.3;
                 if (n % 3 === 0) this.part(r, 0.3, 0.2, 0.3, [0x4caf3c, 0x3d9a34][n % 2], x + 0.1, h + 0.1, z);
                 if (n % 4 === 1) this.part(r, 0.32, 0.22, 0.26, STONE, x - 0.2, h + 0.08, z + s * 0.1).rotation.y = n;
@@ -132,14 +133,14 @@ export class MerchantCamp extends VoxelModel {
         // A los dos lados del surco, árboles inclinados hacia fuera: los tumbó a medias la onda
         // expansiva del aterrizaje (más cuanto más cerca del surco y del principio)
         let i = 0;
-        for (let x = F.to + 0.8; x < F.from + 1.5; x += 1.55, i++) {
+        for (let x = F.to + 0.8; x < F.from; x += 1.55, i++) { // (sin salirse de la parcela)
             for (const s of [-1, 1]) {
-                const j = (i * 7 + (s > 0 ? 3 : 0)) % 5, d = 3.0 + j * 0.42 + (i % 2) * 0.3;
+                const j = (i * 7 + (s > 0 ? 3 : 0)) % 5, d = F.w / 2 + 1.6 + j * 0.42 + (i % 2) * 0.3;
                 const z = F.z + s * d, k = Math.min(1, Math.max(0, (x - F.to) / (F.from - F.to)));
                 const tree = new THREE.Group(), sc = 0.8 + ((i * 3 + j) % 4) * 0.12;
                 tree.position.set(x + (j - 2) * 0.18, 0, z);
                 // Inclinado hacia el lado contrario al surco (eje x), con algo de giro propio
-                tree.rotation.set(s * (0.32 + 0.4 * k + (3.6 - Math.min(3.6, d - 2.6)) * 0.05), (j - 2) * 0.12, (j - 2) * 0.05);
+                tree.rotation.set(s * (0.32 + 0.4 * k + (3.6 - Math.min(3.6, d - F.w / 2 - 1)) * 0.05), (j - 2) * 0.12, (j - 2) * 0.05);
                 tree.scale.setScalar(sc);
                 this.part(tree, 0.3, 1.0, 0.3, 0x7a4f2a, 0, 0.5, 0);
                 this.part(tree, 1.5, 0.9, 1.5, 0x3d9a34, 0, 1.35, 0).rotation.y = i * 0.7;
@@ -151,7 +152,7 @@ export class MerchantCamp extends VoxelModel {
             }
         }
         // Al principio, donde tocó tierra: dos árboles tumbados y sus tocones
-        for (const [x, z, ry] of [[F.from + 1.4, F.z - 2.1, 0.5], [F.from + 0.6, F.z + 2.2, -0.4]]) {
+        for (const [x, z, ry] of [[F.from - 1.5, F.z - F.w / 2 - 1.1, 0.5], [F.from - 2.2, F.z + F.w / 2 + 1.2, -0.4]]) {
             this.part(r, 0.4, 0.35, 0.4, 0x7a4f2a, x + 1.3, 0.17, z - Math.sin(ry) * 1.3);
             const log = new THREE.Group();
             log.position.set(x, 0.22, z);

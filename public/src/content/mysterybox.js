@@ -11,17 +11,16 @@ import { L } from '../core/I18n.js';
 //   spin    segundos que giran las armas
 export const BOX = { first: [20, 40], every: [45, 90], stay: 30, spin: 3.2 };
 
-// Las armas de la caja (todas de referencia de Black Ops):
-//   ammo    munición (al gastarla, vuelve el rifle)
+// Las armas de la caja (todas de referencia de Black Ops). Sin mirilla de francotirador: al
+// apuntar suben al centro y se apunta con su propia mira (zoom: campo de visión al apuntar)
+//   ammo    munición, un solo cargador (al gastarla, vuelve el fusil)
 //   rate    segundos entre disparo y disparo
-//   mode    bullet (balas, como el rifle: auto dispara sola mientras se mantiene la mira),
-//           rocket, ray o bolt (proyectiles que revientan en radius al llegar; el virote de la
+//   mode    rocket, ray o bolt (proyectiles que revientan en radius al llegar; el virote de la
 //           ballesta se clava y revienta a los fuse s)
 //   speed   velocidad del proyectil (m/s)
-//   spread  dispersión extra (radianes)
+export const WONDER_ZOOM = 42;
 export const WONDER = [
-    { id: 'mg', name: L('MACHINE GUN', 'AMETRALLADORA'), ammo: 90, rate: 0.085, mode: 'bullet', auto: true, pierce: 2, spread: 0.022, tracer: 0xffe9a0, sfx: 'shot', icon: 'w-mg' },
-    { id: 'rpg', name: L('ROCKET LAUNCHER', 'LANZACOHETES'), ammo: 6, rate: 0.9, mode: 'rocket', speed: 34, radius: 3.2, sfx: 'missile', icon: 'w-rpg' },
+    { id: 'rpg', name: L('BAZOOKA', 'BAZUCA'), ammo: 6, rate: 0.9, mode: 'rocket', speed: 34, radius: 3.2, sfx: 'missile', icon: 'w-rpg' },
     { id: 'ray', name: L('RAY GUN', 'PISTOLA DE RAYOS'), ammo: 20, rate: 0.26, mode: 'ray', speed: 46, radius: 1.7, sfx: 'laser', icon: 'w-ray' },
     { id: 'xbow', name: L('EXPLOSIVE CROSSBOW', 'BALLESTA EXPLOSIVA'), ammo: 8, rate: 0.7, mode: 'bolt', speed: 60, radius: 2.5, fuse: 1, sfx: 'whoosh', icon: 'w-xbow' },
 ];

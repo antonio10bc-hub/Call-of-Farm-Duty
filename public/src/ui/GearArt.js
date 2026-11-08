@@ -1,92 +1,75 @@
-// Dibujos pixelados de la armería (de perfil), hechos con las mismas medidas y colores que el
-// fusil en primera persona (content/arsenal.js: look). Cada uno, un canvas de W×H píxeles que se
-// escala sin suavizar.
-const W = 64, H = 32, INK = '#2a1a0e';
-const hex = (c) => `#${c.toString(16).padStart(6, '0')}`;
+import * as THREE from 'three';
+import { VoxelModel } from '../render/VoxelModel.js';
+import { buildGun } from '../render/RifleModel.js';
+import { THEME } from '../content/theme.js';
+import { DEFAULT_LOADOUT } from '../content/arsenal.js';
+
+// Las fotos de la armería: no son dibujos, son las piezas de verdad (las mismas cajas que el fusil
+// en primera persona, render/RifleModel.js: buildGun) renderizadas en 3D, de perfil y un poco
+// desde arriba, con el sombreado toon y el contorno de tinta del juego. Se hacen en un canvas
+// pequeño (W×H, a píxeles, sin suavizar) con su propio renderer y se guardan como imagen.
+const W = 128, H = 64;
 const cache = new Map();
+let gl = null, scene = null, cam = null;
 
-// Rectángulo con su borde de tinta (como los contornos del juego)
-function block(ctx, x, y, w, h, c) {
-    ctx.fillStyle = INK;
-    ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
-    ctx.fillStyle = hex(c);
-    ctx.fillRect(x, y, w, h);
+function setup() {
+    const canvas = Object.assign(document.createElement('canvas'), { width: W, height: H });
+    gl = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false, preserveDrawingBuffer: true });
+    gl.setPixelRatio(1);
+    gl.setSize(W, H, false);
+    gl.outputColorSpace = THREE.LinearSRGBColorSpace; // (como el juego)
+    gl.setClearColor(0x000000, 0);
+    scene = new THREE.Scene();
+    const { light } = THEME;
+    const sun = new THREE.DirectionalLight(light.sun, light.sunIntensity);
+    sun.position.set(-3, 8, 5);
+    scene.add(sun, new THREE.HemisphereLight(light.sky, light.ground, light.hemiIntensity));
+    cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 40);
 }
 
-function flat(ctx, x, y, w, h, c) {
-    ctx.fillStyle = hex(c);
-    ctx.fillRect(x, y, w, h);
+// Encuadra lo que haya en root (proyección ortográfica: cabe entero, con un margen)
+const DIR = new THREE.Vector3(-1, 0.34, -0.14).normalize(); // de perfil (el cañón a la izquierda), algo de frente
+function frame(root) {
+    const b = new THREE.Box3().setFromObject(root), c = b.getCenter(new THREE.Vector3());
+    cam.position.copy(c).addScaledVector(DIR, 10);
+    cam.lookAt(c);
+    cam.updateMatrixWorld();
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    const p = new THREE.Vector3();
+    for (let i = 0; i < 8; i++) {
+        p.set(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z).applyMatrix4(cam.matrixWorldInverse);
+        x0 = Math.min(x0, p.x);
+        x1 = Math.max(x1, p.x);
+        y0 = Math.min(y0, p.y);
+        y1 = Math.max(y1, p.y);
+    }
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    const hw = Math.max((x1 - x0) / 2, ((y1 - y0) / 2) * (W / H)) * 1.08, hh = hw * (H / W);
+    Object.assign(cam, { left: cx - hw, right: cx + hw, top: cy + hh, bottom: cy - hh });
+    cam.updateProjectionMatrix();
 }
 
-const DRAW = {
-    // Mirilla: tubo con sus anillos y el cristal delante (o el punto rojo abierto, o la nocturna
-    // con su caja)
-    scope(ctx, L) {
-        if (L.open) {
-            block(ctx, 20, 20, 24, 4, L.body);
-            block(ctx, 22, 9, 4, 12, L.body);
-            block(ctx, 38, 9, 4, 12, L.body);
-            flat(ctx, 27, 12, 10, 6, 0xd8f0ff);
-            flat(ctx, 31, 14, 2, 2, L.glass);
-            return;
-        }
-        const len = Math.round(L.len * 80), r = Math.round(L.r * 90), x = (W - len) >> 1, y = (H - r) >> 1;
-        block(ctx, x, y, len, r, L.body);
-        block(ctx, x - 1, y - 2, 4, r + 4, L.ring);
-        block(ctx, x + len - 3, y - 2, 4, r + 4, L.ring);
-        flat(ctx, x - 2, y + 1, 1, r - 2, L.glass);
-        flat(ctx, x + 4, y + 1, len - 8, 1, 0xffffff);
-        if (L.box) block(ctx, x + len - 14, y - 6, 8, 5, L.body);
-        block(ctx, x + 8, y + r + 1, 3, 4, 0x5c6068);
-        block(ctx, x + len - 12, y + r + 1, 3, 4, 0x5c6068);
-    },
-    // Rifle: culata, empuñadura, cajón, guardamanos y cañón (largo y grueso según el rifle)
-    rifle(ctx, L) {
-        const barrel = Math.round(L.barrel * 28), t = Math.max(2, Math.round(L.thick * 32)), x0 = 3;
-        block(ctx, x0, 13, 13, 6, L.wood);
-        block(ctx, x0 + 9, 18, 4, 6, L.wood2);
-        block(ctx, x0 + 15, 12, 11, 6, L.metal);
-        if (L.rail) block(ctx, x0 + 15, 10, 11, 1, 0x34373e);
-        block(ctx, x0 + 26, 13, Math.min(12, barrel), 4, L.wood);
-        block(ctx, x0 + 26, 14 - (t >> 1), barrel, t, 0x34373e);
-        const end = x0 + 26 + barrel;
-        block(ctx, end, 13 - (t >> 1), 3, t + 2, L.brake ? 0x5c6068 : L.metal);
-        if (L.brake) for (const dx of [-3, -6]) flat(ctx, end + dx, 12 - (t >> 1), 1, t + 4, 0x2a2a2a);
-        if (L.glow) for (const dx of [6, 12, 18]) flat(ctx, x0 + 26 + dx, 14 - (t >> 1), 2, t, L.glow);
-        block(ctx, x0 + 17, 18, 3, 3, 0x34373e);
-    },
-    // Cargador: caja recta, curva (ampliado), tambor o célula que brilla
-    mag(ctx, L) {
-        const w = Math.round(L.d * 110), h = Math.round(L.h * 100), x = (W - w) >> 1, y = (H - h) >> 1;
-        if (L.drum) {
-            block(ctx, x + 2, y, w - 4, h, L.color);
-            block(ctx, x, y + 3, w, h - 6, L.color);
-            flat(ctx, x + (w >> 1) - 2, y + (h >> 1) - 2, 4, 4, 0x34373e);
-            return;
-        }
-        if (L.bend) {
-            // Curvo: cada franja un poco más adelantada
-            ctx.fillStyle = INK;
-            for (let k = 0; k < h; k += 3) ctx.fillRect(x - 1 + (k >> 2), y + k - 1, w + 2, 5);
-            ctx.fillStyle = hex(L.color);
-            for (let k = 0; k < h; k += 3) ctx.fillRect(x + (k >> 2), y + k, w, 3);
-            return;
-        }
-        block(ctx, x, y, w, h, L.color);
-        flat(ctx, x + 1, y + 1, 1, h - 2, 0x8a8a8a);
-        if (L.glow) flat(ctx, x + 3, y + 3, w - 6, h - 6, L.glow);
-        if (!L.glow) flat(ctx, x + 2, y + 2, w - 4, 2, 0xd9b04a);
-    },
-};
-
-// URL del dibujo de una pieza (kind: scope, rifle o mag)
+// URL de la foto de una pieza (kind: scope, rifle o mag; o 'loadout' con el equipo entero
+// { scope, rifle, mag } en item: el fusil montado)
 export function gearArt(kind, item) {
-    const key = `${kind}:${item.id}`;
+    const whole = kind === 'loadout';
+    const key = whole ? `loadout:${item.scope}|${item.rifle}|${item.mag}` : `${kind}:${item.id}`;
     if (cache.has(key)) return cache.get(key);
-    const cv = Object.assign(document.createElement('canvas'), { width: W, height: H });
-    const ctx = cv.getContext('2d');
-    DRAW[kind](ctx, item.look);
-    const url = cv.toDataURL();
+    let url = '';
+    try {
+        if (!gl) setup();
+        const model = new VoxelModel(THEME.outline);
+        buildGun(model, model.root, whole ? item : { ...DEFAULT_LOADOUT, [kind]: item.id }, whole ? null : kind);
+        scene.add(model.root);
+        model.root.updateMatrixWorld(true);
+        frame(model.root);
+        gl.render(scene, cam);
+        url = gl.domElement.toDataURL();
+        scene.remove(model.root);
+        model.dispose();
+    } catch {
+        /* sin WebGL: sin foto */
+    }
     cache.set(key, url);
     return url;
 }

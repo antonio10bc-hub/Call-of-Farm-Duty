@@ -98,7 +98,8 @@ export const FARM = {
     //             `land`, cuando se ha comprado esa parcela
     //   levels    w, d: tamaño en casillas (en el mapa); sheaves: blancos en el campo de tiro;
     //             arena: tamaño del campo de tiro (1 = el normal); sign: color del cartel.
-    //             El nivel 1 apenas cambia; los altos tienen un campo de tiro mucho mayor y lleno
+    //             El nivel 1 apenas cambia; los altos tienen un campo de tiro mucho mayor y a
+    //             rebosar (sobre todo el maíz y los tomates)
     //   turrets   lo que cuesta la torreta automática, la mejora extra con el campo al máximo:
     //             una torreta que va de esquina en esquina y lo recoge sola (ver TURRETS)
     fields: [
@@ -114,10 +115,10 @@ export const FARM = {
             // El último llena su zona entera
             levels: [
                 { w: 8, d: 6, sheaves: 18, arena: 1, sign: 0x9a6a3a },
-                { w: 12, d: 10, sheaves: 36, arena: 1.2, sign: 0xb07a44 },
-                { w: 17, d: 15, sheaves: 64, arena: 1.45, sign: 0x5a9e32 },
-                { w: 22, d: 21, sheaves: 100, arena: 1.75, sign: 0x3a7ec8 },
-                { w: 28, d: 28, sheaves: 150, arena: 2.1, sign: 0xc8402e },
+                { w: 12, d: 10, sheaves: 40, arena: 1.2, sign: 0xb07a44 },
+                { w: 17, d: 15, sheaves: 80, arena: 1.45, sign: 0x5a9e32 },
+                { w: 22, d: 21, sheaves: 140, arena: 1.75, sign: 0x3a7ec8 },
+                { w: 28, d: 28, sheaves: 240, arena: 2.1, sign: 0xc8402e },
             ],
         },
         {
@@ -130,11 +131,11 @@ export const FARM = {
             locked: { after: 'wheat', name: L('JUNKYARD', 'TERRENO ABANDONADO') },
             // El último llena su zona entera
             levels: [
-                { w: 7, d: 6, sheaves: 6, arena: 1, sign: 0x9a6a3a },
-                { w: 11, d: 10, sheaves: 12, arena: 1.2, sign: 0xb07a44 },
-                { w: 16, d: 15, sheaves: 22, arena: 1.45, sign: 0x5a9e32 },
-                { w: 22, d: 20, sheaves: 36, arena: 1.75, sign: 0x3a7ec8 },
-                { w: 28, d: 28, sheaves: 56, arena: 2.1, sign: 0xc8402e },
+                { w: 7, d: 6, sheaves: 8, arena: 1, sign: 0x9a6a3a },
+                { w: 11, d: 10, sheaves: 18, arena: 1.2, sign: 0xb07a44 },
+                { w: 16, d: 15, sheaves: 40, arena: 1.45, sign: 0x5a9e32 },
+                { w: 22, d: 20, sheaves: 80, arena: 1.75, sign: 0x3a7ec8 },
+                { w: 28, d: 28, sheaves: 150, arena: 2.1, sign: 0xc8402e },
             ],
         },
         // Los de las parcelas que se compran (con su cultivo nuevo y su forma de disparar)
@@ -151,9 +152,9 @@ export const FARM = {
             levels: [
                 { w: 6, d: 5, sheaves: 6, arena: 1, sign: 0x9a6a3a },
                 { w: 10, d: 9, sheaves: 10, arena: 1.25, sign: 0xb07a44 },
-                { w: 15, d: 14, sheaves: 15, arena: 1.55, sign: 0x5a9e32 },
-                { w: 20, d: 19, sheaves: 22, arena: 1.9, sign: 0x3a7ec8 },
-                { w: 28, d: 28, sheaves: 32, arena: 2.4, sign: 0xc8402e },
+                { w: 15, d: 14, sheaves: 16, arena: 1.55, sign: 0x5a9e32 },
+                { w: 20, d: 19, sheaves: 26, arena: 1.9, sign: 0x3a7ec8 },
+                { w: 28, d: 28, sheaves: 40, arena: 2.4, sign: 0xc8402e },
             ],
         },
         {
@@ -166,10 +167,10 @@ export const FARM = {
             locked: { land: 'east', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
             levels: [
                 { w: 6, d: 5, sheaves: 16, arena: 1, sign: 0x9a6a3a },
-                { w: 10, d: 9, sheaves: 30, arena: 1.25, sign: 0xb07a44 },
-                { w: 15, d: 14, sheaves: 52, arena: 1.55, sign: 0x5a9e32 },
-                { w: 20, d: 19, sheaves: 84, arena: 1.9, sign: 0x3a7ec8 },
-                { w: 28, d: 28, sheaves: 140, arena: 2.4, sign: 0xc8402e },
+                { w: 10, d: 9, sheaves: 36, arena: 1.25, sign: 0xb07a44 },
+                { w: 15, d: 14, sheaves: 72, arena: 1.55, sign: 0x5a9e32 },
+                { w: 20, d: 19, sheaves: 140, arena: 1.9, sign: 0x3a7ec8 },
+                { w: 28, d: 28, sheaves: 260, arena: 2.4, sign: 0xc8402e },
             ],
         },
         {
@@ -184,9 +185,9 @@ export const FARM = {
             levels: [
                 { w: 6, d: 5, sheaves: 4, arena: 1, sign: 0x9a6a3a },
                 { w: 10, d: 9, sheaves: 6, arena: 1.25, sign: 0xb07a44 },
-                { w: 15, d: 14, sheaves: 9, arena: 1.55, sign: 0x5a9e32 },
-                { w: 20, d: 19, sheaves: 13, arena: 1.9, sign: 0x3a7ec8 },
-                { w: 28, d: 28, sheaves: 18, arena: 2.4, sign: 0xc8402e },
+                { w: 15, d: 14, sheaves: 10, arena: 1.55, sign: 0x5a9e32 },
+                { w: 20, d: 19, sheaves: 15, arena: 1.9, sign: 0x3a7ec8 },
+                { w: 28, d: 28, sheaves: 22, arena: 2.4, sign: 0xc8402e },
             ],
         },
     ],

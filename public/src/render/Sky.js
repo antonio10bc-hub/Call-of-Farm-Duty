@@ -5,7 +5,7 @@ import * as THREE from 'three';
 // atardecer/amanecer (naranja en el horizonte, rosa y morado arriba, con el sol grande y bajo).
 // update(k, d): k lo de noche que es (0..1) y d lo de atardecer (0..1).
 const DAY = [0xd8f2ff, 0xb4e2ff, 0x7cc4f6];
-const NIGHT = [0x2a3468, 0x18204a, 0x0a0f2e];
+const NIGHT = [0x3a4880, 0x26326c, 0x121a46]; // (más clarita: de noche también se ve)
 const DUSK = [0xffc46a, 0xf07a5a, 0x3a3a8a];
 const STEPS = 7; // franjas del degradado
 const _a = new THREE.Color(), _b = new THREE.Color(), _c = new THREE.Color();

@@ -81,11 +81,11 @@ test('partida guardada con las cifras de antes: los campos salen con los blancos
         localStorage.setItem('cofd.farm.v4', JSON.stringify({ items: { wheat: 50, tomato: 0 }, fields: { wheat: { unlocked: true, level: 4, plantedAt: 0, left: 32 }, tomato: { unlocked: true, level: 2, plantedAt: Date.now(), left: 11 } } }));
     });
     await page.goto('/?test');
-    await expect.poll(() => page.evaluate(() => window.game && [game.state.fields.wheat.left, game.state.fields.tomato.left]), { timeout: 30_000 }).toEqual([150, 22]);
+    await expect.poll(() => page.evaluate(() => window.game && [game.state.fields.wheat.left, game.state.fields.tomato.left]), { timeout: 30_000 }).toEqual([240, 40]);
     // Ya guardada con la revisión nueva: lo que se haya empezado a recoger se respeta
     await page.evaluate(() => { game.state.collect('wheat'); });
     await page.reload();
-    await expect.poll(() => page.evaluate(() => window.game && game.state.fields.wheat.left), { timeout: 30_000 }).toBe(149);
+    await expect.poll(() => page.evaluate(() => window.game && game.state.fields.wheat.left), { timeout: 30_000 }).toBe(239);
     expect(errors).toEqual([]);
 });
 
@@ -283,7 +283,7 @@ test('comerciante: su ovni disfrazado de coche recorre el surco, sale él, pide 
     expect(await page.evaluate(() => {
         const c = game.farm.camp, u = c.ufo.position, m = c.man.position;
         return [c.ufo.visible, c.man.visible, c.goods.visible, Math.round(u.x * 10) / 10, Math.round(m.x * 10) / 10];
-    })).toEqual([true, true, true, 41.6, 38.2]);
+    })).toEqual([true, true, true, 38.1, 34.7]);
     await expect(page.locator('#sign-merchant')).toContainText('MERCADER');
     // Sus encargos: 3, de lo que da la granja; sin cosecha no se entregan (la cámara va a su zona:
     // desde el principio queda fuera de la pantalla del móvil)
