@@ -24,10 +24,14 @@ export const MERCHANT = {
     min: 5,
     rate: { wheat: 0.12, tomato: 0.35, pumpkin: 0.9, corn: 0.2, milk: 0.7, wool: 0.8 },
     site: { zone: [30, -30, 60, 0], clear: [30, -24, 60, -13] }, // (el bosque, toda su parcela: en el mapa llena su zona)
-    // (el surco cruza la parcela de punta a punta: lo más largo que cabe con el puesto al final)
-    furrow: { from: 59.6, to: 39.7, z: -19.2, w: 4.4 },
-    ufo: { x: 38.1, z: -19.2, from: { x: 80, y: 16, z: -30 } },
-    stall: { x: 34.7, z: -16.6 },
+    // El accidente, en el centro de su zona: el surco llega desde el borde, ancho, hasta el ovni,
+    // que se paró en un cráter (crater: radio); a los lados, el bosque tumbado en abanico (fan:
+    // ancho al empezar y lo que se abre por casilla). El puesto, al borde del cráter
+    furrow: { from: 59.6, to: 46.6, z: -15, w: 6.2 },
+    ufo: { x: 45, z: -15, from: { x: 80, y: 16, z: -30 } },
+    stall: { x: 41.6, z: -12.4 },
+    crater: 6.4,
+    fan: { w: 3.4, open: 0.6 },
     name: L('MERCHANT', 'MERCADER'),
     lines: {
         hello: [

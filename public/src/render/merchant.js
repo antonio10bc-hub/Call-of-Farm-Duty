@@ -151,6 +151,35 @@ export class MerchantCamp extends VoxelModel {
                 r.add(tree);
             }
         }
+        // El cráter donde se paró: un anillo de tierra levantada con matas y piedras encima, abierto
+        // por donde entra el surco y hacia el puesto
+        const U = MERCHANT.ufo, R = MERCHANT.crater, S = MERCHANT.stall, ring = 52;
+        for (let k = 0; k < ring; k++) {
+            const a = (k / ring) * Math.PI * 2, x = U.x + Math.cos(a) * (R + 0.6), z = U.z + Math.sin(a) * (R + 0.6);
+            if ((x > U.x && Math.abs(z - U.z) < F.w / 2 + 0.6) || Math.hypot(x - S.x, z - S.z) < 2.6) continue;
+            const hh = 0.9 + ((k * 7) % 5) * 0.14;
+            this.part(r, 1.3, hh, 1.1, DIRT[k % 3], x, hh / 2, z).rotation.y = -a;
+            this.part(r, 0.9, 0.4, 0.8, DIRT[(k + 1) % 3], x + Math.cos(a) * 0.8, 0.2, z + Math.sin(a) * 0.8).rotation.y = -a;
+            if (k % 3 === 0) this.part(r, 0.5, 0.3, 0.5, [0x4caf3c, 0x3d9a34][k % 2], x, hh + 0.12, z);
+            if (k % 5 === 2) this.part(r, 0.42, 0.3, 0.36, STONE, x, hh + 0.1, z).rotation.y = k;
+        }
+        // El bosque tumbado en abanico a los dos lados del surco: troncos caídos hacia fuera, con
+        // la raíz levantada y la copa aún verde (se abre según se aleja del principio)
+        const FAN = MERCHANT.fan;
+        for (let k = 0; k < 120; k++) {
+            const h1 = Math.abs(Math.sin(k * 12.9898) * 43758.5453) % 1, h2 = Math.abs(Math.sin(k * 78.233) * 12543.21) % 1;
+            const dx = 1.5 + h1 * (F.from - U.x - 2), x = U.x + dx, half = FAN.w + dx * FAN.open, s = k % 2 ? 1 : -1;
+            const off = F.w / 2 + 1.4 + h2 * (half - F.w / 2 - 1.4), z = F.z + s * off;
+            if (Math.hypot(x - U.x, z - U.z) < R + 1.6 || z < -29.4 || z > -0.6 || x > 59.4) continue;
+            const a = s * (0.5 + h2 * 0.7), L = 2.4 + h1 * 1.6, g = new THREE.Group();
+            g.position.set(x, 0, z);
+            g.rotation.y = -a;
+            this.part(g, 0.42, 0.4, L, 0x6a4424, 0, 0.22, s * L / 2);
+            this.part(g, 0.9, 0.9, 0.5, 0x4a3426, 0, 0.45, 0); // la raíz levantada
+            this.part(g, 1.3, 0.7, 1.2, [0x3d9a34, 0x4caf3c, 0x5a8a2a][k % 3], 0, 0.4, s * (L + 0.3));
+            this.part(g, 0.9, 0.5, 0.9, [0x4caf3c, 0x5cc04a, 0x3d9a34][k % 3], 0.2, 0.75, s * (L + 0.1));
+            r.add(g);
+        }
         // Al principio, donde tocó tierra: dos árboles tumbados y sus tocones
         for (const [x, z, ry] of [[F.from - 1.5, F.z - F.w / 2 - 1.1, 0.5], [F.from - 2.2, F.z + F.w / 2 + 1.2, -0.4]]) {
             this.part(r, 0.4, 0.35, 0.4, 0x7a4f2a, x + 1.3, 0.17, z - Math.sin(ry) * 1.3);

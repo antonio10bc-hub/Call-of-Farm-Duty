@@ -35,6 +35,7 @@ const inParcel = (x, z, m = 0) => [...FARM.parcels, ...FARM.lands.map((l) => l.r
 const kindKey = (k) => (!k ? '' : k.field ? (k.locked ? 'junk' : 'field') : k.path ? 'path' : k.strip ? 'strip' : k.pad ? `pad${k.pad}` : k.yard ? 'yard' : k.forest ? 'forest' : k.wild ? 'wild' : 'b');
 const FOREST = [0x4f8a36, 0x5a9a3e, 0x4a7a32, 0x5f8a3a, 0x6a7a3a, 0x56703a]; // suelo de bosque: hierba oscura y tierra
 const ASPHALT = [0x5c5c62, 0x56565c], CONCRETE = [0x9a948c, 0x8f8a82];
+const CRATER = [0x6a4a2a, 0x5a3e24, 0x7a5432, 0x4a3420]; // el fondo del cráter del ovni
 const CLEARING = [0x8fbf54, 0x9ab85a, 0xa8a060, 0xb89a64, 0x86b04e]; // el claro del mercader
 const rectOf = ([x0, z0, x1, z1]) => ({ x: x0, z: z0, w: x1 - x0, d: z1 - z0 });
 const PASTURE = [0xa8e070, 0x9ad962, 0xb4e67a]; // hierba fresca del prado de las vacas
@@ -346,6 +347,7 @@ export class Farm {
             : k && k.forest ? FOREST[mod(Math.floor(Math.sin(c * 0.37) * 2 + Math.sin(r * 0.29 + c * 0.11) * 2 + mod(c * 3 + r * 5, 3)), FOREST.length)]
             : k && k.wild ? JUNK.ground[mod(c * 5 + r * 7 + mod(c * r, 3), JUNK.ground.length)]
             // El claro del mercader: hierba pisada y calvas de tierra (no un suelo liso)
+            : k && k.clearing && this.inCrater(t.c + 0.5, t.r + 0.5) ? CRATER[mod(c * 3 + r * 5 + mod(c * r, 2), CRATER.length)]
             : k && k.clearing ? CLEARING[mod(Math.floor(Math.sin(c * 0.5) * 1.6 + Math.sin(r * 0.43 + c * 0.2) * 1.6) + mod(c * 7 + r * 3, 2), CLEARING.length)]
             : k && k.yard ? YARD[mod(c + r, 2)] : theme.grass[mod(c * 5 + r * 3 + mod(c * r, 3), 3)];
         _c.setHex(col).offsetHSL(0, 0, (Math.random() - 0.5) * theme.grassJitter);
@@ -461,12 +463,24 @@ export class Farm {
     // hacia el final) y el sitio de su puesto, con el borde ondulado (m: margen)
     inClearing(x, z, m = 0) {
         if (!inRect(this.villageZone, x, z)) return false;
-        const F = MERCHANT.furrow, S = MERCHANT.stall;
-        const wob = Math.sin(x * 0.9 + z * 0.4) * 0.7 + Math.sin(z * 1.3 - x * 0.5) * 0.5;
-        const t = Math.min(1, Math.max(0, (x - (F.to - 2)) / (F.from + 1 - (F.to - 2))));
-        const along = Math.abs(z - F.z) - (F.w / 2 + 2.6 - t * 1.4) - wob; // (más ancho donde se paró)
-        const camp = Math.hypot(x - (S.x + 0.6), (z - (S.z - 1.2)) * 1.2) - 4.6 - wob;
-        return Math.min(x >= F.to - 3 && x <= F.from + 2 ? along : 9, camp) < m;
+        // (pequeño: el surco, el cráter y un corro junto al puesto; todo lo demás, bosque)
+        const F = MERCHANT.furrow, S = MERCHANT.stall, U = MERCHANT.ufo;
+        const wob = Math.sin(x * 0.9 + z * 0.4) * 0.5 + Math.sin(z * 1.3 - x * 0.5) * 0.4;
+        const along = x >= F.to - 2 ? Math.abs(z - F.z) - (F.w / 2 + 1.2) - wob : 9;
+        const camp = Math.hypot(x - (S.x - 0.6), (z - (S.z + 0.6)) * 1.2) - 3.2 - wob;
+        const crater = Math.hypot(x - U.x, z - U.z) - MERCHANT.crater - 0.4 - wob * 0.5;
+        return Math.min(along, camp, crater) < m;
+    }
+
+    // ¿En el cráter del ovni? (su fondo, de tierra removida)
+    inCrater(x, z) {
+        return inRect(this.villageZone, x, z) && Math.hypot(x - MERCHANT.ufo.x, z - MERCHANT.ufo.z) < MERCHANT.crater;
+    }
+
+    // ¿En el abanico de árboles tumbados? (ahí no queda ninguno en pie)
+    inFan(x, z) {
+        const F = MERCHANT.furrow, U = MERCHANT.ufo, dx = x - U.x;
+        return inRect(this.villageZone, x, z) && dx > -2 && Math.abs(z - F.z) < MERCHANT.fan.w + Math.max(0, dx) * MERCHANT.fan.open + 0.8;
     }
 
     // ¿Ya está limpio este punto? (dentro del recinto del granero o de un campo)
@@ -505,7 +519,7 @@ export class Farm {
         const zones = [{ Z: this.zone, k: 1 }, { Z: this.houseZone, k: 0.8 }, { Z: this.villageZone, k: 1.3, forest: true }, ...this.views.filter((v) => !FARM.lands.some((l) => l.field === v.id)).map((v) => ({ Z: v.zone, k: 0.55 })), ...FARM.lands.map((l) => ({ Z: rectOf(l.rect), k: l.soon ? 0.22 : 0.5 }))]; // (las de un campo en venta, ya con su parcela)
         for (const { Z, k, forest } of zones) {
             // (de lo más barato a lo más caro de comprobar)
-            const free = (x, z, m) => inRect(Z, x, z) && !inRect(this.yard, x, z, m) && !inRect(this.houseYard, x, z, m) && !this.inClearing(x, z, m) && !this.views.some((v) => inRect(v.rect, x, z, m))
+            const free = (x, z, m) => inRect(Z, x, z) && !(forest && this.inFan(x, z)) && !inRect(this.yard, x, z, m) && !inRect(this.houseYard, x, z, m) && !this.inClearing(x, z, m) && !this.views.some((v) => inRect(v.rect, x, z, m))
                 && !FARM.paths.some(([x0, z0, x1, z1]) => x > x0 - m && x < x1 + m && z > z0 - m && z < z1 + m)
                 && !FARM.structures.some((st) => Math.abs(x - st.x) < st.w / 2 + m && Math.abs(z - st.z) < st.d / 2 + m)
                 && !FARM.lands.some((l) => Math.hypot(x - l.post.x, z - l.post.z) < m + 1.2) // (ni sobre su poste)
