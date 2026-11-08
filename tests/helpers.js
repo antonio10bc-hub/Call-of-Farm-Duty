@@ -76,6 +76,16 @@ async function touchPath(page, steps, target = 'view', id = 7) {
 }
 
 // Mira a la siguiente mata, mantiene el botón derecho (sube el arma) y lo suelta: un disparo
+// La cámara del mapa sobre un campo (la de inicio es la del granero: los carteles de los campos
+// pueden quedar fuera de la pantalla) y espera a que su cartel se vea entero
+async function focusField(page, id) {
+    await page.evaluate((id) => { const r = game.farm.fields[id].rect; game.rig.focus(r.cx, r.cz); }, id);
+    await expect.poll(async () => {
+        const b = await page.locator(`#sign-${id}`).boundingBox(), v = page.viewportSize();
+        return !!b && b.x >= 0 && b.y >= 0 && b.x + b.width <= v.width && b.y + b.height <= v.height;
+    }, { timeout: 15_000 }).toBe(true);
+}
+
 // El ratón, en el centro de la vista (si no, apuntar con el botón derecho caería donde se hizo el
 // último clic, que puede ser un botón de la interfaz)
 async function centerMouse(page) {
@@ -139,4 +149,4 @@ async function enterBigField(page) {
     await page.evaluate(() => { game.sniper.flyers.next = Infinity; game.sniper.walkers.reset(); game.sniper.walkers.next = Infinity; });
 }
 
-module.exports = { test, expect, frames, watchErrors, screenOf, openFarm, enterField, touchPath, shootNext, aimAndShoot, enterBigField };
+module.exports = { test, expect, frames, focusField, watchErrors, screenOf, openFarm, enterField, touchPath, shootNext, aimAndShoot, enterBigField };

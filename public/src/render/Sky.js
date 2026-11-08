@@ -31,7 +31,7 @@ export class Sky {
         this.root.add(this.dome);
         // El sol del atardecer: un cuadrado grande, bajo, con dos halos
         this.sun = new THREE.Group();
-        const dir = new THREE.Vector3(-0.35, 0.06, -1).normalize().multiplyScalar(radius * 0.9);
+        const dir = new THREE.Vector3(0, 0.08, -1).normalize().multiplyScalar(radius * 0.9); // (en el centro, al frente)
         this.sun.position.copy(dir);
         this.sun.lookAt(0, 0, 0);
         for (const [s, c, o] of [[34, 0xffe08a, 1], [52, 0xffb060, 0.45], [78, 0xff8a50, 0.2]]) {

@@ -76,9 +76,10 @@ const SPRITES = {
         pal: { K: INK, W: '#ffffff', R: '#ff1a3a' },
     },
     // Casita del botón de volver (Ajustes)
+    // La casa: tejado rojo con sus tejas, chimenea, ventana encendida y la puerta
     home: {
-        rows: ['.....KK.....', '....KRRK....', '...KRRRRK.KK', '..KRRRRRRKWK', '.KRRRRRRRRKK', 'KKKKKKKKKKKK', '.KWWWWWWWWK.', '.KWKKWWWWWK.', '.KWKBKWKKWK.', '.KWKKWWKNWK.', '.KWWWWWKNWK.', '.KKKKKKKKKK.'],
-        pal: { K: INK, R: '#ff3e5e', W: '#fff6e8', B: '#6ff6ff', N: '#b8763a' },
+        rows: ['.....KK.....', '....KRRK.KK.', '...KRRRRKSK.', '..KRRDRRRKK.', '.KRRRRRDRRK.', 'KRDRRRRRRRRK', 'KKKKKKKKKKKK', '.KWWWWWWWWK.', '.KWKKKWKKKK.', '.KWKYKWKNNK.', '.KWKKKWKNNK.', 'KKKKKKKKKKKK'],
+        pal: { K: INK, R: '#e8452e', D: '#b8321e', S: '#9a948c', W: '#fff3d6', Y: '#ffd23f', N: '#a8642e' },
     },
     // Mejoras de supervivencia (vida, recarga, daño, velocidad)
     upHeart: {

@@ -1,5 +1,5 @@
 // Pruebas de desbloquear terrenos disparando al barril (trigo y tomates).
-const { test, expect, aimAndShoot, openFarm, watchErrors } = require('./helpers');
+const { test, expect, aimAndShoot, focusField, openFarm, watchErrors } = require('./helpers');
 
 test('lo primero: el trigo es un terreno con chatarra y se desbloquea disparando al barril', { tag: '@smoke' }, async ({ page }) => {
     const errors = watchErrors(page);
@@ -8,6 +8,7 @@ test('lo primero: el trigo es un terreno con chatarra y se desbloquea disparando
     await expect(page.locator('#sign-tomato')).toHaveText('BLOQUEADO');
     await expect(page.locator('#bubbles .field-sign.ready')).toHaveCount(0);
     expect(await page.evaluate(() => game.farm.fields.wheat.locked)).toBe(true);
+    await focusField(page, 'wheat');
     await page.locator('#sign-wheat').click();
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
     expect(await page.evaluate(() => game.sniper.unlocking)).toBe(true);
@@ -43,6 +44,7 @@ test('tomates: con el trigo al máximo se desbloquea disparando al barril; luego
     // Bloqueado mientras el trigo no está al máximo (la cámara, a su zona: empieza en el trigo)
     await expect(page.locator('#sign-tomato')).toHaveText('BLOQUEADO');
     await page.evaluate(() => { game.rig.focus(105, 45); game.rig.snap(); });
+    await focusField(page, 'tomato');
     await page.locator('#sign-tomato').click();
     await expect(page.locator('#panel-title')).toHaveText('TERRENO ABANDONADO');
     await expect(page.locator('#panel-action')).toBeHidden();
@@ -52,6 +54,7 @@ test('tomates: con el trigo al máximo se desbloquea disparando al barril; luego
     // El cartel lleva directo al campo de tiro del desbloqueo: una torre, chatarra y el barril
     // (la cámara, hacia los tomates: tras mejorar el trigo se queda en el trigo)
     await page.evaluate(() => { game.rig.focus(105, 45); game.rig.snap(); });
+    await focusField(page, 'tomato');
     await page.locator('#sign-tomato').click();
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
     expect(await page.evaluate(() => game.sniper.unlocking && !!game.sniper.field.barrel)).toBe(true);

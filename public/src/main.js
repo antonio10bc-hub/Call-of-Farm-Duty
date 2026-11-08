@@ -134,8 +134,9 @@ rig.focus = (x, z) => {
     const w = toWorld(x, z);
     rigFocus(w.x, w.z, w.y);
 };
-// La vista de inicio: el campo de trigo (lo primero que hay que hacer)
-const goHome = () => rig.focus(FIELD_BY_ID.wheat.corner.x, FIELD_BY_ID.wheat.corner.z);
+// La vista de inicio: el granero (al cargar, al llegar del prólogo...)
+const BARN_DEF = FARM.structures.find((s) => s.id === 'barn');
+const goHome = () => rig.focus(BARN_DEF.x, BARN_DEF.z + 1);
 goHome();
 rig.snap();
 // La sombra de una parcela recién comprada se retira: destellos dorados por donde pasa
@@ -408,93 +409,100 @@ const ico = (icon) => `<span class="ico ${icon}-ico"></span>`;
 const costHtml = (cost) => Object.entries(cost).map(([c, n]) => `<span class="upgrade-cost${state.items[c] < n ? ' short' : ''}">${ico(c === 'gold' ? 'gold' : CROPS[c].icon)}<b>${n}</b></span>`).join('');
 
 // ---------- Progresión ----------
-// Lo que ya está abierto; cuando se abre algo nuevo, su cartel grande (al cargar, sin cartel)
-const GATES = {
-    grenades: [L('NEW: GRENADE STREAKS!', '¡NUEVO: RACHAS DE GRANADAS!'), L('HARVEST IN A ROW TO EARN GRENADES', 'RECOGE SEGUIDO PARA GANAR GRANADAS')],
-    aliens: [L('NEW: ALIEN STREAK!', '¡NUEVO: RACHA ALIENÍGENA!'), L('SHOOT ALIENS: MISSILE, BOMBER AND NUKE', 'ABATE ALIENÍGENAS: MISIL, BOMBARDERO Y NUCLEAR')],
-    merchant: [L('A MERCHANT ARRIVES!', '¡LLEGA UN MERCADER!'), L('HE PAYS IN GOLD · AND DECORATES HOUSES', 'PAGA EN ORO · Y DECORA CASAS')],
-};
-let gatesSeen = null;
+// Lo que ya está abierto (lo nuevo lo anuncian los regalos del trigo mágico: ver «La historia»)
 function refreshGates() {
     merchantClock.locked = !state.open('merchant');
-    const now = Object.fromEntries(Object.keys(GATES).map((g) => [g, state.open(g)]));
-    if (gatesSeen && mode === 'farm') {
-        const g = Object.keys(GATES).find((k) => now[k] && !gatesSeen[k]);
-        if (g) setTimeout(() => stage(...GATES[g]), 900);
-    }
-    gatesSeen = now;
-    // El granero: sin abrir no está (solo su cartel para abrirlo)
-    for (const id of ['barn', 'silo']) farm.byId[id].root.visible = state.open('barn');
+    // El granero y lo suyo (el silo, el tractor y todo el recinto): sin abrir no está (solo su
+    // cartel para abrirlo)
+    for (const id of ['barn', 'silo', 'tractor']) farm.byId[id].root.visible = state.open('barn');
+    farm.compoundOn = state.open('barn');
+    farm.setLandsOpen(state.open('lands'));
 }
 
-// El granero se abre: cae en su sitio con polvo y su cartel
-// Aparece con magia, como el trigo mágico: un rayo de luz de colores baja del cielo, se abre un
-// anillo en el suelo y el granero (y el silo) salen de la tierra girando, con chispas en espiral;
-// al final, estallido de colores, fogonazo y temblor
+// Aparición mágica, como el trigo mágico: un rayo de luz de colores baja del cielo en (x, z), se
+// abre un anillo en el suelo y lo de parts (cada uno, { o: su objeto, x, z: dónde, delay }) sale
+// de la tierra girando, en ola desde el centro, con chispas en espiral; al final, estallido de
+// colores, fogonazo y temblor. Lo usan el granero (con todo su recinto) y la casa
 const RAINBOW = [0xff3e5e, 0xff9a1f, 0xffe03a, 0x7dff4a, 0x3ac8ff, 0x9a5aff];
-let barnFx = null;
+const reveals = [];
+function magicReveal(x, z, parts, { beamW = 5, ring = 9 } = {}) {
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(beamW, 60, beamW * 0.8), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending }));
+    farm.world(x, 30, z, beam.position);
+    beam.scale.set(0.0001, 1, 0.0001);
+    const rg = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 20, 1), new THREE.MeshBasicMaterial({ color: 0xfff6b0, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+    rg.rotation.x = -Math.PI / 2;
+    farm.world(x, 0.08, z, rg.position);
+    farmScene.add(beam, rg);
+    for (const p of parts) {
+        Object.assign(p, { y: p.o.position.y, ry: p.o.rotation.y, s: p.o.scale.x, up: false });
+        p.o.scale.setScalar(0.0001); // (bajo tierra hasta que le toque)
+    }
+    const end = 2 + Math.max(0, ...parts.map((p) => p.delay || 0));
+    reveals.push({ t: 0, x, z, beam, ring: rg, ringK: ring, parts, boom: false, end });
+    sfx.play('secret');
+}
+
+// El granero se abre con magia (y con él su silo, su tractor y todo el recinto, en ola)
 function openBarn(quiet = false) {
     if (!state.openBarn()) return;
     const b = farm.byId.barn;
     refreshGates();
     rig.focus(b.def.x, b.def.z + 1);
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(5, 60, 4), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending }));
-    farm.world(b.def.x, 30, b.def.z, beam.position);
-    beam.scale.set(0.0001, 1, 0.0001);
-    const ring = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 20, 1), new THREE.MeshBasicMaterial({ color: 0xfff6b0, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
-    ring.rotation.x = -Math.PI / 2;
-    farm.world(b.def.x, 0.08, b.def.z, ring.position);
-    farmScene.add(beam, ring);
-    const parts = [b, farm.byId.silo].map((m) => ({ m, y: m.root.position.y, ry: m.root.rotation.y }));
-    barnFx = { t: 0, beam, ring, parts, boom: false };
-    sfx.play('secret');
+    const parts = ['barn', 'silo', 'tractor'].map((id) => ({ o: farm.byId[id].root, x: farm.byId[id].def.x, z: farm.byId[id].def.z, delay: 0 }));
+    for (const c of farm.compoundPieces) parts.push({ o: c.g, x: c.x, z: c.z, delay: 0.5 + Math.hypot(c.x - b.def.x, c.z - b.def.z) * 0.06 });
+    magicReveal(b.def.x, b.def.z, parts, { ring: 16 });
     updateCounts();
     if (!quiet) setTimeout(() => stage(L('BARN UNLOCKED!', '¡GRANERO DESBLOQUEADO!'), L('NOW CLEAR THE WHEAT FIELD', 'AHORA LIMPIA EL CAMPO DE TRIGO')), 300);
 }
 
 function updateBarnFx(dt) {
-    const E = barnFx;
-    if (!E) return;
-    E.t += dt;
-    const t = E.t, b = farm.byId.barn.def;
-    // El rayo: se ensancha, late con los colores del arcoíris y se cierra
-    const bw = t < 0.4 ? t / 0.4 : t < 1.3 ? 1 : Math.max(0, 1 - (t - 1.3) / 0.5);
-    E.beam.scale.set(Math.max(0.0001, bw * (0.9 + Math.sin(t * 30) * 0.1)), 1, Math.max(0.0001, bw));
-    E.beam.material.color.setHSL((t * 1.5) % 1, 1, 0.7);
-    E.ring.scale.setScalar(1 + t * 9);
-    E.ring.material.opacity = Math.max(0, 1 - t / 1.6);
-    // Sale de la tierra girando y crece con un rebote
-    const k = Math.min(1, Math.max(0, (t - 0.35) / 0.9));
-    const back = k <= 0 ? 0 : 1 + 2.7 * (k - 1) ** 3 + 1.7 * (k - 1) ** 2;
-    for (const p of E.parts) {
-        p.m.root.scale.setScalar(Math.max(0.0001, back));
-        p.m.root.position.y = p.y - 3 * (1 - Math.min(1, k * 1.3));
-        p.m.root.rotation.y = p.ry + (1 - k) ** 2 * Math.PI * 4;
-    }
-    if (t < 1.5) for (let n = 0; n < 4; n++) {
-        const a = time * 7 + n * 1.6, h = (t * 4 + n) % 7;
-        farmFx.spawn(b.x + Math.sin(a) * 3.4, h, b.z + Math.cos(a) * 3.4, 0, 1.4, 0, 0.18, 0.7, RAINBOW[(Math.random() * RAINBOW.length) | 0], 0);
-    }
-    if (!E.boom && t > 1.25) {
-        E.boom = true;
-        farmFx.burst(b.x, 2, b.z, 140, RAINBOW, { speed: 7, up: 6, size: 0.22, ttl: 1.4, grav: 6 });
-        renderer.flash(0xffffff, 0.6);
-        rig.shake(0.6);
-        sfx.play('unlock');
-        vibrate('kill');
-    }
-    if (t > 2) {
-        farmScene.remove(E.beam, E.ring);
-        for (const o of [E.beam, E.ring]) {
-            o.geometry.dispose();
-            o.material.dispose();
-        }
+    for (const E of [...reveals]) {
+        E.t += dt;
+        const t = E.t;
+        // El rayo: se ensancha, late con los colores del arcoíris y se cierra
+        const bw = t < 0.4 ? t / 0.4 : t < 1.3 ? 1 : Math.max(0, 1 - (t - 1.3) / 0.5);
+        E.beam.scale.set(Math.max(0.0001, bw * (0.9 + Math.sin(t * 30) * 0.1)), 1, Math.max(0.0001, bw));
+        E.beam.material.color.setHSL((t * 1.5) % 1, 1, 0.7);
+        E.ring.scale.setScalar(1 + t * E.ringK);
+        E.ring.material.opacity = Math.max(0, 1 - t / 1.6);
+        // Cada pieza sale de la tierra girando y crece con un rebote (las de lejos, más tarde)
         for (const p of E.parts) {
-            p.m.root.scale.setScalar(1);
-            p.m.root.position.y = p.y;
-            p.m.root.rotation.y = p.ry;
+            const k = Math.min(1, Math.max(0, (t - 0.35 - (p.delay || 0)) / 0.9));
+            const back = k <= 0 ? 0 : 1 + 2.7 * (k - 1) ** 3 + 1.7 * (k - 1) ** 2;
+            p.o.scale.setScalar(Math.max(0.0001, back * p.s));
+            p.o.position.y = p.y - 3 * (1 - Math.min(1, k * 1.3));
+            p.o.rotation.y = p.ry + (1 - k) ** 2 * Math.PI * 4;
+            if (k > 0.75 && !p.up && p.delay) {
+                p.up = true;
+                farmFx.burst(p.x, 1.2, p.z, 24, RAINBOW, { speed: 4, up: 4, size: 0.16, ttl: 0.9, grav: 6 });
+                if (Math.random() < 0.5) sfx.play('pop');
+            }
         }
-        barnFx = null;
+        if (t < 1.5) for (let n = 0; n < 4; n++) {
+            const a = time * 7 + n * 1.6, h = (t * 4 + n) % 7;
+            farmFx.spawn(E.x + Math.sin(a) * 3.4, h, E.z + Math.cos(a) * 3.4, 0, 1.4, 0, 0.18, 0.7, RAINBOW[(Math.random() * RAINBOW.length) | 0], 0);
+        }
+        if (!E.boom && t > 1.25) {
+            E.boom = true;
+            farmFx.burst(E.x, 2, E.z, 140, RAINBOW, { speed: 7, up: 6, size: 0.22, ttl: 1.4, grav: 6 });
+            renderer.flash(0xffffff, 0.6);
+            rig.shake(0.6);
+            sfx.play('unlock');
+            vibrate('kill');
+        }
+        if (t > E.end) {
+            farmScene.remove(E.beam, E.ring);
+            for (const o of [E.beam, E.ring]) {
+                o.geometry.dispose();
+                o.material.dispose();
+            }
+            for (const p of E.parts) {
+                p.o.scale.setScalar(p.s);
+                p.o.position.y = p.y;
+                p.o.rotation.y = p.ry;
+            }
+            reveals.splice(reveals.indexOf(E), 1);
+        }
     }
 }
 
@@ -676,7 +684,7 @@ const DOCK = [
         go: () => { const b = farm.byId.barn.def; dockGo(b.x, b.z + 1, () => select({ structure: 'barn' })); } },
     { id: 'fields', icon: 'wheat', label: L('FIELDS', 'CAMPOS'), show: () => true, alert: () => FARM.fields.some((f) => fieldNeeds(f.id)),
         go: () => toggleFieldsPop() },
-    { id: 'house', icon: 'home', label: L('FARMHOUSE', 'CASA'), show: () => true, alert: () => state.canUpgradeHouse,
+    { id: 'house', icon: 'home', label: L('FARMHOUSE', 'CASA'), show: () => state.open('house'), alert: () => state.canUpgradeHouse,
         go: () => { const h = farm.byId.house.def; dockGo(h.x, h.z, () => select({ structure: 'house' })); } },
     { id: 'merchant', icon: 'merchant', label: L('MERCHANT', 'MERCADER'), show: () => !merchantClock.locked, alert: () => farm.camp.open && state.ordersFor(merchantClock.visit).some((o) => state.canDeliver(o)),
         go: () => dockGo(MERCHANT.stall.x, MERCHANT.stall.z, () => openMerchant()) },
@@ -747,8 +755,11 @@ houseSign.id = 'sign-house';
 function refreshArmory() {
     const hl = state.house.level, hmax = FARM.house.levels.length - 1;
     const hp = Array.from({ length: hmax }, (_, i) => `<i class="pip${i < hl ? ' on' : ''}"></i>`).join('');
-    const hhtml = `${ico('home')}<span>${L('FARMHOUSE', 'CASA')}</span><span class="pips">${hp}</span><i class="sign-up"></i>`;
+    // (bloqueada, como un terreno: su candado, hasta que la abre el trigo mágico)
+    const hopen = state.open('house');
+    const hhtml = hopen ? `${ico('home')}<span>${L('FARMHOUSE', 'CASA')}</span><span class="pips">${hp}</span><i class="sign-up"></i>` : `${ico('lock')}<span>${L('LOCKED', 'BLOQUEADO')}</span>`;
     if (houseSign.innerHTML !== hhtml) houseSign.innerHTML = hhtml;
+    houseSign.classList.toggle('locked', !hopen);
     houseSign.classList.toggle('can-up', state.canUpgradeHouse);
     const html = !state.open('barn') ? `${ico('barrel')}<span>${L('UNLOCK BARN!', '¡DESBLOQUEAR GRANERO!')}</span>`
         : `${ico('ks-grenade')}<span>${L('ARMORY', 'ARMAMENTO')}</span><i class="sign-up"></i>`;
@@ -768,8 +779,9 @@ function refreshSigns() {
     for (const def of FARM.fields) {
         const id = def.id, el = signs[id], f = state.fields[id];
         const can = state.canUnlock(id);
-        // Parcela sin comprar: EN VENTA con su precio en oro
-        const land = state.landOf(id), forSale = !!land && !state.lands[land.id];
+        // Parcela sin comprar: EN VENTA con su precio en oro (cuando la progresión las abre; antes,
+        // con su candado como cualquier terreno)
+        const land = state.landOf(id), forSale = !!land && !state.lands[land.id] && state.open('lands');
         el.classList.toggle('locked', !f.unlocked && !can && !forSale);
         el.classList.toggle('can-unlock', can);
         el.classList.toggle('for-sale', forSale);
@@ -796,7 +808,7 @@ function placeBubbles() {
         merchantSign.style.left = `${Math.round((_b.x * 0.5 + 0.5) * innerWidth)}px`;
         merchantSign.style.top = `${Math.round((-_b.y * 0.5 + 0.5) * innerHeight)}px`;
     }
-    const ufoOn = show && state.open('shop') && !cine;
+    const ufoOn = show && state.open('shop') && state.houseMaxed && !cine; // (la tienda, con la casa al máximo)
     ufoSign.classList.toggle('hidden', !ufoOn);
     if (ufoOn) {
         const h = farm.byId.house;
@@ -835,7 +847,26 @@ function placeBubbles() {
         sign.style.left = x;
         sign.style.top = y;
     }
+    // Las parcelas que aún no tienen cultivo: su candado en el centro
+    for (const l of SOON_LANDS) {
+        l.sign.classList.toggle('hidden', !show);
+        if (!show) continue;
+        farm.world((l.rect[0] + l.rect[2]) / 2, 2.2, (l.rect[1] + l.rect[3]) / 2, _b).project(rig.camera);
+        l.sign.style.left = `${Math.round((_b.x * 0.5 + 0.5) * innerWidth)}px`;
+        l.sign.style.top = `${Math.round((-_b.y * 0.5 + 0.5) * innerHeight)}px`;
+    }
 }
+// Las parcelas de PRONTO (sin cultivo aún): bloqueadas, con su candado como un terreno; tocarlas
+// lo dice
+const SOON_LANDS = FARM.lands.filter((l) => l.soon).map((l) => {
+    const sign = uiButton('field-sign locked hidden', () => {
+        sfx.play('miss');
+        medal(L('LOCKED: COMING SOON', 'BLOQUEADA: PRÓXIMAMENTE'));
+    });
+    sign.id = `sign-land-${l.id}`;
+    sign.innerHTML = `${ico('lock')}<span>${L('LOCKED', 'BLOQUEADO')}</span>`;
+    return { ...l, sign };
+});
 
 // Ficha del edificio o del campo tocado
 function select(what) {
@@ -884,6 +915,15 @@ function refreshPanel() {
     const id = selected.field, def = FIELD_BY_ID[id], f = state.fields[id], crop = CROPS[def.crop];
     // Parcela en venta: qué hay dentro y el botón de comprarla con oro
     const land = state.landOf(id);
+    if (!f.unlocked && land && !state.lands[land.id] && !state.open('lands')) {
+        // (aún no está a la venta: bloqueada)
+        title.textContent = `${land.name} · ${L('LOCKED', 'BLOQUEADA')}`;
+        text.textContent = L('FULL OF JUNK AND NOT FOR SALE... YET.', 'LLENA DE PORQUERÍA Y SIN DUEÑO... DE MOMENTO NO SE VENDE.');
+        bar.parentElement.classList.add('hidden');
+        act.classList.add('hidden');
+        up.classList.add('hidden');
+        return;
+    }
     if (!f.unlocked && land && !state.lands[land.id]) {
         title.textContent = land.name;
         text.textContent = L(`FOR SALE. FULL OF JUNK, BUT IT HAS ROOM FOR A ${def.name}. PAY IN GOLD FROM THE MERCHANT, THEN BLOW UP ITS BARREL.`, `EN VENTA. LLENA DE PORQUERÍA, PERO CABE UN ${def.name}. SE PAGA CON EL ORO DEL COMERCIANTE Y LUEGO SE VUELA SU BARRIL.`);
@@ -1177,6 +1217,8 @@ function enterSnipe() {
     sniper.tracks = { crop: state.open('grenades'), alien: state.open('aliens') };
     sniper.ksIds = state.arsenal.loadout.ks; // las rachas de la clase equipada
     sniper.flyersOn = state.open('ufos'); // los ovnis pequeños, desde que hay tomates
+    sniper.walkersOn = state.open('aliens'); // los alienígenas a pie, desde el trigo a nivel 3
+    sniper.boxOn = state.open('box'); // la caja sorpresa, desde el trigo al máximo
     sniper.enter(unlock ? { unlock: true, loadout: state.arsenal.loadout } : { crop: def.crop, count: state.fields[snipeField].left, arena, loadout: state.arsenal.loadout, turrets: state.fields[snipeField].turrets });
     document.body.classList.remove('fallout');
     mode = 'snipe';
@@ -1440,12 +1482,23 @@ function tapMap(x, y) {
     select(hit);
 }
 
+// El menú de más arriba, cerrado como con su botón (true si había alguno)
+const MENUS = [['gear-picker', 'picker-close'], ['streaks', 'btn-streaks-close'], ['debug', 'btn-debug-close'], ['settings', 'btn-settings-close'], ['ufo-shop', 'ufo-close'], ['merchant', 'merchant-close']];
+function closeTopMenu() {
+    const m = MENUS.find(([id]) => !$(id).classList.contains('hidden'));
+    if (!m) return false;
+    $(m[1]).click();
+    return true;
+}
+
 // Teclado: WASD/flechas miran, espacio/enter mantiene la mira (soltar dispara), Q/E saltan a la
 // torre de la izquierda/derecha, Esc baja la mira o vuelve a la granja (con el ratón bloqueado, Esc lo suelta), H vuelve.
 const keys = new Set();
 addEventListener('keydown', (e) => {
     sfx.unlock();
     const k = e.key.toLowerCase();
+    // Esc cierra el menú que esté abierto (como su botón de VOLVER o su X), el de más arriba primero
+    if (k === 'escape' && !e.repeat && closeTopMenu()) return;
     if (prologue.talking && !e.repeat && (k === ' ' || k === 'enter')) return prologue.next();
     if (inCine()) return;
     keys.add(k);
@@ -1605,7 +1658,7 @@ function say(text, warn = false) {
 }
 
 function openShop() {
-    if (mode !== 'farm' || inCine() || !state.open('shop')) return;
+    if (mode !== 'farm' || inCine() || !state.open('shop') || !state.houseMaxed) return;
     if (!state.ufo.met) {
         state.ufo.met = true;
         state.save();
@@ -1780,6 +1833,14 @@ function refreshStreaks() {}
 // Ficha de la casa: su nivel, qué hace el siguiente y su mejora
 function refreshHousePanel(title, text, bar, act, up) {
     const lv = state.house.level, max = FARM.house.levels.length - 1;
+    if (!state.open('house')) {
+        title.textContent = `${L('FARMHOUSE', 'CASA')} · ${L('LOCKED', 'BLOQUEADA')}`;
+        text.textContent = L('IN RUINS AND BURIED IN JUNK. MAYBE SOMEONE WILL HAVE AN IDEA FOR IT ONE DAY...', 'EN RUINAS Y LLENA DE PORQUERÍA. QUIZÁ ALGÚN DÍA ALGUIEN TENGA UNA IDEA PARA ELLA...');
+        bar.parentElement.classList.add('hidden');
+        act.classList.add('hidden');
+        up.classList.add('hidden');
+        return;
+    }
     title.textContent = `${L('FARMHOUSE', 'CASA')} ${L('LV', 'NV')}.${lv}/${max}`;
     text.textContent = [
         L('IN RUINS, AND THE WHOLE PLOT FULL OF JUNK. FIX IT UP!', 'EN RUINAS Y CON TODA LA PARCELA LLENA DE PORQUERÍA. ¡ARRÉGLALA!'),
@@ -1802,13 +1863,45 @@ function upgradeHouse() {
     farm.setHouseLevel(state.house.level);
     const h = farm.byId.house, c = FARM.house.levels[state.house.level].clear;
     rig.focus(h.def.x, h.def.z + 1);
-    rig.shake(0.2);
-    for (let k = 0; k < 16; k++) farmFx.burst(c[0] + Math.random() * (c[2] - c[0]), 0.2, c[1] + Math.random() * (c[3] - c[1]), 6, [THEME.dust, 0x8a5a34, 0x6f8a3a], { speed: 2.4, up: 2, size: 0.14, ttl: 0.6 });
+    rig.shake(0.3);
+    houseFx(h.def.x, h.def.z, c);
     sfx.play('power');
     vibrate('pickup');
     updateCounts();
     stage(state.house.level === 1 ? L('HOUSE FIXED!', '¡CASA ARREGLADA!') : L('PLOT CLEARED!', '¡PARCELA LIMPIA!'), `${L('FARMHOUSE', 'CASA')} ${L('LV', 'NV')}.${state.house.level}`);
     refreshPanel();
+}
+
+// Arreglar o limpiar la casa: una onda dorada sale de la casa barriendo la parcela (a su paso,
+// polvo, hierbajos y chispas, del centro hacia fuera), la casa bota y suelta confeti
+function houseFx(x, z, c) {
+    const R = Math.max(c[2] - c[0], c[3] - c[1]) * 0.7;
+    const rg = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 24, 1), new THREE.MeshBasicMaterial({ color: 0xffe9a0, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+    rg.rotation.x = -Math.PI / 2;
+    farm.world(x, 0.1, z, rg.position);
+    farmScene.add(rg);
+    let t = 0;
+    const tick = () => {
+        t += 0.05;
+        const k = Math.min(1, t / 0.9);
+        rg.scale.setScalar(1 + k * R);
+        rg.material.opacity = 1 - k;
+        // A su paso: polvo y hierbajos por el aire, y chispas doradas
+        for (let n = 0; n < 5; n++) {
+            const a = Math.random() * Math.PI * 2, d = k * R * (0.85 + Math.random() * 0.2);
+            const px = Math.min(c[2], Math.max(c[0], x + Math.cos(a) * d)), pz = Math.min(c[3], Math.max(c[1], z + Math.sin(a) * d));
+            farmFx.burst(px, 0.3, pz, 4, [THEME.dust, 0x8a5a34, 0x6f8a3a, 0xffe03a], { speed: 2.2, up: 2.6, size: 0.14, ttl: 0.6 });
+        }
+        if (k < 1) return setTimeout(tick, 50);
+        farmScene.remove(rg);
+        rg.geometry.dispose();
+        rg.material.dispose();
+    };
+    tick();
+    farm.byId.house.select();
+    farmFx.burst(x, 3, z, 60, RAINBOW, { speed: 5, up: 5, size: 0.16, ttl: 1.1, grav: 6 });
+    renderer.flash(0xfff6d8, 0.25);
+    setTimeout(() => sfx.play('achievement'), 300);
 }
 
 // Subir el granero: se cierra el menú para ver crecer el recinto en el mapa
@@ -1858,7 +1951,19 @@ CLASSES.forEach((c, i) => {
     b.id = `class-${i}`;
     b.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (!state.classOpen(i)) return sfx.play('miss');
+        // Bloqueada: se desbloquea con oro (si llega; si no, bota)
+        if (!state.classOpen(i)) {
+            if (!state.buyClass(i)) {
+                sfx.play('miss');
+                b.classList.remove('bump');
+                void b.offsetWidth;
+                b.classList.add('bump');
+                return;
+            }
+            sfx.play('coin');
+            vibrate('pickup');
+            updateCounts();
+        }
         loEdit = i;
         sfx.play('ui');
         $('gear-picker').classList.add('hidden');
@@ -1891,6 +1996,7 @@ for (const track of ['crop', 'alien']) {
         b.innerHTML = `<i class="ks-ico" style="--ico: var(--px-${k.icon})"></i><span class="kc-n"><b>${k.at}</b><small>${track === 'alien' ? L('ALIENS', 'ALIENÍGENAS') : L('IN A ROW', 'SEGUIDAS')}</small></span><span class="kc-name">${k.short}</span><em></em>`;
         b.addEventListener('click', (e) => {
             e.stopPropagation();
+            if (!state.open(track === 'alien' ? 'aliens' : 'grenades')) return sfx.play('miss'); // (aún bloqueadas)
             state.toggleStreak(loEdit, k.id);
             sfx.play(cls().ks.includes(k.id) ? 'reloaded' : 'ui');
             refreshRifle();
@@ -1955,8 +2061,9 @@ function refreshRifle() {
     $('gear-gold').textContent = state.items.gold;
     CLASSES.forEach((def, i) => {
         const b = classBtns[i], open = state.classOpen(i);
+        const price = state.classPrice(i);
         const html = open ? `<b>${L(...def.name)}</b>${i === A.active ? `<em>${L('EQUIPPED', 'EQUIPADA')}</em>` : ''}`
-            : `<b>${L('LOCKED', 'BLOQUEADA')}</b><em>${L(...def.need)}</em>`;
+            : `<b>${ico('lock')}${L(...def.name)}</b><em class="${state.items.gold < price ? 'short' : ''}">${ico('gold')}${price} · ${L('UNLOCK', 'DESBLOQUEAR')}</em>`;
         if (b.innerHTML !== html) b.innerHTML = html;
         b.classList.toggle('on', i === loEdit);
         b.classList.toggle('lock', !open);
@@ -1972,6 +2079,13 @@ function refreshRifle() {
         if (img.getAttribute('src') !== src) img.setAttribute('src', src);
         slot.querySelector('b').textContent = it.name;
     }
+    // Las rachas: bloqueadas hasta que las regala el trigo mágico (las de cultivos con el trigo a
+    // nivel 2; las alienígenas, a nivel 3)
+    for (const track of ['crop', 'alien']) {
+        const open = state.open(track === 'alien' ? 'aliens' : 'grenades');
+        $(`lo-ks-${track}`).closest('.lo-sec').classList.toggle('locked', !open);
+        $(`lo-ks-${track}`).closest('.lo-sec').dataset.lock = open ? '' : track === 'alien' ? L('LOCKED · WHEAT LV.3', 'BLOQUEADAS · TRIGO NV.3') : L('LOCKED · WHEAT LV.2', 'BLOQUEADAS · TRIGO NV.2');
+    }
     for (const k of KILLSTREAKS) {
         const on = c.ks.includes(k.id);
         ksBtns[k.id].classList.toggle('on', on);
@@ -1985,7 +2099,7 @@ function refreshRifle() {
             card.classList.toggle('owned', owned && !on);
             card.classList.toggle('short', !owned && state.items.gold < price);
             card.classList.toggle('empty', !owned);
-            const em = on ? L('EQUIPPED', 'MONTADO') : owned ? L('USE', 'USAR') : `${ico('gold')}${price}`;
+            const em = on ? L('EQUIPPED', 'MONTADO') : owned ? L('USE', 'USAR') : `${ico('lock')}${ico('gold')}${price}`; // (bloqueada: su candado y su precio)
             if (card.querySelector('em').innerHTML !== em) card.querySelector('em').innerHTML = em;
         }
     }
@@ -2233,6 +2347,11 @@ tapBtn('btn-unlock-all', () => {
         state.openBarn();
         refreshGates();
     }
+    // (y toda la historia: rachas, caja, mercader, casa y parcelas; y todas las clases)
+    for (const k of ['crop', 'alien', 'box', 'merchant', 'sold', 'house']) state.story[k] = true;
+    state.arsenal.classOwned = CLASSES.map((_, i) => i);
+    state.save();
+    refreshGates();
     const ids = FARM.fields.map((f) => f.id).filter((id) => state.unlock(id, Date.now(), true));
     const rifle = state.ownAllGear();
     sfx.play(ids.length || rifle ? 'power' : 'miss');
@@ -2428,6 +2547,148 @@ try {
     }
 } catch { /* sin almacenamiento */ }
 
+// ---------- La historia: los regalos del trigo mágico y la llamada del mercader ----------
+// Cuando toca (y con la granja tranquila: sin menús ni cinemáticas), el trigo mágico brota en el
+// mapa, habla y deja su regalo: con el trigo a nivel 2, las rachas de cultivos; a nivel 3, las
+// alienígenas (y empiezan a venir alienígenas); al máximo, la caja sorpresa. Con los tomates al
+// máximo llama el mercader y viene por primera vez; tras la primera venta, el trigo mágico abre la
+// casa (y las parcelas, a la venta). Cada cosa, una vez (state.story)
+const STORY = {
+    crop: {
+        when: () => state.fields.wheat.unlocked && state.fields.wheat.level >= 1,
+        at: () => farm.fields.wheat.rect,
+        lines: [
+            L("YOU'RE DOING REALLY WELL!", '¡LO ESTÁS HACIENDO MUY BIEN!'),
+            L('I HAVE A GIFT FOR YOU.', 'TENGO UN REGALO PARA TI.'),
+            L('HARVEST IN A ROW AND YOU WILL EARN GRENADES.', 'RECOGE SEGUIDO Y GANARÁS GRANADAS.'),
+        ],
+        gift: 1,
+        stage: [L('NEW: CROP STREAKS!', '¡NUEVO: RACHAS DE CULTIVOS!'), L('HARVEST IN A ROW TO EARN GRENADES', 'RECOGE SEGUIDO PARA GANAR GRANADAS')],
+    },
+    alien: {
+        when: () => state.fields.wheat.unlocked && state.fields.wheat.level >= 2,
+        at: () => farm.fields.wheat.rect,
+        lines: [
+            L('CAREFUL...', 'TEN CUIDADO...'),
+            L('SOMETIMES THEY TRY TO STEAL YOUR CROPS.', 'A VECES INTENTAN ROBARTE LOS CULTIVOS.'),
+            L("I'LL LEAVE YOU A SECRET TOOL TO HELP YOU DEFEND THEM.", 'TE DEJO UNA HERRAMIENTA SECRETA PARA FACILITARTE LA DEFENSA.'),
+        ],
+        gift: 2,
+        stage: [L('NEW: ALIEN STREAKS!', '¡NUEVO: RACHAS ALIENÍGENAS!'), L('SHOOT THE THIEVES: MISSILE, BOMBER AND NUKE', 'ABATE A LOS LADRONES: MISIL, BOMBARDERO Y NUCLEAR')],
+    },
+    box: {
+        when: () => state.fields.wheat.unlocked && state.maxed('wheat'),
+        at: () => farm.fields.wheat.rect,
+        lines: [
+            L('YOUR WHEAT IS AT ITS BEST!', '¡TU TRIGO ESTÁ AL MÁXIMO!'),
+            L('ONE MORE UPGRADE AND YOU CAN AUTOMATE IT.', 'SI LO SUBES UN NIVEL MÁS, PODRÁS AUTOMATIZARLO.'),
+            L("AND FOR NEXT TIME, I'LL LEAVE YOU A GIFT TO MAKE HARVESTING EASIER.", 'Y PARA LA PRÓXIMA VEZ, TE DEJO UN REGALO QUE TE AYUDARÁ A COSECHAR MÁS FÁCILMENTE.'),
+        ],
+        gift: 2,
+        stage: [L('NEW: MYSTERY BOX!', '¡NUEVO: CAJA SORPRESA!'), L('IT SHOWS UP ON A TOWER: JUMP THERE AND SHOOT IT', 'SALE EN UNA TORRE: SALTA A ELLA Y DISPÁRALE')],
+    },
+    house: {
+        when: () => state.story.sold,
+        at: () => ({ cx: farm.byId.house.def.x, cz: farm.byId.house.def.z + 4.5 }),
+        lines: [
+            L('YOUR FIRST SALE! WELL DONE.', '¡TU PRIMERA VENTA! BIEN HECHO.'),
+            L('I HAVE AN IDEA FOR THAT MONEY...', 'SE ME OCURRE UNA IDEA PARA USAR ESE DINERO...'),
+            L('A HOUSE OF YOUR OWN! AND WITH GOLD YOU CAN BUY ANY PLOT YOU LIKE.', '¡TU PROPIA CASA! Y CON EL ORO PODRÁS COMPRAR LAS PARCELAS QUE QUIERAS.'),
+        ],
+        gift: 2,
+        give: () => revealHouse(),
+        stage: [L('HOUSE UNLOCKED!', '¡CASA DESBLOQUEADA!'), L('AND THE PLOTS ARE FOR SALE', 'Y LAS PARCELAS, A LA VENTA')],
+    },
+};
+let storyBusy = false;
+const menuOpen = () => ['streaks', 'debug', 'settings', 'ufo-shop', 'merchant', 'call'].some((id) => !$(id).classList.contains('hidden'));
+function checkStory() {
+    if (state.gatesOff || storyBusy || mode !== 'farm' || inCine() || prologue.active || farm.introT < 2.5 || reveals.length || menuOpen()) return;
+    const step = ['crop', 'alien', 'box'].find((k) => !state.story[k] && STORY[k].when());
+    if (step) return magicVisit(step);
+    if (!state.story.merchant && state.fields.tomato.unlocked && state.maxed('tomato')) return merchantCall();
+    if (!state.story.house && STORY.house.when()) return magicVisit('house');
+}
+
+// El trigo mágico brota donde toca, habla y deja su regalo (con su cartel)
+function magicVisit(step) {
+    const S = STORY[step], r = S.at();
+    storyBusy = true;
+    select(null);
+    leaveMap(false);
+    rig.focus(r.cx, r.cz - 1.5); // (el trigo flota alto: la vista algo por detrás, para que se vea entero)
+    rig.zoomTarget = 1.2;
+    prologue.visit(r.cx, r.cz, S.lines, {
+        [S.gift]: () => {
+            state.tell(step);
+            if (S.give) S.give();
+            sfx.play('achievement');
+            vibrate('pickup');
+            updateCounts();
+            setTimeout(() => stage(...S.stage), 250);
+        },
+    }, () => {
+        storyBusy = false;
+        rig.zoomTarget = 1;
+        updateCounts();
+    });
+}
+
+// La llamada del mercader: suena hasta que se contesta; habla, cuelga y viene por primera vez
+const CALL = [
+    L('HELLO, NEIGHBOUR! I AM THE MERCHANT. A HUMAN, LIKE YOU. VERY NORMAL.', '¡HOLA, VECINO! SOY EL MERCADER. UN HUMANO, COMO TÚ. MUY NORMAL.'),
+    L('WORD IS YOU GROW SPLENDID TOMATOES.', 'ME HAN DICHO QUE TIENES UNOS TOMATES ESTUPENDOS.'),
+    L('I BUY CROPS AT A GOOD PRICE: IN GOLD COINS. REAL GOLD.', 'TE COMPRO LA COSECHA A BUEN PRECIO: EN MONEDAS DE ORO. DE ORO DE VERDAD.'),
+    L("I'M ON MY WAY, BY CAR. DROP BY MY STALL WHENEVER YOU LIKE.", 'VOY PARA ALLÁ, EN MI COCHE. PÁSATE POR MI PUESTO CUANDO QUIERAS.'),
+];
+let callAt = -1, ringT = 0;
+function merchantCall() {
+    storyBusy = true;
+    select(null);
+    callAt = -1;
+    $('call').classList.add('ringing');
+    $('call').classList.remove('hidden');
+    $('call-btn').textContent = L('ANSWER', 'CONTESTAR');
+    ringT = 0;
+    vibrate('kill');
+}
+function updateCall(dt) {
+    if ($('call').classList.contains('hidden') || callAt >= 0) return;
+    if ((ringT -= dt) <= 0) {
+        ringT = 1.1;
+        sfx.play('radar');
+        vibrate('pickup');
+    }
+}
+$('call').addEventListener('pointerdown', (e) => e.stopPropagation());
+tapBtn('call-btn', () => {
+    sfx.play('ui');
+    if (++callAt < CALL.length) {
+        $('call').classList.remove('ringing');
+        $('call-line').textContent = CALL[callAt];
+        $('call-btn').textContent = callAt === CALL.length - 1 ? L('HANG UP', 'COLGAR') : L('NEXT', 'SIGUIENTE');
+        return;
+    }
+    // Cuelga: ya es de la granja y viene ya (el ovni-coche entra por su surco)
+    $('call').classList.add('hidden');
+    state.tell('merchant');
+    refreshGates();
+    merchantClock.arriveNow();
+    rig.focus(MERCHANT.stall.x + 2, MERCHANT.stall.z + 3);
+    rig.zoomTarget = 1.2;
+    storyBusy = false;
+    updateCounts();
+});
+
+// La casa se desbloquea con magia (la de antes, en ruinas, sale de la tierra girando); desde
+// ahora se arregla y se mejora, y las parcelas están a la venta
+function revealHouse() {
+    const h = farm.byId.house;
+    refreshGates();
+    magicReveal(h.def.x, h.def.z, [{ o: h.root, x: h.def.x, z: h.def.z, delay: 0 }], { beamW: 4, ring: 12 });
+    rig.focus(h.def.x, h.def.z + 1);
+}
+
 // ---------- Bucle ----------
 let last = performance.now();
 let uiT = 0;
@@ -2456,6 +2717,10 @@ function frame(now) {
     }
 
     autoHarvest(dt);
+    if (mode === 'farm') {
+        checkStory();
+        updateCall(dt);
+    }
     if (mode === 'farm' || mode === 'toSnipe') {
         const progress = Object.fromEntries(FARM.fields.map((f) => [f.id, state.progress(f.id)]));
         farm.update(dt, time, progress);

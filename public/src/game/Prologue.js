@@ -5,6 +5,7 @@ import { MagicWheat } from '../render/magicWheat.js';
 import { RifleModel } from '../render/RifleModel.js';
 import { L } from '../core/I18n.js';
 import { vibrate } from '../core/Haptics.js';
+import { toWorld } from '../content/farm.js';
 
 const _v = new THREE.Vector3();
 const _c = new THREE.Color();
@@ -24,6 +25,7 @@ export const LINES = {
     barn: L('YOU CAN USE MY OLD BARN.', 'PUEDES USAR MI VIEJO GRANERO.'),
     now: L('NOW, YES: YOU ONLY HAVE YOURSELF.', 'AHORA SÍ, DEPENDES DE TI MISMO.'),
     luck: L('GOOD LUCK.', 'BUENA SUERTE.'),
+    again: L('WE WILL MEET AGAIN.', 'VOLVEREMOS A ENCONTRARNOS.'),
 };
 
 // El prólogo: un vistazo a lo que será el juego antes de empezar de cero.
@@ -598,32 +600,60 @@ export class Prologue {
         this.hooks.toMap();
         this.hooks.flash(0xffffff, 1);
         this.hooks.cine(true);
-        const F = this.farm;
+        this.place(15, 18); // (delante del granero)
+        this.after(3.0, () => this.talk([LINES.remember, LINES.barn, LINES.now, LINES.luck, LINES.again], () => this.goAway(() => this.hooks.done()), { 1: () => this.hooks.openBarn() }));
+    }
+
+    // El trigo mágico, en el mapa en (x, z) (coordenadas de parcela); grow: brota desde el suelo
+    place(x, z, grow = false) {
+        const w = toWorld(x, z);
         this.magic = new MagicWheat(this.theme.outline);
         this.magic.base = 3.2;
-        this.magic.root.scale.setScalar(1.8);
-        this.magic.root.position.set(15, 0, 18);
-        F.root.add(this.magic.root);
+        this.magic.root.position.set(w.x, w.y, w.z);
+        this.magic.root.scale.setScalar(grow ? 0.0001 : 1.8);
+        this.grow = grow ? 0 : 1;
+        this.farm.root.add(this.magic.root);
         this.leaving = 0;
-        this.after(3.0, () => this.talk([LINES.remember, LINES.barn, LINES.now, LINES.luck], () => {
-            this.leaving = 0.001;
-            this.magic.ring.visible = false; // su anillo del suelo no se va con él: desaparece
-            this.hooks.sfx.play('whoosh');
-            this.after(1.8, () => {
-                F.root.remove(this.magic.root);
-                this.magic = null;
-                this.phase = null;
-                this.locked = false;
-                this.hooks.cine(false);
-                this.hooks.done();
-            });
-        }, { 1: () => this.hooks.openBarn() }));
+    }
+
+    // Se va hacia arriba girando y, al poco, then()
+    goAway(then) {
+        this.leaving = 0.001;
+        this.magic.ring.visible = false; // su anillo del suelo no se va con él: desaparece
+        this.hooks.sfx.play('whoosh');
+        this.after(1.8, () => {
+            this.farm.root.remove(this.magic.root);
+            this.magic = null;
+            this.phase = null;
+            this.locked = false;
+            this.hooks.cine(false);
+            then();
+        });
+    }
+
+    // ---------- 5. Más tarde, en la partida: sus visitas (los regalos de la historia) ----------
+    // Brota en el mapa en (x, z) con un rayo de colores, dice lines (on: { i: fn } al salir la
+    // línea i: el regalo) y se va; al acabar, then()
+    visit(x, z, lines, on, then) {
+        this.phase = 'map';
+        this.locked = true;
+        this.queue = [];
+        this.hooks.cine(true);
+        this.place(x, z, true);
+        this.hooks.sfx.play('secret');
+        this.after(1.1, () => this.talk(lines, () => this.goAway(then), on));
     }
 
     updateMap(dt, time, particles) {
         const m = this.magic;
         if (!m) return;
         m.update(dt, time);
+        // Brotando: crece desde el suelo con un rebote
+        if (this.grow < 1) {
+            this.grow = Math.min(1, this.grow + dt * 1.4);
+            const k = this.grow;
+            m.root.scale.setScalar(Math.max(0.0001, 1.8 * (1 + 2.7 * (k - 1) ** 3 + 1.7 * (k - 1) ** 2)));
+        }
         if (this.leaving > 0) {
             // Se va hacia arriba, cada vez más deprisa
             this.leaving += dt;

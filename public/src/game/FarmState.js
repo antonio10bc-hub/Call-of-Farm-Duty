@@ -18,6 +18,7 @@ const BARN = FARM.barn.levels;
 const HOUSE = FARM.house.levels;
 const OLD_KEYS = ['cofd.farm.v3', 'cofd.farm.v2']; // v3: un solo campo de trigo
 const levelsOf = (id) => FIELD_BY_ID[id].levels;
+const STORY = ['crop', 'alien', 'box', 'merchant', 'sold', 'house'];
 const growMs = (id) => CROPS[FIELD_BY_ID[id].crop].growTime * 1000;
 
 export class FarmState {
@@ -34,7 +35,8 @@ export class FarmState {
         // classes: las clases (rifle, mirilla, cargador y rachas, ks); active: la equipada.
         // loadout: la equipada (la misma, para lo que solo mira el fusil)
         const ks = KILLSTREAKS.map((k) => k.id);
-        this.arsenal = { owned: [], active: 0, classes: CLASSES.map(() => ({ ...DEFAULT_LOADOUT, ks: [...ks] })) };
+        // classOwned: las clases desbloqueadas (la primera, de serie; las demás, con oro)
+        this.arsenal = { owned: [], active: 0, classOwned: [0], classes: CLASSES.map(() => ({ ...DEFAULT_LOADOUT, ks: [...ks] })) };
         this.arsenal.loadout = this.arsenal.classes[0];
         // Lo recogido de cada cultivo y las monedas de oro (gold: la moneda del juego, la paga el
         // comerciante; son de cartón, pero que no se entere nadie)
@@ -42,6 +44,14 @@ export class FarmState {
         // El comerciante: la visita de la que son los encargos que hay (cada uno: cultivo, cuánto,
         // cuánto oro paga y si ya se ha entregado)
         this.merchant = { visit: -1, orders: [] };
+        // La historia: lo que ya ha pasado, una vez cada cosa (y lo que abre):
+        //   crop      el trigo a nivel 2: el trigo mágico regala las rachas de cultivos
+        //   alien     el trigo a nivel 3: regala las rachas alienígenas (y empiezan los alienígenas)
+        //   box       el trigo al máximo: regala la caja sorpresa
+        //   merchant  los tomates al máximo: llama el mercader y viene por primera vez
+        //   sold      la primera venta al mercader
+        //   house     tras ella, el trigo mágico abre la casa (y las parcelas, a la venta)
+        this.story = {};
         // Parcelas compradas con oro (content/farm.js: lands)
         this.lands = Object.fromEntries(FARM.lands.filter((l) => l.price).map((l) => [l.id, false]));
         // El ovni (crashed: ya se ha estrellado en la parcela de la casa; met: ya se ha abierto su
@@ -74,6 +84,9 @@ export class FarmState {
                 this.barn.open = d.barn && d.barn.open !== undefined ? !!d.barn.open : true; // las de antes, ya abierto
                 this.house.level = Math.min(HOUSE.length - 1, Math.max(0, d.house ? d.house.level | 0 : (d.rev | 0) < 4 ? 1 : 0));
                 if (d.arsenal) {
+                    // (las partidas de antes: las clases que ya tenían abiertas)
+                    if (Array.isArray(d.arsenal.classOwned)) this.arsenal.classOwned = [0, ...d.arsenal.classOwned.filter((i) => i > 0 && i < CLASSES.length)];
+                    else this.arsenal.classOwned = [0, 1, 2, ...(d.fields && d.fields.tomato && d.fields.tomato.unlocked ? [3] : []), ...((d.items && d.items.gold) || (d.lands && Object.values(d.lands).some(Boolean)) ? [4] : [])];
                     if (Array.isArray(d.arsenal.owned)) this.arsenal.owned = d.arsenal.owned.filter((k) => { const [kind, id] = k.split(':'); return ARSENAL[kind] && ARSENAL[kind].some((x) => x.id === id); });
                     // Las clases (las partidas de antes: su fusil pasa a la clase 1)
                     const saved = Array.isArray(d.arsenal.classes) ? d.arsenal.classes : [d.arsenal.loadout];
@@ -84,6 +97,7 @@ export class FarmState {
                         if (Array.isArray(c.ks)) C.ks = c.ks.filter((id) => KILLSTREAKS.some((k) => k.id === id));
                     });
                     this.arsenal.active = Math.min(CLASSES.length - 1, Math.max(0, d.arsenal.active | 0));
+                    if (!this.arsenal.classOwned.includes(this.arsenal.active)) this.arsenal.active = 0;
                     this.arsenal.loadout = this.arsenal.classes[this.arsenal.active];
                 }
                 // Las monedas alienígenas de antes pasan a ser de oro (la única moneda)
@@ -110,6 +124,12 @@ export class FarmState {
                     // contenido, al cargar ya valen); lo maduro guardado antes de la revisión 2,
                     // también, aunque ya se hubiera empezado a recoger
                     if (f.unlocked && (!this.isReady(id) || (d.rev | 0) < 2)) f.left = Math.max(this.isReady(id) ? f.left : 0, this.sheaves(id));
+                }
+                // La historia (las partidas de antes: lo que ya habrían visto, por cómo van)
+                if (d.story && typeof d.story === 'object') for (const k of STORY) this.story[k] = !!d.story[k];
+                else {
+                    const w = this.fields.wheat, t = this.fields.tomato, met = t.unlocked && this.maxed('tomato');
+                    Object.assign(this.story, { crop: w.unlocked && w.level >= 1, alien: w.unlocked && w.level >= 2, box: w.unlocked && this.maxed('wheat'), merchant: met, sold: met, house: met });
                 }
                 return;
             }
@@ -143,7 +163,7 @@ export class FarmState {
 
     save() {
         try {
-            localStorage.setItem(KEY, JSON.stringify({ rev: REV, prologue: this.prologue, items: this.items, fields: this.fields, barn: this.barn, house: this.house, arsenal: this.arsenal, ufo: this.ufo, home: this.home, merchant: this.merchant, lands: this.lands }));
+            localStorage.setItem(KEY, JSON.stringify({ rev: REV, prologue: this.prologue, items: this.items, fields: this.fields, barn: this.barn, house: this.house, arsenal: this.arsenal, ufo: this.ufo, home: this.home, merchant: this.merchant, lands: this.lands, story: this.story }));
         } catch {
             /* ignorar */
         }
@@ -160,7 +180,7 @@ export class FarmState {
     }
 
     get canUpgradeHouse() {
-        return !this.houseMaxed && Object.entries(this.houseCost()).every(([c, n]) => this.items[c] >= n);
+        return this.open('house') && !this.houseMaxed && Object.entries(this.houseCost()).every(([c, n]) => this.items[c] >= n);
     }
 
     upgradeHouse() {
@@ -265,9 +285,22 @@ export class FarmState {
         return this.freeCosts ? 0 : arsenalItem(kind, id).price;
     }
 
-    // ¿Está abierta la clase i? (las últimas, con su paso de la progresión)
+    // ¿Está desbloqueada la clase i? (la primera, de serie; las demás, compradas con oro)
     classOpen(i) {
-        return !CLASSES[i].open || this.open(CLASSES[i].open);
+        return this.gatesOff || this.arsenal.classOwned.includes(i);
+    }
+
+    classPrice(i) {
+        return this.freeCosts ? 0 : CLASSES[i].price;
+    }
+
+    // Desbloquear la clase i con oro (false si no llega)
+    buyClass(i) {
+        if (this.classOpen(i) || this.items.gold < this.classPrice(i)) return false;
+        this.items.gold -= this.classPrice(i);
+        this.arsenal.classOwned.push(i);
+        this.save();
+        return true;
     }
 
     // Equipar la clase i (la que se lleva al campo de tiro)
@@ -371,6 +404,7 @@ export class FarmState {
         this.items[o.crop] -= o.n;
         this.items.gold += o.gold;
         o.done = true;
+        this.story.sold = true; // (la primera venta: el trigo mágico tiene una idea)
         this.save();
         return true;
     }
@@ -437,20 +471,32 @@ export class FarmState {
     }
 
     // ---------- Progresión ----------
-    // Lo que se va abriendo, en orden: el granero nada más empezar; el trigo; las rachas de
-    // granadas con el trigo a nivel 2; los tomates con el trigo al máximo; las rachas alienígenas
-    // con los tomates a nivel 2; y con los tomates al máximo, el mercader y la tienda de la casa
-    // (con su oro se compran las demás parcelas)
+    // Lo que se va abriendo, en orden: el granero nada más empezar; el trigo; con él a nivel 2, las
+    // rachas de cultivos; a nivel 3, las alienígenas y los alienígenas a pie; al máximo, la caja
+    // sorpresa y los tomates; con los tomates, también los ovnis; con los tomates al máximo, el
+    // mercader; tras la primera venta, la casa y las parcelas en venta; con la casa al máximo, su
+    // tienda. Los regalos del trigo mágico y la llamada del mercader van guardados en story
     open(gate) {
         if (this.gatesOff) return true;
-        const lv = (id) => (this.fields[id].unlocked ? this.fields[id].level : -1);
+        const S = this.story;
         switch (gate) {
             case 'barn': return this.barn.open;
-            case 'grenades': return lv('wheat') >= 1;
-            case 'aliens': return lv('tomato') >= 1;
-            case 'ufos': return this.fields.tomato.unlocked;
-            case 'merchant': case 'shop': return this.fields.tomato.unlocked && this.maxed('tomato');
+            case 'grenades': return !!S.crop;
+            case 'aliens': return !!S.alien;
+            case 'ufos': return !!S.alien && this.fields.tomato.unlocked;
+            case 'box': return !!S.box;
+            case 'merchant': return !!S.merchant;
+            case 'house': case 'lands': return !!S.house;
+            case 'shop': return !!S.house && this.houseMaxed;
         }
+        return true;
+    }
+
+    // Un paso de la historia hecho (true si no lo estaba)
+    tell(step) {
+        if (this.story[step]) return false;
+        this.story[step] = true;
+        this.save();
         return true;
     }
 
@@ -473,7 +519,7 @@ export class FarmState {
     }
 
     canBuyLand(landId) {
-        return !this.lands[landId] && this.items.gold >= this.landPrice(landId);
+        return this.open('lands') && !this.lands[landId] && this.items.gold >= this.landPrice(landId);
     }
 
     // Comprar una parcela con oro (luego su campo se desbloquea con el barril)

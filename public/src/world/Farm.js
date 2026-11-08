@@ -195,12 +195,16 @@ export class Farm {
         this.places.merchant.add(this.camp.root);
         // El recinto del granero: cada pieza en su sitio, repartidas por toda su zona (tocar
         // cualquiera abre el armamento, como el granero)
+        // (compoundOn: sin el granero abierto no se ve; pieces: cada pieza, para que aparezcan
+        // con magia al abrirlo)
         this.compound = new Compound(theme.outline);
-        for (const c of FARM.compound) {
+        this.compoundOn = true;
+        this.compoundPieces = FARM.compound.map((c) => {
             const g = this.compound.piece(c.kind), at = stretchLocal(c.x, c.z);
             g.position.set(at.x, 0, at.z);
             g.rotation.y = (c.ry || 0) * (Math.PI / 2);
-        }
+            return { g, x: c.x, z: c.z, y: 0, ry: g.rotation.y };
+        });
         this.compound.root.traverse((o) => (o.userData.structure = 'barn'));
         this.compound.root.visible = false;
         this.places.farm.add(this.compound.root);
@@ -395,6 +399,12 @@ export class Farm {
             });
             e.mesh.instanceColor.needsUpdate = true;
         }
+    }
+
+    // Las parcelas, a la venta o no (hasta que la progresión las abre, sin poste de SE VENDE: solo
+    // su candado)
+    setLandsOpen(on) {
+        for (const l of FARM.lands) if (!l.soon && !this.landOwned[l.id]) this.landPosts[l.id].root.visible = on;
     }
 
     // Parcela comprada: ya es tuya. Su poste salta, se iza tu bandera y la sombra se retira en una
@@ -1174,7 +1184,7 @@ export class Farm {
         this.plot.update(dt, time);
         updateScenery(this, dt);
         this.camp.update(dt, time, this.nightK || 0);
-        this.compound.root.visible = this.introT > 1.1; // (aparece con los edificios)
+        this.compound.root.visible = this.introT > 1.1 && this.compoundOn; // (aparece con los edificios)
         this.compound.update(dt, time);
         for (const post of Object.values(this.landPosts)) post.update(dt, time);
         this.updateLandWaves(dt);

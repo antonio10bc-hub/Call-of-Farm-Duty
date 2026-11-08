@@ -62,14 +62,14 @@ export const ARSENAL_KINDS = ['scope', 'rifle', 'mag'];
 export const DEFAULT_LOADOUT = { scope: 'std', rifle: 'bolt', mag: 'std' };
 
 // Clases (como en Call of Duty): conjuntos con nombre de rifle, mirilla, cargador y las rachas de
-// bajas que se llevan (de cultivos y alienígenas). Se usa la equipada. open: con qué paso de la
-// progresión se abre (sin él, desde el principio); need: lo que se dice mientras está cerrada
+// bajas que se llevan (de cultivos y alienígenas). Se usa la equipada. Solo la primera viene de
+// serie; las demás se desbloquean con monedas de oro (price)
 export const CLASSES = [
-    { name: ['SNIPER', 'FRANCOTIRADOR'] },
-    { name: ['HARVESTER', 'COSECHADOR'] },
-    { name: ['ALIEN SCARER', 'ESPANTAALIENS'] },
-    { name: ['CLASS 4', 'CLASE 4'], open: 'ufos', need: ['WITH TOMATOES', 'CON TOMATES'] },
-    { name: ['CLASS 5', 'CLASE 5'], open: 'merchant', need: ['WITH THE MERCHANT', 'CON EL MERCADER'] },
+    { name: ['SNIPER', 'FRANCOTIRADOR'], price: 0 },
+    { name: ['HARVESTER', 'COSECHADOR'], price: 10 },
+    { name: ['ALIEN SCARER', 'ESPANTAALIENS'], price: 20 },
+    { name: ['CLASS 4', 'CLASE 4'], price: 35 },
+    { name: ['CLASS 5', 'CLASE 5'], price: 50 },
 ];
 export const arsenalItem = (kind, id) => ARSENAL[kind].find((x) => x.id === id) || ARSENAL[kind][0];
 

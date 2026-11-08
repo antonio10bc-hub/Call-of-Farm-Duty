@@ -57,12 +57,21 @@ export class MerchantClock {
     // locked: aún no ha llegado a la granja (la progresión no lo ha abierto)
     get here() {
         if (this.locked) return false;
-        return this.force ? this.force === 'here' : this.t() < MERCHANT.stay;
+        if (this.until > Date.now()) return true; // (su primera visita, aunque esté fijado fuera)
+        if (this.force) return this.force === 'here';
+        return this.t() < MERCHANT.stay;
+    }
+
+    // Que venga ya (la primera vez, tras su llamada): se queda una visita entera
+    arriveNow() {
+        this.until = Date.now() + MERCHANT.stay * 1000;
     }
 
     // Segundos para que se vaya (si está) o vuelva (si no); null si está fijado
     get left() {
-        if (this.force || this.locked) return null;
+        if (this.locked) return null;
+        if (this.until > Date.now()) return (this.until - Date.now()) / 1000;
+        if (this.force) return null;
         const t = this.t();
         return t < MERCHANT.stay ? MERCHANT.stay - t : MERCHANT.cycle - t;
     }

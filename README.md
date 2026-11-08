@@ -9,7 +9,8 @@ Solo en una partida nueva (en DEBUG, VER EL PRÓLOGO), todo al atardecer, con ba
 1. En primera persona en un campo de trigo enorme: recoges dos matas a mano y aparece el **trigo mágico** (rayo arcoíris, sale de la tierra girando y estalla). Al ir a por él, habla.
 2. En el espacio: tú, un ente blanco y brillante, cabeza con cabeza con el trigo mágico, con la cámara girando alrededor.
 3. En una torre frente a un campo enorme: el rifle sale flotando del trigo, te enseña a apuntar y le disparas. Empieza la cinemática: las tres granadas, el bombardero y la bomba nuclear.
-4. Fundido en blanco y al mapa con todo por hacer. El trigo se despide, te deja su viejo granero (aparece con magia) y se va. A partir de ahí, dependes de ti mismo.
+4. Fundido en blanco y al mapa, centrado en el granero, con todo por hacer. El trigo se despide, te deja su viejo granero (aparece con magia, con todo su recinto) y se va: «Buena suerte. Volveremos a encontrarnos». A partir de ahí, dependes de ti mismo.
+- El sol del atardecer, en el centro de la vista.
 
 ### La granja
 - **Un valle repartido en 14 parcelas** (`world/valley.js`, `content/farm.js`: `REGIONS`, `PLACES`): arriba, las montañas grandes; al pie, un lago glaciar que llena una cascada; de él sale el río, que cruza la colina y la llanura en diagonal. Todo el valle se reparte en zonas de forma irregular (como las comarcas de una provincia), sin huecos, con el río y el monte como frontera: cada una es plana a la altura media de su terreno. En el centro, el granero y su recinto militar; debajo, a un lado el trigo y al otro los tomates, cada uno en su zona; detrás, junto al lago, la casa; el mercader, en el bosque de la otra orilla. La orilla alta (vacas), la cañada (calabazas) y la parcela de abajo (maíz) van partidas: la otra mitad (y en la de abajo, dos trozos más) queda de PRONTO. Cada parcela de 30×30 se estira desde su centro hasta el borde de su zona y la llena entera: su lógica sigue en las coordenadas de siempre (`toWorld`) y en el campo de tiro todo sigue siendo cuadrado. Los campos crecen desde su centro y al nivel 5 (28×28) llenan su zona.
@@ -21,13 +22,16 @@ Solo en una partida nueva (en DEBUG, VER EL PRÓLOGO), todo al atardecer, con ba
 - **Dock** (abajo en el centro): GRANERO, CAMPOS (abre encima otra barra con las fichas de los cultivos que tienes, con su nivel en rayitas y un cuadradito rojo si están listos), CASA y MERCADER. El primer toque lleva la cámara y el segundo abre su ficha; un cuadradito rojo avisa de lo que pide atención.
 
 ### La progresión
-Las cosas se van abriendo por pasos, cada una con su cartel grande:
-1. **El granero**, al acabar el prólogo.
-2. **El trigo:** su terreno empieza abandonado y lleno de chatarra. Desde una atalaya lejana hay que acertar al barril rojo del montón (cambia algo de sitio cada vez) para volarlo todo y dejar la tierra sembrada.
-3. **Las rachas de granadas**, con el trigo a nivel 2.
-4. **Los tomates**, con el trigo al máximo (mismo desbloqueo del barril). Desde aquí también cruzan el cielo los ovnis pequeños.
-5. **La racha alienígena**, con los tomates a nivel 2.
-6. **El mercader y la tienda de la casa**, con los tomates al máximo. Con su oro se compran las parcelas de los lados.
+Al empezar está todo bloqueado (con su candado): la casa, todas las parcelas (también las que se compran), las clases menos FRANCOTIRADOR, las armas y accesorios menos los de serie y las rachas. Solo se puede tocar el armamento y el trigo. Lo demás se va abriendo por pasos (guardados en `state.story`; las partidas de antes lo deducen de cómo van):
+1. **El granero**, al acabar el prólogo: aparece con magia y, en ola, todo su recinto (silo, tractor, helipuerto, hangar, nuclear...).
+2. **El trigo:** su terreno empieza abandonado y lleno de chatarra. Desde una atalaya lejana hay que acertar al barril rojo del montón (cambia algo de sitio cada vez) para volarlo todo y dejar la tierra sembrada. A nivel 1, en el campo de tiro no hay alienígenas ni caja sorpresa.
+3. **Trigo a nivel 2:** el trigo mágico brota en el mapa, te dice que lo estás haciendo muy bien y te regala **las rachas de cultivos**.
+4. **Trigo a nivel 3:** vuelve y te avisa de que a veces intentan robarte los cultivos: te deja una herramienta secreta, **las rachas alienígenas**. Desde ahora vienen alienígenas a pie (los ovnis, cuando haya tomates).
+5. **Trigo al máximo:** vuelve, te dice que un nivel más lo automatiza (la torreta) y te deja un regalo para la próxima vez: **la caja sorpresa**. Con el trigo al máximo se desbloquean también los tomates (mismo barril).
+6. **Tomates al máximo:** **llamada entrante del mercader** (tiembla y suena hasta que la contestas): se presenta, te compra cosecha a buen precio en monedas de oro y viene por primera vez.
+7. **La primera venta:** el trigo mágico vuelve con una idea para ese dinero y desbloquea **la casa** con magia (luego se arregla y se limpia por niveles, con una onda dorada que barre la parcela). Desde ahora **las parcelas se compran** en el orden que quieras: su candado pasa a ser su precio en oro (las de PRONTO siguen con candado). Con la casa al máximo, su tienda.
+- **Clases:** COSECHADOR, ESPANTAALIENS, CLASE 4 y CLASE 5 se desbloquean con 10, 20, 35 y 50 monedas de oro.
+- Al cargar, la cámara empieza en el granero. Esc cierra el menú que esté abierto (como VOLVER).
 
 ### Campos y cosecha
 - **Mejorar un campo** (su ficha): cada nivel lo agranda en el mapa y llena su campo de tiro de más blancos. Hay 5 niveles. Lo que un campo ocupará al máximo empieza abandonado (tierra sucia, árboles, matorral, chatarra) y se va limpiando según crece.

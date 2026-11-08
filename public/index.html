@@ -163,6 +163,16 @@
         <div id="merchant-orders" class="merchant-orders"></div>
     </div>
 
+    <!-- Llamada entrante del mercader (la primera vez, con los tomates al máximo): suena y tiembla
+         hasta que se contesta; luego él habla línea a línea y cuelga -->
+    <div id="call" class="call hidden">
+        <div class="call-card">
+            <div class="call-head"><span class="ico merchant-ico"></span><div><small data-es="LLAMADA ENTRANTE">INCOMING CALL</small><b data-es="MERCADER">MERCHANT</b></div></div>
+            <p id="call-line" class="call-line"></p>
+            <button id="call-btn" class="btn call-btn"></button>
+        </div>
+    </div>
+
     <!-- Granero (armamento): su nivel y dos pestañas, las rachas de bajas que se llevan al campo
          de tiro y las mejoras del rifle -->
     <div id="streaks" class="screen settings streaks-screen hidden">

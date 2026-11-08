@@ -154,7 +154,7 @@ export class MysteryBox {
         this.updateThrown(dt);
         if (!this.state) {
             // Solo cosechando (ni en el desbloqueo, ni en el prólogo, ni con el campo acabado)
-            if (sn.crop && !sn.unlocking && !sn.magic && sn.ending < 0 && !sn.special && (this.next -= dt) <= 0) this.spawn();
+            if (sn.crop && sn.boxOn !== false && !sn.unlocking && !sn.magic && sn.ending < 0 && !sn.special && (this.next -= dt) <= 0) this.spawn();
             return;
         }
         this.t += dt;
