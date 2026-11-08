@@ -91,4 +91,19 @@ export const CROPS = {
         loot: 0xf6f3ea,
         stub: [0x8fd45a, 0x7fc84e, 0x9ad962],
     },
+    // Lana: ovejas que corren por su prado de un lado a otro, al azar, rebotando entre ellas; el
+    // vellón les crece hasta hacerse una bola gigante y, entonces, un tiro a la bola da un ovillo
+    // (y la oveja sigue, esquilada). Su campo es un prado, como el de las vacas
+    wool: {
+        name: L('WOOL', 'LANA'),
+        icon: 'wool',
+        growTime: 55,
+        pasture: true,
+        swell: [4, 8], // segundos que tarda en hacerse bola el vellón de cada oveja
+        burst: [0xffffff, 0xfaf6ec, 0xf0e8d6, 0xfffdf6],
+        chaff: [0xffffff, 0xf0e8d6, 0xe8dcc0],
+        unit: L('BALLS OF WOOL', 'OVILLOS'),
+        loot: 0xfaf6ec,
+        stub: [0x9ad962, 0x8fd45a, 0xa8e070],
+    },
 };

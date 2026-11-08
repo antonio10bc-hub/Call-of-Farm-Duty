@@ -157,6 +157,31 @@ test('vacas: corren por el prado; la ubre se hace gigante y botan encima; llena,
     expect(errors).toEqual([]);
 });
 
+test('ovejas: corren al azar y rebotan entre ellas; el vellón se hace una bola gigante y un tiro a la bola da un ovillo', { tag: '@full' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await enterCrop(page, 'wool');
+    const n = await page.evaluate(() => game.sniper.field.targets.length);
+    expect(n).toBe(await page.evaluate(() => game.state.sheaves('wool')));
+    // Se mueven (cada una a su aire)
+    const at0 = await page.evaluate(() => game.sniper.field.targets.map((s) => [s.cx, s.cz]));
+    await expect.poll(() => page.evaluate((at0) => game.sniper.field.targets.every((s, i) => Math.hypot(s.cx - at0[i][0], s.cz - at0[i][1]) > 0.2), at0)).toBe(true);
+    // Dos que van una contra otra rebotan (no se atraviesan)
+    await page.evaluate(() => {
+        const [A, B] = game.sniper.field.targets, f = game.sniper.field;
+        Object.assign(A, { cx: f.cx - 0.6, cz: f.cz, vx: 2, vz: 0, turn: 99 });
+        Object.assign(B, { cx: f.cx + 0.6, cz: f.cz, vx: -2, vz: 0, turn: 99 });
+    });
+    await expect.poll(() => page.evaluate(() => { const [A, B] = game.sniper.field.targets; return A.vx < 0 && B.vx > 0; })).toBe(true);
+    // Sin bola no hay a qué disparar; con la bola hecha (gigante), un tiro da un ovillo
+    await page.evaluate(() => { for (const s of game.sniper.field.targets) { s.swell = 0; s.rate = 0; } });
+    expect(await page.evaluate(() => game.sniper.field.targets.some((s) => game.sniper.field.hittable(s)))).toBe(false);
+    await page.evaluate(() => { const s = game.sniper.field.targets[0]; s.swell = 1; s.pace = 0; s.vx = s.vz = 0; s.turn = 99; });
+    await expect.poll(() => page.evaluate(() => game.sniper.field.targets[0].cow.us > 4)).toBe(true);
+    await aimAndShoot(page, '(() => { const s = game.sniper.field.targets[0]; return { x: s.x, y: s.y, z: s.z }; })()');
+    await expect.poll(() => page.evaluate(() => game.state.items.wool)).toBe(1);
+    expect(errors).toEqual([]);
+});
+
 test('caja sorpresa: sale en otra torre; desde lejos no se abre, desde su torre da un arma y al gastarla vuelve el rifle', { tag: '@smoke' }, async ({ page }) => {
     const errors = watchErrors(page);
     await enterBigField(page);

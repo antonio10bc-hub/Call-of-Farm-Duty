@@ -224,7 +224,7 @@ export class Sniper {
         // la caja
         const D = this.debug || {};
         if (this.crop) {
-            if (D.cowsFull) for (const s of this.field.targets) if (s.kind === 'cow') s.swell = 1;
+            if (D.cowsFull) for (const s of this.field.targets) if (s.kind === 'cow' || s.kind === 'sheep') s.swell = 1;
             const w = D.startWonder && WONDER.find((x) => x.id === D.startWonder);
             if (w) this.giveSpecial(w);
         }

@@ -372,6 +372,7 @@ const prologueHooks = {
         $('bubbles').classList.remove('hidden');
         scope.show(false);
         mode = 'farm';
+        farm.skipIntro(); // (el mapa ya montado: sin que el suelo se vaya poniendo)
         goHome();
         rig.zoomTarget = 1.6; // algo más lejos: se ve la zona y el trigo hablando
         rig.snap();
@@ -2595,6 +2596,7 @@ const STORY = {
             L('YOUR WHEAT IS AT ITS BEST!', '¡TU TRIGO ESTÁ AL MÁXIMO!'),
             L('ONE MORE UPGRADE AND YOU CAN AUTOMATE IT.', 'SI LO SUBES UN NIVEL MÁS, PODRÁS AUTOMATIZARLO.'),
             L("AND FOR NEXT TIME, I'LL LEAVE YOU A GIFT TO MAKE HARVESTING EASIER.", 'Y PARA LA PRÓXIMA VEZ, TE DEJO UN REGALO QUE TE AYUDARÁ A COSECHAR MÁS FÁCILMENTE.'),
+            L('IT WILL SHOW UP NEXT TIME YOU HARVEST SOMETHING. LOOK AT THE TOWERS ACROSS FROM YOU.', 'APARECERÁ LA PRÓXIMA VEZ QUE COSECHES ALGO. MIRA EN LAS TORRES DE ENFRENTE.'),
         ],
         gift: 2,
         stage: [L('NEW: MYSTERY BOX!', '¡NUEVO: CAJA SORPRESA!'), L('IT SHOWS UP ON A TOWER: JUMP THERE AND SHOOT IT', 'SALE EN UNA TORRE: SALTA A ELLA Y DISPÁRALE')],

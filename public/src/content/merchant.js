@@ -22,7 +22,7 @@ export const MERCHANT = {
     size: [0.25, 0.6],
     step: 5,
     min: 5,
-    rate: { wheat: 0.12, tomato: 0.35, pumpkin: 0.9, corn: 0.2, milk: 0.7 },
+    rate: { wheat: 0.12, tomato: 0.35, pumpkin: 0.9, corn: 0.2, milk: 0.7, wool: 0.8 },
     site: { zone: [30, -30, 60, 0], clear: [30, -24, 60, -13] }, // (el bosque, toda su parcela: en el mapa llena su zona)
     // (el surco cruza la parcela de punta a punta: lo más largo que cabe con el puesto al final)
     furrow: { from: 59.6, to: 39.7, z: -19.2, w: 4.4 },

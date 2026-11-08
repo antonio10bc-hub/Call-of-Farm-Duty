@@ -93,8 +93,8 @@ test('debug: DESBLOQUEAR TODO limpia todos los terrenos sin requisitos', { tag: 
     expect(await page.evaluate(() => [game.farm.fields.wheat.locked, game.farm.fields.tomato.locked])).toEqual([false, false]);
     await expect(page.locator('#sign-wheat')).toHaveText('NV.1');
     await expect(page.locator('#sign-tomato')).toHaveText('NV.1');
-    await expect(page.locator('#bubbles .field-sign.ready')).toHaveCount(5); // trigo, tomates, calabazas, maíz y leche
-    expect(await page.evaluate(() => game.state.lands)).toEqual({ west: true, east: true, nw: true });
+    await expect(page.locator('#bubbles .field-sign.ready')).toHaveCount(6); // trigo, tomates, calabazas, maíz, leche y lana
+    expect(await page.evaluate(() => game.state.lands)).toEqual({ west: true, east: true, nw: true, nw2: true });
     await expect(page.locator('#farm-tomato')).toBeVisible();
     expect(errors).toEqual([]);
 });

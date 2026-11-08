@@ -181,6 +181,11 @@ const SPRITES = {
         rows: ['..KKKKKK..', '.K......K.', 'K.KKKKKK.K', 'KKWWWWWWKK', 'KMWWWWWWMK', 'KMMMMMMMMK', '.KMLMMMMK.', '.KMLMMMMK.', '.KMMMMMDK.', '..KKKKKK..'],
         pal: { K: INK, W: '#ffffff', M: '#a8b8c8', L: '#d8e4f0', D: '#7a8898' },
     },
+    // Ovillo de lana: la bola con sus vueltas de hilo y la hebra suelta
+    wool: {
+        rows: ['...KKKK...', '..KWWWWK..', '.KWCCWWCK.', 'KWWWCWCWWK', 'KWCWWCWWWK', 'KCWWCWWCWK', 'KWWCWWCWWK', '.KWWCCWWK.', '..KKKKKKK.', '........KK'],
+        pal: { K: INK, W: '#fffdf6', C: '#d8cbb0' },
+    },
     corn: {
         rows: ['....KK....', '...KYYK...', '..KYWYYK..', '..KYYYYK..', '..KYYYOK..', '.GKYYYYKG.', 'GGKYYYOKGG', '.GGKYOKGG.', '..GGKKGG..', '...GGGG...'],
         pal: { K: INK, Y: '#ffd23f', O: '#e8b830', W: '#fff3a0', G: '#7ab83a' },

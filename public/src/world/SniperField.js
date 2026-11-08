@@ -5,6 +5,7 @@ import { Tower } from '../render/structures.js';
 import { junkyard, barrelParts, JUNK } from '../render/junk.js';
 import { CROPS } from '../content/crops.js';
 import { buildCow, animateCow } from '../render/cow.js';
+import { buildSheep, animateSheep } from '../render/sheep.js';
 import { FIELD } from '../content/field.js';
 
 const _d = new THREE.Object3D();
@@ -276,6 +277,7 @@ export class SniperField {
         if (crop === 'pumpkin') return this.spawnPumpkins(count);
         if (crop === 'corn') return this.spawnCorn(count);
         if (crop === 'milk') return this.spawnCows(count);
+        if (crop === 'wool') return this.spawnSheep(count);
         for (let i = 0; i < count; i++) {
             const { x, z } = this.freeSpot(this.targets, count > 90 ? 1.2 : 1.6); // (más juntas si hay muchas)
             const stalks = Array.from({ length: CLUMP }, () => {
@@ -437,9 +439,94 @@ export class SniperField {
         }
     }
 
-    // ¿Se le puede dar? (las vacas, solo con la ubre llena)
+    // Ovejas: corren por todo el prado de un lado a otro, al azar (cada una con su velocidad, y
+    // de vez en cuando cambian de rumbo), rebotan contra el borde y entre ellas (como bolas de
+    // billar), y el vellón les crece (swell) hasta hacerse una bola gigante: llena, es el blanco
+    // (s.x, s.y, s.z: el centro de la bola; s.ur: su radio)
+    spawnSheep(count) {
+        if (!this.herd) {
+            this.herd = new THREE.Group();
+            this.root.add(this.herd);
+        }
+        const ink = outline(this.theme.outline), [a, b] = CROPS.wool.swell;
+        for (let i = 0; i < count; i++) {
+            const { x, z } = this.freeSpot(this.targets, 2.4), ang = Math.random() * Math.PI * 2, sp = 1.6 + Math.random() * 2.2;
+            const sheep = buildSheep(ink);
+            this.herd.add(sheep.g);
+            this.targets.push({ kind: 'sheep', cow: sheep, x, y: 0.7, z, ur: 0.4, uh: 0.4, cx: x, cz: z, ry: ang, vx: Math.sin(ang) * sp, vz: Math.cos(ang) * sp, pace: sp, turn: 1 + Math.random() * 3, rad: 0.5,
+                swell: Math.random() * 0.4, rate: 1 / (a + Math.random() * (b - a)), alive: true, grow: -0.5 - i * 0.12, landed: false, flash: 0, dying: 0 });
+        }
+    }
+
+    drawSheep(dt, time) {
+        const list = this.targets;
+        for (const s of list) {
+            const c = s.cow;
+            c.g.visible = !s.gone; // (se la ha llevado un ovni)
+            if (!s.landed) continue;
+            // De vez en cuando, otro rumbo (y otra prisa); rodando, más deprisa
+            if ((s.turn -= dt) <= 0) {
+                s.turn = 1.2 + Math.random() * 3;
+                const ang = Math.atan2(s.vx, s.vz) + (Math.random() - 0.5) * 2.4, sp = s.pace * (0.7 + Math.random() * 0.8) * (1 + s.swell * 0.5);
+                s.vx = Math.sin(ang) * sp;
+                s.vz = Math.cos(ang) * sp;
+            }
+            s.cx += s.vx * dt;
+            s.cz += s.vz * dt;
+            // Contra el borde del prado: rebota hacia dentro
+            if (!inside(this.poly, s.cx, s.cz) || edgeDist(this.poly, s.cx, s.cz) < FIELD.margin + s.rad * 0.6) {
+                const dx = this.cx - s.cx, dz = this.cz - s.cz, d = Math.hypot(dx, dz) || 1, sp = Math.hypot(s.vx, s.vz) || s.pace;
+                const ang = Math.atan2(dx / d, dz / d) + (Math.random() - 0.5) * 1.2;
+                s.vx = Math.sin(ang) * sp;
+                s.vz = Math.cos(ang) * sp;
+                s.cx += s.vx * dt * 2;
+                s.cz += s.vz * dt * 2;
+            }
+            if (s.alive && s.swell < 1 && (s.swell += dt * s.rate) >= 1) {
+                s.swell = 1;
+                if (this.onFull) this.onFull(s);
+            } else if (!s.alive) s.swell = Math.max(0, s.swell - dt * 2.5); // esquilada: la bola se deshace
+        }
+        // Entre ellas: si se tocan, se separan y se cambian la velocidad (choque de bolas)
+        for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+            const A = list[i], B = list[j];
+            if (!A.landed || !B.landed || A.gone || B.gone) continue;
+            const dx = B.cx - A.cx, dz = B.cz - A.cz, d = Math.hypot(dx, dz), min = A.rad + B.rad;
+            if (d >= min || d < 1e-4) continue;
+            const nx = dx / d, nz = dz / d, push = (min - d) / 2;
+            A.cx -= nx * push;
+            A.cz -= nz * push;
+            B.cx += nx * push;
+            B.cz += nz * push;
+            const va = A.vx * nx + A.vz * nz, vb = B.vx * nx + B.vz * nz;
+            if (va - vb <= 0) continue; // (ya se separan)
+            A.vx += (vb - va) * nx;
+            A.vz += (vb - va) * nz;
+            B.vx += (va - vb) * nx;
+            B.vz += (va - vb) * nz;
+            if (this.onBoing && (A.swell > 0.5 || B.swell > 0.5)) this.onBoing(A.swell > B.swell ? A : B);
+        }
+        for (const s of list) {
+            const c = s.cow, sp = Math.hypot(s.vx, s.vz), v = s.landed ? sp : 0;
+            const want = Math.atan2(s.vx, s.vz);
+            s.ry += Math.atan2(Math.sin(want - s.ry), Math.cos(want - s.ry)) * Math.min(1, dt * 6);
+            c.g.position.set(s.cx, 0, s.cz);
+            c.g.rotation.y = s.ry;
+            c.g.scale.setScalar((s.g || 0.0001) * 1.15);
+            animateSheep(c, dt, time, v, s.swell);
+            // La bola de lana, en el mundo (el blanco)
+            s.rad = Math.max(0.45, c.r * 1.15);
+            s.x = s.cx;
+            s.z = s.cz;
+            s.y = (c.lift + 0.66) * 1.15;
+            s.ur = s.uh = Math.max(0.4, c.r * 1.15);
+            if (s.flash > 0) c.wool.scale.multiplyScalar(1 + s.flash * 0.25);
+        }
+    }
+
+    // ¿Se le puede dar? (las vacas, solo con la ubre llena; las ovejas, con la bola de lana hecha)
     hittable(s) {
-        return s.alive && s.landed && (s.kind !== 'cow' || s.swell >= 1);
+        return s.alive && s.landed && ((s.kind !== 'cow' && s.kind !== 'sheep') || s.swell >= 1);
     }
 
     // Terreno abandonado: chatarra a montones por todo el campo y por la hierba hasta la atalaya
@@ -614,6 +701,7 @@ export class SniperField {
             s.flash = Math.max(0, s.flash - dt * 6);
         }
         if (this.crop === 'milk') this.drawCows(dt, time);
+        else if (this.crop === 'wool') this.drawSheep(dt, time);
         else if (this.crop === 'wheat') this.drawWheat(time);
         else if (this.crop === 'tomato') this.drawTomatoes(dt, time);
         else if (this.crop) this.drawPlants(dt, time);
@@ -874,7 +962,7 @@ function segDist(x, z, ax, az, bx, bz) {
 // Caja de impacto de un blanco: se ciñe a la silueta de la mata de trigo (tallos y espigas) o
 // al tomate (algo más grande que él, que se ve enorme pero es lo que hay que darle)
 function hitBox(s) {
-    if (s.kind === 'cow') return [s.x - s.ur, s.y - s.uh, s.z - s.ur, s.x + s.ur, s.y + s.uh, s.z + s.ur]; // (la ubre, del tamaño que tenga)
+    if (s.kind === 'cow' || s.kind === 'sheep') return [s.x - s.ur, s.y - s.uh, s.z - s.ur, s.x + s.ur, s.y + s.uh, s.z + s.ur]; // (la ubre o la bola de lana, del tamaño que tenga)
     if (!s.plant) return [s.x - 0.36, 0, s.z - 0.36, s.x + 0.36, 1.55, s.z + 0.36];
     if (s.kind === 'pumpkin') {
         const r = s.size * 0.66;

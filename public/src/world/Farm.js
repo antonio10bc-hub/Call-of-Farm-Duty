@@ -11,6 +11,7 @@ import { MERCHANT } from '../content/merchant.js';
 import { junkyard, barrelParts, JUNK } from '../render/junk.js';
 import { CROPS } from '../content/crops.js';
 import { buildCow, animateCow } from '../render/cow.js';
+import { buildSheep, animateSheep } from '../render/sheep.js';
 import { FARM, TURRETS, PLACES, toWorld, worldToPlace, inShapeOf, inFieldShape, stretchLocal, floorPlace } from '../content/farm.js';
 
 const _d = new THREE.Object3D();
@@ -644,6 +645,13 @@ export class Farm {
             add(solid, rx * 0.66, 0.68, rz * 0.66, 0.2, 0.12, 0.08, 0xf2a0b0, r);
             for (const [a, b] of [[0.12, 0.28], [-0.12, 0.28], [0.12, -0.28], [-0.12, -0.28]]) add(solid, rx * b + rz * a, 0.22, rz * b - rx * a, 0.1, 0.44, 0.1, 0xf6f3ea);
             add(solid, -rx * 0.1, 0.4, -rz * 0.1, 0.22, 0.12, 0.2, 0xf2a0b0, r);
+        } else if (crop === 'wool') {
+            // Una oveja de muestra: su bola de lana, la cabeza oscura y las patas
+            const rx = Math.sin(r), rz = Math.cos(r);
+            add(solid, 0, 0.62, 0, 0.62, 0.52, 0.72, 0xfaf6ec, r);
+            add(solid, 0, 0.9, 0, 0.4, 0.2, 0.44, 0xf0e8d6, r);
+            add(solid, rx * 0.42, 0.72, rz * 0.42, 0.22, 0.24, 0.24, 0x3a2e2a, r);
+            for (const [a, b] of [[0.13, 0.2], [-0.13, 0.2], [0.13, -0.2], [-0.13, -0.2]]) add(solid, rx * b + rz * a, 0.2, rz * b - rx * a, 0.09, 0.4, 0.09, 0x3a2e2a);
         } else if (crop === 'corn') {
             add(thin, 0, 0.9, 0, 0.12, 1.8, 0.12, 0x8ab83a);
             add(thin, 0.35, 0.7, 0.1, 0.1, 1.4, 0.1, 0x7ab83a);
@@ -1161,6 +1169,19 @@ export class Farm {
         return v ? { field: v.id } : null;
     }
 
+    // Todo ya montado, sin la animación de entrada (al llegar del prólogo: el suelo, los edificios y
+    // las plantas ya en su sitio)
+    skipIntro() {
+        this.introT = INTRO_TIME + 0.5;
+        this.clock = Math.max(this.clock, 30);
+        for (const a of this.animated) this.layout(a, this.introT);
+        for (const m of this.structures) {
+            m.landed = true;
+            m.root.position.y = 0;
+            m.root.scale.setScalar(1);
+        }
+    }
+
     // progress: { id: crecimiento de 0 a 1 } de cada campo
     update(dt, time, progress) {
         this.clock += dt;
@@ -1281,8 +1302,8 @@ export class Farm {
         });
     }
 
-    // El prado de las vacas: una vaca cada pocas casillas (más pequeñas que en el campo de tiro),
-    // paseando y paciendo por su campo. v.plants son ellas (la torreta les dispara)
+    // El prado de las vacas (o de las ovejas): una cada pocas casillas (más pequeñas que en el
+    // campo de tiro), paseando y paciendo por su campo. v.plants son ellas (la torreta les dispara)
     buildHerd(v) {
         const f = v.rect, n = Math.max(2, Math.min(16, Math.round((f.w * f.d) / 14)));
         if (!v.herd) {
@@ -1292,7 +1313,7 @@ export class Farm {
         }
         const ink = outline(this.theme.outline);
         while (v.plants.length < n) {
-            const c = buildCow(ink);
+            const c = v.crop === 'wool' ? buildSheep(ink) : buildCow(ink);
             c.g.scale.setScalar(0.0001);
             v.herd.add(c.g);
             v.plants.push({ cow: c, x: f.x + 1 + Math.random() * (f.w - 2), z: f.z + 1 + Math.random() * (f.d - 2), ry: Math.random() * 6, goal: null, speed: 0, wait: Math.random() * 3, t0: this.clock + 0.3 + v.plants.length * 0.12 });
@@ -1300,7 +1321,7 @@ export class Farm {
     }
 
     // Cada vaca pasea hacia un sitio del prado al azar, se para a pacer y vuelve a andar; la ubre
-    // se le hincha según madura el campo
+    // se le hincha según madura el campo (a las ovejas, el vellón)
     updateHerd(v, dt, time, p) {
         const f = v.rect;
         for (const s of v.plants) {
@@ -1324,7 +1345,7 @@ export class Farm {
             g.position.set(w.x, 0, w.z);
             g.rotation.y = s.ry;
             g.scale.setScalar(intro <= 0 ? 0.0001 : 0.62 * easeOutBack(intro));
-            animateCow(s.cow, dt, time, speed, Math.min(1, p));
+            (v.crop === 'wool' ? animateSheep : animateCow)(s.cow, dt, time, speed, Math.min(1, p));
         }
     }
 

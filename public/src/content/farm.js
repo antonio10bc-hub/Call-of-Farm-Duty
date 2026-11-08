@@ -31,8 +31,8 @@ export const FARM = {
         { id: 'sw', rect: [-30, 30, 0, 60], soon: true },
         { id: 'south', rect: [0, 30, 30, 60], soon: true },
         { id: 'se', rect: [30, 30, 60, 60], soon: true },
-        // Las otras mitades de la orilla alta, la cañada y la parcela de abajo: para lo que venga
-        { id: 'nw2', rect: [60, -30, 90, 0], soon: true },
+        // Las otras mitades de la orilla alta (la de las ovejas), la cañada y la parcela de abajo
+        { id: 'nw2', rect: [60, -30, 90, 0], price: 60, field: 'wool', name: L('SHEEP MEADOW', 'PRADO DE LAS OVEJAS') },
         { id: 'west2', rect: [60, 0, 90, 30], soon: true },
         { id: 'east2', rect: [60, 30, 90, 60], soon: true },
     ],
@@ -182,6 +182,23 @@ export const FARM = {
             turrets: { wheat: 40, milk: 12 },
             locked: { land: 'nw', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
             // sheaves: vacas del campo de tiro (un cubo cada una)
+            levels: [
+                { w: 6, d: 5, sheaves: 4, arena: 1, sign: 0x9a6a3a },
+                { w: 10, d: 9, sheaves: 6, arena: 1.25, sign: 0xb07a44 },
+                { w: 15, d: 14, sheaves: 10, arena: 1.55, sign: 0x5a9e32 },
+                { w: 20, d: 19, sheaves: 15, arena: 1.9, sign: 0x3a7ec8 },
+                { w: 28, d: 28, sheaves: 22, arena: 2.4, sign: 0xc8402e },
+            ],
+        },
+        {
+            id: 'wool',
+            crop: 'wool',
+            name: L('SHEEP MEADOW', 'PRADO DE LAS OVEJAS'),
+            corner: { x: 75, z: -15, center: true }, // (a la izquierda de las vacas, en la orilla alta)
+            cost: { wheat: 12, wool: 3 },
+            turrets: { wheat: 40, wool: 12 },
+            locked: { land: 'nw2', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
+            // sheaves: ovejas del campo de tiro (un ovillo cada una)
             levels: [
                 { w: 6, d: 5, sheaves: 4, arena: 1, sign: 0x9a6a3a },
                 { w: 10, d: 9, sheaves: 6, arena: 1.25, sign: 0xb07a44 },
