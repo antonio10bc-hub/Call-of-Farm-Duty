@@ -161,7 +161,7 @@ export class Flyers {
 
     update(dt, time) {
         const sn = this.sn, k = sn.nightK || 0;
-        if (!sn.calm && sn.flyersOn !== false && !sn.unlocking && sn.ending < 0 && (this.next -= dt) <= 0) {
+        if (!sn.calm && !(sn.debug && sn.debug.noAliens) && sn.flyersOn !== false && !sn.unlocking && sn.ending < 0 && (this.next -= dt) <= 0) {
             this.next = rand(F.min, F.max);
             this.spawn();
             sn.hooks.sfx.play('radar');

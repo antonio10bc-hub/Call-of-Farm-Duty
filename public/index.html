@@ -210,10 +210,15 @@
     <!-- Depuración (botón discreto abajo a la derecha de la granja). Dos tablas: la granja
          (mejoras gratis, bajas por racha, desbloquear y borrar la partida) y, a la derecha, la casa
          (sus costes, su nivel y la tienda) -->
-    <div id="debug" class="screen settings hidden">
+    <!-- Depuración: columnas una al lado de otra que caben en la pantalla sin desplazar (en las
+         estrechas, pestañas). VOLVER arriba a la izquierda. Las filas que dependen del contenido
+         (campos, rachas, desbloqueos) las rellena main.js -->
+    <div id="debug" class="screen settings debug-screen hidden">
         <h2 class="end-title">DEBUG</h2>
+        <button id="btn-debug-close" class="btn home-btn"><span class="home-icon"></span><span data-es="VOLVER">BACK</span></button>
+        <div id="debug-tabs" class="debug-tabs"></div>
         <div class="debug-cols">
-        <div class="debug-box">
+        <div class="debug-box" id="debug-farm">
             <div class="debug-box-title" data-es="GRANJA">FARM</div>
             <div class="toggles toggles-col">
                 <button id="toggle-free" class="toggle" data-key="freeCosts" data-es="COSTES 0">FREE COSTS</button>
@@ -223,20 +228,46 @@
             <!-- El comerciante (AUTO con el reloj, o AQUÍ o FUERA fijos) y monedas de oro -->
             <div class="ks-row unlock-row"><span data-es="COMERCIANTE">MERCHANT</span><button class="unlock-one" id="dbg-merchant"></button></div>
             <div class="ks-row" id="gold-row"><span data-es="MONEDAS DE ORO">GOLD COINS</span><button class="ks-step" data-d="-10">-</button><b id="dbg-gold"></b><button class="ks-step" data-d="10">+</button></div>
+            <button id="btn-crops" class="btn btn-small set-btn" data-es="+100 DE CADA COSECHA">+100 OF EVERY CROP</button>
+            <button id="btn-prologue" class="btn btn-small set-btn" data-es="VER EL PRÓLOGO">WATCH PROLOGUE</button>
+            <button id="btn-reset" class="btn btn-danger set-btn" data-es="BORRAR PROGRESO">RESET PROGRESS</button>
+        </div>
+        <div class="debug-box" id="debug-fields">
+            <div class="debug-box-title" data-es="CAMPOS">FIELDS</div>
+            <!-- El nivel de cada campo (lo desbloquea si hace falta) -->
+            <div class="ks-debug">
+                <div class="ks-debug-title" data-es="NIVEL (CULTIVOS EN EL CAMPO DE TIRO)">LEVEL (TARGETS IN THE RANGE)</div>
+                <div id="field-rows"></div>
+            </div>
+            <button id="btn-ripen" class="btn btn-small set-btn" data-es="MADURAR TODO">RIPEN EVERYTHING</button>
+            <div class="ks-debug">
+                <div class="ks-debug-title" data-es="MUNICIÓN DE LAS TORRETAS">TURRET AMMO</div>
+                <div class="ks-row unlock-row"><span data-es="TODAS">ALL</span><button class="unlock-one" id="dbg-ammo-empty" data-es="VACIAR">EMPTY</button><button class="unlock-one" id="dbg-ammo-full" data-es="LLENAR">FILL</button></div>
+            </div>
+        </div>
+        <div class="debug-box" id="debug-snipe">
+            <div class="debug-box-title" data-es="CAMPO DE TIRO">SHOOTING RANGE</div>
+            <!-- La caja sorpresa: cuándo sale, qué arma da y con qué arma se empieza -->
+            <div class="ks-debug">
+                <div class="ks-debug-title" data-es="CAJA SORPRESA">MYSTERY BOX</div>
+                <div class="ks-row unlock-row"><span data-es="SALE">APPEARS</span><button class="unlock-one" id="dbg-box-rate"></button></div>
+                <div class="ks-row unlock-row"><span data-es="DA">GIVES</span><button class="unlock-one" id="dbg-box-pick"></button></div>
+                <div class="ks-row unlock-row"><span data-es="EMPIEZAS CON">START WITH</span><button class="unlock-one" id="dbg-start-wonder"></button></div>
+            </div>
+            <div class="ks-debug">
+                <div class="ks-debug-title" data-es="BICHOS">CRITTERS</div>
+                <div class="ks-row unlock-row"><span data-es="VACAS">COWS</span><button class="unlock-one" id="dbg-cows"></button></div>
+                <div class="ks-row unlock-row"><span data-es="ALIENÍGENAS Y OVNIS">ALIENS AND UFOS</span><button class="unlock-one" id="dbg-aliens"></button></div>
+            </div>
+        </div>
+        <div class="debug-box" id="debug-streaks">
+            <div class="debug-box-title" data-es="RACHAS">STREAKS</div>
             <!-- Bajas que pide cada racha: una fila por recompensa (las rellena main.js) -->
             <div class="ks-debug">
                 <div class="ks-debug-title" data-es="BAJAS POR RACHA">KILLS PER STREAK</div>
                 <div id="ks-rows"></div>
-                <button id="ks-default" class="btn btn-small set-btn" data-es="RACHAS POR DEFECTO">DEFAULT STREAKS</button>
             </div>
-            <!-- Desbloquear de uno en uno lo que esté bloqueado (las filas las rellena main.js) -->
-            <div class="ks-debug">
-                <div class="ks-debug-title" data-es="DESBLOQUEAR">UNLOCK</div>
-                <div id="unlock-rows"></div>
-            </div>
-            <button id="btn-unlock-all" class="btn btn-small set-btn" data-es="DESBLOQUEAR TODO">UNLOCK EVERYTHING</button>
-            <button id="btn-prologue" class="btn btn-small set-btn" data-es="VER EL PRÓLOGO">WATCH PROLOGUE</button>
-            <button id="btn-reset" class="btn btn-danger set-btn" data-es="BORRAR PROGRESO">RESET PROGRESS</button>
+            <button id="ks-default" class="btn btn-small set-btn" data-es="RACHAS POR DEFECTO">DEFAULT STREAKS</button>
         </div>
         <div class="debug-box" id="debug-home">
             <div class="debug-box-title" data-es="CASA">HOUSE</div>
@@ -249,8 +280,15 @@
             <button id="btn-home-all" class="btn btn-small set-btn" data-es="DESBLOQUEAR TODO">UNLOCK EVERYTHING</button>
             <button id="btn-home-reset" class="btn btn-danger set-btn" data-es="CASA DE SERIE">DEFAULT HOUSE</button>
         </div>
+        <div class="debug-box" id="debug-unlock">
+            <div class="debug-box-title" data-es="DESBLOQUEAR">UNLOCK</div>
+            <!-- Desbloquear de uno en uno lo que esté bloqueado (las filas las rellena main.js) -->
+            <div class="ks-debug">
+                <div id="unlock-rows"></div>
+            </div>
+            <button id="btn-unlock-all" class="btn btn-small set-btn" data-es="DESBLOQUEAR TODO">UNLOCK EVERYTHING</button>
         </div>
-        <button id="btn-debug-close" class="btn home-btn"><span class="home-icon"></span><span data-es="VOLVER">BACK</span></button>
+        </div>
     </div>
 
     <div id="settings" class="screen settings hidden">

@@ -61,7 +61,7 @@ Las cosas se van abriendo por pasos, cada una con su cartel grande:
 ### El granero: armamento por clases
 Al estilo «Crear clase» de Call of Duty. El granero no se mejora: se queda como está, y su menú es solo el de las clases.
 - **Clases:** a la izquierda, 5 (Francotirador, Cosechador, Espantaaliens y dos más: la 4 se abre con los tomates y la 5 con el mercader). EQUIPAR CLASE elige la que se lleva al campo.
-- **Cabe entero en la pantalla** (sin desplazar ni alejar): VOLVER arriba a la izquierda, el título pequeño, y tres columnas (clases; arma y accesorios; rachas y EQUIPAR CLASE). En el móvil, una columna apretada con las clases en dos filas.
+- **Cabe entero en la pantalla** (sin desplazar ni alejar; en el ordenador, algo más grande): VOLVER arriba a la izquierda, el título pequeño, y tres columnas (clases; arma y accesorios; rachas y EQUIPAR CLASE). En el móvil, una columna apretada con las clases en dos filas.
 - **La clase que se edita** (a la derecha): arma principal, accesorios (mirilla y cargador) y dos secciones de rachas, de cultivos y de alienígenas, que se ponen o quitan tocándolas. En el campo de tiro solo saltan las de la clase equipada.
 - **Armería:** tocar el arma o un accesorio abre su lista, un maletín de espuma con el fusil desmontado. Se compra con oro y se monta en esa clase; cada pieza se ve distinta en su foto y en el fusil en primera persona (las fotos no son dibujos: son las piezas de verdad renderizadas en 3D a píxeles, `ui/GearArt.js`; la del arma principal, el fusil entero tal cual va montado), y tiene sus pegas:
   - **Mirillas:** estándar; punto rojo (poco zoom, se sube al instante, muy firme); táctica (más zoom y firme); largo alcance (zoom enorme, lenta y temblona); visión nocturna (de noche ve como de día, con la lente verde). Cada una con su retícula.
@@ -102,10 +102,14 @@ Con el reloj de verdad: 4 min de día y 2 de noche, con amanecer y atardecer de 
 
 ### Ajustes y depuración
 - **Ajustes:** música, sonido, vibración e idioma.
-- **Debug** (botón discreto abajo a la derecha de la granja), con dos tablas:
-  - **GRANJA:** COSTES 0, HORA (AUTO, DÍA o NOCHE), COMERCIANTE (AUTO, AQUÍ o FUERA), MONEDAS DE ORO (de 10 en 10), BAJAS POR RACHA (y RACHAS POR DEFECTO), DESBLOQUEAR de uno en uno (cada terreno, toda la armería y la torreta de cada campo), DESBLOQUEAR TODO, VER EL PRÓLOGO y BORRAR PROGRESO (dos toques; no borra los ajustes).
+- **Debug** (botón discreto abajo a la derecha de la granja): seis columnas una al lado de otra que caben en la pantalla sin desplazar, con VOLVER arriba a la izquierda (en las pantallas estrechas, pestañas: una columna cada vez, y se recuerda la última).
+  - **GRANJA:** COSTES 0, HORA (AUTO, DÍA o NOCHE), COMERCIANTE (AUTO, AQUÍ o FUERA), MONEDAS DE ORO (de 10 en 10), +100 DE CADA COSECHA, VER EL PRÓLOGO y BORRAR PROGRESO (dos toques; no borra los ajustes).
+  - **CAMPOS:** el nivel de cada campo con - / + (lo desbloquea si hace falta; enseña nivel·blancos del campo de tiro), MADURAR TODO y la munición de todas las torretas (VACIAR o LLENAR).
+  - **CAMPO DE TIRO:** la caja sorpresa (SALE: NORMAL o ENSEGUIDA; DA: AL AZAR o un arma fija; EMPIEZAS CON: FUSIL o un arma de la caja), las vacas (NORMAL o UBRES LLENAS) y ALIENÍGENAS Y OVNIS (SÍ o NO).
+  - **RACHAS:** las bajas que pide cada una (y RACHAS POR DEFECTO).
   - **CASA:** COSTES 0, NIVEL DE LA CASA, DESBLOQUEAR TODO y CASA DE SERIE.
-  - Lo de COSTES, HORA, COMERCIANTE y BAJAS se recuerda.
+  - **DESBLOQUEAR:** de uno en uno (cada terreno, toda la armería y la torreta de cada campo) y DESBLOQUEAR TODO.
+  - Lo de COSTES, HORA, COMERCIANTE, BAJAS y el campo de tiro se recuerda.
 
 ## Desarrollo
 ```

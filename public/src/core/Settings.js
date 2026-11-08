@@ -9,7 +9,12 @@ const KEY = 'cofd.settings';
 // streaks: depuración, bajas que pide cada racha ({ grenade: 5, ... }; null = las normales)
 // daytime: depuración, 'day' o 'night' fijos (null = el ciclo del reloj)
 // merchant: depuración, el comerciante 'here' o 'away' fijo (null = el del reloj)
-const DEFAULTS = { music: true, sfx: true, vibration: true, analytics: null, uiSize: 'normal', pixel: 'fine', freeCosts: false, freeHome: false, streaks: null, daytime: null, merchant: null };
+// boxFast: depuración, la caja sorpresa sale enseguida (a los pocos segundos, y vuelve pronto)
+// boxPick: depuración, el arma que da la caja ('rpg', 'ray', 'xbow'; null = al azar)
+// startWonder: depuración, se empieza el campo de tiro con esa arma de la caja (null = el fusil)
+// cowsFull: depuración, las vacas salen con la ubre llena (gigantes y botando)
+// noAliens: depuración, sin alienígenas a pie ni ovnis en el campo de tiro
+const DEFAULTS = { music: true, sfx: true, vibration: true, analytics: null, uiSize: 'normal', pixel: 'fine', freeCosts: false, freeHome: false, streaks: null, daytime: null, merchant: null, boxFast: false, boxPick: null, startWonder: null, cowsFull: false, noAliens: false };
 
 export const Settings = {
     ...DEFAULTS,

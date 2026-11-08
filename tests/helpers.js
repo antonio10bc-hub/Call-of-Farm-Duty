@@ -76,6 +76,13 @@ async function touchPath(page, steps, target = 'view', id = 7) {
 }
 
 // Mira a la siguiente mata, mantiene el botón derecho (sube el arma) y lo suelta: un disparo
+// El ratón, en el centro de la vista (si no, apuntar con el botón derecho caería donde se hizo el
+// último clic, que puede ser un botón de la interfaz)
+async function centerMouse(page) {
+    const v = page.viewportSize();
+    await page.mouse.move(Math.round(v.width / 2), Math.round(v.height / 2));
+}
+
 async function shootNext(page) {
     const ok = await page.evaluate(() => {
         const s = game.sniper.field.sheaves.find((x) => x.alive);
@@ -90,6 +97,7 @@ async function shootNext(page) {
         const s = game.sniper.field.sheaves.find((x) => x.alive);
         if (s) game.sniper.lookAt(s.x, 0.9, s.z);
     });
+    await centerMouse(page);
     await page.mouse.down({ button: 'right' });
     // (si mientras tanto una granada recoge lo último y se acaba el campo, ya no hay disparo)
     await expect.poll(() => page.evaluate(() => (game.sniper.adsK === 1 && game.sniper.spread < 0.002) || game.sniper.ending >= 0), { timeout: 20_000 }).toBe(true);
@@ -111,6 +119,7 @@ async function shootNext(page) {
 async function aimAndShoot(page, where) {
     const look = `(() => { const p = ${where}; if (p) game.sniper.lookAt(p.x, p.y, p.z); })()`;
     await page.evaluate(look);
+    await centerMouse(page);
     await page.mouse.down({ button: 'right' });
     await expect.poll(() => page.evaluate(() => game.sniper.adsK === 1 && game.sniper.spread < 0.002), { timeout: 20_000 }).toBe(true);
     await page.evaluate(look);

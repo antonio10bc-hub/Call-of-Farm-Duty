@@ -14,7 +14,7 @@ import { Flyers } from './Flyers.js';
 import { Walkers } from './Walkers.js';
 import { Turrets } from './Turrets.js';
 import { MysteryBox } from './MysteryBox.js';
-import { WONDER_ZOOM } from '../content/mysterybox.js';
+import { WONDER_ZOOM, WONDER } from '../content/mysterybox.js';
 import { loadoutStats } from '../content/arsenal.js';
 
 const S = CONFIG.sniper;
@@ -180,7 +180,7 @@ export class Sniper {
     // el equipo de la armería ({ scope, rifle, mag })
     enter(what) {
         this.setArena(what.arena || 1);
-        this.special = null;
+        this.special = this.base = null;
         this.dropT = this.swapT = 0;
         this.loadout = what.loadout;
         this.stats = loadoutStats(what.loadout);
@@ -219,6 +219,14 @@ export class Sniper {
         this.walkers.reset();
         this.turrets.set(!this.unlocking && !!what.turrets);
         this.box.reset();
+        // Depuración (los ajustes de DEBUG, en this.debug): vacas llenas y empezar con un arma de
+        // la caja
+        const D = this.debug || {};
+        if (this.crop) {
+            if (D.cowsFull) for (const s of this.field.targets) if (s.kind === 'cow') s.swell = 1;
+            const w = D.startWonder && WONDER.find((x) => x.id === D.startWonder);
+            if (w) this.giveSpecial(w);
+        }
     }
 
     // El arma de la caja sorpresa: sustituye al rifle (un solo cargador, sin recargas) hasta

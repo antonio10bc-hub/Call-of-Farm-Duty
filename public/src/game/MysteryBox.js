@@ -73,7 +73,7 @@ export class MysteryBox {
     reset() {
         this.state = null;
         this.holder.visible = false;
-        this.next = rand(BOX.first[0], BOX.first[1]);
+        this.next = this.debug.boxFast ? 2 : rand(BOX.first[0], BOX.first[1]);
         this.tower = -1;
         for (const s of this.shots) this.root.remove(s.mesh, s.lamp, s.halo);
         this.shots = [];
@@ -129,13 +129,19 @@ export class MysteryBox {
         this.t = 0;
         this.flip = 0;
         this.shown = (Math.random() * WONDER.length) | 0;
-        this.pick = (Math.random() * WONDER.length) | 0;
+        const forced = WONDER.findIndex((w) => w.id === this.debug.boxPick); // (DEBUG: la que se elija)
+        this.pick = forced >= 0 ? forced : (Math.random() * WONDER.length) | 0;
         this.icon.visible = this.beam.visible = false;
         this.rays.visible = true;
         this.burst(28, BLUE.concat(GOLD), 4);
         this.sn.hooks.sfx.play('unlock');
         if (this.sn.hooks.flash) this.sn.hooks.flash(0xfff3b0, 0.12);
         if (this.sn.hooks.onBox) this.sn.hooks.onBox('open');
+    }
+
+    // Los ajustes de DEBUG (sniper.debug)
+    get debug() {
+        return this.sn.debug || {};
     }
 
     get weapon() {
@@ -240,7 +246,7 @@ export class MysteryBox {
                 this.holder.visible = false;
                 this.state = null;
                 this.tower = -1;
-                this.next = rand(BOX.every[0], BOX.every[1]);
+                this.next = this.debug.boxFast ? 3 : rand(BOX.every[0], BOX.every[1]);
             }
         }
     }

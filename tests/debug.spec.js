@@ -1,6 +1,9 @@
 // Pruebas de el menú DEBUG y borrar el progreso.
 const { test, expect, enterField, openFarm, shootNext, watchErrors } = require('./helpers');
 
+// En el móvil el debug va por pestañas (una columna cada vez): abre la de ese título
+const tab = (page, name) => page.locator('.debug-tab', { hasText: new RegExp(`^${name}$`) }).click();
+
 test('ajustes: borrar el progreso pide confirmación y deja la granja como al empezar', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await openFarm(page);
@@ -47,6 +50,7 @@ test('debug: se elige cuántas bajas pide cada racha', { tag: '@full' }, async (
     await page.locator('#btn-home').click();
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('farm');
     await page.locator('#btn-debug').click();
+    await tab(page, 'RACHAS');
     // La de fragmentación, de 5 a 1 bajas (cuatro veces -)
     const row = (id) => page.locator('.ks-row', { has: page.locator(`#ks-${id}`) });
     await expect(page.locator('#ks-frag')).toHaveText('5');
@@ -69,6 +73,7 @@ test('debug: se elige cuántas bajas pide cada racha', { tag: '@full' }, async (
     await page.reload();
     await expect(page.locator('#ks-frag')).toHaveText('1');
     await page.locator('#btn-debug').click();
+    await tab(page, 'RACHAS');
     await page.locator('#ks-default').click();
     await expect(page.locator('#ks-frag')).toHaveText('5');
     await expect(page.locator('#ks-nuke')).toHaveText('10');
@@ -81,6 +86,7 @@ test('debug: DESBLOQUEAR TODO limpia todos los terrenos sin requisitos', { tag: 
     await expect(page.locator('#sign-wheat')).toHaveText('¡DESBLOQUEAR!', { timeout: 30_000 });
     await expect(page.locator('#sign-tomato')).toHaveText('BLOQUEADO');
     await page.locator('#btn-debug').click();
+    await tab(page, 'DESBLOQUEAR');
     await page.locator('#btn-unlock-all').click();
     await expect(page.locator('#debug')).toBeHidden();
     expect(await page.evaluate(() => [game.state.fields.wheat.unlocked, game.state.fields.tomato.unlocked])).toEqual([true, true]);
@@ -98,6 +104,7 @@ test('debug: desbloquear de uno en uno los terrenos y la armería', { tag: '@ful
     await page.goto('/?test');
     await expect(page.locator('#sign-wheat')).toHaveText('¡DESBLOQUEAR!', { timeout: 30_000 });
     await page.locator('#btn-debug').click();
+    await tab(page, 'DESBLOQUEAR');
     // Solo los tomates: el trigo sigue con su chatarra
     await expect(page.locator('#unlock-field-tomato')).toHaveText('DESBLOQUEAR');
     await page.locator('#unlock-field-tomato').click();
@@ -121,6 +128,7 @@ test('debug de la casa: costes 0, nivel, monedas, el ovni y la tienda entera', {
     await page.goto('/?test');
     await expect.poll(() => page.evaluate(() => window.game && game.farm.introT > 0), { timeout: 30_000 }).toBe(true);
     await page.locator('#btn-debug').click();
+    await tab(page, 'CASA');
     await expect(page.locator('#debug-home')).toBeVisible();
     // Costes 0 solo para la casa y la tienda (los campos siguen costando)
     await page.locator('#toggle-free-home').click();
@@ -144,5 +152,38 @@ test('debug de la casa: costes 0, nivel, monedas, el ovni y la tienda entera', {
     await expect(page.locator('#debug')).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('#home-level')).toHaveText('2');
     expect(await page.evaluate(() => [game.state.house.level, game.state.freeHome])).toEqual([2, true]);
+    expect(errors).toEqual([]);
+});
+
+test('debug: nivel de cada campo, munición de las torretas y el campo de tiro (caja, arma, vacas, alienígenas)', { tag: '@full' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await openFarm(page);
+    await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
+    await page.locator('#btn-debug').click();
+    // El trigo al nivel 5 a golpe de + (con sus 240 matas)
+    await tab(page, 'CAMPOS');
+    const plus = page.locator('#field-rows .ks-row').first().locator('[data-d="1"]');
+    for (let i = 0; i < 4; i++) await plus.click();
+    expect(await page.evaluate(() => [game.state.fields.wheat.level, game.state.fields.wheat.left])).toEqual([4, 240]);
+    await expect(page.locator('#field-rows .ks-row').first().locator('b')).toHaveText('5·240');
+    // Campo de tiro: empezar con la bazuca, la caja enseguida y sin alienígenas
+    await tab(page, 'CAMPO DE TIRO');
+    await page.locator('#dbg-start-wonder').click();
+    await expect(page.locator('#dbg-start-wonder')).toHaveText('BAZUCA');
+    await page.locator('#dbg-box-rate').click();
+    await expect(page.locator('#dbg-box-rate')).toHaveText('ENSEGUIDA');
+    await page.locator('#dbg-aliens').click();
+    await expect(page.locator('#dbg-aliens')).toHaveText('NO');
+    await page.locator('#btn-debug-close').click();
+    await page.evaluate(() => game.harvest('wheat'));
+    await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
+    expect(await page.evaluate(() => game.sniper.special && game.sniper.special.id)).toBe('rpg');
+    // (con un arma de la caja en las manos no sale otra caja; sin ella, enseguida)
+    await page.evaluate(() => game.sniper.endSpecial());
+    await expect.poll(() => page.evaluate(() => game.sniper.box.state), { timeout: 10_000 }).toBe('idle');
+    expect(await page.evaluate(() => [game.sniper.walkers.list.length, game.sniper.flyers.list.length])).toEqual([0, 0]);
+    // Se recuerda
+    await page.reload();
+    await expect.poll(() => page.evaluate(() => window.game && [game.state.fields.wheat.level, window.game && game.sniper.debug.startWonder])).toEqual([4, 'rpg']);
     expect(errors).toEqual([]);
 });

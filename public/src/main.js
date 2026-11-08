@@ -14,6 +14,7 @@ import { Particles } from './render/Particles.js';
 import { weatherParticle } from './render/weather.js';
 import { Farm } from './world/Farm.js';
 import { FarmState } from './game/FarmState.js';
+import { WONDER } from './content/mysterybox.js';
 import { Sniper } from './game/Sniper.js';
 import { DayNight } from './game/DayNight.js';
 import { Prologue } from './game/Prologue.js';
@@ -2011,11 +2012,50 @@ tapBtn('btn-streaks-close', () => {
 tapBtn('btn-lang', switchLang);
 tapBtn('btn-debug', () => {
     sfx.play('ui');
+    refreshDebug();
+    $('debug').classList.remove('hidden');
+});
+// Todo lo del debug al día (al abrirlo y tras cada cambio)
+function refreshDebug() {
     refreshUnlockRows();
     refreshHomeRows();
     refreshMerchantDbg();
-    $('debug').classList.remove('hidden');
-});
+    refreshFieldRows();
+    refreshSnipeDbg();
+}
+// En las pantallas estrechas, una columna cada vez: pestañas con el título de cada una
+{
+    const boxes = [...document.querySelectorAll('#debug .debug-box')];
+    // (la pestaña abierta se recuerda, también al recargar desde el debug)
+    const show = (i) => {
+        boxes.forEach((b, k) => {
+            b.classList.toggle('on', k === i);
+            tabs[k].classList.toggle('on', k === i);
+        });
+        try {
+            sessionStorage.setItem('cofd.debugTab', String(i));
+        } catch { /* sin almacenamiento */ }
+    };
+    const tabs = boxes.map((b, i) => {
+        const t = document.createElement('button');
+        t.className = 'debug-tab';
+        t.textContent = b.querySelector('.debug-box-title').textContent;
+        t.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sfx.play('ui');
+            show(i);
+        });
+        $('debug-tabs').appendChild(t);
+        return t;
+    });
+    let first = 0;
+    try {
+        first = Math.min(boxes.length - 1, Number(sessionStorage.getItem('cofd.debugTab')) || 0);
+    } catch { /* sin almacenamiento */ }
+    show(first);
+}
+// El campo de tiro lee los ajustes de depuración (caja sorpresa, vacas, alienígenas)
+sniper.debug = Settings;
 tapBtn('btn-debug-close', () => {
     sfx.play('ui');
     $('debug').classList.add('hidden');
@@ -2058,6 +2098,105 @@ for (const b of $('gold-row').querySelectorAll('.ks-step')) {
     });
 }
 refreshMerchantDbg();
+// Depuración: +100 de cada cosecha (para probar mejoras)
+tapBtn('btn-crops', () => {
+    for (const c of Object.keys(CROPS)) state.items[c] = Math.min(99999, (state.items[c] || 0) + 100);
+    state.save();
+    updateCounts();
+    refreshPanel();
+    sfx.play('coin');
+});
+// Depuración: el nivel de cada campo (- / +; lo desbloquea si hace falta) y madurarlo todo
+const fieldRows = {};
+for (const def of FARM.fields) {
+    const row = document.createElement('div');
+    row.className = 'ks-row';
+    row.innerHTML = `<span>${CROPS[def.crop].name || def.name}</span><button class="ks-step" data-d="-1">-</button><b></b><button class="ks-step" data-d="1">+</button>`;
+    for (const b of row.querySelectorAll('.ks-step')) {
+        b.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setFieldLevel(def.id, state.fields[def.id].level + Number(b.dataset.d));
+        });
+    }
+    $('field-rows').appendChild(row);
+    fieldRows[def.id] = row;
+}
+function refreshFieldRows() {
+    for (const def of FARM.fields) {
+        const f = state.fields[def.id], row = fieldRows[def.id];
+        row.querySelector('b').textContent = f.unlocked ? `${f.level + 1}·${state.sheaves(def.id)}` : '-';
+        row.classList.toggle('changed', f.unlocked && state.maxed(def.id));
+    }
+}
+function setFieldLevel(id, n) {
+    const def = FIELD_BY_ID[id], st = state.fields[id];
+    n = Math.min(def.levels.length - 1, Math.max(0, n));
+    if (!st.unlocked) {
+        state.unlock(id, Date.now(), true);
+        while (revealUnlocked());
+    }
+    if (n === st.level && st.unlocked) return sfx.play('miss');
+    st.level = n;
+    st.left = state.sheaves(id);
+    state.save();
+    farm.setLevel(id, n);
+    sfx.play('power');
+    updateCounts();
+    refreshPanel();
+    refreshDebug();
+}
+tapBtn('btn-ripen', () => {
+    for (const def of FARM.fields) {
+        const st = state.fields[def.id];
+        if (!st.unlocked) continue;
+        st.plantedAt = 0;
+        st.left = state.sheaves(def.id);
+    }
+    state.save();
+    updateCounts();
+    refreshPanel();
+    sfx.play('power');
+});
+// Depuración: la munición de todas las torretas, a cero o llena
+for (const [id, full] of [['dbg-ammo-empty', false], ['dbg-ammo-full', true]]) {
+    tapBtn(id, () => {
+        for (const def of FARM.fields) {
+            const st = state.fields[def.id];
+            if (st.turrets) st.ammo = full ? TURRETS.ammo : 0;
+        }
+        state.save();
+        updateCounts();
+        refreshPanel();
+        sfx.play(full ? 'reloaded' : 'warn');
+    });
+}
+// Depuración del campo de tiro: la caja sorpresa (cuándo sale, qué da, con qué arma se empieza),
+// las vacas (normales o con la ubre llena) y los alienígenas y ovnis (sí o no). Se recuerdan.
+const cycle = (list, now) => list[(list.indexOf(now) + 1) % list.length];
+const wonderName = (id) => (WONDER.find((w) => w.id === id) || {}).name;
+function refreshSnipeDbg() {
+    $('dbg-box-rate').textContent = Settings.boxFast ? L('RIGHT AWAY', 'ENSEGUIDA') : L('NORMAL', 'NORMAL');
+    $('dbg-box-pick').textContent = wonderName(Settings.boxPick) || L('RANDOM', 'AL AZAR');
+    $('dbg-start-wonder').textContent = wonderName(Settings.startWonder) || L('RIFLE', 'FUSIL');
+    $('dbg-cows').textContent = Settings.cowsFull ? L('FULL UDDERS', 'UBRES LLENAS') : L('NORMAL', 'NORMAL');
+    $('dbg-aliens').textContent = Settings.noAliens ? L('NO', 'NO') : L('YES', 'SÍ');
+    for (const [id, on] of [['dbg-box-rate', Settings.boxFast], ['dbg-box-pick', Settings.boxPick], ['dbg-start-wonder', Settings.startWonder], ['dbg-cows', Settings.cowsFull], ['dbg-aliens', Settings.noAliens]]) $(id).classList.toggle('set', !!on);
+}
+const WONDER_IDS = [null, ...WONDER.map((w) => w.id)];
+for (const [id, step] of [
+    ['dbg-box-rate', () => Settings.set('boxFast', !Settings.boxFast)],
+    ['dbg-box-pick', () => Settings.set('boxPick', cycle(WONDER_IDS, Settings.boxPick))],
+    ['dbg-start-wonder', () => Settings.set('startWonder', cycle(WONDER_IDS, Settings.startWonder))],
+    ['dbg-cows', () => Settings.set('cowsFull', !Settings.cowsFull)],
+    ['dbg-aliens', () => Settings.set('noAliens', !Settings.noAliens)],
+]) {
+    tapBtn(id, () => {
+        step();
+        refreshSnipeDbg();
+        sfx.play('ui');
+    });
+}
+refreshSnipeDbg();
 // Depuración: cuántas bajas pide cada racha (- / +), y volver a las normales
 const ksRows = {};
 for (const k of KILLSTREAKS) {
@@ -2284,8 +2423,7 @@ try {
     }
     if (sessionStorage.getItem('cofd.reopenDebug')) {
         sessionStorage.removeItem('cofd.reopenDebug');
-        refreshUnlockRows();
-        refreshHomeRows();
+        refreshDebug();
         $('debug').classList.remove('hidden');
     }
 } catch { /* sin almacenamiento */ }
