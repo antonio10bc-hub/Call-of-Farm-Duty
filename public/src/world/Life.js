@@ -50,9 +50,9 @@ export class Life extends VoxelModel {
         this.part(g, 0.16, 0.07, 0.12, ORANGE, 0.45, 0.4, 0, false);
         for (const s of [-1, 1]) this.part(g, 0.04, 0.05, 0.03, INK, 0.33, 0.47, s * 0.12, false);
         if (bow) {
-            // El lacito, en el cuello: dos lazos y el nudo
-            for (const s of [-1, 1]) this.part(g, 0.08, 0.14, 0.14, ORANGE, 0.2, 0.3, s * 0.15).rotation.x = s * 0.4;
-            this.part(g, 0.08, 0.08, 0.08, 0xd86a10, 0.21, 0.3, 0, false);
+            // El lacito, encima de la cabeza: dos lazos grandes y el nudo
+            for (const s of [-1, 1]) this.part(g, 0.1, 0.22, 0.26, ORANGE, 0.24, 0.64, s * 0.17).rotation.x = s * 0.5;
+            this.part(g, 0.12, 0.12, 0.12, 0xd86a10, 0.24, 0.63, 0);
         }
         g.scale.setScalar(1.9);
         return g;
