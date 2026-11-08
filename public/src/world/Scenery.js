@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { box, toon } from '../render/materials.js';
 import { PLACES, gateWorld, floorPlace } from '../content/farm.js';
-import { G, REGIONS, GN, CELL, cellIndex, cellX, cellZ, MOUNT, SLOPE, RIVER_PATHS, BRIDGES, toXZ, hash, regionAt, groundAt } from './valley.js';
+import { G, REGIONS, GN, CELL, cellIndex, cellX, cellZ, MOUNT, SLOPE, RIVER_PATHS, BRIDGES, toXZ, hash, regionAt, groundAt, VW, VH } from './valley.js';
 
 // Todo lo de fuera de las parcelas (en coordenadas del mundo, world: true), sacado del valle
 // (world/valley.js), celda a celda:
@@ -207,6 +207,46 @@ export function buildScenery(farm) {
     }
     farm.addHulled(0x4a4a52, W(posts), 0.8);
     farm.addAnimated(new THREE.InstancedMesh(box(1, 1, 1), farm.lampMat, Math.max(1, heads.length)), W(heads), 0.8);
+
+    // ---------- Señales en los cruces: un poste con una tablilla por cada parcela cercana, del
+    // color de lo que hay en ella y apuntando hacia ella ----------
+    const COLOR = { farm: 0xc8402e, house: 0x3a7ac8, merchant: 0x8a5ad8, wheatP: 0xf6cf4a, tomatoP: 0xe8352a, west: 0xf08a1e, east: 0xffe03a, nw: 0xf6f3ea, nw2: 0xb8a8e0 };
+    const sposts = [], sboards = [], crosses = [];
+    for (const key of pathTiles.keys()) {
+        const [x, z] = key.split(',').map(Number);
+        const n = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dz]) => pathTiles.has(`${x + dx},${z + dz}`)).length;
+        if (n < 3 || crosses.some(([a, b]) => Math.hypot(a - x, b - z) < 16)) continue;
+        const spot = [[1, 1], [-1, 1], [1, -1], [-1, -1]].map(([dx, dz]) => [x + dx + 0.5, z + dz + 0.5]).find(([a, b]) => !pathTiles.has(`${Math.floor(a)},${Math.floor(b)}`) && regionAt(a, b) >= 0);
+        if (!spot) continue;
+        crosses.push([x, z]);
+        const [sx, sz] = spot, g = groundAt(sx, sz);
+        sposts.push({ x: sx, y: g + 1.0, z: sz, sx: 0.14, sy: 2.0, sz: 0.14 });
+        // Las tres parcelas más cerca (sin contar la del propio cruce)
+        const here = regionAt(sx, sz), dests = PLACES.filter((P) => P.c && P.ri !== here && COLOR[P.id] !== undefined).sort((a, b) => Math.hypot(a.c[0] - sx, a.c[1] - sz) - Math.hypot(b.c[0] - sx, b.c[1] - sz)).slice(0, 3);
+        dests.forEach((P, i) => {
+            const ang = Math.atan2(P.c[1] - sz, P.c[0] - sx), ca = Math.cos(ang), sa = Math.sin(ang), y = g + 1.7 - i * 0.32;
+            sboards.push({ x: sx + ca * 0.55, y, z: sz + sa * 0.55, sx: 1.0, sy: 0.24, sz: 0.08, ry: -ang, c: 0xf3ead2 });
+            sboards.push({ x: sx + ca * 1.02, y, z: sz + sa * 1.02, sx: 0.2, sy: 0.18, sz: 0.1, ry: -ang + Math.PI / 4, c: COLOR[P.id] }); // la punta, del color de la parcela
+            sboards.push({ x: sx + ca * 0.45, y, z: sz + sa * 0.45, sx: 0.26, sy: 0.16, sz: 0.1, ry: -ang, c: COLOR[P.id] });
+        });
+    }
+    farm.addHulled(0x7a4f2a, W(sposts), 0.8);
+    colored(sboards, 0.85);
+
+    // ---------- Bancos de nubes alrededor del valle: tapan su borde (en la vista del mapa) ----------
+    const bank = [];
+    const edge = (u, v, k) => {
+        const [x, z] = toXZ(u, v);
+        // (bolas sueltas, de alturas y tamaños distintos: nubes, no un muro)
+        for (let j = 0; j < 4; j++) {
+            const s = 3 + hash(k, j, 3) * 6, up = hash(k, j, 5);
+            bank.push({ x: x + (hash(k, j, 4) - 0.5) * 9, y: up * up * 9 + 1, z: z + (hash(k, j, 6) - 0.5) * 9, sx: s * 1.3, sy: 1.6 + hash(k, j, 7) * 2.4, sz: s, ry: hash(k, j, 8) * 1.5, c: [0xf4f6fa, 0xe8ecf4, 0xffffff, 0xdfe6ee][j] });
+        }
+    };
+    let k = 0;
+    for (let t = -30; t < VH + 24; t += 6) { edge(-18, t, k++); edge(VW + 18, t, k++); }
+    for (let t = -20; t < VW + 20; t += 6) edge(t, VH + 16, k++);
+    colored(bank, 1.0);
 
     // ---------- Bosque: por las laderas, el monte bajo, el bosque del mercader y las parcelas sin uso ----------
     const spots = [], lampNear = (x, z) => posts.some((p) => Math.hypot(p.x - x, p.z - z) < 1.6);

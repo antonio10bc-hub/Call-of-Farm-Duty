@@ -1,0 +1,129 @@
+import * as THREE from 'three';
+import { VoxelModel } from '../render/VoxelModel.js';
+import { LAKE, RIVER_PATHS, toXZ, isWater, groundAt } from './valley.js';
+
+// La vida del agua (en coordenadas del mundo): patos que nadan en corro por el lago (uno, con su
+// lacito naranja), peces que saltan en el río y en el lago y un molino de agua a la salida del
+// lago, con su rueda girando.
+const WHITE = 0xf6f3ea, YELLOW = 0xffd23f, ORANGE = 0xf08a1e, INK = 0x2a1a0e;
+
+export class Life extends VoxelModel {
+    constructor(outlineColor) {
+        super(outlineColor);
+        this.level = LAKE.level - 0.22; // la superficie del agua
+        // Patos: cada uno da vueltas a su ritmo por una elipse del lago
+        this.ducks = [];
+        for (let i = 0; i < 7; i++) {
+            const bow = i === 0;
+            const g = this.duck(bow);
+            this.root.add(g);
+            this.ducks.push({ g, a: (i / 7) * Math.PI * 2, r: 0.35 + (i % 3) * 0.18, speed: (0.05 + (i % 4) * 0.012) * (i % 2 ? 1 : -1), bob: i });
+        }
+        // Peces: unos pocos, cada uno salta de vez en cuando en algún sitio con agua
+        this.fish = [];
+        const fm = new THREE.MeshBasicMaterial({ color: 0xc8d8e0 }), om = new THREE.MeshBasicMaterial({ color: ORANGE });
+        this.own(fm);
+        this.own(om);
+        for (let i = 0; i < 6; i++) {
+            const g = new THREE.Group();
+            g.add(new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.16, 0.14), i % 3 ? fm : om));
+            const tail = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.2, 0.06), i % 3 ? fm : om);
+            tail.position.x = -0.26;
+            g.add(tail);
+            g.visible = false;
+            this.root.add(g);
+            this.fish.push({ g, t: -Math.random() * 6, x: 0, z: 0, y: 0, ry: 0 });
+        }
+        this.waters = [...RIVER_PATHS.flat().filter((p) => p.w > 3), ...Array.from({ length: 40 }, (_, k) => {
+            const a = (k / 40) * Math.PI * 2, [x, z] = toXZ(LAKE.u + Math.cos(a) * LAKE.ru * 0.6, LAKE.v + Math.sin(a) * LAKE.rv * 0.6);
+            return { x, z, y: LAKE.level };
+        })];
+        this.buildMill();
+    }
+
+    // Un pato: cuerpo, cola, cabeza, pico y (el de la pajarita) su lacito naranja
+    duck(bow) {
+        const g = new THREE.Group(), body = bow ? YELLOW : WHITE;
+        this.part(g, 0.62, 0.32, 0.4, body, 0, 0.12, 0);
+        this.part(g, 0.2, 0.18, 0.26, body, -0.34, 0.24, 0);
+        this.part(g, 0.26, 0.26, 0.24, body, 0.26, 0.42, 0);
+        this.part(g, 0.16, 0.07, 0.12, ORANGE, 0.45, 0.4, 0, false);
+        for (const s of [-1, 1]) this.part(g, 0.04, 0.05, 0.03, INK, 0.33, 0.47, s * 0.12, false);
+        if (bow) {
+            // El lacito, en el cuello: dos lazos y el nudo
+            for (const s of [-1, 1]) this.part(g, 0.08, 0.14, 0.14, ORANGE, 0.2, 0.3, s * 0.15).rotation.x = s * 0.4;
+            this.part(g, 0.08, 0.08, 0.08, 0xd86a10, 0.21, 0.3, 0, false);
+        }
+        g.scale.setScalar(1.9);
+        return g;
+    }
+
+    // El molino de agua: en la orilla, justo donde el río sale del lago, con la rueda en el agua
+    buildMill() {
+        const R = RIVER_PATHS[RIVER_PATHS.length - 1], i = Math.min(R.length - 3, 14), p = R[i], q = R[i + 2];
+        const dx = q.x - p.x, dz = q.z - p.z, L = Math.hypot(dx, dz) || 1, nx = -dz / L, nz = dx / L;
+        // (del lado de la orilla que esté en tierra)
+        const side = isWater(p.x + nx * (p.w / 2 + 3), p.z + nz * (p.w / 2 + 3)) ? -1 : 1;
+        const hx = p.x + nx * side * (p.w / 2 + 2.6), hz = p.z + nz * side * (p.w / 2 + 2.6), y = groundAt(hx, hz);
+        const g = new THREE.Group();
+        g.position.set(hx, y, hz);
+        g.rotation.y = Math.atan2(nx * side, nz * side);
+        this.root.add(g);
+        this.part(g, 2.6, 2.0, 2.4, 0xe8dcc0, 0, 1.0, 0);
+        this.part(g, 2.9, 0.4, 2.7, 0x8a3a2a, 0, 2.2, 0);
+        this.part(g, 2.2, 0.4, 2.7, 0x8a3a2a, 0, 2.6, 0);
+        this.part(g, 1.4, 0.4, 2.7, 0x8a3a2a, 0, 3.0, 0);
+        this.part(g, 0.7, 1.1, 0.08, 0x7a4f2a, 0, 0.55, 1.22);
+        this.part(g, 0.5, 0.5, 0.08, 0x9fdcff, 0.8, 1.3, 1.22, false);
+        this.part(g, 0.3, 0.3, 2.6, 0x7a4f2a, 0, 1.2, -1.6); // el eje hacia el río
+        // La rueda: en el lado del río, medio metida en el agua
+        this.wheel = new THREE.Group();
+        this.wheel.position.set(0, 1.1, -2.6);
+        g.add(this.wheel);
+        for (let k = 0; k < 8; k++) {
+            const s = new THREE.Group();
+            s.rotation.z = (k / 8) * Math.PI * 2;
+            this.wheel.add(s);
+            this.part(s, 0.14, 2.4, 0.5, 0x7a4f2a, 0, 0, 0, false);
+            this.part(s, 0.5, 0.18, 0.6, 0x9a6a3a, 0, 1.15, 0);
+        }
+        this.part(this.wheel, 0.4, 0.4, 0.7, 0x5a3a24, 0, 0, 0);
+    }
+
+    update(dt, time) {
+        // Patos: dan vueltas por el lago, cabeceando con las olas
+        const c = Math.cos(LAKE.rot), s = Math.sin(LAKE.rot);
+        for (const d of this.ducks) {
+            d.a += d.speed * dt;
+            const eu = Math.cos(d.a) * LAKE.ru * d.r, ev = Math.sin(d.a) * LAKE.rv * d.r * 1.4;
+            const [x, z] = toXZ(LAKE.u + eu * c - ev * s, LAKE.v + eu * s + ev * c);
+            const [nx, nz] = toXZ(LAKE.u + Math.cos(d.a + Math.sign(d.speed) * 0.05) * LAKE.ru * d.r * c - Math.sin(d.a + Math.sign(d.speed) * 0.05) * LAKE.rv * d.r * 1.4 * s, LAKE.v + Math.cos(d.a + Math.sign(d.speed) * 0.05) * LAKE.ru * d.r * s + Math.sin(d.a + Math.sign(d.speed) * 0.05) * LAKE.rv * d.r * 1.4 * c);
+            d.g.position.set(x, this.level + Math.sin(time * 2 + d.bob) * 0.03, z);
+            d.g.rotation.set(Math.sin(time * 2.2 + d.bob) * 0.06, Math.atan2(-(nz - z), nx - x), 0);
+        }
+        // Peces: un salto en arco y al agua; luego esperan y saltan en otro sitio
+        for (const f of this.fish) {
+            f.t += dt;
+            if (f.t < 0) continue;
+            if (!f.g.visible) {
+                const w = this.waters[(Math.random() * this.waters.length) | 0];
+                f.x = w.x + (Math.random() - 0.5) * 1.5;
+                f.z = w.z + (Math.random() - 0.5) * 1.5;
+                f.y = (w.y ?? LAKE.level) - 0.25;
+                f.ry = Math.random() * Math.PI * 2;
+                f.g.visible = true;
+            }
+            const k = f.t / 0.9;
+            if (k >= 1) {
+                f.g.visible = false;
+                f.t = -3 - Math.random() * 6;
+                continue;
+            }
+            const along = (k - 0.5) * 1.6;
+            f.g.position.set(f.x + Math.cos(f.ry) * along, f.y + Math.sin(k * Math.PI) * 1.1, f.z - Math.sin(f.ry) * along);
+            f.g.rotation.set(0, f.ry, (0.5 - k) * 2.2);
+        }
+        this.wheel.rotation.z = time * 0.8;
+        this.updateFx(dt);
+    }
+}

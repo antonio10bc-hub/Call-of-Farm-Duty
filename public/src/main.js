@@ -2,12 +2,13 @@ import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { THEME } from './content/theme.js';
 import { CROPS } from './content/crops.js';
-import { FARM, FIELD_BY_ID, INFO, TURRETS, toWorld } from './content/farm.js';
+import { FARM, FIELD_BY_ID, INFO, TURRETS, toWorld, PLACES } from './content/farm.js';
 import { KILLSTREAKS, setStreakCounts, streakOf } from './content/killstreaks.js';
 import { SHOP, SHOP_ITEMS } from './content/ufo.js';
 import { ARSENAL, ARSENAL_KINDS, CLASSES } from './content/arsenal.js';
 import { gearArt } from './ui/GearArt.js';
 import { MERCHANT, MerchantClock } from './content/merchant.js';
+import { regionAt, isWater, groundAt } from './world/valley.js';
 import { RetroRenderer } from './render/RetroRenderer.js';
 import { CameraRig } from './render/CameraRig.js';
 import { Particles } from './render/Particles.js';
@@ -907,6 +908,7 @@ function select(what) {
 }
 
 function refreshPanel() {
+    $('panel-info').classList.add('hidden');
     if (!selected) return;
     const title = $('panel-title'), text = $('panel-text'), bar = $('panel-bar'), act = $('panel-action'), up = $('panel-upgrade');
     if (selected.structure === 'house') return refreshHousePanel(title, text, bar, act, up);
@@ -973,6 +975,13 @@ function refreshPanel() {
             : ` ${L('THE TURRET IS OUT OF AMMO: RELOAD IT WITH GOLD.', 'LA TORRETA SE HA QUEDADO SIN MUNICIÓN: RECÁRGALA CON ORO.')}`);
     bar.parentElement.classList.remove('hidden');
     bar.style.width = `${Math.round(p * 20) * 5}%`;
+    // Sus cifras: lo que da cada cosecha, lo que tarda, lo que da por hora y lo que trae el
+    // siguiente nivel
+    const lv = def.levels[f.level], nx = def.levels[f.level + 1], perH = Math.round((lv.sheaves * 3600) / crop.growTime);
+    const info = [[L('HARVEST', 'COSECHA'), lv.sheaves], [L('GROWS IN', 'CRECE EN'), fmt(crop.growTime)], [L('PER HOUR', 'POR HORA'), perH], [L('NEXT LV', 'SIG. NIVEL'), nx ? `+${nx.sheaves - lv.sheaves}` : L('MAX', 'MÁX')]]
+        .map(([k, v]) => `<span>${k}<b>${v}</b></span>`).join('');
+    if ($('panel-info').innerHTML !== info) $('panel-info').innerHTML = info;
+    $('panel-info').classList.remove('hidden');
     act.classList.toggle('hidden', !ready);
     act.classList.remove('unlock-btn');
     $('action-ico').className = `ico ${crop.icon}-ico`;
@@ -995,14 +1004,39 @@ function refreshPanel() {
 
 // Comprar la parcela de un campo con oro: ya es tuya (la sombra se retira desde su poste, que
 // salta, y se iza tu bandera) y queda lista para volar su barril
+// Ambiente según la zona que se mira: pájaros en los bosques (sobre todo el del mercader), el agua
+// cerca del río y del lago, y viento en lo alto del monte
+let ambT = 0;
+function updateAmbient(dt) {
+    if ((ambT -= dt) > 0) return;
+    ambT = 0.5 + Math.random() * 0.8;
+    const x = rig.fx, z = rig.fz, r = regionAt(x, z), merchant = PLACES.find((P) => P.id === 'merchant');
+    let water = false;
+    for (let k = 0; k < 8 && !water; k++) water = isWater(x + Math.cos(k) * 9, z + Math.sin(k) * 9);
+    const pan = (Math.random() - 0.5) * 1.2;
+    if (groundAt(x, z) > 14 || r === -1) { if (Math.random() < 0.5) sfx.ambient('wind', 1, pan); }
+    else if (water && Math.random() < 0.6) sfx.ambient('water', 1, pan);
+    if (r === merchant.ri ? Math.random() < 0.7 : r < 0 ? Math.random() < 0.35 : Math.random() < 0.15) sfx.ambient('bird', r === merchant.ri ? 1 : 0.7, pan);
+}
+
+let landTour = null;
+function updateLandTour(dt) {
+    if (!landTour) return;
+    const T = landTour, k = Math.min(1, (T.t += dt) / 3.2), e = k * k * (3 - 2 * k);
+    rigFocus(T.a.x + (T.b.x - T.a.x) * e, T.a.z + (T.b.z - T.a.z) * e, T.a.y);
+    rig.zoomTarget = 2.6 - 1.25 * e;
+    if (k >= 1) landTour = null;
+}
 function buyLand(id) {
     const land = state.landOf(id);
     if (!land || !state.buyLand(land.id)) return sfx.play('miss');
     select(null);
     farm.ownLand(land.id);
-    const [x0, z0, x1, z1] = land.rect;
-    rig.focus((land.post.x * 2 + (x0 + x1) / 2) / 3, (land.post.z * 2 + (z0 + z1) / 2) / 3);
-    rig.zoomTarget = 1.35;
+    // Un vuelo por la parcela mientras se retira la sombra: de lejos, toda; luego, hacia su poste
+    const [x0, z0, x1, z1] = land.rect, a = toWorld((x0 + x1) / 2, (z0 + z1) / 2), b = toWorld(land.post.x, land.post.z);
+    landTour = { t: 0, a, b };
+    rigFocus(a.x, a.z, a.y);
+    rig.zoomTarget = 2.6;
     rig.shake(0.12);
     sfx.play('power');
     setTimeout(() => sfx.play('achievement'), 350);
@@ -1320,6 +1354,7 @@ function enterMap() {
     rigFocus(...V.toXZ(V.w / 2, V.h / 2 - 12), 0);
     rig.zoomTarget = Math.max((V.w * (portrait ? 0.72 : 1)) / (rig.halfWidth * 2), (V.h + 24) / (rig.halfDepth * 2)) * 1.05;
     $('btn-map').classList.add('on');
+    document.body.classList.add('mapview');
     sfx.play('ui');
 }
 function leaveMap(back = true) {
@@ -1330,6 +1365,7 @@ function leaveMap(back = true) {
     }
     mapView = null;
     $('btn-map').classList.remove('on');
+    document.body.classList.remove('mapview');
 }
 function zoomBy(k) {
     rig.zoomTarget = clamp(rig.zoomTarget * k, M.zoomMin, Math.max(M.zoomMax, mapView ? rig.zoomTarget : 0));
@@ -1750,16 +1786,29 @@ tapBtn('ufo-close', () => {
 // Su reloj (en las pruebas, fuera salvo que DEBUG diga otra cosa). Cuando llega o se va, su ovni
 // disfrazado de coche entra o sale por el surco (si se está en el mapa, con aviso)
 farm.camp.setPresent(merchantClock.here, false);
+let merchantArrived = 0, merchantNews = false;
 function updateMerchant(dt) {
     const here = merchantClock.here;
     if (here !== farm.camp.present) {
         farm.camp.setPresent(here, farm.introT > 2);
+        if (here) merchantArrived = 20; // (su cartel late un rato)
+        if (here && mode !== 'farm') merchantNews = true; // (se avisa al volver a la granja)
         if (mode === 'farm' && farm.introT > 2) {
             stage(here ? L('THE MERCHANT IS HERE!', '¡HA LLEGADO EL MERCADER!') : L('THE MERCHANT LEFT', 'EL MERCADER SE HA IDO'), here ? L('HE WANTS CROPS FOR GOLD', 'PIDE COSECHA A CAMBIO DE ORO') : L('HE WILL BE BACK SOON', 'VOLVERÁ PRONTO'));
             sfx.play(here ? 'bounceGet' : 'ui');
         }
         if (!here) $('merchant').classList.add('hidden');
         updateCounts();
+    }
+    merchantSign.classList.toggle('arrived', (merchantArrived = Math.max(0, merchantArrived - dt)) > 0 && here);
+    if (merchantNews && mode === 'farm') {
+        merchantNews = false;
+        stage(L('THE MERCHANT IS HERE!', '¡HA LLEGADO EL MERCADER!'), L('HE WANTS CROPS FOR GOLD', 'PIDE COSECHA A CAMBIO DE ORO'));
+    }
+    // Mientras está: una columna de humo alta sale del cráter (se ve desde todo el valle)
+    if (here && farm.camp.open && Math.random() < dt * 6) {
+        const U = MERCHANT.ufo;
+        farmFx.spawn(U.x + 1 + (Math.random() - 0.5) * 1.2, 3 + Math.random(), U.z + (Math.random() - 0.5) * 1.2, 0.5 + Math.random() * 0.4, 2.4, 0.2, 0.6 + Math.random() * 0.3, 5, Math.random() < 0.5 ? 0xd8d4cc : 0xb8b2a8, -0.05);
     }
     // El ovni levanta polvo y tierra al ir por el surco
     if (farm.camp.gliding && Math.random() < dt * 30) {
@@ -2775,6 +2824,8 @@ function frame(now) {
         }
         farmParticles.update(dt);
         farmParticles.sync();
+        updateLandTour(dt);
+        updateAmbient(dt);
         rig.update(dt);
         farm.setFar(rig.zoom > 4); // (muy lejos: sin contornos de lo pequeño)
         updateBarnFx(dt);

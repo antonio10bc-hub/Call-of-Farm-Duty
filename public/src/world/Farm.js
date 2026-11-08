@@ -7,6 +7,7 @@ import { STRUCTURES, Turret, Sandbags, LandPost } from '../render/structures.js'
 import { Plot } from '../render/props.js';
 import { MerchantCamp } from '../render/merchant.js';
 import { Compound } from '../render/compound.js';
+import { Life } from './Life.js';
 import { MERCHANT } from '../content/merchant.js';
 import { junkyard, barrelParts, JUNK } from '../render/junk.js';
 import { CROPS } from '../content/crops.js';
@@ -211,6 +212,28 @@ export class Farm {
         this.compound.root.traverse((o) => (o.userData.structure = 'barn'));
         this.compound.root.visible = false;
         this.places.farm.add(this.compound.root);
+        // De noche, en el recinto: las luces de la pista y dos focos que barren
+        const [sx0, sz0, sx1, sz1] = FARM.barn.strip, lights = [];
+        for (let x = sx0 + 0.5; x < sx1; x += 1.6) for (const z of [sz0 + 0.2, sz1 - 0.2]) lights.push(stretchLocal(x, z));
+        this.runwayMat = new THREE.MeshBasicMaterial({ color: 0x6a5a3a });
+        const rl = new THREE.InstancedMesh(box(0.3, 0.16, 0.3), this.runwayMat, lights.length);
+        lights.forEach((p, i) => rl.setMatrixAt(i, _d.matrix.makeTranslation(p.x, 0.1, p.z)));
+        this.compound.root.add(rl);
+        const beamMat = new THREE.MeshBasicMaterial({ color: 0xfff6c0, transparent: true, opacity: 0.2, depthWrite: false, blending: THREE.AdditiveBlending });
+        this.searchlights = [[11, 4, 4.4], [24.5, 12.5, 3.4]].map(([x, z, y], i) => {
+            const at = stretchLocal(x, z), g = new THREE.Group(), beam = new THREE.Mesh(box(0.9, 0.9, 16), beamMat);
+            g.position.set(at.x, y, at.z);
+            beam.position.set(0, -2.4, -8);
+            beam.rotation.x = 0.3;
+            g.add(beam);
+            g.visible = false;
+            g.userData.k = i;
+            this.compound.root.add(g);
+            return g;
+        });
+        // La vida del agua: patos (uno con lacito), peces que saltan y el molino
+        this.life = new Life(theme.outline);
+        root.add(this.life.root);
         // Parcelas en venta: su poste de SE VENDE (o tu bandera) y su sombra
         this.landPosts = Object.fromEntries(FARM.lands.map((l) => {
             const post = new LandPost(theme.outline, !!l.soon);
@@ -1246,6 +1269,13 @@ export class Farm {
         this.camp.update(dt, time, this.nightK || 0);
         this.compound.root.visible = this.introT > 1.1 && this.compoundOn; // (aparece con los edificios)
         this.compound.update(dt, time);
+        this.life.update(dt, time);
+        const night = (this.nightK || 0) > 0.35;
+        this.runwayMat.color.setHex(night ? (Math.sin(time * 3) > 0 ? 0xffe066 : 0xff9a3a) : 0x6a5a3a);
+        for (const g of this.searchlights) {
+            g.visible = night;
+            g.rotation.y = time * 0.45 + g.userData.k * Math.PI;
+        }
         for (const post of Object.values(this.landPosts)) post.update(dt, time);
         this.updateLandWaves(dt);
         this.updateShots(dt);

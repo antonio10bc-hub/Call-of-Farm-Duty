@@ -919,6 +919,15 @@ body.cine .farm-ui, body.cine .bubbles { visibility: hidden; }
     text-shadow: 2px 2px 0 var(--ink);
 }
 .panel-text { font-size: 9px; line-height: 1.8; text-align: center; }
+/* Las cifras del campo: cosecha, tiempo, producción por hora y el siguiente nivel */
+.panel-info { display: grid; grid-template-columns: repeat(4, auto); justify-content: center; gap: 4px 6px; font-size: 7px; line-height: 1.4; }
+.panel-info span { padding: 4px 5px 3px; background: rgba(42, 26, 14, .08); border: 2px solid rgba(42, 26, 14, .25); text-align: center; }
+.panel-info b { display: block; font-weight: normal; font-size: 9px; }
+@media (max-width: 420px) { .panel-info { grid-template-columns: repeat(2, auto); } }
+/* En la vista del mapa, el nivel de cada parcela siempre a la vista */
+body.mapview #bubbles .field-sign > span.sign-level:not(.ico):not(.pips) { display: block; }
+/* El mercader recién llegado: su cartel late */
+#bubbles .merchant-sign.arrived { animation: signGlow .4s steps(2) infinite, readyHop .8s steps(2) infinite; }
 .panel-track { width: 100%; height: 16px; padding: 2px; background: var(--ink); }
 .panel-track i { display: block; height: 100%; width: 0; background: repeating-linear-gradient(90deg, var(--yellow) 0 8px, #e8a82a 8px 12px); }
 .panel-x {

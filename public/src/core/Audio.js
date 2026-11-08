@@ -118,6 +118,22 @@ export class Sfx {
         src.stop(t + dur + 0.02);
     }
 
+    // Sonido de ambiente de la zona (pájaros, agua, viento), muy suave
+    ambient(kind, vol = 1, pan = 0) {
+        if (!this.ctx || this.ctx.state !== 'running' || !this.enabled) return;
+        const v = 0.05 * vol;
+        if (kind === 'bird') {
+            // Un trino: dos o tres pitidos que suben y bajan
+            const f = 2400 + Math.random() * 1600, n = 2 + ((Math.random() * 2) | 0);
+            for (let i = 0; i < n; i++) this.tone('sine', f * (1 + i * 0.08), f * (1.25 - i * 0.05), 0.07, v * 0.9, pan, i * 0.11);
+        } else if (kind === 'water') {
+            this.noise(0.5 + Math.random() * 0.4, v * 0.8, 600 + Math.random() * 300, pan);
+            if (Math.random() < 0.4) this.tone('sine', 700 + Math.random() * 300, 1100, 0.05, v * 0.5, pan, 0.2); // un «plop»
+        } else if (kind === 'wind') {
+            this.noise(1.6 + Math.random(), v * 0.9, 400 + Math.random() * 400, pan);
+        }
+    }
+
     seq(type, notes, step, vol, len = step) {
         notes.forEach((n, i) => this.tone(type, n, n, len, vol, 0, i * step));
     }
