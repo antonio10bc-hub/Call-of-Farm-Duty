@@ -36,6 +36,7 @@ const kindKey = (k) => (!k ? '' : k.field ? (k.locked ? 'junk' : 'field') : k.pa
 const FOREST = [0x4f8a36, 0x5a9a3e, 0x4a7a32, 0x5f8a3a, 0x6a7a3a, 0x56703a]; // suelo de bosque: hierba oscura y tierra
 const ASPHALT = [0x5c5c62, 0x56565c], CONCRETE = [0x9a948c, 0x8f8a82];
 const CRATER = [0x6a4a2a, 0x5a3e24, 0x7a5432, 0x4a3420]; // el fondo del cráter del ovni
+const STRAW = [0x9a7a3a, 0x8a6a30, 0xa8843e, 0x94723a];
 const CLEARING = [0x8fbf54, 0x9ab85a, 0xa8a060, 0xb89a64, 0x86b04e]; // el claro del mercader
 const rectOf = ([x0, z0, x1, z1]) => ({ x: x0, z: z0, w: x1 - x0, d: z1 - z0 });
 const PASTURE = [0xa8e070, 0x9ad962, 0xb4e67a]; // hierba fresca del prado de las vacas
@@ -337,7 +338,9 @@ export class Farm {
         const { theme } = this, { k } = t, c = Math.floor(t.wx), r = Math.floor(t.wz); // (las vetas, por las casillas del mundo)
         const col = k && k.field
             ? (k.locked ? JUNK.ground[mod(c * 7 + r * 5 + mod(c * r, 3), JUNK.ground.length)]
-                : CROPS[this.fields[k.field].crop].pasture ? PASTURE[mod(c * 3 + r * 5, 3)] : theme.soil[r & 1]) // (el prado, de hierba)
+                : CROPS[this.fields[k.field].crop].pasture ? PASTURE[mod(c * 3 + r * 5, 3)]
+                // (el trigo grande, sobre rastrojo de paja: se lee lleno con menos tallos)
+                : this.fields[k.field].crop === 'wheat' && this.fields[k.field].level >= 2 ? STRAW[(r & 1) + 2 * mod(c * 3 + r, 2)] : theme.soil[r & 1]) // (el prado, de hierba)
             : k && k.path ? theme.path[mod(c * 7 + r * 3, 2)]
             // La pista: asfalto con la raya del centro a trozos
             : k && k.strip ? (t.r === 21 && mod(t.c, 3) !== 0 ? 0xe8e4d8 : ASPHALT[mod(c + r, 2)])
@@ -441,7 +444,10 @@ export class Farm {
     // decoración que queda debajo de los campos
     refreshGround() {
         const changed = this.floor.tiles.some((t) => (t.subs || [[t.c, t.r]]).some(([c, r]) => kindKey(this.kindAt(c, r)) !== kindKey(t.k)));
-        if (changed) this.buildFloor();
+        // (el trigo pasa a rastrojo de paja al nivel 3: también se repinta)
+        const straw = this.fields.wheat && this.fields.wheat.level >= 2;
+        if (changed || straw !== this.straw) this.buildFloor();
+        this.straw = straw;
         for (const e of this.decor) e.positions.forEach((p) => (p.hide = p.hide || this.views.some((v) => inRect(v.rect, p.x, p.z, 0.4))));
         for (const e of this.wild) e.positions.forEach((p) => (p.hide = p.hide || this.cleared(p.x, p.z)));
         for (const e of this.hints || []) e.positions.forEach((p) => (p.hide = p.hide || !this.fields[p.field].locked));
@@ -691,7 +697,7 @@ export class Farm {
     //   Maíz: dos por casilla, altas, con su hoja y la mazorca.
     buildPlants(v, old = null, fromCenter = false) {
         if (CROPS[v.crop].pasture) return this.buildHerd(v);
-        const f = v.rect, wheat = v.crop === 'wheat', n0 = { wheat: PER_TILE, corn: 1.4, tomato: 1.3, pumpkin: 1.2 }[v.crop] || 1;
+        const f = v.rect, wheat = v.crop === 'wheat', n0 = { wheat: v.level >= 2 ? 1.5 : PER_TILE, corn: 1.4, tomato: 1.3, pumpkin: 1.2 }[v.crop] || 1;
         const prev = new Map(v.plants.map((s) => [s.key, s]));
         v.plants = [];
         for (let tx = f.x; tx < f.x + f.w; tx++) for (let tz = f.z; tz < f.z + f.d; tz++) {
@@ -1196,12 +1202,31 @@ export class Farm {
         }
     }
 
+    // Visto desde muy lejos (el botón MAPA): sin los contornos de lo pequeño (árboles, matas,
+    // piedras, setos...) ni la decoración, que a esa distancia no se ven y cuestan mucho
+    setFar(on) {
+        if (this.far === on) return;
+        this.far = on;
+        for (const e of this.animated) if (e.hull) e.mesh.visible = !on;
+        for (const e of this.decor) e.mesh.visible = !on;
+    }
+
     // progress: { id: crecimiento de 0 a 1 } de cada campo
     update(dt, time, progress) {
         this.clock += dt;
         if (this.introT < INTRO_TIME + 0.5) {
             this.introT += dt;
-            for (const a of this.animated) this.layout(a, this.introT);
+            // (solo lo que está entrando: lo que aún no ha empezado sigue escondido y lo que ya ha
+            // caído no se mueve; cada entrada guarda cuándo empieza y cuándo acaba)
+            for (const a of this.animated) {
+                if (a.t0 === undefined) {
+                    a.t0 = Math.min(...a.delays);
+                    a.t1 = Math.max(...a.delays) + 0.45;
+                }
+                if (this.introT < a.t0 || a.settled) continue;
+                this.layout(a, this.introT);
+                if (this.introT >= a.t1) a.settled = true;
+            }
         }
         // Los edificios caen del cielo, cada uno a su tiempo
         this.structures.forEach((m, i) => {

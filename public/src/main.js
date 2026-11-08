@@ -2776,6 +2776,7 @@ function frame(now) {
         farmParticles.update(dt);
         farmParticles.sync();
         rig.update(dt);
+        farm.setFar(rig.zoom > 4); // (muy lejos: sin contornos de lo pequeño)
         updateBarnFx(dt);
         shopClouds();
         placeBubbles();
