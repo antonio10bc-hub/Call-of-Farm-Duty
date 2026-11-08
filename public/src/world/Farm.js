@@ -6,6 +6,7 @@ import { easeOutBack } from '../core/math.js';
 import { STRUCTURES, Turret, Sandbags, LandPost } from '../render/structures.js';
 import { Plot } from '../render/props.js';
 import { MerchantCamp } from '../render/merchant.js';
+import { Compound } from '../render/compound.js';
 import { MERCHANT } from '../content/merchant.js';
 import { junkyard, barrelParts, JUNK } from '../render/junk.js';
 import { CROPS } from '../content/crops.js';
@@ -17,7 +18,7 @@ const _c = new THREE.Color();
 const _c2 = new THREE.Color();
 const _p = new THREE.Vector3();
 const INTRO_TIME = 2.2;
-const PER_TILE = 3; // tallos de trigo por lado de cada casilla de campo
+const PER_TILE = 2; // tallos de trigo por lado de cada casilla de campo (los campos llenan su zona: no muy tupido)
 
 // Casillas que ocupa un campo en un nivel (crece desde su esquina fija hacia dx, dz)
 function fieldRect(def, level) {
@@ -30,7 +31,10 @@ const inRect = (f, x, z, m = 0) => x >= f.x - m && x < f.x + f.w + m && z >= f.z
 // Resto siempre positivo (la parcela de la casa tiene coordenadas negativas)
 const mod = (a, n) => ((a % n) + n) % n;
 const inParcel = (x, z, m = 0) => [...FARM.parcels, ...FARM.lands.map((l) => l.rect)].some(([x0, z0, x1, z1]) => x >= x0 + m && x < x1 - m && z >= z0 + m && z < z1 - m);
-const kindKey = (k) => (!k ? '' : k.field ? (k.locked ? 'junk' : 'field') : k.path ? 'path' : k.yard ? 'yard' : k.wild ? 'wild' : 'b');
+const kindKey = (k) => (!k ? '' : k.field ? (k.locked ? 'junk' : 'field') : k.path ? 'path' : k.strip ? 'strip' : k.pad ? `pad${k.pad}` : k.yard ? 'yard' : k.forest ? 'forest' : k.wild ? 'wild' : 'b');
+const FOREST = [0x4f8a36, 0x5a9a3e, 0x4a7a32, 0x5f8a3a, 0x6a7a3a, 0x56703a]; // suelo de bosque: hierba oscura y tierra
+const ASPHALT = [0x5c5c62, 0x56565c], CONCRETE = [0x9a948c, 0x8f8a82];
+const CLEARING = [0x8fbf54, 0x9ab85a, 0xa8a060, 0xb89a64, 0x86b04e]; // el claro del mercader
 const rectOf = ([x0, z0, x1, z1]) => ({ x: x0, z: z0, w: x1 - x0, d: z1 - z0 });
 const PASTURE = [0xa8e070, 0x9ad962, 0xb4e67a]; // hierba fresca del prado de las vacas
 // La parcela en venta en la que cae un punto (o ninguna)
@@ -127,12 +131,18 @@ export class Farm {
         // Lo que un campo aún no ocupa de su zona: abandonado (se limpia al crecer el campo)
         for (const v of this.views) if (inRect(v.zone, c, r)) return { wild: true };
         for (const [x0, z0, x1, z1] of FARM.paths) if (c >= x0 && c < x1 && r >= z0 && r < z1) return { path: true };
-        // La mitad del granero: su recinto (limpio) y lo que queda abandonado alrededor
-        if (inRect(this.zone, c, r)) return inRect(this.yard, c, r) ? { yard: true } : { wild: true };
+        // El recinto del granero: la pista, las plataformas de hormigón y el resto, tierra apisonada
+        if (inRect(this.zone, c, r)) {
+            if (inRect(rectOf(FARM.barn.strip), c, r)) return { strip: true };
+            const pad = FARM.barn.pads.findIndex((p) => inRect(rectOf(p), c, r));
+            if (pad >= 0) return { pad: pad + 1 };
+            return inRect(this.yard, c, r) ? { yard: true } : { wild: true };
+        }
         // La parcela de la casa: lo que aún no se ha limpiado está abandonado
         if (inRect(this.houseZone, c, r) && !inRect(this.houseYard, c, r)) return { wild: true };
-        // El bosque del comerciante: su claro (limpio) y el resto, bosque
-        if (inRect(this.villageZone, c, r)) return inRect(this.villageYard, c, r) ? { yard: true } : { wild: true };
+        // El bosque del comerciante: su claro (de borde irregular, a lo largo del surco y alrededor
+        // de su puesto) y el resto, suelo de bosque
+        if (inRect(this.villageZone, c, r)) return this.inClearing(c + 0.5, r + 0.5) ? { yard: true, clearing: true } : { wild: true, forest: true };
         // Las parcelas en venta: abandonadas hasta que se desbloquea su campo
         for (const l of FARM.lands) if (inRect(rectOf(l.rect), c, r)) return !l.field || this.fields[l.field].locked ? { wild: true } : null;
         for (const s of FARM.structures) if (Math.abs(c + 0.5 - s.x) < s.w / 2 + 0.3 && Math.abs(r + 0.5 - s.z) < s.d / 2 + 0.3) return { building: true };
@@ -183,6 +193,17 @@ export class Farm {
         this.camp = new MerchantCamp(theme.outline);
         this.camp.root.traverse((o) => (o.userData.merchant = true));
         this.places.merchant.add(this.camp.root);
+        // El recinto del granero: cada pieza en su sitio, repartidas por toda su zona (tocar
+        // cualquiera abre el armamento, como el granero)
+        this.compound = new Compound(theme.outline);
+        for (const c of FARM.compound) {
+            const g = this.compound.piece(c.kind), at = stretchLocal(c.x, c.z);
+            g.position.set(at.x, 0, at.z);
+            g.rotation.y = (c.ry || 0) * (Math.PI / 2);
+        }
+        this.compound.root.traverse((o) => (o.userData.structure = 'barn'));
+        this.compound.root.visible = false;
+        this.places.farm.add(this.compound.root);
         // Parcelas en venta: su poste de SE VENDE (o tu bandera) y su sombra
         this.landPosts = Object.fromEntries(FARM.lands.map((l) => {
             const post = new LandPost(theme.outline, !!l.soon);
@@ -312,12 +333,26 @@ export class Farm {
             ? (k.locked ? JUNK.ground[mod(c * 7 + r * 5 + mod(c * r, 3), JUNK.ground.length)]
                 : CROPS[this.fields[k.field].crop].pasture ? PASTURE[mod(c * 3 + r * 5, 3)] : theme.soil[r & 1]) // (el prado, de hierba)
             : k && k.path ? theme.path[mod(c * 7 + r * 3, 2)]
+            // La pista: asfalto con la raya del centro a trozos
+            : k && k.strip ? (t.r === 21 && mod(t.c, 3) !== 0 ? 0xe8e4d8 : ASPHALT[mod(c + r, 2)])
+            // El hormigón (la de la nuclear, con su borde de franjas amarillas y negras)
+            : k && k.pad ? (k.pad === 1 && this.padEdge(t) ? (mod(c + r, 2) ? 0xffcc33 : 0x2a2622) : CONCRETE[mod(c + r, 2)])
+            // El suelo del bosque: manchas de hierba oscura y tierra
+            : k && k.forest ? FOREST[mod(Math.floor(Math.sin(c * 0.37) * 2 + Math.sin(r * 0.29 + c * 0.11) * 2 + mod(c * 3 + r * 5, 3)), FOREST.length)]
             : k && k.wild ? JUNK.ground[mod(c * 5 + r * 7 + mod(c * r, 3), JUNK.ground.length)]
+            // El claro del mercader: hierba pisada y calvas de tierra (no un suelo liso)
+            : k && k.clearing ? CLEARING[mod(Math.floor(Math.sin(c * 0.5) * 1.6 + Math.sin(r * 0.43 + c * 0.2) * 1.6) + mod(c * 7 + r * 3, 2), CLEARING.length)]
             : k && k.yard ? YARD[mod(c + r, 2)] : theme.grass[mod(c * 5 + r * 3 + mod(c * r, 3), 3)];
         _c.setHex(col).offsetHSL(0, 0, (Math.random() - 0.5) * theme.grassJitter);
         // (su color de verdad se guarda: si es de una parcela sin comprar, se ve en sombra)
         t.col = [_c.r, _c.g, _c.b];
         mesh.setColorAt(i, this.shadeColor(t.col, t.land, t.c + 0.5, t.r + 0.5));
+    }
+
+    // ¿Está en el borde de su plataforma de hormigón? (las casillas de sus coordenadas de siempre)
+    padEdge(t) {
+        const [x0, z0, x1, z1] = FARM.barn.pads[t.k.pad - 1];
+        return t.c <= Math.ceil(x0) || t.c >= Math.floor(x1) - 1 || t.r <= Math.ceil(z0) || t.r >= Math.floor(z1) - 1;
     }
 
     // ---------- Parcelas en venta: en sombra hasta comprarlas ----------
@@ -411,9 +446,21 @@ export class Farm {
         this.byId.barn.select();
     }
 
+    // El claro del mercader: lo que el ovni arrasó al aterrizar (a lo largo del surco, más ancho
+    // hacia el final) y el sitio de su puesto, con el borde ondulado (m: margen)
+    inClearing(x, z, m = 0) {
+        if (!inRect(this.villageZone, x, z)) return false;
+        const F = MERCHANT.furrow, S = MERCHANT.stall;
+        const wob = Math.sin(x * 0.9 + z * 0.4) * 0.7 + Math.sin(z * 1.3 - x * 0.5) * 0.5;
+        const t = Math.min(1, Math.max(0, (x - (F.to - 2)) / (F.from + 1 - (F.to - 2))));
+        const along = Math.abs(z - F.z) - (F.w / 2 + 2.6 - t * 1.4) - wob; // (más ancho donde se paró)
+        const camp = Math.hypot(x - (S.x + 0.6), (z - (S.z - 1.2)) * 1.2) - 4.6 - wob;
+        return Math.min(x >= F.to - 3 && x <= F.from + 2 ? along : 9, camp) < m;
+    }
+
     // ¿Ya está limpio este punto? (dentro del recinto del granero o de un campo)
     cleared(x, z) {
-        return inRect(this.yard, x, z, 0.6) || inRect(this.houseYard, x, z, 0.4) || inRect(this.villageYard, x, z, 0.4) || this.views.some((v) => inRect(v.rect, x, z, 0.5))
+        return inRect(this.yard, x, z, 0.6) || inRect(this.houseYard, x, z, 0.4) || this.inClearing(x, z, 0.4) || this.views.some((v) => inRect(v.rect, x, z, 0.5))
             // Una parcela comprada y desbloqueada: limpia, menos lo que su campo aún no ocupa
             || FARM.lands.some((l) => l.field && !this.fields[l.field].locked && inRect(rectOf(l.rect), x, z) && !inRect(this.fields[l.field].zone, x, z, 0.3));
     }
@@ -432,9 +479,10 @@ export class Farm {
     // aún no es recinto y lo que cada campo aún no ocupa de su zona. Árboles a montones,
     // matorral, chatarra y piedras; se apartan cuando el recinto o el campo crecen encima
     buildWild() {
-        const trees = [], bush = [], pieces = [], rocks = [];
-        // Lo ya puesto (árboles, matas y piedras sin meterse unos en otros), en una rejilla de 2×2
-        // casillas: así cada sitio nuevo solo se compara con lo de alrededor
+        const trees = [], pines = [], bush = [], pieces = [], rocks = [];
+        // Lo ya puesto (árboles, matas y piedras sin meterse unos en otros), en el mundo (donde se
+        // ve, con la parcela estirada), en una rejilla de 2×2: cada sitio nuevo solo se compara con
+        // lo de alrededor
         const taken = new Map(), cell = (x, z) => `${Math.floor(x / 2)},${Math.floor(z / 2)}`;
         const crowded = (x, z, m) => {
             const cx = Math.floor(x / 2), cz = Math.floor(z / 2);
@@ -443,37 +491,71 @@ export class Farm {
             }
             return false;
         };
-        const zones = [{ Z: this.zone, k: 1 }, { Z: this.houseZone, k: 0.8 }, { Z: this.villageZone, k: 1.6, forest: true }, ...this.views.map((v) => ({ Z: v.zone, k: 0.55 })), ...FARM.lands.map((l) => ({ Z: rectOf(l.rect), k: l.soon ? 0.3 : 0.5 }))];
+        const zones = [{ Z: this.zone, k: 1 }, { Z: this.houseZone, k: 0.8 }, { Z: this.villageZone, k: 1.3, forest: true }, ...this.views.filter((v) => !FARM.lands.some((l) => l.field === v.id)).map((v) => ({ Z: v.zone, k: 0.55 })), ...FARM.lands.map((l) => ({ Z: rectOf(l.rect), k: l.soon ? 0.22 : 0.5 }))]; // (las de un campo en venta, ya con su parcela)
         for (const { Z, k, forest } of zones) {
             // (de lo más barato a lo más caro de comprobar)
-            const free = (x, z, m) => inRect(Z, x, z) && !inRect(this.yard, x, z, m) && !inRect(this.houseYard, x, z, m) && !inRect(this.villageYard, x, z, m) && !this.views.some((v) => inRect(v.rect, x, z, m))
+            const free = (x, z, m) => inRect(Z, x, z) && !inRect(this.yard, x, z, m) && !inRect(this.houseYard, x, z, m) && !this.inClearing(x, z, m) && !this.views.some((v) => inRect(v.rect, x, z, m))
                 && !FARM.paths.some(([x0, z0, x1, z1]) => x > x0 - m && x < x1 + m && z > z0 - m && z < z1 + m)
                 && !FARM.structures.some((st) => Math.abs(x - st.x) < st.w / 2 + m && Math.abs(z - st.z) < st.d / 2 + m)
                 && !FARM.lands.some((l) => Math.hypot(x - l.post.x, z - l.post.z) < m + 1.2) // (ni sobre su poste)
-                && !crowded(x, z, m) && !this.hintSpots.some(([hx, hz]) => Math.hypot(hx - x, hz - z) < m + 0.8) && !onPathWorld(toWorld(x, z), m);
+                && !this.hintSpots.some(([hx, hz]) => Math.hypot(hx - x, hz - z) < m + 0.8);
+            // Lo que estira la parcela en cada punto (área en el mundo de una casilla suya): donde
+            // estira más, se ponen más cosas, para que en el mapa quede igual de tupido
+            const areaAt = (x, z) => {
+                const a = stretchLocal(x, z), b = stretchLocal(x + 1, z), c = stretchLocal(x, z + 1);
+                return Math.abs((b.x - a.x) * (c.z - a.z) - (b.z - a.z) * (c.x - a.x));
+            };
+            let jSum = 0, jMax = 0;
+            for (let i = 0; i < 64; i++) {
+                const j = areaAt(Z.x + Math.random() * Z.w, Z.z + Math.random() * Z.d);
+                jSum += j;
+                jMax = Math.max(jMax, j);
+            }
+            jMax *= 1.15;
+            // El bosque, a manchas: más tupido en unas y con claros en otras
+            const clump = (w) => 0.25 + 0.75 * Math.min(1, Math.max(0, 0.5 + 0.35 * (Math.sin(w.x * 0.23 + 1.3) + Math.sin(w.z * 0.19 - 0.7) + Math.sin((w.x + w.z) * 0.11))));
             const spots = (n, m) => {
                 const out = [];
-                for (let j = 0, tries = 0; j < n && tries < n * 30; tries++) {
+                for (let j = 0, tries = 0; j < n && tries < n * 60; tries++) {
                     const x = Z.x + Math.random() * Z.w, z = Z.z + Math.random() * Z.d;
-                    if (!free(x, z, m)) continue;
+                    if (Math.random() * jMax > areaAt(x, z) || !free(x, z, m)) continue;
+                    const w = toWorld(x, z);
+                    if ((forest && Math.random() > clump(w)) || crowded(w.x, w.z, m) || onPathWorld(w, m)) continue;
                     out.push([x, z]);
-                    const key = cell(x, z);
+                    const key = cell(w.x, w.z);
                     if (!taken.has(key)) taken.set(key, []);
-                    taken.get(key).push([x, z, m]);
+                    taken.get(key).push([w.x, w.z, m]);
                     j++;
                 }
                 return out;
             };
-            // Cantidades según el tamaño de la zona (k: en los campos, algo menos de árbol)
-            const area = Z.w * Z.d;
-            trees.push(...spots(Math.round(area * 0.18 * k), 1.05));
-            bush.push(...spots(Math.round(area * 0.28), 0.45).map(([x, z]) => ({ x, y: 0.22, z, sx: 0.7 + Math.random() * 0.5, sy: 0.44, sz: 0.6 + Math.random() * 0.4, ry: Math.random() * 3 })));
+            // Cantidades según lo que ocupa la zona en el mapa (k: en los campos, algo menos de árbol;
+            // matorral, chatarra y piedras, sueltos: las zonas son grandes)
+            const area = Z.w * Z.d * (jSum / 64);
+            const cap = (n, max) => Math.min(max, Math.round(n)); // (con tope: hay zonas enormes)
+            const tr = spots(cap(area * 0.18 * k, forest ? 900 : 200), 1.05);
+            // (en el bosque del mercader, la mitad son pinos)
+            if (forest) tr.forEach((p, i) => (i % 2 ? pines : trees).push(p));
+            else trees.push(...tr);
+            bush.push(...spots(cap(area * 0.1, 160), 0.45).map(([x, z]) => ({ x, y: 0.22, z, sx: 0.7 + Math.random() * 0.5, sy: 0.44, sz: 0.6 + Math.random() * 0.4, ry: Math.random() * 3 })));
             // El bosque del comerciante: solo árboles, matorral y piedras (sin chatarra)
-            if (!forest) pieces.push(...junkyard({ x0: Z.x, z0: Z.z, x1: Z.x + Z.w, z1: Z.z + Z.d, px: 9999, pz: 9999, count: Math.round(area * 0.3), s: 0.42, layers: [], inside: (x, z) => free(x, z, 0.4) }).pieces);
-            rocks.push(...spots(Math.round(area * 0.08), 0.3).map(([x, z]) => ({ x, y: 0.1, z, sx: 0.45, sy: 0.24, sz: 0.35, ry: Math.random() })));
+            if (!forest) pieces.push(...junkyard({ x0: Z.x, z0: Z.z, x1: Z.x + Z.w, z1: Z.z + Z.d, px: 9999, pz: 9999, count: cap(area * 0.09, 120), s: 0.42, layers: [], inside: (x, z) => free(x, z, 0.4) && !onPathWorld(toWorld(x, z), 0.4) }).pieces);
+            rocks.push(...spots(cap(area * 0.03, 50), 0.3).map(([x, z]) => ({ x, y: 0.1, z, sx: 0.45, sy: 0.24, sz: 0.35, ry: Math.random() })));
         }
         const n0 = this.animated.length;
         const { trunks, leaves } = treeParts(trees);
+        // Pinos: tronco y tres pisos de copa en punta, verde oscuro
+        const pt = [], pl = [];
+        pines.forEach(([x, z], i) => {
+            const s = 0.85 + Math.random() * 0.6;
+            pt.push({ x, y: 0.4 * s, z, sx: 0.28 * s, sy: 0.8 * s, sz: 0.28 * s });
+            [[1.6, 0.8, 1.2], [1.15, 0.7, 1.9], [0.7, 0.6, 2.5]].forEach(([w, h, y], k) => pl.push({ x, y: y * s, z, sx: w * s, sy: h * s, sz: w * s, ry: 0.78 + i, k }));
+        });
+        if (pines.length) {
+            this.addHulled(0x6a4424, pt, 0.4);
+            const pm = this.addHulled(0xffffff, pl, 0.45);
+            pl.forEach((p, i) => pm.setColorAt(i, _c.setHex([0x2f6f3a, 0x377a40, 0x3f8646][p.k]).offsetHSL(0, 0, (Math.random() - 0.5) * 0.05)));
+        }
         this.addHulled(0x7a4f2a, trunks, 0.4);
         const lm = this.addHulled(0xffffff, leaves, 0.45);
         leaves.forEach((p, i) => lm.setColorAt(i, _c.setHex(this.theme.leaves[(p.k + i) % 3]).offsetHSL(0, 0, (Math.random() - 0.5) * 0.06)));
@@ -577,7 +659,7 @@ export class Farm {
     //   Maíz: dos por casilla, altas, con su hoja y la mazorca.
     buildPlants(v, old = null, fromCenter = false) {
         if (CROPS[v.crop].pasture) return this.buildHerd(v);
-        const f = v.rect, wheat = v.crop === 'wheat', n0 = { wheat: PER_TILE, corn: 2 }[v.crop] || 1;
+        const f = v.rect, wheat = v.crop === 'wheat', n0 = { wheat: PER_TILE, corn: 1.4, tomato: 1.3, pumpkin: 1.2 }[v.crop] || 1;
         const prev = new Map(v.plants.map((s) => [s.key, s]));
         v.plants = [];
         for (let tx = f.x; tx < f.x + f.w; tx++) for (let tz = f.z; tz < f.z + f.d; tz++) {
@@ -656,6 +738,20 @@ export class Farm {
                 for (let k = 0; k < 3; k++) v.meshes[0].setColorAt(i * 3 + k, _c.setHex(T.leaves[(k + i) % 3]).offsetHSL(0, 0, (s.tone - 0.5) * 0.06));
                 v.meshes[2].setColorAt(i, _c.setHex(T.stake));
             });
+        }
+        v.fresh = true; // (se colocan ya, sin esperar al siguiente paso de la animación)
+        // Lo que queda fuera de cámara no se dibuja: la esfera de todo el campo (en su parcela)
+        if (v.plants.length) {
+            let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+            for (const p of v.plants) {
+                x0 = Math.min(x0, p.wx); x1 = Math.max(x1, p.wx);
+                z0 = Math.min(z0, p.wz); z1 = Math.max(z1, p.wz);
+            }
+            const sphere = new THREE.Sphere(new THREE.Vector3((x0 + x1) / 2, 1, (z0 + z1) / 2), Math.hypot(x1 - x0, 3, z1 - z0) / 2 + 2);
+            for (const m of v.meshes) {
+                m.boundingSphere = sphere;
+                m.frustumCulled = true;
+            }
         }
     }
 
@@ -1032,7 +1128,7 @@ export class Farm {
     // Lo que hay bajo un rayo de la cámara: un edificio, un campo o nada
     pick(ray) {
         if (ray.intersectObject(this.camp.root, true).length) return { merchant: true };
-        const hits = ray.intersectObjects(this.structures.map((m) => m.root), true);
+        const hits = ray.intersectObjects([...this.structures.map((m) => m.root), this.compound.root], true);
         if (hits.length) return { structure: hits[0].object.userData.structure };
         // El suelo de cada parcela, a su altura: el más cercano en el que caiga el rayo
         let best = null;
@@ -1071,19 +1167,28 @@ export class Farm {
         this.plot.update(dt, time);
         updateScenery(this, dt);
         this.camp.update(dt, time, this.nightK || 0);
+        this.compound.root.visible = this.introT > 1.1; // (aparece con los edificios)
+        this.compound.update(dt, time);
         for (const post of Object.values(this.landPosts)) post.update(dt, time);
         this.updateLandWaves(dt);
         this.updateShots(dt);
 
+        // Las plantas se mueven a 15 fotogramas por segundo (a saltitos, como el resto del juego:
+        // y cuesta cuatro veces menos con los campos grandes)
+        this.plantT = (this.plantT || 0) + dt;
+        const step = this.plantT >= 1 / 15, pdt = this.plantT;
+        if (step) this.plantT = 0;
         for (const v of this.views) {
             if (v.locked) continue;
             if (v.drop) this.updateDrop(v, dt);
             else if (v.turret) this.updateTurrets(v, dt, (progress[v.id] || 0) >= 1);
+            if (!step && !v.fresh) continue;
+            v.fresh = false;
             const p = progress[v.id] || 0;
             if (v.crop === 'wheat') this.updateWheat(v, time, p);
             else if (v.crop === 'pumpkin') this.updatePumpkin(v, time, p);
             else if (v.crop === 'corn') this.updateCorn(v, time, p);
-            else if (v.herd) this.updateHerd(v, dt, time, p);
+            else if (v.herd) this.updateHerd(v, pdt, time, p);
             else this.updateTomato(v, time, p);
             for (const m of v.meshes) {
                 m.instanceMatrix.needsUpdate = true;
@@ -1109,7 +1214,7 @@ export class Farm {
             const sway = s.tilt + Math.sin(time * 1.6 - s.x * 0.5 - s.z * 0.3 + s.ph * 0.3) * (ready ? 0.12 : 0.06);
             _d.position.set(s.wx - Math.sin(sway) * h / 2, Math.cos(sway) * h / 2, s.wz);
             _d.rotation.set(0, 0, sway);
-            _d.scale.set(0.05, Math.max(0.0001, h), 0.05);
+            _d.scale.set(0.07, Math.max(0.0001, h), 0.07);
             _d.updateMatrix();
             stalkMesh.setMatrixAt(i, _d.matrix);
             const st = ready ? 3 : p < 0.35 ? 0 : p < 0.7 ? 1 : 2;
@@ -1117,7 +1222,7 @@ export class Farm {
             // Espiga: aparece al final del crecimiento, en la punta
             const e = p < 0.7 ? 0.0001 : Math.min(1, (p - 0.7) / 0.3);
             _d.position.set(s.wx - Math.sin(sway) * (h + 0.1), Math.cos(sway) * (h + 0.1), s.wz);
-            _d.scale.set(0.1 * e, 0.24 * e, 0.1 * e);
+            _d.scale.set(0.14 * e, 0.3 * e, 0.14 * e);
             _d.updateMatrix();
             earMesh.setMatrixAt(i, _d.matrix);
         });

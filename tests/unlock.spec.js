@@ -40,8 +40,9 @@ test('tomates: con el trigo al máximo se desbloquea disparando al barril; luego
     const errors = watchErrors(page);
     await openFarm(page);
     await expect(page.locator('#sign-tomato')).toBeVisible({ timeout: 60_000 });
-    // Bloqueado mientras el trigo no está al máximo
+    // Bloqueado mientras el trigo no está al máximo (la cámara, a su zona: empieza en el trigo)
     await expect(page.locator('#sign-tomato')).toHaveText('BLOQUEADO');
+    await page.evaluate(() => { game.rig.focus(105, 45); game.rig.snap(); });
     await page.locator('#sign-tomato').click();
     await expect(page.locator('#panel-title')).toHaveText('TERRENO ABANDONADO');
     await expect(page.locator('#panel-action')).toBeHidden();
@@ -50,7 +51,7 @@ test('tomates: con el trigo al máximo se desbloquea disparando al barril; luego
     await expect(page.locator('#sign-tomato')).toHaveText('¡DESBLOQUEAR!');
     // El cartel lleva directo al campo de tiro del desbloqueo: una torre, chatarra y el barril
     // (la cámara, hacia los tomates: tras mejorar el trigo se queda en el trigo)
-    await page.evaluate(() => game.rig.focus(18, 18));
+    await page.evaluate(() => { game.rig.focus(105, 45); game.rig.snap(); });
     await page.locator('#sign-tomato').click();
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
     expect(await page.evaluate(() => game.sniper.unlocking && !!game.sniper.field.barrel)).toBe(true);

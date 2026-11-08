@@ -12,6 +12,8 @@ export const FARM = {
         [0, 0, 30, 30],
         [0, -30, 30, 0],
         [30, -30, 60, 0], // el claro del mercader
+        [90, 0, 120, 30], // el trigo (en su zona)
+        [90, 30, 120, 60], // los tomates (en la suya)
     ],
     // Las demás parcelas de la cuadrícula de 3×3 (la de los campos, con el granero, en el
     // centro). Las que se compran con el oro del comerciante (price) empiezan abandonadas (árboles,
@@ -34,26 +36,42 @@ export const FARM = {
         { id: 'west2', rect: [60, 0, 90, 30], soon: true },
         { id: 'east2', rect: [60, 30, 90, 60], soon: true },
     ],
-    bounds: { x0: -30, z0: -30, x1: 90, z1: 60 }, // todas las parcelas (en sus coordenadas de siempre)
+    bounds: { x0: -30, z0: -30, x1: 120, z1: 60 }, // todas las parcelas (en sus coordenadas de siempre)
     // Vallas: tramos rectos de [x, z] a [x, z]; gap: hueco [desde, hasta] a lo largo del tramo
     // (las de la cuadrícula, con sus portones, al final del archivo)
     fences: [],
-    // El granero (armamento: rachas de bajas y mejoras del rifle) ocupa la mitad de arriba de la
-    // primera parcela (zone). Empieza sin mejorar, con su recinto (yard) pequeño y el resto de la
-    // zona abandonado: tierra sucia, árboles, matorral y chatarra. Cada nivel agranda el recinto
-    // (lo de dentro se limpia) y le añade construcciones.
-    //   cost   lo que cuesta llegar a ese nivel
+    // El granero (armamento: rachas de bajas y mejoras del rifle) y su recinto militar, que llena
+    // toda su zona: tierra apisonada (zone/yard) con un borde de hierba, la pista con el avión y su
+    // hangar (strip), y las plataformas de hormigón (pads) de la nuclear, la armería y el
+    // helipuerto. Lo que hay en el recinto, en compound (render/compound.js). Ya no se mejora: sus
+    // niveles se quedan por las partidas guardadas.
     barn: {
-        zone: [1, 1, 29, 15],
+        zone: [1, 1, 29, 29],
         levels: [
-            { yard: [8, 6, 22, 15] },
-            { yard: [6, 5, 24, 15], cost: { wheat: 5 } },
-            { yard: [5, 4, 25, 15], cost: { wheat: 15 } },
-            { yard: [3, 3, 27, 15], cost: { wheat: 30 } },
-            { yard: [2, 2, 28, 15], cost: { wheat: 40, tomato: 15 } },
-            { yard: [1, 1, 29, 15], cost: { wheat: 60, tomato: 30 } },
+            { yard: [1, 1, 29, 29] },
+            { yard: [1, 1, 29, 29], cost: { wheat: 5 } },
+            { yard: [1, 1, 29, 29], cost: { wheat: 15 } },
+            { yard: [1, 1, 29, 29], cost: { wheat: 30 } },
+            { yard: [1, 1, 29, 29], cost: { wheat: 40, tomato: 15 } },
+            { yard: [1, 1, 29, 29], cost: { wheat: 60, tomato: 30 } },
         ],
+        strip: [9, 20, 28, 24],
+        pads: [[3, 3, 10, 9], [20, 3, 27, 9], [2.5, 9.5, 8.5, 15]],
     },
+    // Lo del recinto del granero: kind (la pieza de render/compound.js), x, z (su centro, en las
+    // coordenadas de la parcela; en el mapa se reparte estirado por toda la zona) y ry (cuartos de vuelta)
+    compound: [
+        { kind: 'nuke', x: 6.5, z: 6 },
+        { kind: 'armory', x: 23.5, z: 6 },
+        { kind: 'radar', x: 11, z: 4 },
+        { kind: 'heli', x: 5.5, z: 12.3 },
+        { kind: 'camp', x: 24.5, z: 12.5 },
+        { kind: 'hangar', x: 5, z: 22 },
+        { kind: 'plane', x: 20, z: 22 },
+        { kind: 'checkpoint', x: 15, z: 27.3 },
+        { kind: 'depot', x: 26.5, z: 26.5 },
+        { kind: 'depot', x: 3.5, z: 26.8, ry: 1 },
+    ],
     // La casa y su parcela: empieza en ruinas con toda la parcela abandonada (zone). Nivel 1: la
     // casita arreglada y limpio alrededor; 2: gran parte de la parcela; 3: toda (clear).
     //   cost   lo que cuesta llegar a ese nivel
@@ -67,10 +85,10 @@ export const FARM = {
         ],
     },
     structures: [
-        { id: 'barn', kind: 'barn', x: 15, z: 11, w: 5, d: 4, ry: 0, name: L('BARN', 'GRANERO') },
-        { id: 'silo', kind: 'silo', x: 19.5, z: 10, w: 2, d: 2, name: L('SILO', 'SILO') },
+        { id: 'barn', kind: 'barn', x: 15, z: 12, w: 5, d: 4, ry: 0, name: L('BARN', 'GRANERO') },
+        { id: 'silo', kind: 'silo', x: 19.6, z: 11, w: 2, d: 2, name: L('SILO', 'SILO') },
         { id: 'house', kind: 'house', x: 15, z: -15, w: 4, d: 4, ry: 0, name: L('FARMHOUSE', 'CASA') }, // en el centro de su parcela
-        { id: 'tractor', kind: 'tractor', x: 9.9, z: 13.2, w: 2, d: 3, ry: 1, name: L('TRACTOR', 'TRACTOR') }, // apartado de las cajas del granero
+        { id: 'tractor', kind: 'tractor', x: 10.6, z: 13.4, w: 2, d: 3, ry: 1, name: L('TRACTOR', 'TRACTOR') }, // junto al granero
     ],
     // Campos de cultivo. Cada uno crece al mejorarlo desde una esquina fija (corner) hacia
     // los lados que marcan dx, dz (+1 / -1).
@@ -88,35 +106,35 @@ export const FARM = {
             id: 'wheat',
             crop: 'wheat',
             name: L('WHEAT FIELD', 'CAMPO DE TRIGO'),
-            corner: { x: 14, z: 16, dx: -1, dz: 1 }, // junto al cruce de caminos
+            corner: { x: 105, z: 15, center: true }, // crece desde el centro de su parcela
             cost: { wheat: 3 },
             turrets: { wheat: 40 },
             // Lo primero del juego: limpiar este terreno para poder sembrar trigo
             locked: { barn: true, name: L('JUNKYARD', 'TERRENO ABANDONADO') },
-            // El último llena el hueco entre el camino, la valla y los árboles (x 3..14, z 16..27)
+            // El último llena su zona entera
             levels: [
-                { w: 4, d: 3, sheaves: 18, arena: 1, sign: 0x9a6a3a },
-                { w: 6, d: 4, sheaves: 36, arena: 1.2, sign: 0xb07a44 },
-                { w: 8, d: 6, sheaves: 64, arena: 1.45, sign: 0x5a9e32 },
-                { w: 10, d: 8, sheaves: 100, arena: 1.75, sign: 0x3a7ec8 },
-                { w: 11, d: 11, sheaves: 150, arena: 2.1, sign: 0xc8402e },
+                { w: 8, d: 6, sheaves: 18, arena: 1, sign: 0x9a6a3a },
+                { w: 12, d: 10, sheaves: 36, arena: 1.2, sign: 0xb07a44 },
+                { w: 17, d: 15, sheaves: 64, arena: 1.45, sign: 0x5a9e32 },
+                { w: 22, d: 21, sheaves: 100, arena: 1.75, sign: 0x3a7ec8 },
+                { w: 28, d: 28, sheaves: 150, arena: 2.1, sign: 0xc8402e },
             ],
         },
         {
             id: 'tomato',
             crop: 'tomato',
             name: L('TOMATO FIELD', 'CAMPO DE TOMATES'),
-            corner: { x: 16, z: 16, dx: 1, dz: 1 }, // la otra esquina del cruce, frente al trigo
+            corner: { x: 105, z: 45, center: true }, // crece desde el centro de su parcela
             cost: { wheat: 5, tomato: 3 },
             turrets: { wheat: 40, tomato: 25 },
             locked: { after: 'wheat', name: L('JUNKYARD', 'TERRENO ABANDONADO') },
-            // El último llena el hueco entre el camino y la valla (x 16..28, z 16..27)
+            // El último llena su zona entera
             levels: [
-                { w: 5, d: 4, sheaves: 6, arena: 1, sign: 0x9a6a3a },
-                { w: 7, d: 5, sheaves: 12, arena: 1.2, sign: 0xb07a44 },
-                { w: 9, d: 7, sheaves: 22, arena: 1.45, sign: 0x5a9e32 },
-                { w: 11, d: 9, sheaves: 36, arena: 1.75, sign: 0x3a7ec8 },
-                { w: 12, d: 11, sheaves: 56, arena: 2.1, sign: 0xc8402e },
+                { w: 7, d: 6, sheaves: 6, arena: 1, sign: 0x9a6a3a },
+                { w: 11, d: 10, sheaves: 12, arena: 1.2, sign: 0xb07a44 },
+                { w: 16, d: 15, sheaves: 22, arena: 1.45, sign: 0x5a9e32 },
+                { w: 22, d: 20, sheaves: 36, arena: 1.75, sign: 0x3a7ec8 },
+                { w: 28, d: 28, sheaves: 56, arena: 2.1, sign: 0xc8402e },
             ],
         },
         // Los de las parcelas que se compran (con su cultivo nuevo y su forma de disparar)
@@ -174,8 +192,8 @@ export const FARM = {
     ],
     // Caminos de tierra: rectángulos de casillas [x0, z0, x1, z1) (el final no entra)
     paths: [
-        [14, 13, 16, 30],   // camino principal hacia el sur
-        [0, 15, 30, 16],    // entre el granero y los campos (a las salidas oeste y este)
+        [14, 14, 16, 30],   // del portón del granero al sur (cruza la pista)
+        [0, 16, 30, 17],    // de oeste a este, delante del granero
         [14, 0, 16, 9],     // a la trasera del granero (sale por el norte)
         [14, -13, 16, 0],   // de la casa hacia la granja (sale por el sur)
         [17, -16, 30, -14], // de la casa hacia el este
@@ -233,7 +251,9 @@ for (const v of GRID) {
 // lo de fuera se reparte hasta el borde. En el campo de tiro todo sigue siendo cuadrado.
 //   gates  por dónde salen sus caminos (en sus coordenadas de siempre, en su borde)
 export const PLACES = [
-    { id: 'farm', from: [0, 0], gates: [[15, 30], [0, 15.5], [30, 15.5], [15, 0]] },
+    { id: 'farm', from: [0, 0], gates: [[15, 30], [0, 16.5], [30, 16.5], [15, 0]] },
+    { id: 'wheatP', from: [90, 0], gates: [] },
+    { id: 'tomatoP', from: [90, 30], gates: [] },
     { id: 'house', from: [0, -30], gates: [[15, 0], [30, -15], [0, -15]] },
     { id: 'merchant', from: [30, -30], gates: [] },
     { id: 'west', from: [-30, 0], gates: [] },
@@ -367,6 +387,9 @@ FARM.view = { ...FARM.world };
 // dentro de su rectángulo f, distinta en cada campo (seed)
 export function inFieldShape(f, seed, x, z) {
     const u = (x - f.cx) / (f.w / 2), v = (z - f.cz) / (f.d / 2), a = Math.atan2(v, u);
-    const R = 1 - 0.05 * (1 + Math.sin(a * 3 + seed)) - 0.03 * (1 + Math.sin(a * 7 + seed * 2.3));
-    return Math.abs(u) ** 2.6 + Math.abs(v) ** 2.6 <= R ** 2.6;
+    // Cuanto más grande, más cuadrado (y menos ondulado): en el mapa la parcela se estira hasta
+    // su zona, así que un campo que llena su parcela llena la zona y su borde es el de la zona
+    const big = Math.min(1, Math.min(f.w, f.d) / 28) ** 3, e = 2.6 + 9 * big;
+    const R = 1 - (0.05 * (1 + Math.sin(a * 3 + seed)) + 0.03 * (1 + Math.sin(a * 7 + seed * 2.3))) * (1 - 0.8 * big);
+    return Math.abs(u) ** e + Math.abs(v) ** e <= R ** e;
 }

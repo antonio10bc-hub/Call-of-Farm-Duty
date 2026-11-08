@@ -118,16 +118,18 @@ const lakeE = (u, v) => {
 // place: la parcela del juego que ocupa cada zona. Las tres de la izquierda (la orilla alta, la
 // cañada y la de abajo) van partidas: una se compra ya y las demás quedan para lo que venga
 export const REGIONS = [
-    { place: 'farm', seeds: [[70, 96]] },
+    { place: 'farm', seeds: [[72, 86]] },      // el granero y su recinto (avión, armería, la nuclear)
+    { place: 'wheatP', seeds: [[44, 114]] },   // el trigo, en su zona
+    { place: 'tomatoP', seeds: [[98, 114]] },  // los tomates, en la suya
     { place: 'house', seeds: [[60, 62]] },
     { place: 'merchant', seeds: [[118, 38]] },
     { place: 'nw', seeds: [[42, 48]] },        // la orilla alta (la más alta): prado de vacas
     { place: 'nw2', seeds: [[12, 36]] },       // ... y su otra mitad, hacia el monte
     { place: 'west', seeds: [[34, 80]] },      // la cañada: calabazas
     { place: 'west2', seeds: [[10, 100]] },    // ... y su otra mitad
-    { place: 'east', seeds: [[56, 126]] },     // la de abajo, en tres: maíz en la de en medio
-    { place: 'east2', seeds: [[92, 138]] },
-    { place: 'sw', seeds: [[18, 138]] },
+    { place: 'east', seeds: [[56, 138]] },     // la de abajo, en tres: maíz en la de en medio
+    { place: 'east2', seeds: [[100, 140]] },
+    { place: 'sw', seeds: [[14, 140]] },
     { place: 'south', seeds: [[94, 64]] },     // el desagüe del lago
     { place: 'se', seeds: [[140, 80]] },       // la margen este, al otro lado del río
 ].map((r) => ({ ...r, seeds: r.seeds.map(([u, v]) => [u * K, v * K]) }));

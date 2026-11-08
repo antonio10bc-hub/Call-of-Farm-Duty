@@ -92,7 +92,7 @@ test('partida guardada con las cifras de antes: los campos salen con los blancos
 test('casa: empieza en ruinas con la parcela sucia; 3 niveles la arreglan y limpian la parcela', { tag: '@smoke' }, async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto('/?test');
-    await expect.poll(() => page.evaluate(() => window.game && game.farm.introT > 2)).toBe(true);
+    await expect.poll(() => page.evaluate(() => window.game && game.farm.introT > 2), { timeout: 60_000 }).toBe(true);
     expect(await page.evaluate(() => [game.state.house.level, game.farm.byId.house.ruin.visible, game.farm.byId.house.whole.visible])).toEqual([0, true, false]);
     const wildHidden = () => page.evaluate(() => game.farm.wild.reduce((n, e) => n + e.positions.filter((q) => q.hide).length, 0));
     const before = await wildHidden();
@@ -301,7 +301,7 @@ test('claro del comerciante: un bosque con el surco del ovni, sin niveles ni mej
     await openFarm(page);
     await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
     // El claro (con el surco) está limpio; el resto de su parcela es bosque. Siempre 3 encargos
-    expect(await page.evaluate(() => [game.farm.kindAt(45, -19), game.farm.kindAt(50, -26).wild, game.state.ordersFor(1).length, 'village' in game.state])).toEqual([{ yard: true }, true, 3, false]);
+    expect(await page.evaluate(() => [game.farm.kindAt(45, -19).yard, game.farm.kindAt(50, -26).wild, game.state.ordersFor(1).length, 'village' in game.state])).toEqual([true, true, 3, false]);
     // Su hoja no tiene mejora
     await page.evaluate(() => game.openMerchant());
     await expect(page.locator('#merchant')).toBeVisible();

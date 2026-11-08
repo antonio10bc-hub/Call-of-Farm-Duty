@@ -133,8 +133,9 @@ rig.focus = (x, z) => {
     const w = toWorld(x, z);
     rigFocus(w.x, w.z, w.y);
 };
-const home = { x: 15, z: 18 };
-rig.focus(home.x, home.z);
+// La vista de inicio: el campo de trigo (lo primero que hay que hacer)
+const goHome = () => rig.focus(FIELD_BY_ID.wheat.corner.x, FIELD_BY_ID.wheat.corner.z);
+goHome();
 rig.snap();
 // La sombra de una parcela recién comprada se retira: destellos dorados por donde pasa
 farm.onLandWave = (x, z) => farmFx.burst(x, 0.3, z, 3, [0xffd23f, 0xfff6b0, 0xffffff], { speed: 1.2, up: 3, size: 0.12, ttl: 0.6 });
@@ -342,7 +343,7 @@ const prologueHooks = {
         $('bubbles').classList.remove('hidden');
         scope.show(false);
         mode = 'farm';
-        rig.focus(home.x, home.z);
+        goHome();
         rig.zoomTarget = 1.6; // algo más lejos: se ve la zona y el trigo hablando
         rig.snap();
         startMusic(THEME.music);
@@ -2039,7 +2040,7 @@ tapBtn('btn-unlock-all', () => {
     if (!ids.length && !rifle) return;
     $('debug').classList.add('hidden');
     while (revealUnlocked());
-    rig.focus(home.x, home.z);
+    goHome();
     updateCounts();
     const what = [...ids.map((id) => FIELD_BY_ID[id].name), ...(rifle ? [L('FULL ARMORY', 'ARMERÍA COMPLETA')] : [])];
     setTimeout(() => stage(L('ALL UNLOCKED!', '¡TODO DESBLOQUEADO!'), what.join(' · ')), 350);
