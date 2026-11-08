@@ -1,6 +1,6 @@
 // Pruebas de el campo de tiro: controles (dedo, ratón, teclado), colaterales y los cultivos de las
-// parcelas que se compran (calabazas, maíz y las vacas del prado).
-const { test, expect, aimAndShoot, enterField, openFarm, shootNext, touchPath, watchErrors } = require('./helpers');
+// parcelas que se compran (calabazas, maíz y las vacas del prado) y la caja sorpresa.
+const { test, expect, aimAndShoot, enterBigField, enterField, openFarm, shootNext, touchPath, watchErrors } = require('./helpers');
 
 // Al campo de tiro de un cultivo de las parcelas que se compran (desbloqueado a la fuerza)
 async function enterCrop(page, id) {
@@ -149,5 +149,46 @@ test('vacas: corren por el prado; con la ubre llena, un tiro a la ubre da un cub
     await expect.poll(() => page.evaluate(() => game.state.items.milk)).toBe(1);
     // Ordeñada: sigue ahí (no desaparece), con la ubre vaciándose
     expect(await page.evaluate(() => { const s = game.sniper.field.targets[0]; return [s.alive, s.cow.g.visible]; })).toEqual([false, true]);
+    expect(errors).toEqual([]);
+});
+
+test('caja sorpresa: sale en otra torre; desde lejos no se abre, desde su torre da un arma y al gastarla vuelve el rifle', { tag: '@smoke' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await enterBigField(page);
+    // Aparece en una torre que no es la tuya, con su aviso y la torre marcada
+    const i = await page.evaluate(() => game.sniper.box.spawn());
+    expect(i).not.toBe(await page.evaluate(() => game.sniper.corner));
+    await expect(page.locator('#stage')).toContainText('CAJA SORPRESA');
+    await expect(page.locator('#corners i.box')).toHaveCount(1);
+    await expect.poll(() => page.evaluate(() => game.sniper.box.pop)).toBeGreaterThan(0.9);
+    const center = '(() => { const p = game.sniper.box.holder.position; return { x: p.x, y: p.y + 0.35, z: p.z }; })()';
+    // Desde otra torre, el tiro no la abre
+    await aimAndShoot(page, center);
+    await expect(page.locator('#medals')).toContainText('DESDE SU TORRE');
+    expect(await page.evaluate(() => game.sniper.box.state)).toBe('idle');
+    // Desde la suya, se abre, giran las armas y la que toca pasa a las manos
+    await page.evaluate((k) => { game.sniper.corner = k; game.sniper.eyeOf(k, game.sniper.pos); }, i);
+    await expect.poll(() => page.evaluate(() => game.sniper.canFire && !game.sniper.moving)).toBe(true);
+    await aimAndShoot(page, center);
+    await expect.poll(() => page.evaluate(() => game.sniper.box.state)).toBe('spin');
+    await expect.poll(() => page.evaluate(() => game.sniper.special && game.sniper.special.id), { timeout: 10_000 }).toBeTruthy();
+    await expect(page.locator('#ammo')).toHaveClass(/special/);
+    const name = await page.evaluate(() => game.sniper.special.name);
+    await expect(page.locator('#ammo-name')).toHaveText(name);
+    // El lanzacohetes: el cohete vuela y revienta lo que pilla
+    await page.evaluate(() => { game.sniper.endSpecial(); game.sniper.box.pick = 1; game.sniper.giveSpecial(game.sniper.box.weapon); });
+    await expect(page.locator('#ammo-name')).toHaveText('LANZACOHETES');
+    const before = await page.evaluate(() => game.state.wheat);
+    const sheaf = '(() => { const s = game.sniper.field.sheaves.find((x) => x.alive); return s && { x: s.x, y: 0.9, z: s.z }; })()';
+    await expect.poll(() => page.evaluate(() => game.sniper.canFire)).toBe(true);
+    await aimAndShoot(page, sheaf);
+    await expect.poll(() => page.evaluate(() => game.state.wheat), { timeout: 5_000 }).toBeGreaterThan(before);
+    // Sin munición, otra vez el rifle
+    await page.evaluate(() => { game.sniper.ammo = 1; });
+    await expect.poll(() => page.evaluate(() => game.sniper.canFire)).toBe(true);
+    await aimAndShoot(page, sheaf);
+    await expect.poll(() => page.evaluate(() => game.sniper.special)).toBe(null);
+    await expect(page.locator('#ammo')).not.toHaveClass(/special/);
+    await expect(page.locator('#medals')).toContainText('OTRA VEZ EL RIFLE');
     expect(errors).toEqual([]);
 });

@@ -1191,6 +1191,13 @@ body.unlocking .arrow-btn, body.unlocking .corners, body.unlocking .left-badge {
 .ammo.reloading b, .ammo.reloading span:not(.ico) { display: none; }
 body.unlocking .ammo, body.predator .ammo { display: none; }
 .ammo-ico { --ico: var(--px-ammo); }
+/* Con el arma de la caja sorpresa: su nombre encima y el borde azul */
+.ammo-name { display: none; position: absolute; left: 50%; bottom: 100%; transform: translate(-50%, -4px); white-space: nowrap; font-style: normal; font-size: 8px; color: #9fdcff; text-shadow: 2px 2px 0 var(--ink); }
+.ammo.special { border-color: #9fdcff; }
+.ammo.special .ammo-name { display: block; }
+/* La torre con la caja sorpresa, en las marcas de las torres */
+.corners i.box { background: #9fdcff; animation: blink .4s steps(2) infinite; }
+.medal.box { color: var(--ink); background: #9fdcff; border-color: var(--ink); }
 
 /* Lluvia radiactiva: neblina amarillenta que se queda tras la bomba nuclear */
 .nuke-haze { position: fixed; inset: 0; z-index: 9; pointer-events: none; opacity: 0; transition: opacity 1.5s; background: radial-gradient(ellipse at center, rgba(235, 215, 80, .28) 0%, rgba(170, 150, 40, .5) 100%); }

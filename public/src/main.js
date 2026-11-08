@@ -226,6 +226,22 @@ const sniper = new Sniper(THEME, {
         $('left-count').textContent = sniper.field.remaining;
     },
     // Bala que da a un alienígena (a pie o en ovni): aspa en el centro y su chasquido
+    // La caja sorpresa: aparece (aviso y su torre marcada), se le dispara desde otra torre o se va
+    onBox(what) {
+        if (what === 'spawn') {
+            stage(L('MYSTERY BOX!', '¡CAJA SORPRESA!'), L('JUMP TO ITS TOWER AND SHOOT IT', 'SALTA A SU TORRE Y DISPÁRALE'));
+            vibrate('pickup');
+        } else if (what === 'far') medal(L('FROM ITS TOWER!', '¡DESDE SU TORRE!'), 'box');
+        updateBoxHud();
+    },
+    // El arma que ha tocado (w) o se acabó su munición (null)
+    onWonder(w) {
+        if (w) {
+            stage(w.name, L('FROM THE MYSTERY BOX', 'DE LA CAJA SORPRESA'));
+            vibrate('kill');
+        } else medal(L('OUT OF AMMO: BACK TO THE RIFLE', 'SIN MUNICIÓN: OTRA VEZ EL RIFLE'), 'box');
+        updateBoxHud();
+    },
     onHitMarker() {
         const el = $('hitmarker');
         el.classList.remove('on');
@@ -592,6 +608,12 @@ function flyItem(icon, x, y, target, done) {
 
 function showCorner(i) {
     [...$('corners').children].forEach((el, k) => el.classList.toggle('on', k === i));
+}
+
+// En las marcas de las torres, la de la caja sorpresa (en azul, latiendo)
+function updateBoxHud() {
+    const t = sniper.box.state === 'idle' ? sniper.box.tower : -1;
+    [...$('corners').children].forEach((el, k) => el.classList.toggle('box', k === t));
 }
 
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.ceil(s) % 60).padStart(2, '0')}`;
@@ -1935,6 +1957,9 @@ function refreshRifle() {
 // Balas del cargador en el campo de tiro (y la barra de la recarga)
 function updateAmmo() {
     const el = $('ammo'), st = sniper.stats, reloading = sniper.reloadT > 0;
+    el.classList.toggle('special', !!sniper.special);
+    const name = sniper.special ? sniper.special.name : '';
+    if ($('ammo-name').textContent !== name) $('ammo-name').textContent = name;
     el.classList.toggle('reloading', reloading);
     el.classList.toggle('low', sniper.ammo <= Math.max(1, st.size * 0.25));
     $('ammo-n').textContent = sniper.ammo;

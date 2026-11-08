@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { VoxelModel } from './VoxelModel.js';
 import { clamp, damp } from '../core/math.js';
 import { arsenalItem, DEFAULT_LOADOUT } from '../content/arsenal.js';
+import { WONDER_LOOK } from './wonder.js';
 
 const METAL = 0x5c6068, METAL_DARK = 0x34373e, BRASS = 0xd9b04a;
 
@@ -79,6 +80,20 @@ export class RifleModel extends VoxelModel {
         this.bolt = this.part(g, 0.14, 0.04, 0.04, BRASS, 0.08, 0.04, 0.06, false);
         // Punta del cañón (de aquí salen las chispas)
         this.muzzle.position.set(0, 0.03, end - 0.06);
+        g.add(this.muzzle);
+    }
+
+    // El arma de la caja sorpresa en vez del fusil (render/wonder.js); setLoadout lo devuelve
+    setSpecial(id) {
+        this.key = `special:${id}`;
+        const g = this.gun, L = WONDER_LOOK[id];
+        for (const c of [...g.children]) g.remove(c);
+        for (const [w, h, d, color, x, y, z, glow] of L.parts) this.part(g, w, h, d, color, x, y, z, !glow);
+        // (el cerrojo y el cargador de la animación del fusil, sin pieza a la vista)
+        this.mag = new THREE.Group();
+        this.bolt = new THREE.Object3D();
+        g.add(this.mag, this.bolt);
+        this.muzzle.position.set(0, 0.02, L.muzzle);
         g.add(this.muzzle);
     }
 

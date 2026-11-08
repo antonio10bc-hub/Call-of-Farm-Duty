@@ -13,6 +13,7 @@ import { Killstreaks } from './Killstreaks.js';
 import { Flyers } from './Flyers.js';
 import { Walkers } from './Walkers.js';
 import { Turrets } from './Turrets.js';
+import { MysteryBox } from './MysteryBox.js';
 import { loadoutStats } from '../content/arsenal.js';
 
 const S = CONFIG.sniper;
@@ -64,6 +65,8 @@ export class Sniper {
         this.flyers = new Flyers(this);
         this.walkers = new Walkers(this);
         this.turrets = new Turrets(this);
+        this.box = new MysteryBox(this); // la caja sorpresa (y los disparos de sus armas)
+        this.special = null;             // el arma que ha tocado en la caja (o null: el rifle)
         this.aliens = 0;        // racha alienígena: abatidos en esta partida (no se pierde)
         this.streak = 0;        // racha de granadas: lo recogido seguido
         this.streakT = 0; // lo que le queda a la barra de la racha (s) y lo que duraba llena
@@ -173,6 +176,8 @@ export class Sniper {
     // el equipo de la armería ({ scope, rifle, mag })
     enter(what) {
         this.setArena(what.arena || 1);
+        this.special = null;
+        this.loadout = what.loadout;
         this.stats = loadoutStats(what.loadout);
         this.rifle.setLoadout(what.loadout);
         this.tracer.material.color.setHex(this.stats.tracer);
@@ -208,9 +213,40 @@ export class Sniper {
         this.flyers.reset();
         this.walkers.reset();
         this.turrets.set(!this.unlocking && !!what.turrets);
+        this.box.reset();
+    }
+
+    // El arma de la caja sorpresa: sustituye al rifle (con su munición, sin recargas) hasta gastarla
+    giveSpecial(w) {
+        this.base = this.base || this.stats;
+        this.special = w;
+        this.stats = { ...this.base, bolt: w.rate, pierce: w.pierce || 1, damage: w.mode === 'bullet' ? 1 : 3, size: w.ammo, reload: 0, regen: 0, tracer: w.tracer || this.base.tracer, recoil: w.mode === 'rocket' ? 1.6 : 0.45 };
+        this.ammo = w.ammo;
+        this.reloadT = this.bolt = 0;
+        this.rifle.setSpecial(w.id);
+        this.tracer.material.color.setHex(this.stats.tracer);
+        if (this.hooks.onWonder) this.hooks.onWonder(w);
+    }
+
+    // Se acabó la munición del arma de la caja: vuelve el rifle (con el cargador lleno)
+    endSpecial() {
+        if (!this.special) return;
+        this.special = null;
+        this.stats = this.base;
+        this.base = null;
+        this.ammo = this.stats.size;
+        this.rifle.setLoadout(this.loadout);
+        this.tracer.material.color.setHex(this.stats.tracer);
+        if (this.hooks.onWonder) this.hooks.onWonder(null);
     }
 
     leave() {
+        this.box.reset();
+        if (this.special) {
+            this.special = null;
+            this.stats = this.base;
+            this.base = null;
+        }
         this.ks.clear();
         this.turrets.clear();
         this.flyers.reset();
@@ -297,6 +333,7 @@ export class Sniper {
     release(fire = true) {
         if (this.ks.predator) return false;
         if (!this.scoped) return false;
+        if (this.special && this.special.auto) fire = false; // (la ametralladora ya dispara sola)
         if (fire && (this.bolt > 0 || this.reloadT > 0 || this.ammo <= 0) && this.ending < 0) {
             this.pending = true;
             return false;
@@ -319,7 +356,7 @@ export class Sniper {
         const steady = this.stats.steady;
         const settle = (this.adsK >= S.adsReady ? S.settleSpread * this.settle : this.adsK > 0.4 ? S.settleSpread : 0) * steady;
         const turning = Math.min(S.lookSpreadMax, this.turnSpeed * S.lookSpread);
-        return (hip + settle + turning) * (this.move ? 1 + S.moveSpread : 1);
+        return (hip + settle + turning + ((this.special && this.special.spread) || 0)) * (this.move ? 1 + S.moveSpread : 1);
     }
 
     get canFire() {
@@ -329,7 +366,7 @@ export class Sniper {
     // Recargar (solo, al vaciar el cargador; o a mano con R). La célula alienígena no recarga: se
     // regenera sola
     reload() {
-        if (this.stats.regen || this.reloadT > 0 || this.ammo >= this.stats.size || this.unlocking) return false;
+        if (this.special || this.stats.regen || this.reloadT > 0 || this.ammo >= this.stats.size || this.unlocking) return false;
         this.reloadT = this.stats.reload;
         this.hooks.sfx.play('reload');
         this.rifle.reload(this.stats.reload);
@@ -344,15 +381,17 @@ export class Sniper {
         }
         const { sfx } = this.hooks;
         this.bolt = this.stats.bolt;
-        if (!this.unlocking && --this.ammo <= 0) setTimeout(() => this.reload(), 1000 * Math.min(0.3, this.stats.bolt));
+        if (this.special) {
+            if (--this.ammo <= 0) setTimeout(() => this.endSpecial(), 450);
+        } else if (!this.unlocking && --this.ammo <= 0) setTimeout(() => this.reload(), 1000 * Math.min(0.3, this.stats.bolt));
         // Retroceso: la vista salta hacia arriba (y un poco de lado) y vuelve con un muelle
         this.kickV += S.recoil * this.stats.recoil * (this.scoped ? 30 : 22);
         this.kickYaw = (Math.random() - 0.5) * S.recoil * this.stats.recoil * 0.5;
         this.trauma = Math.min(1, this.trauma + (this.scoped ? 0.2 : 0.35));
         // (el cerrojo se mueve y suena al ritmo de su mejora)
-        this.rifle.fire(S.boltTime / this.stats.bolt);
-        sfx.play('snipe');
-        setTimeout(() => sfx.play('bolt'), 320 * (this.stats.bolt / S.boltTime));
+        this.rifle.fire(this.special ? 1 : S.boltTime / this.stats.bolt);
+        sfx.play(this.special ? this.special.sfx : 'snipe');
+        if (!this.special) setTimeout(() => sfx.play('bolt'), 320 * (this.stats.bolt / S.boltTime));
         vibrate('crate');
 
         // El disparo sale justo por la mirilla: el centro de lo que se ve ahora
@@ -371,6 +410,17 @@ export class Sniper {
         const muzzle = _o.clone();
         this.particles.burst(_o.x, _o.y, _o.z, 10, [0xffffff, 0xffe03a, 0xff9a1f], { speed: 1.4, up: 0.6, size: 0.04, ttl: 0.16, grav: 0 });
 
+        // La caja sorpresa: desde su torre, el disparo la abre (desde otra, solo rebota)
+        const box = this.box.hit(origin, dir);
+        if (box) {
+            this.drawTracer(origin, dir, muzzle, origin.clone().addScaledVector(dir, box.t));
+            if (box.near) this.box.open();
+            else {
+                sfx.play('wall');
+                if (this.hooks.onBox) this.hooks.onBox('far');
+            }
+            return true;
+        }
         // Prólogo: el trigo mágico flotando en el centro del campo es el blanco
         if (this.magic) {
             const t = this.magic.hit(origin, dir);
@@ -381,6 +431,11 @@ export class Sniper {
             }
         }
         if (this.unlocking) return this.fireAtJunk(origin, dir, muzzle);
+        // Lanzacohetes, pistola de rayos y ballesta: su proyectil
+        if (this.special && this.special.mode !== 'bullet') {
+            this.box.launch(this.special, origin, dir, muzzle);
+            return true;
+        }
         const hits = this.field.raycast(origin, dir);
         hits.length = Math.min(hits.length, this.stats.pierce); // lo que atraviesa este rifle
         // Un alienígena (a pie o en ovni pequeño) en la línea de tiro para la bala: cae él y lo
@@ -619,6 +674,9 @@ export class Sniper {
         this.ks.update(dt, rawDt);
         this.flyers.update(dt, time);
         this.walkers.update(dt, time);
+        this.box.update(dt, time);
+        // La ametralladora de la caja dispara sola mientras se mantiene la mira
+        if (this.special && this.special.auto && this.scoped && this.adsK > 0.5 && this.canFire && !this.ks.predator) this.fire();
         this.updateNightSky();
         if (this.crop) this.checkEnd();
         this.turrets.update(dt);

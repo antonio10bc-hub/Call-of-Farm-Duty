@@ -84,6 +84,10 @@ Desde una torre en cada esquina del campo, con control de shooter: la vista es l
   - **De cultivos** (arriba): cada blanco recogido rellena una barra que se vacía cada vez más deprisa (empieza en 6 s y nunca baja de 2,6 s). A las 5, **fragmentación**; a las 10, **racimo** (6 mini granadas); a las 15, **incendiaria** (un fuego que quema lo de dentro y a los alienígenas que pasen). Medallas: COLATERAL xN y DOBLE / TRIPLE / MULTI KILL.
   - **Alienígena** (a la izquierda, una torre de rayas que se encienden de una en una): cada alienígena abatido suma 1 y no se pierde hasta salir del campo. A los 3, **misil Predator** (vista cenital, se guía mirando y el gatillo lo acelera; la vista se corta en seco al explotar); a los 6, **bombardero**; a los 10, **bomba nuclear** (cuenta atrás mientras cae; lo recoge todo, alienígenas y ovnis incluidos, y lo maduro del resto de la granja, con neblina radiactiva).
   - Números en `content/killstreaks.js` (y en DEBUG).
+- **Caja sorpresa** (como la de Kino der Toten en el modo zombis de Black Ops): mientras se recoge, de vez en cuando aparece una caja de madera con «?» pintados al pie de una torre que no es la tuya, con un rayo de luz azul hasta el cielo y un «?» flotando encima; su flecha de torre parpadea en azul. Espera 30 s.
+  - Disparada desde otra torre no hace nada (¡DESDE SU TORRE!). Salta a su torre y dispárale: se abre la tapa, las armas giran por encima cada vez más despacio y la que toca te vuela a las manos.
+  - **Ametralladora** (90 balas, dispara sola mientras mantienes la mira), **lanzacohetes** (6 cohetes que revientan donde dan), **pistola de rayos** (20 rayos verdes con su explosión) o **ballesta explosiva** (8 virotes que se clavan, pitan y revientan al segundo).
+  - Las armas no se recargan: al gastar la munición vuelve tu rifle. Números en `content/mysterybox.js`; los modelos, en `render/wonder.js`.
 - El botón GRANJA vuelve en cualquier momento; lo recogido se guarda.
 
 ### Día y noche
@@ -110,7 +114,7 @@ npm run build      # dist/ para Vercel
 ```
 Las pruebas están por áreas en `tests/*.spec.js` (map, unlock, sniper, killstreaks, ufo, debug, progress y prologue) y abren el juego con `?test`: se dibuja más barato (menos resolución, sin partículas, 30 fps), siempre es de día, el mercader está fuera y la progresión viene abierta (con `?progress`, cerrada, para probarla). En el Mac usan la GPU real (Chromium con Metal); en CI o con `PW_GPU=soft`, WebGL por software.
 
-Web estática con módulos ES y Three.js 0.160 en `public/vendor`. El contenido (tema, cultivos, granja, rachas, armería, mercader y tienda) vive en `public/src/content/`.
+Web estática con módulos ES y Three.js 0.160 en `public/vendor`. El contenido (tema, cultivos, granja, rachas, armería, caja sorpresa, mercader y tienda) vive en `public/src/content/`.
 
 ### Rendimiento
 - **Publicación** (`scripts/build.mjs`): el juego y three.js van en un solo `src/main.<huella>.js` minificado (pedido desde el principio con `modulepreload`) y el CSS en `style.<huella>.css`. Con la huella en el nombre no cambian nunca: Vercel los sirve con caché de un año (`vercel.json`) y el service worker los da de su copia sin esperar a la red; la página siempre se pide a la red primero.
