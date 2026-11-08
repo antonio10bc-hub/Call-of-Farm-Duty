@@ -140,8 +140,9 @@ rig.snap();
 // La sombra de una parcela recién comprada se retira: destellos dorados por donde pasa
 farm.onLandWave = (x, z) => farmFx.burst(x, 0.3, z, 3, [0xffd23f, 0xfff6b0, 0xffffff], { speed: 1.2, up: 3, size: 0.12, ttl: 0.6 });
 // Bala de una torreta automática en el mapa: polvo y paja donde da (y su ruido, una de cada dos)
-// Sin munición, la torreta del campo se queda quieta
+// Sin munición, la torreta del campo se apaga (y cada poco echa una bocanada de humo)
 farm.turretEmpty = (id) => state.turretEmpty(id);
+farm.onTurretOff = (x, y, z) => farmFx.burst(x, y, z, 5, [0x5a5a5a, 0x3a3a3a, 0x8a8a8a], { speed: 0.4, up: 1.4, size: 0.14, ttl: 1.1, grav: -0.6 });
 farm.onTurretHit = (x, z, n) => {
     farmFx.burst(x, 0.4, z, 5, [0xffe9a0, 0xd9b77a, THEME.dust], { speed: 1.4, up: 2, size: 0.08, ttl: 0.4 });
     if (mode === 'farm' && n % 2) sfx.play('turret');

@@ -37,7 +37,7 @@ Las cosas se van abriendo por pasos, cada una con su cartel grande:
   - **En el mapa:** salta de esquina en esquina (a la de al lado, nunca en diagonal), tirotea el campo a ráfagas y recoge sola lo maduro (una mata cada 4 s, con la partida abierta, con su +1).
   - **En el campo de tiro:** va en lo alto de un mástil en las torres (nunca en la tuya) y acribilla matas para acabar antes.
   - Lo suyo no suma a las rachas.
-  - **Munición:** cada mata que recoge (en el mapa o en el campo de tiro) gasta una de sus 60. Sin munición se para, su icono parpadea en rojo en el cartel y sale TORRETA SIN MUNICIÓN; el botón del panel pasa a **RECARGAR**, que se paga con monedas de oro (las de cartón del mercader): 6 vacía, la parte que falta si está a medias (al menos 1). Números en `TURRETS` de `content/farm.js`.
+  - **Munición:** cada mata que recoge (en el mapa o en el campo de tiro) gasta una de sus 60. Sin munición se apaga: se desploma a tirones con los cañones al suelo, su luz pasa de verde a roja parpadeando, echa humo y cada poco intenta arrancar y se vuelve a caer; su icono parpadea en rojo en el cartel y sale TORRETA SIN MUNICIÓN; el botón del panel pasa a **RECARGAR**, que se paga con monedas de oro (las de cartón del mercader): 6 vacía, la parte que falta si está a medias (al menos 1). Números en `TURRETS` de `content/farm.js`.
 
 ### Parcelas en venta
 - **Oeste (15 de oro), este (25 de oro) y noroeste (40 de oro).** Mientras no son tuyas se ven en sombra, con un poste de SE VENDE junto a su portón.
@@ -93,7 +93,7 @@ Desde una torre en cada esquina del campo, con control de shooter: la vista es l
 
 ### Día y noche
 Con el reloj de verdad: 4 min de día y 2 de noche, con amanecer y atardecer de 40 s (naranja abajo, morado arriba y el sol grande y bajo).
-- **De noche:** el cielo se vuelve azul marino con luz de luna; en el campo de tiro sale una luna llena enorme con estrellas, y vienen más alienígenas (el doble de seguidos y hasta 6 a la vez), que brillan en la oscuridad.
+- **De noche:** el cielo se vuelve azul marino con luz de luna; en el campo de tiro sale una luna llena enorme y cuadrada con estrellas, y vienen más alienígenas (el doble de seguidos y hasta 6 a la vez), que brillan en la oscuridad.
 - **El reloj** (arriba a la derecha) enseña el sol o la luna y lo que falta para que cambie.
 - Ajustes en `THEME.night`, `THEME.dusk` y `THEME.cycle` (`content/theme.js`).
 

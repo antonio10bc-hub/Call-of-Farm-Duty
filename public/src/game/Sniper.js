@@ -110,16 +110,14 @@ export class Sniper {
         this.prevPitch = 0;
     }
 
-    // Cielo de noche: luna llena enorme con su halo, detrás del campo y algo alta, y estrellas
-    // (se ven más cuanto más de noche es)
+    // Cielo de noche: luna llena enorme y cuadrada (con sus cráteres y su halo, también cuadrados),
+    // detrás del campo y algo alta, y estrellas (se ven más cuanto más de noche es)
     buildNightSky() {
         const g = (this.nightSky = new THREE.Group());
         const mat = (c, o) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, depthWrite: false, fog: false });
         this.moonMats = [mat(this.theme.night.moon, 1), mat(0xd8d0b0, 1), mat(0xfff6d8, 0.18), mat(0xfff6d8, 0.08)];
         const moon = new THREE.Group();
-        const disc = new THREE.Mesh(box(14, 14, 0.5), this.moonMats[0]);
-        disc.rotation.z = Math.PI / 4;
-        moon.add(disc, new THREE.Mesh(box(14, 14, 0.5), this.moonMats[0]));
+        moon.add(new THREE.Mesh(box(14, 14, 0.5), this.moonMats[0])); // cuadrada, de píxel
         for (const [x, y, s] of [[-2.5, 2, 2.6], [3, -1.5, 3.2], [-1, -4, 1.8], [2, 4, 1.4]]) {
             const c = new THREE.Mesh(box(s, s, 0.6), this.moonMats[1]);
             c.position.set(x, y, 0.1);

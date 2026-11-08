@@ -110,10 +110,16 @@ export class Turrets {
             return false;
         });
         if (!t) return;
+        // Sin munición, apagada en su mástil (desplomada, luz roja y humo) hasta que se recargue
+        // en la granja
+        const armed = !sn.hooks.turretArmed || sn.hooks.turretArmed();
+        if (!t.hopping && (!armed || !t.target)) t.setOff(!armed);
         t.update(dt);
         if (t.hopping) return;
-        // Sin munición, quieta en su mástil hasta que se recargue en la granja
-        const armed = !sn.hooks.turretArmed || sn.hooks.turretArmed();
+        if (t.puff) {
+            const p = t.head.getWorldPosition(new THREE.Vector3());
+            sn.particles.burst(p.x, p.y + 0.2, p.z, 5, [0x5a5a5a, 0x3a3a3a, 0x8a8a8a], { speed: 0.4, up: 1.4, size: 0.12, ttl: 1.1, grav: -0.6 });
+        }
         // Si llegas a su torre, se aparta; y cada poco cambia de torre por su cuenta
         if (t.corner === sn.corner || (armed && (t.hopT -= dt) <= 0 && !t.target)) return this.hop();
         if (sn.unlocking || sn.ending >= 0 || !!sn.ks.predator || (!armed && !t.target)) {

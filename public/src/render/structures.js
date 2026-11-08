@@ -440,7 +440,9 @@ export class Tractor extends VoxelModel {
 // cañones. aimAt(x, z, drop) la gira hacia un punto (en coordenadas de su padre; drop: cuánto
 // más abajo está, para bajar los cañones); fire() da un fogonazo con retroceso. Sin blanco,
 // vigila girando despacio de un lado a otro. Va de un sitio a otro (sacos en el mapa, mástiles en
-// las torres del campo de tiro): esos son modelos aparte (Sandbags, Mast)
+// las torres del campo de tiro): esos son modelos aparte (Sandbags, Mast). setOff(true): apagada
+// (sin munición): se desploma a tirones con los cañones al suelo, la luz verde de encima pasa a
+// roja parpadeando y cada poco intenta arrancar (un tirón hacia arriba) y se vuelve a caer
 export class Turret extends VoxelModel {
     constructor(outlineColor) {
         super(outlineColor);
@@ -467,6 +469,14 @@ export class Turret extends VoxelModel {
         this.flash.position.copy(this.muzzle.position);
         this.flash.visible = false;
         this.guns.add(this.flash);
+        // Luz de estado: verde fija en marcha; roja parpadeando, apagada
+        this.lamp = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, 0.09), new THREE.MeshBasicMaterial({ color: 0x7dff4a }));
+        this.own(this.lamp.material);
+        this.lamp.position.set(0.15, 0.2, -0.17);
+        this.head.add(this.lamp);
+        this.off = false;
+        this.offK = 0; // 0 en marcha → 1 desplomada del todo
+        this.offT = 0;
         this.pitch = 0;
         this.wantPitch = 0;
         this.yaw = Math.random() * Math.PI * 2;
@@ -486,6 +496,22 @@ export class Turret extends VoxelModel {
     fire() {
         this.flashT = 0.07;
         this.kick = 1;
+    }
+
+    // Apagada (sin munición) o de nuevo en marcha (al encenderse, un bote)
+    setOff(off) {
+        if (off === this.off) return;
+        this.off = off;
+        this.offT = 0;
+        if (!off) {
+            this.select();
+            this.idle = 2.5;
+        }
+    }
+
+    // ¿Le toca soltar humo? (apagada, cada poco: quien la lleva pone las partículas)
+    get puff() {
+        return this.off && this.offK >= 1 && this.offT % 1.6 < (this.puffDt || 0);
     }
 
     // Salto a otro sitio (de unos sacos a otros, de un mástil a otro) en arco, como el tirador
@@ -516,11 +542,25 @@ export class Turret extends VoxelModel {
             }
         }
         this.idle += dt;
-        if (this.idle > 2.5) this.want = Math.sin(this.idle * 0.5) * 1.2 + this.t; // vigilando
+        this.puffDt = dt;
+        if (this.off) {
+            this.want = null; // (ni vigila)
+            this.offT += dt;
+            this.offK = Math.min(1, this.offK + dt * 1.2);
+        } else this.offK = Math.max(0, this.offK - dt * 3);
+        if (this.idle > 2.5 && !this.off) this.want = Math.sin(this.idle * 0.5) * 1.2 + this.t; // vigilando
         if (this.want !== null) this.yaw += Math.atan2(Math.sin(this.want - this.yaw), Math.cos(this.want - this.yaw)) * Math.min(1, dt * 12);
         this.head.rotation.y = this.yaw;
         this.pitch += (this.wantPitch - this.pitch) * Math.min(1, dt * 10);
+        // Apagada: se desploma a tirones (4 pasos), con la cabeza ladeada; cada 3,2 s intenta
+        // arrancar (los cañones dan un tirón hacia arriba, tiemblan) y se vuelve a caer
+        const k = Math.ceil(this.offK * 4) / 4, c = this.offT % 3.2;
+        const jerk = this.off && this.offK >= 1 && c < 0.45 ? Math.sin((c / 0.45) * Math.PI) * (1 + Math.sin(c * 90) * 0.25) : 0;
+        if (this.offK > 0) this.pitch = this.pitch * (1 - k) + (0.85 - jerk * 0.45) * k;
         this.guns.rotation.x = this.pitch;
+        this.head.rotation.z = k * 0.22 - jerk * 0.1;
+        this.head.position.y = 0.68 - k * 0.07;
+        this.lamp.material.color.setHex(!this.off ? 0x7dff4a : (this.offT * 3) % 2 < 1 ? 0xff3e1a : 0x3a1a12);
         this.kick = Math.max(0, this.kick - dt * 8);
         this.guns.position.z = -this.kick * 0.1;
         this.flashT -= dt;

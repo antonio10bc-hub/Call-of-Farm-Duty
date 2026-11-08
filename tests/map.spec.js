@@ -210,6 +210,7 @@ test('torreta: con el campo al máximo, la mejora extra pone una torreta que va 
     await expect.poll(() => page.evaluate(() => game.state.fields.wheat.ammo), { timeout: 12_000 }).toBe(0);
     await expect(page.locator('#medals')).toContainText('TORRETA SIN MUNICIÓN');
     await expect(page.locator('#sign-wheat')).toHaveClass(/turret-empty/);
+    await expect.poll(() => page.evaluate(() => [game.farm.fields.wheat.turret.off, game.farm.fields.wheat.turret.offK])).toEqual([true, 1]);
     const stopped = await page.evaluate(() => game.state.wheat);
     await page.evaluate(() => game.select({ field: 'wheat' }));
     await expect(page.locator('#upgrade-label')).toHaveText('RECARGAR');
@@ -222,6 +223,7 @@ test('torreta: con el campo al máximo, la mejora extra pone una torreta que va 
     expect(await page.evaluate(() => [game.state.fields.wheat.ammo, game.state.items.gold])).toEqual([60, 4]);
     await expect(page.locator('#upgrade-label')).toHaveText('AUTOMÁTICO');
     await expect(page.locator('#sign-wheat')).not.toHaveClass(/turret-empty/);
+    await expect.poll(() => page.evaluate(() => game.farm.fields.wheat.turret.off)).toBe(false);
     // En el campo de tiro, un mástil en cada torre y la torreta en uno, recogiendo matas sin sumar a la racha
     await page.evaluate(() => { game.select(null); game.harvest('wheat'); });
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');

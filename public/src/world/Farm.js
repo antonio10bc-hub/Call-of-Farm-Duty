@@ -886,11 +886,13 @@ export class Farm {
     // onTurretHit(x, z, n). empty: sin munición
     updateTurrets(v, dt, ripe, empty = false) {
         const t = v.turret;
+        if (!t.hopping) t.setOff(empty);
         t.update(dt);
         if (t.hopping) return;
-        // Sin munición: quieta en su esquina, sin disparar (hasta que se recargue)
+        // Sin munición: apagada en su esquina, sin disparar y echando humo (hasta que se recargue)
         if (empty) {
             t.tgt = null;
+            if (t.puff && this.onTurretOff) this.onTurretOff(t.root.position.x, t.root.position.y + 0.9 * t.root.scale.y, t.root.position.z);
             return;
         }
         if ((t.hopT -= dt) <= 0 && !t.tgt) {
