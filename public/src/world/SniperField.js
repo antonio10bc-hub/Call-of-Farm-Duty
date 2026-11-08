@@ -379,8 +379,9 @@ export class SniperField {
         this.paintPlants(C, [C.stalk, 0xe8d08a]);
     }
 
-    // Vacas: cada una corre por el prado a su ritmo; la ubre se le va hinchando (swell) y, llena,
-    // es el blanco (s.x, s.y, s.z: la ubre)
+    // Vacas: cada una corre por el prado a su ritmo; la ubre se le va hinchando (swell) hasta
+    // hacerse gigante, la vaca acaba botando sobre ella y, llena, es el blanco (s.x, s.y, s.z: la
+    // ubre; s.ur, s.uh: su tamaño)
     spawnCows(count) {
         if (!this.herd) {
             this.herd = new THREE.Group();
@@ -391,7 +392,7 @@ export class SniperField {
             const { x, z } = this.freeSpot(this.targets, 2.4);
             const cow = buildCow(ink);
             this.herd.add(cow.g);
-            this.targets.push({ kind: 'cow', cow, x, y: 0.55, z, cx: x, cz: z, ry: Math.random() * 6, goal: null, speed: 0, pace: 1 + Math.random() * 2.8,
+            this.targets.push({ kind: 'cow', cow, x, y: 0.55, z, ur: 0.34, uh: 0.3, cx: x, cz: z, ry: Math.random() * 6, goal: null, speed: 0, pace: 1 + Math.random() * 2.8,
                 swell: Math.random() * 0.4, rate: 1 / (a + Math.random() * (b - a)), alive: true, grow: -0.5 - i * 0.12, landed: false, flash: 0, dying: 0 });
         }
     }
@@ -424,11 +425,14 @@ export class SniperField {
             c.g.rotation.y = s.ry;
             c.g.scale.setScalar((s.g || 0.0001) * 1.15);
             animateCow(c, dt, time, v, s.swell);
-            // La ubre, en el mundo (el blanco)
+            if (c.boing && this.onBoing) this.onBoing(s);
+            // La ubre, en el mundo (el blanco): crece y sube con la vaca (s.ur, s.uh: su tamaño)
             const sin = Math.sin(s.ry), cos = Math.cos(s.ry), back = -0.18 * 1.15;
             s.x = s.cx + sin * back;
             s.z = s.cz + cos * back;
-            s.y = 0.55 * 1.15;
+            s.y = (c.lift + 0.62 - 0.1 * c.us) * 1.15;
+            s.ur = Math.max(0.34, 0.19 * c.us * 1.15);
+            s.uh = Math.max(0.3, 0.16 * c.us * 1.15);
             if (s.flash > 0) c.udder.scale.multiplyScalar(1 + s.flash * 0.3);
         }
     }
@@ -870,12 +874,12 @@ function segDist(x, z, ax, az, bx, bz) {
 // Caja de impacto de un blanco: se ciñe a la silueta de la mata de trigo (tallos y espigas) o
 // al tomate (algo más grande que él, que se ve enorme pero es lo que hay que darle)
 function hitBox(s) {
+    if (s.kind === 'cow') return [s.x - s.ur, s.y - s.uh, s.z - s.ur, s.x + s.ur, s.y + s.uh, s.z + s.ur]; // (la ubre, del tamaño que tenga)
     if (!s.plant) return [s.x - 0.36, 0, s.z - 0.36, s.x + 0.36, 1.55, s.z + 0.36];
     if (s.kind === 'pumpkin') {
         const r = s.size * 0.66;
         return [s.x - r, 0, s.z - r, s.x + r, s.size * 0.85, s.z + r];
     }
-    if (s.kind === 'cow') return [s.x - 0.34, 0.25, s.z - 0.34, s.x + 0.34, 0.85, s.z + 0.34];
     if (s.kind === 'corn') return [s.x - 0.2, s.y - 0.3, s.z - 0.2, s.x + 0.2, s.y + 0.3, s.z + 0.2];
     const r = s.size * 0.62;
     return [s.x - r, s.y - r, s.z - r, s.x + r, s.y + r, s.z + r];

@@ -1552,3 +1552,61 @@ body.cine .aim-btn { display: none !important; }
 @keyframes turretEmpty { 50% { background-color: var(--cream); } }
 .upgrade-btn.turret-up.turret-empty { background: #c8402e; }
 .medal.empty { color: #fff; background: #c8402e; border-color: var(--ink); }
+
+/* ---------- Armamento: cabe entero en la pantalla, sin desplazar ni alejar ----------
+   Arriba, una barra fina: VOLVER a la izquierda (como GRANJA en el campo de tiro), el título
+   pequeño en el centro. Debajo, tres columnas: las clases, el arma con sus accesorios y las
+   rachas con EQUIPAR CLASE. En el móvil, todo en una columna apretada. */
+.streaks-screen { padding: 0 16px 12px; gap: 10px; overflow-y: auto; }
+.streaks-screen .end-title { position: relative; width: calc(100% + 32px); margin: 0 -16px; padding: 12px 0 10px; font-size: 26px; text-shadow: 0 3px 0 var(--orange), 0 6px 0 var(--ink), 3px 0 0 var(--ink), -3px 0 0 var(--ink), 0 -3px 0 var(--ink); border-bottom-width: 3px; }
+.streaks-screen #btn-streaks-close { position: absolute; left: 12px; top: 9px; z-index: 4; width: auto; gap: 8px; padding: 7px 12px 6px 8px; font-size: 11px; border-width: 3px; box-shadow: 0 4px 0 var(--ink); }
+.streaks-screen #btn-streaks-close .home-icon { width: 18px; height: 18px; }
+.loadout { width: min(1180px, 100%); grid-template-columns: 170px minmax(0, 1fr); gap: 14px; }
+.lo-class { min-height: 40px; padding: 8px 10px; }
+.lo-edit { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-areas: "head head" "gun streaks"; gap: 10px 14px; align-items: start; }
+.lo-head { grid-area: head; }
+.lo-gun { grid-area: gun; }
+.lo-streaks { grid-area: streaks; }
+.lo-gun, .lo-streaks { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.lo-sec .lo-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.lo-tip { font-size: 6px; color: #a89878; white-space: nowrap; }
+.lo-equip { margin-top: 0; align-self: flex-end; padding: 12px 20px; font-size: 12px; }
+.lo-sec { gap: 8px; padding: 9px 10px; }
+.lo-sec .lo-h { padding-bottom: 6px; font-size: 8px; }
+.lo-slot { padding: 8px 10px; }
+.lo-main .lo-slot img { width: 192px; height: 96px; }
+.lo-acc .lo-slot img { height: 64px; }
+.lo-ks { padding: 8px 6px; }
+.lo-ks .ks-ico { width: 28px; height: 28px; }
+.lo-ks { grid-template-columns: 28px 1fr; }
+@media (max-width: 1000px) {
+    .loadout { grid-template-columns: 140px minmax(0, 1fr); }
+    .lo-tip { display: none; }
+    .lo-main .lo-slot img { width: 128px; height: 64px; }
+}
+@media (max-width: 760px) {
+    .streaks-screen { padding: 0 10px 10px; gap: 8px; }
+    .streaks-screen .end-title { width: calc(100% + 20px); margin: 0 -10px; padding: 12px 0 9px 70px; font-size: 20px; }
+    .streaks-screen #btn-streaks-close { left: 8px; top: 8px; padding: 6px 8px 5px 6px; font-size: 9px; }
+    .streaks-screen #btn-streaks-close .home-icon { width: 14px; height: 14px; }
+    .loadout { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+    .lo-classes { flex-direction: row; overflow-x: auto; gap: 6px; }
+    .lo-class { flex: none; min-height: 34px; padding: 6px 8px; font-size: 8px; }
+    .lo-edit { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "gun" "streaks"; gap: 7px; }
+    .lo-gun, .lo-streaks { gap: 7px; }
+    .lo-classes { flex-wrap: wrap; overflow: visible; }
+    .lo-head { font-size: 11px; }
+    .lo-sec { gap: 6px; padding: 6px 8px; }
+    .lo-sec .lo-h { padding-bottom: 4px; font-size: 7px; }
+    .lo-slot { padding: 5px 8px; gap: 8px; }
+    .lo-main .lo-slot img { width: 128px; height: 64px; }
+    .lo-acc .lo-slot { flex-direction: row; align-items: center; }
+    .lo-acc .lo-slot img { width: 64px; height: 32px; flex: none; }
+    .lo-acc .lo-slot em { display: none; }
+    .lo-acc .lo-slot b { font-size: 8px; }
+    .lo-ks { padding: 5px 5px; gap: 2px 6px; }
+    .lo-ks .ks-ico { width: 22px; height: 22px; }
+    .lo-ks { grid-template-columns: 22px 1fr; }
+    .lo-ks .kc-n b { font-size: 11px; }
+    .lo-equip { align-self: stretch; padding: 10px; font-size: 11px; }
+}

@@ -66,16 +66,34 @@ export function buildCow(ink) {
 }
 
 // Un fotograma de la vaca: galope al ritmo de su velocidad (speed, m/s) y la ubre hinchada swell
-// (0 vacía, 1 a punto; temblando cuando está llena)
+// (0 vacía, 1 a punto). La ubre crece hasta hacerse gigante (UDDER veces): pasada la mitad ya no
+// le caben las patas debajo, así que la vaca se sube encima y va botando por el prado sobre ella
+// como en una pelota saltarina (las patas colgando, la ubre aplastándose en cada bote). Deja en
+// c.lift lo alta que va (el cuerpo), en c.us lo grande que es la ubre y en c.boing true el
+// fotograma en que toca el suelo.
+export const UDDER = 6;
 export function animateCow(c, dt, time, speed, swell) {
     c.step += dt * (2 + speed * 3.2);
     const k = Math.min(1, speed / 3), sw = 0.3 + k * 0.5;
-    c.legs[0].rotation.x = c.legs[3].rotation.x = Math.sin(c.step) * sw;
-    c.legs[1].rotation.x = c.legs[2].rotation.x = -Math.sin(c.step) * sw;
-    c.body.position.y = Math.abs(Math.sin(c.step)) * 0.08 * k;
-    c.body.rotation.x = Math.sin(c.step * 2) * 0.04 * k;
-    c.head.rotation.x = Math.sin(c.step) * 0.08 + (speed < 0.3 ? 0.35 : 0); // quieta: pasta
-    c.tail.rotation.z = Math.sin(time * 4 + c.step) * 0.4;
-    const s = 0.6 + swell * 0.9, wob = swell >= 1 ? Math.sin(time * 14 + c.step) * 0.07 : 0;
-    c.udder.scale.set(s + wob, s - wob, s + wob);
+    const us = 0.6 + swell * swell * (UDDER - 0.6), ride = Math.min(1, Math.max(0, (swell - 0.45) / 0.4));
+    // Botes sobre la ubre (más deprisa cuanto más corre)
+    c.hop = (c.hop || 0) + dt * (5.5 + speed * 1.2) * ride;
+    const air = Math.abs(Math.sin(c.hop)), contact = 1 - Math.min(1, air * 4);
+    c.boing = ride > 0.5 && air < 0.25 && !c.down;
+    c.down = air < 0.25;
+    // Patas: galope normal, o colgando y pataleando en el aire
+    const gallop = Math.sin(c.step) * sw, dangle = 0.35 + Math.sin(time * 9 + c.step) * 0.25;
+    c.legs[0].rotation.x = c.legs[3].rotation.x = gallop * (1 - ride) + dangle * ride;
+    c.legs[1].rotation.x = c.legs[2].rotation.x = -gallop * (1 - ride) + -dangle * ride;
+    // Lo que tiene que subir para que la ubre (con sus pezones) quepa debajo, y el bote
+    const lift = Math.max(0, 0.27 * us - 0.62);
+    c.lift = lift + air * 0.7 * ride + Math.abs(Math.sin(c.step)) * 0.08 * k * (1 - ride);
+    c.us = us;
+    c.body.position.y = c.lift;
+    c.body.rotation.x = Math.sin(c.step * 2) * 0.04 * k * (1 - ride) + Math.cos(c.hop) * 0.18 * ride;
+    c.head.rotation.x = Math.sin(c.step) * 0.08 + (speed < 0.3 && ride < 0.2 ? 0.35 : 0) - ride * 0.25; // quieta: pasta; botando: cabeza arriba
+    c.tail.rotation.z = Math.sin(time * 4 + c.step) * 0.4 + ride * Math.sin(time * 12) * 0.5;
+    // La ubre: tiembla cuando está llena y se aplasta al tocar el suelo
+    const wob = swell >= 1 ? Math.sin(time * 14 + c.step) * 0.07 * us : 0, sq = contact * ride * 0.28;
+    c.udder.scale.set(us * (1 + sq * 0.6) + wob, us * (1 - sq) - wob, us * (1 + sq * 0.6) + wob);
 }

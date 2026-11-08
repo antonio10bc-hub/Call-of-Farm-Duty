@@ -131,7 +131,7 @@ test('maíz: matas altas en hileras con sus mazorcas arriba', { tag: '@full' }, 
     expect(errors).toEqual([]);
 });
 
-test('vacas: corren por el prado; con la ubre llena, un tiro a la ubre da un cubo de leche', { tag: '@full' }, async ({ page }) => {
+test('vacas: corren por el prado; la ubre se hace gigante y botan encima; llena, un tiro a la ubre da un cubo de leche', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await enterCrop(page, 'milk');
     // Una vaca por cubo, corriendo (cada una se mueve)
@@ -145,6 +145,8 @@ test('vacas: corren por el prado; con la ubre llena, un tiro a la ubre da un cub
     // Una, quieta y con la ubre llena: a la ubre
     await page.evaluate(() => { const s = game.sniper.field.targets[0]; s.swell = 1; s.pace = s.speed = 0; s.goal = { x: s.cx, z: s.cz }; });
     expect(await page.evaluate(() => game.sniper.field.hittable(game.sniper.field.targets[0]))).toBe(true);
+    // La ubre llena es gigante y la vaca va subida encima, botando
+    await expect.poll(() => page.evaluate(() => { const c = game.sniper.field.targets[0].cow; return c.us >= 5.9 && c.lift > 0.9; })).toBe(true);
     await aimAndShoot(page, '(() => { const s = game.sniper.field.targets[0]; return { x: s.x, y: s.y, z: s.z }; })()');
     await expect.poll(() => page.evaluate(() => game.state.items.milk)).toBe(1);
     // Ordeñada: sigue ahí (no desaparece), con la ubre vaciándose

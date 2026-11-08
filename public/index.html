@@ -173,23 +173,28 @@
             <div id="lo-classes" class="lo-classes"></div>
             <div class="lo-edit">
                 <div class="lo-head"><b id="class-name"></b><span class="coins-badge static gold-badge"><span class="ico gold-ico"></span><b id="gear-gold">0</b></span></div>
-                <section class="lo-sec">
-                    <div class="lo-h" data-es="ARMA PRINCIPAL">PRIMARY WEAPON</div>
-                    <div id="lo-main" class="lo-main"></div>
-                </section>
-                <section class="lo-sec">
-                    <div class="lo-h" data-es="ACCESORIOS">ATTACHMENTS</div>
-                    <div id="lo-acc" class="lo-acc"></div>
-                </section>
-                <section class="lo-sec lo-sec-crop">
-                <div class="lo-h lo-h-crop" data-es="RACHAS DE CULTIVOS · TOCA PARA PONER O QUITAR">CROP STREAKS · TAP TO ADD OR REMOVE</div>
-                <div id="lo-ks-crop" class="lo-ks-row"></div>
-                </section>
-                <section class="lo-sec lo-sec-alien">
-                <div class="lo-h lo-h-alien" data-es="RACHAS ALIENÍGENAS · TOCA PARA PONER O QUITAR">ALIEN STREAKS · TAP TO ADD OR REMOVE</div>
-                <div id="lo-ks-alien" class="lo-ks-row"></div>
-                </section>
-                <button id="class-equip" class="btn lo-equip"></button>
+                <!-- El arma con sus accesorios (a la izquierda) y las rachas con EQUIPAR (a la derecha) -->
+                <div class="lo-gun">
+                    <section class="lo-sec lo-sec-main">
+                        <div class="lo-h" data-es="ARMA PRINCIPAL">PRIMARY WEAPON</div>
+                        <div id="lo-main" class="lo-main"></div>
+                    </section>
+                    <section class="lo-sec lo-sec-acc">
+                        <div class="lo-h" data-es="ACCESORIOS">ATTACHMENTS</div>
+                        <div id="lo-acc" class="lo-acc"></div>
+                    </section>
+                </div>
+                <div class="lo-streaks">
+                    <section class="lo-sec lo-sec-crop">
+                        <div class="lo-h lo-h-crop"><span data-es="RACHAS DE CULTIVOS">CROP STREAKS</span><small class="lo-tip" data-es="TOCA PARA PONER O QUITAR">TAP TO ADD OR REMOVE</small></div>
+                        <div id="lo-ks-crop" class="lo-ks-row"></div>
+                    </section>
+                    <section class="lo-sec lo-sec-alien">
+                        <div class="lo-h lo-h-alien"><span data-es="RACHAS ALIENÍGENAS">ALIEN STREAKS</span><small class="lo-tip" data-es="TOCA PARA PONER O QUITAR">TAP TO ADD OR REMOVE</small></div>
+                        <div id="lo-ks-alien" class="lo-ks-row"></div>
+                    </section>
+                    <button id="class-equip" class="btn lo-equip"></button>
+                </div>
             </div>
         </div>
         <!-- Lista de un tipo de pieza para la clase (se compra con oro) -->

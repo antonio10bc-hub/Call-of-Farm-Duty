@@ -163,10 +163,15 @@ export class Sniper {
     }
 
 
-    // Lo que avisa el campo: a una vaca se le ha llenado la ubre (muge, a veces)
+    // Lo que avisa el campo: a una vaca se le ha llenado la ubre (muge, a veces) y cada bote de
+    // una vaca sobre su ubre gigante (¡boing!, de vez en cuando, y un poco de polvo)
     wireField() {
         this.field.onFull = () => {
             if (Math.random() < 0.5) this.hooks.sfx.play('moo');
+        };
+        this.field.onBoing = (s) => {
+            if (Math.random() < 0.18) this.hooks.sfx.play('boing');
+            this.particles.burst(s.cx, 0.1, s.cz, 4, [0xd8c8a0, 0x9ad962], { speed: 1.2, up: 0.8, size: 0.08, ttl: 0.35 });
         };
     }
 
