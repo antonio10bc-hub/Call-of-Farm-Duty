@@ -200,11 +200,11 @@ export const FARM = {
             locked: { land: 'nw2', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
             // sheaves: ovejas del campo de tiro (un ovillo cada una)
             levels: [
-                { w: 6, d: 5, sheaves: 4, arena: 1, sign: 0x9a6a3a },
-                { w: 10, d: 9, sheaves: 6, arena: 1.25, sign: 0xb07a44 },
-                { w: 15, d: 14, sheaves: 10, arena: 1.55, sign: 0x5a9e32 },
-                { w: 20, d: 19, sheaves: 15, arena: 1.9, sign: 0x3a7ec8 },
-                { w: 28, d: 28, sheaves: 22, arena: 2.4, sign: 0xc8402e },
+                { w: 6, d: 5, sheaves: 6, arena: 1, sign: 0x9a6a3a },
+                { w: 10, d: 9, sheaves: 10, arena: 1.25, sign: 0xb07a44 },
+                { w: 15, d: 14, sheaves: 18, arena: 1.55, sign: 0x5a9e32 },
+                { w: 20, d: 19, sheaves: 28, arena: 1.9, sign: 0x3a7ec8 },
+                { w: 28, d: 28, sheaves: 40, arena: 2.4, sign: 0xc8402e },
             ],
         },
     ],

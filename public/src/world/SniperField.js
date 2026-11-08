@@ -450,7 +450,7 @@ export class SniperField {
         }
         const ink = outline(this.theme.outline), [a, b] = CROPS.wool.swell;
         for (let i = 0; i < count; i++) {
-            const { x, z } = this.freeSpot(this.targets, 2.4), ang = Math.random() * Math.PI * 2, sp = 1.6 + Math.random() * 2.2;
+            const { x, z } = this.freeSpot(this.targets, count > 20 ? 1.6 : 2.4), ang = Math.random() * Math.PI * 2, sp = 1.6 + Math.random() * 2.2;
             const sheep = buildSheep(ink);
             this.herd.add(sheep.g);
             this.targets.push({ kind: 'sheep', cow: sheep, x, y: 0.7, z, ur: 0.4, uh: 0.4, cx: x, cz: z, ry: ang, vx: Math.sin(ang) * sp, vz: Math.cos(ang) * sp, pace: sp, turn: 1 + Math.random() * 3, rad: 0.5,

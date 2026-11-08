@@ -55,7 +55,7 @@ export function buildSheep(ink) {
 // ya no le llegan las patas al suelo: va dentro de la bola, que rueda (y bota un poco) mientras
 // las patas patalean. Deja en c.lift lo alta que va, en c.us lo grande que es el vellón y en
 // c.r su radio (en las medidas de la oveja)
-export const WOOL_MAX = 4.2;
+export const WOOL_MAX = 2.2; // (una bola, pero sin pasarse: así caben muchas)
 export function animateSheep(c, dt, time, speed, fluff) {
     c.step += dt * (2.5 + speed * 3.4);
     const k = Math.min(1, speed / 3), us = 0.75 + fluff * fluff * (WOOL_MAX - 0.75);

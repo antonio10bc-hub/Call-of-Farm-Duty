@@ -176,7 +176,7 @@ test('ovejas: corren al azar y rebotan entre ellas; el vellón se hace una bola 
     await page.evaluate(() => { for (const s of game.sniper.field.targets) { s.swell = 0; s.rate = 0; } });
     expect(await page.evaluate(() => game.sniper.field.targets.some((s) => game.sniper.field.hittable(s)))).toBe(false);
     await page.evaluate(() => { const s = game.sniper.field.targets[0]; s.swell = 1; s.pace = 0; s.vx = s.vz = 0; s.turn = 99; });
-    await expect.poll(() => page.evaluate(() => game.sniper.field.targets[0].cow.us > 4)).toBe(true);
+    await expect.poll(() => page.evaluate(() => game.sniper.field.targets[0].cow.us > 2)).toBe(true);
     await aimAndShoot(page, '(() => { const s = game.sniper.field.targets[0]; return { x: s.x, y: s.y, z: s.z }; })()');
     await expect.poll(() => page.evaluate(() => game.state.items.wool)).toBe(1);
     expect(errors).toEqual([]);
