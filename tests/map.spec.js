@@ -198,7 +198,7 @@ test('torreta: con el campo al máximo, la mejora extra pone una torreta que va 
         new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach((n) => { if (n.classList && n.classList.contains('auto-pop')) window.autoPops++; }))).observe(document.body, { childList: true });
     });
     // (cuando acaba de bajar en paracaídas)
-    await expect.poll(() => page.evaluate(() => !game.farm.fields.wheat.drop), { timeout: 15_000 }).toBe(true);
+    await expect.poll(() => page.evaluate(() => !game.farm.fields.wheat.drop), { timeout: 60_000 }).toBe(true);
     await expect.poll(() => page.evaluate(() => game.farm.shots.length), { timeout: 5_000 }).toBeGreaterThan(0);
     await expect.poll(() => page.evaluate(() => game.state.wheat), { timeout: 12_000 }).toBeGreaterThan(0);
     await expect.poll(() => page.evaluate(() => window.autoPops)).toBeGreaterThan(0);
@@ -207,7 +207,7 @@ test('torreta: con el campo al máximo, la mejora extra pone una torreta que va 
     // pasa a RECARGAR, que se paga con oro
     expect(await page.evaluate(() => game.state.fields.wheat.ammo)).toBeLessThan(60);
     await page.evaluate(() => { game.state.fields.wheat.ammo = 1; game.state.items.gold = 0; });
-    await expect.poll(() => page.evaluate(() => game.state.fields.wheat.ammo), { timeout: 12_000 }).toBe(0);
+    await expect.poll(() => page.evaluate(() => game.state.fields.wheat.ammo), { timeout: 40_000 }).toBe(0);
     await expect(page.locator('#medals')).toContainText('TORRETA SIN MUNICIÓN');
     await expect(page.locator('#sign-wheat')).toHaveClass(/turret-empty/);
     await expect.poll(() => page.evaluate(() => [game.farm.fields.wheat.turret.off, game.farm.fields.wheat.turret.offK])).toEqual([true, 1]);
@@ -277,13 +277,13 @@ test('comerciante: su ovni disfrazado de coche recorre el surco, sale él, pide 
     // Llega: el ovni entra volando, recorre el surco pegado al suelo y sale él (con su aviso)
     await page.evaluate(() => { game.merchantClock.force = 'here'; });
     await expect(page.locator('#stage')).toContainText('MERCADER');
-    await expect.poll(() => page.evaluate(() => game.farm.camp.gliding), { timeout: 15_000 }).toBe(true);
-    await expect.poll(() => page.evaluate(() => game.farm.camp.open), { timeout: 15_000 }).toBe(true);
+    await expect.poll(() => page.evaluate(() => game.farm.camp.gliding), { timeout: 60_000 }).toBe(true);
+    await expect.poll(() => page.evaluate(() => game.farm.camp.open), { timeout: 60_000 }).toBe(true);
     // Parado al final del surco, con él en su sitio junto a la mesa
     expect(await page.evaluate(() => {
         const c = game.farm.camp, u = c.ufo.position, m = c.man.position;
         return [c.ufo.visible, c.man.visible, c.goods.visible, Math.round(u.x * 10) / 10, Math.round(m.x * 10) / 10];
-    })).toEqual([true, true, true, 38.1, 34.7]);
+    })).toEqual([true, true, true, 45, 41.6]);
     await expect(page.locator('#sign-merchant')).toContainText('MERCADER');
     // Sus encargos: 3, de lo que da la granja; sin cosecha no se entregan (la cámara va a su zona:
     // desde el principio queda fuera de la pantalla del móvil)

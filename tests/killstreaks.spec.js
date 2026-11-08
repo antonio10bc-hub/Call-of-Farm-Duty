@@ -18,7 +18,7 @@ test('racha de granadas: la barra sale al recoger y se vacía; a las 5, 10 y 15 
     let before = await page.evaluate(() => game.state.wheat);
     await page.evaluate(() => game.sniper.addStreak(5));
     await expect(page.locator('#medals')).toContainText('FRAGMENTACIÓN');
-    await expect.poll(() => page.evaluate(() => game.state.wheat), { timeout: 5_000 }).toBeGreaterThan(before);
+    await expect.poll(() => page.evaluate(() => game.state.wheat), { timeout: 20_000 }).toBeGreaterThan(before);
     // Las siguientes, a las 10 y a las 15 (con el campo tan lleno, la de fragmentación puede
     // pasar ella sola de las 10: cada granada se lanza aquí a mano)
     await page.evaluate(() => { game.sniper.streak = 6; game.sniper.streakT = 99; });
@@ -194,7 +194,7 @@ test('racha alienígena de 6 y 10: bombardero que bombardea el campo y bomba nuc
     await expect.poll(() => page.evaluate(() => !!game.sniper.ks.plane)).toBe(true);
     await expect.poll(() => page.evaluate(() => game.sniper.ks.bombs.length > 0), { timeout: 8_000 }).toBe(true);
     await expect.poll(() => page.evaluate(() => !game.sniper.ks.plane), { timeout: 25_000 }).toBe(true); // en el campo grande el avión tarda más en cruzar
-    await expect.poll(() => page.evaluate(() => game.state.wheat), { timeout: 5_000 }).toBeGreaterThan(0);
+    await expect.poll(() => page.evaluate(() => game.state.wheat), { timeout: 20_000 }).toBeGreaterThan(0);
     // Nuclear a los 10: cuenta atrás de 5 y lo que quede, recogido; también caen los alienígenas
     // del campo y los ovnis del cielo
     await page.evaluate(() => { game.sniper.aliens = 9; game.sniper.addAlien(1); });

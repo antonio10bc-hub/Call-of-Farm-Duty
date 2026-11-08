@@ -202,8 +202,9 @@ test('caja sorpresa: sale en otra torre; desde lejos no se abre, desde su torre 
     await page.evaluate((k) => { game.sniper.corner = k; game.sniper.eyeOf(k, game.sniper.pos); }, i);
     await expect.poll(() => page.evaluate(() => game.sniper.canFire && !game.sniper.moving)).toBe(true);
     await aimAndShoot(page, center);
-    await expect.poll(() => page.evaluate(() => game.sniper.box.state)).toBe('spin');
-    await expect.poll(() => page.evaluate(() => game.sniper.special && game.sniper.special.id), { timeout: 10_000 }).toBeTruthy();
+    // (gira o, si ya ha girado, ha dado el arma)
+    await expect.poll(() => page.evaluate(() => game.sniper.box.state === 'spin' || !!game.sniper.special), { timeout: 20_000 }).toBe(true);
+    await expect.poll(() => page.evaluate(() => game.sniper.special && game.sniper.special.id), { timeout: 40_000 }).toBeTruthy();
     await expect(page.locator('#ammo')).toHaveClass(/special/);
     const name = await page.evaluate(() => game.sniper.special.name);
     await expect(page.locator('#ammo-name')).toHaveText(name);
@@ -221,7 +222,7 @@ test('caja sorpresa: sale en otra torre; desde lejos no se abre, desde su torre 
     expect(await page.evaluate(() => [document.body.classList.contains('scoped'), game.sniper.rifle.root.visible, game.sniper.fov > 30])).toEqual([false, true, true]);
     await expect(page.locator('#scope')).toBeHidden();
     await page.mouse.up({ button: 'right' });
-    await expect.poll(() => page.evaluate(() => game.state.wheat), { timeout: 5_000 }).toBeGreaterThan(before);
+    await expect.poll(() => page.evaluate(() => game.state.wheat), { timeout: 20_000 }).toBeGreaterThan(before);
     // La ballesta: el virote se clava en un alienígena (y va pegado a él) y luego revienta
     await page.evaluate(() => {
         // (en la esquina vecina del campo, donde no hay cultivos que tapen)
@@ -233,7 +234,7 @@ test('caja sorpresa: sale en otra torre; desde lejos no se abre, desde su torre 
     await expect.poll(() => page.evaluate(() => game.sniper.canFire)).toBe(true);
     await aimAndShoot(page, '(() => { const p = window._alien.g.position; return { x: p.x, y: p.y + 1.1, z: p.z }; })()');
     await expect.poll(() => page.evaluate(() => game.sniper.box.shots.some((x) => x.stick && x.fuse >= 0 && !!x.lamp))).toBe(true);
-    await expect.poll(() => page.evaluate(() => game.sniper.aliens), { timeout: 5_000 }).toBe(aliens + 1);
+    await expect.poll(() => page.evaluate(() => game.sniper.aliens), { timeout: 25_000 }).toBe(aliens + 1);
     await page.evaluate(() => { const sn = game.sniper; sn.endSpecial(); sn.box.pick = 0; sn.giveSpecial(sn.box.weapon); });
     // Sin munición, otra vez el rifle
     await page.evaluate(() => { game.sniper.ammo = 1; });

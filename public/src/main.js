@@ -2782,7 +2782,9 @@ function frame(now) {
         renderer.render(farmScene, rig.camera, dt);
     }
     if (mode === 'snipe' || mode === 'toFarm') {
-        sniper.update(dt);
+        // (el campo de tiro, en pasos cortos aunque el fotograma sea largo: la puntería y los golpes,
+        // igual de precisos)
+        for (let left = dt; left > 1e-6; left -= 1 / 20) sniper.update(Math.min(left, 1 / 20));
         // (las armas de la caja no llevan mirilla de francotirador: se apunta con la suya y la
         // mirilla de siempre en el centro)
         const sniperScope = sniper.scoped && !sniper.special;

@@ -56,7 +56,7 @@ async function enterField(page) {
     await openFarm(page);
     await harvestFirst(page);
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
-    await expect.poll(() => page.evaluate(() => game.sniper.field.sheaves.every((s) => s.landed)), { timeout: 20_000 }).toBe(true);
+    await expect.poll(() => page.evaluate(() => game.sniper.field.sheaves.every((s) => s.landed)), { timeout: 60_000 }).toBe(true);
     // Sin ovnis pequeños ni alienígenas a pie que se crucen en los disparos de las pruebas (sus
     // pruebas los sacan a mano)
     await page.evaluate(() => { game.sniper.flyers.next = Infinity; game.sniper.walkers.reset(); game.sniper.walkers.next = Infinity; });
@@ -132,8 +132,8 @@ async function aimAndShoot(page, where) {
     await centerMouse(page);
     await page.mouse.down({ button: 'right' });
     await expect.poll(() => page.evaluate(() => game.sniper.adsK === 1 && game.sniper.spread < 0.002), { timeout: 20_000 }).toBe(true);
-    await page.evaluate(look);
     await frames(page);
+    await page.evaluate(look); // (justo antes de soltar: sin que la mira se mueva entre medias)
     await page.mouse.up({ button: 'right' });
 }
 
@@ -143,7 +143,7 @@ async function enterBigField(page) {
     await page.evaluate(() => { game.state.wheat = 12; for (let i = 0; i < 4; i++) game.upgradeField('wheat'); game.state.wheat = 0; game.select(null); });
     await harvestFirst(page);
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
-    await expect.poll(() => page.evaluate(() => game.sniper.field.sheaves.every((s) => s.landed)), { timeout: 20_000 }).toBe(true);
+    await expect.poll(() => page.evaluate(() => game.sniper.field.sheaves.every((s) => s.landed)), { timeout: 60_000 }).toBe(true);
     // Sin ovnis pequeños ni alienígenas a pie que se crucen en los disparos de las pruebas (sus
     // pruebas los sacan a mano)
     await page.evaluate(() => { game.sniper.flyers.next = Infinity; game.sniper.walkers.reset(); game.sniper.walkers.next = Infinity; });

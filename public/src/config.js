@@ -56,6 +56,8 @@ export const CONFIG = {
         slowmoTime: 1.1,
     },
     sim: {
-        maxFrame: 1 / 20,
+        // Lo más que avanza el juego en un fotograma. En las pruebas (WebGL por software, pocos
+        // fotogramas por segundo) algo más, para que el tiempo de juego siga al de verdad
+        maxFrame: TEST ? 1 / 8 : 1 / 20,
     },
 };
