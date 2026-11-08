@@ -71,6 +71,14 @@
         <button id="btn-debug" class="debug-btn">DEBUG</button>
         <!-- Vista global: toda la cuadrícula de parcelas de un vistazo (y otra vez, de vuelta) -->
         <button id="btn-map" class="map-btn"><span class="ico map-ico"></span><span data-es="MAPA">MAP</span></button>
+        <!-- Al volver tras un rato: lo que ha pasado mientras no estabas -->
+        <div id="welcome" class="welcome hidden" role="dialog" aria-labelledby="welcome-title">
+            <div class="welcome-card">
+                <h2 id="welcome-title"></h2>
+                <ul id="welcome-list"></ul>
+                <button id="welcome-ok" class="btn" data-es="¡A LA GRANJA!">TO THE FARM!</button>
+            </div>
+        </div>
         <div id="panel" class="panel hidden">
             <button id="panel-close" class="panel-x" aria-label="Close" data-es-aria="Cerrar">X</button>
             <div id="panel-title" class="panel-title"></div>

@@ -17,7 +17,7 @@ export class Life extends VoxelModel {
             const bow = i === 0;
             const g = this.duck(bow);
             this.root.add(g);
-            this.ducks.push({ g, a: (i / 7) * Math.PI * 2, r: 0.35 + (i % 3) * 0.18, speed: (0.05 + (i % 4) * 0.012) * (i % 2 ? 1 : -1), bob: i });
+            this.ducks.push({ g, a: (i / 7) * Math.PI * 2, r: 0.35 + (i % 3) * 0.18, speed: (0.05 + (i % 4) * 0.012) * (i % 2 ? 1 : -1), bob: i, mode: 'swim', wait: bow ? 20 + Math.random() * 20 : Infinity, t: 0 });
         }
         // Peces: unos pocos, cada uno salta de vez en cuando en algún sitio con agua
         this.fish = [];
@@ -90,10 +90,51 @@ export class Life extends VoxelModel {
         this.part(this.wheel, 0.4, 0.4, 0.7, 0x5a3a24, 0, 0, 0);
     }
 
+    // El paseo del pato del lacito: de vez en cuando nada hasta la orilla, sale a tierra, se da
+    // una vuelta anadeando por la orilla y vuelve al agua (out, walk, in)
+    stroll(d, dt) {
+        d.t += dt;
+        if (d.mode === 'walk') d.a += 0.07 * dt; // (anda por la orilla)
+        if (d.mode === 'swim' && (d.wait -= dt) <= 0) {
+            d.mode = 'out';
+            d.t = 0;
+            d.e0 = d.r;
+        } else if (d.mode === 'out' && d.t > 4) {
+            d.mode = 'walk';
+            d.t = 0;
+        } else if (d.mode === 'walk' && d.t > 12) {
+            d.mode = 'in';
+            d.t = 0;
+        } else if (d.mode === 'in' && d.t > 4) {
+            d.mode = 'swim';
+            d.r = 0.35;
+            d.wait = 40 + Math.random() * 40;
+        }
+    }
+
+    // Dónde va el pato que pasea (fuera del corro): por la elipse del lago, a la distancia e
+    place(d, time, c, s) {
+        const e = d.mode === 'out' ? d.e0 + (1.09 - d.e0) * Math.min(1, d.t / 4) : d.mode === 'in' ? 1.09 + (0.35 - 1.09) * Math.min(1, d.t / 4) : 1.09;
+        const at = (a, e) => {
+            const eu = Math.cos(a) * LAKE.ru * e, ev = Math.sin(a) * LAKE.rv * e;
+            return toXZ(LAKE.u + eu * c - ev * s, LAKE.v + eu * s + ev * c);
+        };
+        const [x, z] = at(d.a, e), ahead = d.mode === 'walk' ? at(d.a + 0.05, e) : at(d.a, d.mode === 'out' ? e + 0.05 : e - 0.05);
+        const onLand = !isWater(x, z), walk = onLand && d.mode !== 'swim';
+        const y = onLand ? groundAt(x, z) + Math.abs(Math.sin(time * 9)) * 0.08 : this.level + Math.sin(time * 2 + d.bob) * 0.03;
+        d.g.position.set(x, y, z);
+        d.g.rotation.set(walk ? Math.sin(time * 9) * 0.18 : 0, Math.atan2(-(ahead[1] - z), ahead[0] - x), 0);
+    }
+
     update(dt, time) {
         // Patos: dan vueltas por el lago, cabeceando con las olas
         const c = Math.cos(LAKE.rot), s = Math.sin(LAKE.rot);
         for (const d of this.ducks) {
+            if (d.wait !== Infinity) this.stroll(d, dt);
+            if (d.mode !== 'swim') {
+                this.place(d, time, c, s);
+                continue;
+            }
             d.a += d.speed * dt;
             const eu = Math.cos(d.a) * LAKE.ru * d.r, ev = Math.sin(d.a) * LAKE.rv * d.r * 1.4;
             const [x, z] = toXZ(LAKE.u + eu * c - ev * s, LAKE.v + eu * s + ev * c);

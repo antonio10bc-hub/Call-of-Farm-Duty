@@ -877,13 +877,14 @@ const SOON_LANDS = FARM.lands.filter((l) => l.soon).map((l) => {
 });
 
 // Ficha del edificio o del campo tocado
-function select(what) {
+// stay: sin mover la cámara (el toque largo)
+function select(what, stay = false) {
     // El granero es el cuartel de las rachas de bajas: abre su menú (sin abrir, se abre)
     if (what && (what.structure === 'barn' || what.structure === 'silo') && !state.open('barn')) return openBarn();
     if (what && what.structure === 'barn') {
         select(null);
         farm.byId.barn.select();
-        rig.focus(farm.byId.barn.def.x, farm.byId.barn.def.z + 1);
+        if (!stay) rig.focus(farm.byId.barn.def.x, farm.byId.barn.def.z + 1);
         return openStreaks();
     }
     selected = what;
@@ -899,8 +900,8 @@ function select(what) {
     if (what.structure) {
         const m = farm.byId[what.structure];
         m.select();
-        rig.focus(m.def.x, m.def.z + 1);
-    } else {
+        if (!stay) rig.focus(m.def.x, m.def.z + 1);
+    } else if (!stay) {
         const f = farm.fields[what.field].rect;
         rig.focus(f.cx, f.cz + 1);
     }
@@ -1399,7 +1400,21 @@ addEventListener('pointerdown', (e) => {
             const [a, b] = [...pointers.values()];
             pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) };
             pan = null;
-        } else pan = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, moved: false };
+        } else {
+            pan = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, moved: false };
+            // Toque largo (medio segundo sin mover el dedo): la ficha de lo que hay debajo, sin
+            // mover la cámara
+            const mine = pan;
+            setTimeout(() => {
+                if (pan !== mine || mine.moved || pointers.size !== 1) return;
+                ray.setFromCamera(ndcOf(mine.x, mine.y), rig.camera);
+                const hit = farm.pick(ray);
+                if (!hit || hit.merchant) return;
+                mine.long = true;
+                vibrate('pickup');
+                select(hit, true);
+            }, 500);
+        }
         return;
     }
     if (mode !== 'snipe' || e.pointerType === 'mouse') return; // el ratón va por mousedown
@@ -1451,7 +1466,7 @@ function endPointer(e, cancel) {
     pointers.delete(e.pointerId);
     if (pointers.size < 2) pinch = null;
     if (mode === 'farm' && pan && e.pointerId === pan.id) {
-        if (!pan.moved && !cancel) tapMap(e.clientX, e.clientY);
+        if (!pan.moved && !pan.long && !cancel) tapMap(e.clientX, e.clientY);
         pan = null;
     }
     // Soltar el botón de mira dispara (cancelado, solo la baja)
@@ -2825,6 +2840,7 @@ function frame(now) {
         farmParticles.update(dt);
         farmParticles.sync();
         updateLandTour(dt);
+        if (welcomeFrom && farm.introT > 2.6) showWelcome();
         updateAmbient(dt);
         rig.update(dt);
         farm.setFar(rig.zoom > 4); // (muy lejos: sin contornos de lo pequeño)
@@ -2860,6 +2876,44 @@ function frame(now) {
         if (mode !== 'farm') renderer.render(sniper.scene, sniper.camera, dt);
     }
 }
+
+// ---------- Resumen al volver ----------
+// Se apunta cuándo se jugó por última vez; al volver tras un rato (al abrir o al volver a la
+// pestaña), una tarjeta con el tiempo fuera, lo que está listo para recoger, lo que está a punto y
+// si ha llegado el mercader
+const SEEN = 'cofd-seen', AWAY = 3 * 60 * 1000;
+const seenAt = () => { try { return Number(localStorage.getItem(SEEN)) || 0; } catch { return 0; } };
+const markSeen = () => { try { localStorage.setItem(SEEN, String(Date.now())); } catch { /* sin almacenamiento */ } };
+let welcomeFrom = CONFIG.test ? 0 : seenAt();
+setInterval(() => { if (document.visibilityState === 'visible') markSeen(); }, 10000);
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') markSeen();
+    else if (Date.now() - seenAt() > AWAY) welcomeFrom = seenAt();
+});
+function showWelcome() {
+    const away = Date.now() - welcomeFrom;
+    welcomeFrom = 0;
+    markSeen();
+    if (away < AWAY || mode !== 'farm' || inCine()) return;
+    const items = [];
+    for (const def of FARM.fields) {
+        const f = state.fields[def.id];
+        if (!f.unlocked) continue;
+        const crop = CROPS[def.crop];
+        if (state.isReady(def.id)) items.push(`${ico(crop.icon)}<span>${L(`${def.name}: READY, ${f.left} ${crop.unit} TO HARVEST`, `${def.name}: LISTO, ${f.left} ${crop.unit} PARA RECOGER`)}</span>`);
+        else items.push(`${ico(crop.icon)}<span>${L(`${def.name}: READY IN ${fmt((1 - state.progress(def.id)) * crop.growTime)}`, `${def.name}: LISTO EN ${fmt((1 - state.progress(def.id)) * crop.growTime)}`)}</span>`);
+    }
+    if (merchantClock.here) items.push(`${ico('merchant')}<span>${L('THE MERCHANT IS HERE, WITH GOLD FOR YOUR CROPS', 'EL MERCADER ESTÁ AQUÍ, CON ORO PARA TU COSECHA')}</span>`);
+    if (!items.length) return;
+    const m = Math.round(away / 60000), h = Math.floor(m / 60);
+    const t = h ? `${h} H ${m % 60} MIN` : `${m} MIN`;
+    $('welcome-title').textContent = L(`WELCOME BACK! YOU WERE AWAY ${t}`, `¡HOLA DE NUEVO! HAS ESTADO FUERA ${t}`);
+    $('welcome-list').innerHTML = items.map((x) => `<li>${x}</li>`).join('');
+    $('welcome').classList.remove('hidden');
+    sfx.play('achievement');
+}
+tapBtn('welcome-ok', () => $('welcome').classList.add('hidden'));
+$('welcome').addEventListener('pointerdown', (e) => e.stopPropagation());
 
 // La casa como se dejó en la tienda
 applyLook();
