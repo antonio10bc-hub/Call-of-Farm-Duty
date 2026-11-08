@@ -105,9 +105,7 @@ export class RetroRenderer {
         this.lastH = sh;
         const w = Math.max(1, sw);
         const h = Math.max(1, sh);
-        const { targetPixels, maxScale } = this.cfg;
-        const lines = this.lines || targetPixels;
-        const scale = Math.min(maxScale, Math.max(1, Math.round(Math.min(w, h) / lines)));
+        const scale = (this.scale = this.scaleFor(w, h));
         const lw = Math.ceil(w / scale);
         const lh = Math.ceil(h / scale);
         this.gl.setSize(lw, lh, false);
@@ -117,6 +115,29 @@ export class RetroRenderer {
         this.width = lw;
         this.height = lh;
         if (this.onResize) this.onResize(lw, lh);
+    }
+
+    // El tamaño del píxel: el de siempre (entero: lines en el lado corto de la pantalla) o, con
+    // detail > 1 (el mapa alejado), algo más fino: en pasos que caen justos en los píxeles de la
+    // pantalla (en las de alta densidad, de medio en medio) y nunca más de un tercio más fino
+    scaleFor(w, h) {
+        const { targetPixels, maxScale } = this.cfg;
+        const base = Math.min(maxScale, Math.max(1, Math.round(Math.min(w, h) / (this.lines || targetPixels))));
+        const f = this.detail || 1;
+        if (f <= 1) return base;
+        const dpr = Math.min(3, Math.max(1, Math.round(window.devicePixelRatio || 1)));
+        const s = Math.max(1, Math.round((base / f) * dpr) / dpr);
+        return s < base / 1.34 ? base : s;
+    }
+
+    // Más detalle (1 = el de siempre): solo se rehace si cambia el tamaño del píxel
+    setDetail(f) {
+        if (f === (this.detail || 1)) return;
+        this.detail = f;
+        if (this.lastW && this.scaleFor(this.lastW, this.lastH) !== this.scale) {
+            this.lastW = 0;
+            this.resize();
+        }
     }
 
     // Tamaño del píxel (Ajustes, en el ordenador): líneas en el lado corto de la pantalla

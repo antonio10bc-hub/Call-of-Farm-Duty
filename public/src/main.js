@@ -2730,6 +2730,9 @@ function frame(now) {
     }
 
     autoHarvest(dt);
+    // El mapa alejado, con algo más de detalle (el píxel se afina un poco, hasta un 25 %, según se
+    // aleja la vista; MAPA la aleja hasta ~10)
+    renderer.setDetail(mode === 'farm' ? 1 + Math.round(Math.min(1, Math.max(0, (rig.zoom - 1.6) / 6)) * 5) * 0.05 : 1);
     if (mode === 'farm') {
         checkStory();
         updateCall(dt);

@@ -128,6 +128,9 @@ Las pruebas están por áreas en `tests/*.spec.js` (map, unlock, sniper, killstr
 
 Web estática con módulos ES y Three.js 0.160 en `public/vendor`. El contenido (tema, cultivos, granja, rachas, armería, caja sorpresa, mercader y tienda) vive en `public/src/content/`.
 
+### Píxel
+- Render retro de píxel fino (unas 340 líneas en el lado corto, `RetroRenderer`). Al alejar la vista del mapa (hasta MAPA), el píxel se afina un poco, hasta un 25 % más de detalle, en pasos que caen justos en los píxeles de la pantalla.
+
 ### Rendimiento
 - **Publicación** (`scripts/build.mjs`): el juego y three.js van en un solo `src/main.<huella>.js` minificado (pedido desde el principio con `modulepreload`) y el CSS en `style.<huella>.css`. Con la huella en el nombre no cambian nunca: Vercel los sirve con caché de un año (`vercel.json`) y el service worker los da de su copia sin esperar a la red; la página siempre se pide a la red primero.
 - **Llamadas de dibujo:** las piezas fijas de cada modelo (granero, silo, casa, tractor, postes, torres, ovnis y el campamento del mercader con su surco) se juntan en una malla por material (`bake` en `render/VoxelModel.js`). Las nubes son dos mallas instanciadas.
