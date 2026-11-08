@@ -219,17 +219,43 @@ export class Farm {
         const rl = new THREE.InstancedMesh(box(0.3, 0.16, 0.3), this.runwayMat, lights.length);
         lights.forEach((p, i) => rl.setMatrixAt(i, _d.matrix.makeTranslation(p.x, 0.1, p.z)));
         this.compound.root.add(rl);
+        // Los focos: una torreta con su poste, su plataforma y el foco arriba, que gira con el haz
+        // (el haz sale de su lente, hacia delante y hacia abajo; solo de noche)
         const beamMat = new THREE.MeshBasicMaterial({ color: 0xfff6c0, transparent: true, opacity: 0.2, depthWrite: false, blending: THREE.AdditiveBlending });
-        this.searchlights = [[11, 4, 4.4], [24.5, 12.5, 3.4]].map(([x, z, y], i) => {
-            const at = stretchLocal(x, z), g = new THREE.Group(), beam = new THREE.Mesh(box(0.9, 0.9, 16), beamMat);
-            g.position.set(at.x, y, at.z);
-            beam.position.set(0, -2.4, -8);
-            beam.rotation.x = 0.3;
-            g.add(beam);
-            g.visible = false;
-            g.userData.k = i;
-            this.compound.root.add(g);
-            return g;
+        this.lensMat = new THREE.MeshBasicMaterial({ color: 0x8a8670 });
+        const part = (g, w, h, d, c, x, y, z) => {
+            const m = new THREE.Mesh(box(w, h, d), typeof c === 'number' ? toon(c) : c);
+            m.position.set(x, y, z);
+            g.add(m);
+            const o = new THREE.Mesh(box(w + OUTLINE * 2, h + OUTLINE * 2, d + OUTLINE * 2), outline(theme.outline));
+            o.position.copy(m.position);
+            g.add(o);
+            return m;
+        };
+        this.searchlights = [[3, 18, 4.2], [27, 18, 4.2]].map(([x, z, H], i) => {
+            const at = stretchLocal(x, z), tower = new THREE.Group();
+            tower.position.set(at.x, 0, at.z);
+            this.compound.root.add(tower);
+            for (const [a, b] of [[-0.4, -0.4], [0.4, -0.4], [-0.4, 0.4], [0.4, 0.4]]) part(tower, 0.12, H, 0.12, 0x3a3030, a, H / 2, b);
+            part(tower, 1.3, 0.14, 1.3, 0x7a6a5a, 0, H, 0);
+            part(tower, 0.3, 0.5, 0.3, 0x3a3030, 0, H + 0.3, 0);
+            const head = new THREE.Group();
+            head.position.set(0, H + 0.75, 0);
+            tower.add(head);
+            const tilt = new THREE.Group();
+            tilt.rotation.x = 0.32; // (mirando un poco hacia abajo)
+            head.add(tilt);
+            part(tilt, 0.7, 0.6, 0.8, 0x4a4a52, 0, 0, 0);
+            const lens = new THREE.Mesh(box(0.56, 0.46, 0.06), this.lensMat);
+            lens.position.set(0, 0, -0.42);
+            tilt.add(lens);
+            const beam = new THREE.Mesh(box(0.6, 0.5, 16), beamMat);
+            beam.position.set(0, 0, -8.45);
+            beam.scale.set(1, 1, 1);
+            tilt.add(beam);
+            beam.visible = false;
+            head.userData = { k: i, beam };
+            return head;
         });
         // La vida del agua: patos (uno con lacito), peces que saltan y el molino
         this.life = new Life(theme.outline);
@@ -1272,8 +1298,9 @@ export class Farm {
         this.life.update(dt, time);
         const night = (this.nightK || 0) > 0.35;
         this.runwayMat.color.setHex(night ? (Math.sin(time * 3) > 0 ? 0xffe066 : 0xff9a3a) : 0x6a5a3a);
+        this.lensMat.color.setHex(night ? 0xfff6c0 : 0x8a8670);
         for (const g of this.searchlights) {
-            g.visible = night;
+            g.userData.beam.visible = night;
             g.rotation.y = time * 0.45 + g.userData.k * Math.PI;
         }
         for (const post of Object.values(this.landPosts)) post.update(dt, time);
