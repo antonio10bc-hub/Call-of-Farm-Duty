@@ -125,6 +125,20 @@ export class RifleModel extends VoxelModel {
         this.reloadT = this.reloadLen = time;
     }
 
+    // Cambio de arma: la que se va baja girando hacia un lado y se queda abajo (swapOut); la
+    // nueva sube desde abajo con un giro (swapIn; rack: y se le monta el cerrojo)
+    swapOut() {
+        this.swap = { t: 0, dir: -1 };
+    }
+
+    swapIn(rack = false) {
+        this.swap = { t: 0, dir: 1 };
+        if (rack) {
+            this.boltT = -0.15;
+            this.boltSpeed = 0.8;
+        }
+    }
+
     // speed: lo deprisa que va el cerrojo (1 = el de serie; más con su mejora)
     fire(speed = 1) {
         this.kick = 1;
@@ -153,6 +167,23 @@ export class RifleModel extends VoxelModel {
         this.bolt.position.z = 0.06 + b * 0.12;
         this.bolt.rotation.x = b * -0.8;
         this.root.rotation.z += -b * 0.15;
+        if (this.swap) {
+            const W = this.swap;
+            W.t += dt;
+            if (W.dir < 0) {
+                const k = Math.min(1, W.t / 0.3), e = k * k;
+                this.root.position.y -= e * 0.5;
+                this.root.position.x += e * 0.15;
+                this.root.rotation.z -= e * 1.2;
+                this.root.rotation.x -= e * 0.6;
+            } else {
+                const k = Math.min(1, W.t / 0.45), e = 1 - (1 - k) ** 3;
+                this.root.position.y -= (1 - e) * 0.5;
+                this.root.rotation.z += (1 - e) * 1.0;
+                this.root.rotation.x += Math.sin(k * Math.PI) * 0.3;
+                if (k >= 1) this.swap = null;
+            }
+        }
         // Recarga: el cargador baja, sale y vuelve a entrar; el arma se ladea
         if (this.reloadT > 0) {
             this.reloadT = Math.max(0, this.reloadT - dt);

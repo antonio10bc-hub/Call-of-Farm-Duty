@@ -76,15 +76,18 @@ export class SniperField {
         this.plants = []; // matas (de tomate, de maíz...), cada una con sus blancos en targets
         this.junk = null;
         this.introT = 0;
-        // Torres: un poco por fuera de cada esquina, girada hacia el centro
+        // Torres: un poco por fuera de cada esquina, girada hacia el centro, con su plataforma de
+        // la caja sorpresa en la barandilla izquierda (ledge: dónde, en el mundo)
         this.towers = this.poly.map((p) => {
             const dx = p.x - this.cx, dz = p.z - this.cz, d = Math.hypot(dx, dz);
-            const t = new Tower(theme.outline, true);
+            const t = new Tower(theme.outline, true, true);
             const x = p.x + (dx / d) * FIELD.towerOut, z = p.z + (dz / d) * FIELD.towerOut;
             t.root.position.set(x, 0, z);
             t.root.rotation.y = Math.atan2(this.cx - x, this.cz - z) + Math.PI;
             this.root.add(t.root);
-            return { x, z, floor: 3.2, model: t };
+            t.root.updateMatrixWorld(true);
+            const L = t.root.localToWorld(new THREE.Vector3(t.ledge.x, t.ledge.y, t.ledge.z));
+            return { x, z, floor: 3.2, model: t, ledge: { x: L.x, y: L.y, z: L.z } };
         });
         // La atalaya del desbloqueo: sola y muy lejos, mirando al montón de chatarra
         const F = FIELD.farTower, ft = new Tower(theme.outline, true);

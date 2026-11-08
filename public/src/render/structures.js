@@ -370,8 +370,10 @@ export class Ufo extends VoxelModel {
 }
 
 export class Tower extends VoxelModel {
-    // open: sin tejadillo y con los postes a la altura de la barandilla (desde ella se dispara)
-    constructor(outlineColor, open = false) {
+    // open: sin tejadillo y con los postes a la altura de la barandilla (desde ella se dispara).
+    // ledge: con una plataforma pequeña de más por fuera de la barandilla izquierda (vista desde
+    // dentro, mirando a -z; la de la caja sorpresa), sobre dos riostras y con su barandilla baja
+    constructor(outlineColor, open = false, ledge = false) {
         super(outlineColor);
         const WOOD = 0x9a6a3a, WOOD2 = 0x7a4f2a, ROOF = 0x8a3a2a, b = this.root;
         const H = 3.2, S = 0.8;
@@ -387,6 +389,18 @@ export class Tower extends VoxelModel {
         for (const s of [-1, 1]) {
             this.part(b, 1.9, 0.08, 0.08, WOOD2, 0, H + 0.6, s * S, false);
             this.part(b, 0.08, 0.08, 1.9, WOOD2, s * S, H + 0.6, 0, false);
+        }
+        if (ledge) {
+            const LX = -1.5;
+            this.part(b, 1.0, 0.12, 1.1, WOOD, LX, H + 0.02, 0);
+            for (const z of [-0.36, 0, 0.36]) this.part(b, 0.96, 0.02, 0.06, WOOD2, LX, H + 0.09, z, false); // (tablones)
+            for (const s of [-1, 1]) {
+                this.part(b, 0.08, 1.35, 0.08, WOOD2, LX + 0.42, H - 0.5, s * 0.45, false).rotation.z = 0.84;
+                this.part(b, 0.08, 0.5, 0.08, WOOD2, LX - 0.46, H + 0.25, s * 0.5, false);
+                this.part(b, 0.94, 0.06, 0.06, WOOD2, LX, H + 0.48, s * 0.5, false);
+            }
+            this.part(b, 0.06, 0.06, 1.06, WOOD2, LX - 0.46, H + 0.48, 0, false);
+            this.ledge = { x: LX, y: H + 0.08, z: 0 };
         }
         // Tejadillo a cuatro aguas
         if (!open) [2.3, 1.7, 1.1, 0.5].forEach((s, i) => this.part(b, s, 0.2, s, ROOF, 0, H + 1.2 + i * 0.2, 0));

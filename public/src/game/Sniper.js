@@ -176,6 +176,7 @@ export class Sniper {
     enter(what) {
         this.setArena(what.arena || 1);
         this.special = null;
+        this.dropT = this.swapT = 0;
         this.loadout = what.loadout;
         this.stats = loadoutStats(what.loadout);
         this.rifle.setLoadout(what.loadout);
@@ -224,25 +225,46 @@ export class Sniper {
         this.stats = { ...this.base, zoom: WONDER_ZOOM, ads: 0.15, steady: 0.3, lens: null, bolt: w.rate, pierce: w.pierce || 1, damage: 3, size: w.ammo, reload: 0, regen: 0, tracer: w.tracer || this.base.tracer, recoil: w.mode === 'rocket' ? 1.6 : 0.45 };
         this.ammo = w.ammo;
         this.reloadT = this.bolt = 0;
+        this.dropT = this.swapT = 0;
         this.rifle.setSpecial(w.id);
+        this.rifle.swapIn(); // (sube a las manos desde abajo)
         this.tracer.material.color.setHex(this.stats.tracer);
+        this.hooks.sfx.play('reloaded');
         if (this.hooks.onWonder) this.hooks.onWonder(w);
     }
 
-    // Se acabó la munición del arma de la caja: vuelve el rifle (con el cargador lleno)
+    // Sin munición en el arma de la caja: tras el último disparo (dropT) baja de las manos y sale
+    // volando torre abajo (MysteryBox.throwAway); al poco (swapT) sube el fusil girando y se le
+    // monta el cerrojo (endSpecial)
+    dropSpecial() {
+        if (!this.special) return;
+        this.rifle.swapOut();
+        this.box.throwAway(this.special.id);
+        this.hooks.sfx.play('whoosh');
+        this.hooks.sfx.play('scopeOut');
+        this.swapT = 0.38;
+    }
+
+    // Vuelve el rifle (con el cargador lleno)
     endSpecial() {
         if (!this.special) return;
         this.special = null;
         this.stats = this.base;
         this.base = null;
         this.ammo = this.stats.size;
+        this.dropT = this.swapT = 0;
         this.rifle.setLoadout(this.loadout);
+        this.rifle.swapIn(true);
+        this.bolt = 0.5; // (mientras sube y se monta el cerrojo)
         this.tracer.material.color.setHex(this.stats.tracer);
+        this.hooks.sfx.play('reloaded');
+        setTimeout(() => this.hooks.sfx.play('bolt'), 260);
         if (this.hooks.onWonder) this.hooks.onWonder(null);
     }
 
     leave() {
         this.box.reset();
+        this.dropT = this.swapT = 0;
         if (this.special) {
             this.special = null;
             this.stats = this.base;
@@ -382,7 +404,7 @@ export class Sniper {
         const { sfx } = this.hooks;
         this.bolt = this.stats.bolt;
         if (this.special) {
-            if (--this.ammo <= 0) setTimeout(() => this.endSpecial(), 450);
+            if (--this.ammo <= 0) this.dropT = 0.45; // (sin balas: la tira y vuelve el fusil)
         } else if (!this.unlocking && --this.ammo <= 0) setTimeout(() => this.reload(), 1000 * Math.min(0.3, this.stats.bolt));
         // Retroceso: la vista salta hacia arriba (y un poco de lado) y vuelve con un muelle
         this.kickV += S.recoil * this.stats.recoil * (this.scoped ? 30 : 22);
@@ -675,6 +697,8 @@ export class Sniper {
         this.flyers.update(dt, time);
         this.walkers.update(dt, time);
         this.box.update(dt, time);
+        if (this.dropT > 0 && (this.dropT -= rawDt) <= 0) this.dropSpecial();
+        if (this.swapT > 0 && (this.swapT -= rawDt) <= 0) this.endSpecial();
         this.updateNightSky();
         if (this.crop) this.checkEnd();
         this.turrets.update(dt);

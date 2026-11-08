@@ -158,6 +158,8 @@ test('caja sorpresa: sale en otra torre; desde lejos no se abre, desde su torre 
     // Aparece en una torre que no es la tuya, con su aviso y la torre marcada
     const i = await page.evaluate(() => game.sniper.box.spawn());
     expect(i).not.toBe(await page.evaluate(() => game.sniper.corner));
+    // En la plataforma pequeña de la barandilla izquierda de su torre
+    expect(await page.evaluate((k) => { const p = game.sniper.box.holder.position, L = game.sniper.field.towers[k].ledge; return [p.y > 3, Math.hypot(p.x - L.x, p.z - L.z) < 0.01]; }, i)).toEqual([true, true]);
     await expect(page.locator('#stage')).toContainText('CAJA SORPRESA');
     await expect(page.locator('#corners i.box')).toHaveCount(1);
     await expect.poll(() => page.evaluate(() => game.sniper.box.pop)).toBeGreaterThan(0.9);
@@ -195,6 +197,7 @@ test('caja sorpresa: sale en otra torre; desde lejos no se abre, desde su torre 
     await expect.poll(() => page.evaluate(() => game.sniper.canFire)).toBe(true);
     await aimAndShoot(page, sheaf);
     await expect.poll(() => page.evaluate(() => game.sniper.special)).toBe(null);
+    expect(await page.evaluate(() => game.sniper.box.thrown.length)).toBe(1); // (la bazuca, tirada torre abajo)
     await expect(page.locator('#ammo')).not.toHaveClass(/special/);
     await expect(page.locator('#medals')).toContainText('OTRA VEZ EL RIFLE');
     expect(errors).toEqual([]);

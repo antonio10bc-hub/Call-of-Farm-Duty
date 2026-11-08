@@ -14,13 +14,14 @@ export class Shockwaves {
         }
     }
 
-    spawn(x, z, color, radius = 2.5, ttl = 0.45) {
+    // (y: a qué altura; en el suelo si no se dice)
+    spawn(x, z, color, radius = 2.5, ttl = 0.45, y = 0.03) {
         const it = this.items.find((w) => !w.mesh.visible) || this.items[0];
         it.life = 0;
         it.ttl = ttl;
         it.radius = radius;
         it.mesh.material.color.setHex(color);
-        it.mesh.position.set(x, 0.03, z);
+        it.mesh.position.set(x, y, z);
         it.mesh.visible = true;
     }
 
