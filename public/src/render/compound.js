@@ -157,7 +157,8 @@ export class Compound extends VoxelModel {
         keep.push(rotor);
     }
 
-    // El campamento: dos tiendas, el antiaéreo entre sacos, un depósito de agua y farolas
+    // El campamento: dos tiendas, el antiaéreo entre sacos, un depósito de agua y farolas (cada
+    // cosa con su sitio, sin pisarse)
     camp(g) {
         const tent = (x, z, ry) => {
             const t = new THREE.Group();
@@ -168,22 +169,22 @@ export class Compound extends VoxelModel {
             [[3.1, 1.2], [2.0, 1.5], [0.9, 1.8]].forEach(([w, y]) => this.part(t, w, 0.32, 2.5, OLIVE2, 0, y, 0));
             this.part(t, 0.7, 0.8, 0.06, 0x2a2a1e, 0, 0.4, 1.22, false);
         };
-        tent(-1.6, -1.2, 0.1);
-        tent(1.8, -2.4, -0.2);
+        tent(-2.3, -2.0, 0.1);
+        tent(2.0, -2.6, -0.2);
         // Antiaéreo
         for (let k = 0; k < 9; k++) {
             const a = (k / 9) * Math.PI * 2;
-            this.part(g, 0.5, 0.3, 0.32, k % 2 ? SAND : SAND2, 1.6 + Math.sin(a) * 0.95, 0.15, 1.6 + Math.cos(a) * 0.95).rotation.y = a;
+            this.part(g, 0.5, 0.3, 0.32, k % 2 ? SAND : SAND2, 2.2 + Math.sin(a) * 0.95, 0.15, 2.0 + Math.cos(a) * 0.95).rotation.y = a;
         }
-        this.part(g, 0.7, 0.4, 0.7, 0x5a5a56, 1.6, 0.4, 1.6);
-        for (const s of [-0.15, 0.15]) this.part(g, 0.08, 0.08, 1.3, DARK, 1.6 + s, 0.85, 1.15, false).rotation.x = 0.6;
+        this.part(g, 0.7, 0.4, 0.7, 0x5a5a56, 2.2, 0.4, 2.0);
+        for (const s of [-0.15, 0.15]) this.part(g, 0.08, 0.08, 1.3, DARK, 2.2 + s, 0.85, 1.55, false).rotation.x = 0.6;
         // Depósito de agua en alto
-        for (const sx of [-1, 1]) for (const sz of [-1, 1]) this.part(g, 0.12, 2.4, 0.12, 0x6a4a2a, -2.4 + sx * 0.6, 1.2, 1.5 + sz * 0.6, false);
-        this.part(g, 1.5, 1.1, 1.5, 0x8a9aa0, -2.4, 3.0, 1.5);
-        this.part(g, 1.1, 0.25, 1.1, 0x6a7a80, -2.4, 3.66, 1.5);
-        this.lamp(g, 0, 2.6);
-        this.drum(g, -0.5, 0.6);
-        this.drum(g, -0.1, 0.9, OLIVE, true);
+        for (const sx of [-1, 1]) for (const sz of [-1, 1]) this.part(g, 0.12, 2.4, 0.12, 0x6a4a2a, -2.8 + sx * 0.6, 1.2, 2.2 + sz * 0.6, false);
+        this.part(g, 1.5, 1.1, 1.5, 0x8a9aa0, -2.8, 3.0, 2.2);
+        this.part(g, 1.1, 0.25, 1.1, 0x6a7a80, -2.8, 3.66, 2.2);
+        this.lamp(g, -0.2, 3.0);
+        this.drum(g, -0.6, 0.6);
+        this.drum(g, -0.1, 0.95, OLIVE, true);
     }
 
     // Hangar en arco, abierto hacia la pista (+x), con su foco y bidones

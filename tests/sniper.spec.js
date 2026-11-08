@@ -192,6 +192,19 @@ test('caja sorpresa: sale en otra torre; desde lejos no se abre, desde su torre 
     await expect(page.locator('#scope')).toBeHidden();
     await page.mouse.up({ button: 'right' });
     await expect.poll(() => page.evaluate(() => game.state.wheat), { timeout: 5_000 }).toBeGreaterThan(before);
+    // La ballesta: el virote se clava en un alienígena (y va pegado a él) y luego revienta
+    await page.evaluate(() => {
+        // (en la esquina vecina del campo, donde no hay cultivos que tapen)
+        const sn = game.sniper, W = sn.walkers, w = W.spawn(), f = sn.field, c = f.poly[(sn.corner + 1) % f.poly.length];
+        sn.endSpecial(); sn.box.pick = 2; sn.giveSpecial(sn.box.weapon);
+        w.x = c.x + (f.cx - c.x) * 0.03; w.z = c.z + (f.cz - c.z) * 0.03; w.speed = 0; w.beam = 0; W.place(w); window._alien = w;
+    });
+    const aliens = await page.evaluate(() => game.sniper.aliens);
+    await expect.poll(() => page.evaluate(() => game.sniper.canFire)).toBe(true);
+    await aimAndShoot(page, '(() => { const p = window._alien.g.position; return { x: p.x, y: p.y + 1.1, z: p.z }; })()');
+    await expect.poll(() => page.evaluate(() => game.sniper.box.shots.some((x) => x.stick && x.fuse >= 0 && !!x.lamp))).toBe(true);
+    await expect.poll(() => page.evaluate(() => game.sniper.aliens), { timeout: 5_000 }).toBe(aliens + 1);
+    await page.evaluate(() => { const sn = game.sniper; sn.endSpecial(); sn.box.pick = 0; sn.giveSpecial(sn.box.weapon); });
     // Sin munición, otra vez el rifle
     await page.evaluate(() => { game.sniper.ammo = 1; });
     await expect.poll(() => page.evaluate(() => game.sniper.canFire)).toBe(true);

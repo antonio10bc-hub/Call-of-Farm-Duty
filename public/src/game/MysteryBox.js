@@ -87,8 +87,8 @@ export class MysteryBox {
     burst(n, colors, up = 4) {
         const p = this.holder.position, sn = this.sn;
         this.flareT = 0.35;
-        sn.particles.burst(p.x, p.y + 0.6, p.z, n, colors, { speed: 3.5, up, size: 0.12, ttl: 0.8 });
-        if (sn.waves) sn.waves.spawn(p.x, p.z, colors[1], 2.6, 0.5, p.y + 0.05);
+        sn.particles.burst(p.x, p.y + 0.6, p.z, n, colors, { speed: 2.5, up, size: 0.1, ttl: 0.7 });
+        if (sn.waves) sn.waves.spawn(p.x, p.z, colors[1], 1.8, 0.45, p.y + 0.05);
     }
 
     // Aparece en una torre que no es la tuya: en la plataforma pequeña de su barandilla izquierda,
@@ -132,10 +132,9 @@ export class MysteryBox {
         this.pick = (Math.random() * WONDER.length) | 0;
         this.icon.visible = this.beam.visible = false;
         this.rays.visible = true;
-        this.burst(50, BLUE.concat(GOLD), 5);
+        this.burst(28, BLUE.concat(GOLD), 4);
         this.sn.hooks.sfx.play('unlock');
-        this.sn.hooks.sfx.play('power');
-        if (this.sn.hooks.flash) this.sn.hooks.flash(0xfff3b0, 0.35);
+        if (this.sn.hooks.flash) this.sn.hooks.flash(0xfff3b0, 0.12);
         if (this.sn.hooks.onBox) this.sn.hooks.onBox('open');
     }
 
@@ -163,17 +162,17 @@ export class MysteryBox {
         this.flare.visible = this.flareT > 0;
         if (this.flare.visible) {
             const f = 1 - this.flareT / 0.35;
-            this.flare.scale.setScalar(0.4 + f * 1.6);
-            this.flareMat.opacity = (1 - f) * 0.6;
+            this.flare.scale.setScalar(0.4 + f * 1.2);
+            this.flareMat.opacity = (1 - f) * 0.35;
         }
         // Los rayos de luz de dentro: giran y laten (más fuertes según se acerca el arma que toca)
         if (this.rays.visible) {
             this.rays.rotation.y += dt * 1.6;
             const k3 = this.state === 'spin' ? Math.min(1, this.t / 0.4) * (0.55 + Math.min(1, this.t / BOX.spin) * 0.35) : this.state === 'give' ? Math.max(0, 1 - this.t / 0.9) : 0;
-            this.rayMat.opacity = k3 * (0.32 + Math.sin(time * 14) * 0.1);
-            this.innerMat.opacity = k3 * 0.9;
-            this.rays.scale.set(1, 0.7 + k3 * 0.4 + Math.sin(time * 9) * 0.05, 1);
-            if (this.state === 'spin' && Math.random() < dt * 20) {
+            this.rayMat.opacity = k3 * (0.17 + Math.sin(time * 10) * 0.05);
+            this.innerMat.opacity = k3 * 0.6;
+            this.rays.scale.set(1, 0.6 + k3 * 0.3 + Math.sin(time * 7) * 0.04, 1);
+            if (this.state === 'spin' && Math.random() < dt * 10) {
                 const p = this.holder.position;
                 sn.particles.burst(p.x, p.y + 0.4, p.z, 2, GOLD, { speed: 0.6, up: 2.5, size: 0.07, ttl: 0.7 });
             }
@@ -198,7 +197,7 @@ export class MysteryBox {
             const p = this.holder.position, face = Math.atan2(sn.pos.x - p.x, sn.pos.z - p.z) - this.holder.rotation.y;
             this.guns.forEach((g, i) => {
                 g.visible = i === this.shown;
-                g.position.set(0, 0.75 + k2 * 0.3, 0);
+                g.position.set(0, 0.6 + k2 * 0.75, 0); // (sube desde la boca de la caja)
                 g.scale.setScalar(GUN);
                 g.rotation.set(0, face + Math.PI / 2 + Math.sin(time * 2) * 0.25, 0);
             });
@@ -206,9 +205,8 @@ export class MysteryBox {
                 // ¡La que toca! Estallido dorado y el arma se hincha
                 this.state = 'give';
                 this.t = 0;
-                this.burst(60, GOLD, 6);
+                this.burst(34, GOLD, 5);
                 sn.hooks.sfx.play('achievement');
-                sn.hooks.sfx.play('boost');
             }
             return;
         }
@@ -216,10 +214,10 @@ export class MysteryBox {
             // Flota hinchándose un momento (girando de cara a ti) y luego vuela hacia el tirador
             // dejando una estela dorada; al llegar, es suya
             const g = this.guns[this.pick], HOLD = 0.35, k = Math.min(1, this.t / HOLD), e = Math.min(1, Math.max(0, this.t - HOLD) / 0.45);
-            g.scale.setScalar(GUN * (1 + Math.sin(k * Math.PI) * 0.6));
+            g.scale.setScalar(GUN * (1 + Math.sin(k * Math.PI) * 0.35));
             this.holder.worldToLocal(_v.copy(sn.pos));
             _v.y -= 0.4 / SIZE; // (a las manos, no a los ojos)
-            g.position.lerpVectors(new THREE.Vector3(0, 1.05 + k * 0.2, 0), _v, e * e);
+            g.position.lerpVectors(new THREE.Vector3(0, 1.35 + k * 0.4, 0), _v, e * e);
             g.rotation.y += dt * (k < 1 ? 4 : 14);
             if (e > 0) {
                 g.getWorldPosition(_v);
@@ -229,7 +227,7 @@ export class MysteryBox {
                 g.visible = false;
                 g.scale.setScalar(GUN);
                 sn.giveSpecial(this.weapon);
-                if (sn.hooks.flash) sn.hooks.flash(0xfff3b0, 0.5);
+                if (sn.hooks.flash) sn.hooks.flash(0xfff3b0, 0.2);
                 this.rays.visible = false;
                 this.leave();
             }
@@ -301,18 +299,25 @@ export class MysteryBox {
 
     // ---------- Disparos de las armas de la caja (proyectiles) ----------
     // Sale de la boca hacia donde se apunta y revienta donde da (blancos, alienígenas, ovnis o
-    // el suelo). El virote de la ballesta se clava, pita y revienta a los fuse s
+    // el suelo). El virote de la ballesta se clava donde da (en un cultivo, en el suelo o en un
+    // alienígena u ovni, y entonces va pegado a él: stick, con su punto off), pita y revienta a
+    // los fuse s
     launch(w, origin, dir, muzzle) {
         const sn = this.sn, f = sn.field;
         const hits = f.raycast(origin, dir), ufo = sn.flyers.hit(origin, dir), alien = sn.walkers.hit(origin, dir);
-        let t = dir.y < -1e-3 ? Math.min(80, -origin.y / dir.y) : 80, flyer = null;
+        let t = dir.y < -1e-3 ? Math.min(80, -origin.y / dir.y) : 80, flyer = null, stick = null;
         if (hits.length) t = Math.min(t, hits[0].t);
-        if (alien) t = Math.min(t, alien.t);
+        if (alien && alien.t < t) {
+            t = alien.t;
+            stick = alien.walker.g.position;
+        }
         if (ufo && ufo.t < t) {
             t = ufo.t;
             flyer = ufo.flyer;
+            stick = ufo.flyer.model.root.position;
         }
         const to = origin.clone().addScaledVector(dir, t), g = new THREE.Group();
+        const off = stick ? to.clone().sub(stick) : null;
         if (w.mode === 'rocket') {
             this.part(g, 0.14, 0.14, 0.5, 0x6a7a5a);
             this.part(g, 0.1, 0.1, 0.12, 0xc8402e, 0, 0, -0.3);
@@ -330,7 +335,7 @@ export class MysteryBox {
         g.lookAt(to);
         g.rotateY(Math.PI); // (las piezas miran a -z)
         this.root.add(g);
-        this.shots.push({ w, mesh: g, from: muzzle.clone(), to, len: muzzle.distanceTo(to), d: 0, flyer, fuse: -1, trail: 0 });
+        this.shots.push({ w, mesh: g, from: muzzle.clone(), to, len: muzzle.distanceTo(to), d: 0, flyer, stick, off, fuse: -1, trail: 0 });
     }
 
     part(g, w, h, d, color, x = 0, y = 0, z = 0) {
@@ -347,8 +352,13 @@ export class MysteryBox {
             const p = s.mesh.position;
             if (s.fuse >= 0) {
                 // Virote clavado: su lucecita roja (se ve hasta entre los cultivos) parpadea y pita,
-                // cada vez más deprisa, hasta reventar
+                // cada vez más deprisa, hasta reventar. Clavado en un alienígena o un ovni, va con él
                 s.fuse -= dt;
+                if (s.stick) {
+                    p.copy(s.stick).add(s.off);
+                    s.lamp.position.copy(p).y += 0.15;
+                    s.halo.position.copy(s.lamp.position);
+                }
                 const left = s.fuse / s.w.fuse, on = Math.sin((1 - left) * (1 - left) * 70 + (1 - left) * 18) > 0;
                 if (on && !s.on) sn.hooks.sfx.play('tick');
                 s.on = on;
@@ -358,6 +368,11 @@ export class MysteryBox {
                 this.root.remove(s.lamp, s.halo);
                 this.boom(s);
                 return false;
+            }
+            // (si va a por algo que se mueve, el punto al que va se mueve con ello)
+            if (s.stick) {
+                s.to.copy(s.stick).add(s.off);
+                s.len = s.from.distanceTo(s.to);
             }
             s.d = Math.min(s.len, s.d + s.w.speed * dt);
             p.lerpVectors(s.from, s.to, s.d / (s.len || 1));
@@ -380,6 +395,8 @@ export class MysteryBox {
                     this.root.add(m);
                 }
                 sn.particles.burst(p.x, p.y, p.z, 6, [0xc8c0b0, sn.theme.dust], { speed: 1, up: 1, size: 0.06, ttl: 0.3 });
+                sn.hooks.sfx.play('crateHit'); // (¡chac!: clavado)
+                if (s.stick && sn.hooks.onHitMarker) sn.hooks.onHitMarker();
                 return true;
             }
             this.boom(s);

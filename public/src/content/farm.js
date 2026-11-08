@@ -63,7 +63,7 @@ export const FARM = {
     compound: [
         { kind: 'nuke', x: 6.5, z: 6 },
         { kind: 'armory', x: 23.5, z: 6 },
-        { kind: 'radar', x: 11, z: 4 },
+        { kind: 'radar', x: 12.3, z: 3.6 }, // (fuera de la plataforma de la nuclear)
         { kind: 'heli', x: 5.5, z: 12.3 },
         { kind: 'camp', x: 24.5, z: 12.5 },
         { kind: 'hangar', x: 5, z: 22 },
@@ -86,9 +86,9 @@ export const FARM = {
     },
     structures: [
         { id: 'barn', kind: 'barn', x: 15, z: 12, w: 5, d: 4, ry: 0, name: L('BARN', 'GRANERO') },
-        { id: 'silo', kind: 'silo', x: 19.6, z: 11, w: 2, d: 2, name: L('SILO', 'SILO') },
+        { id: 'silo', kind: 'silo', x: 20.2, z: 11, w: 2, d: 2, name: L('SILO', 'SILO') },
         { id: 'house', kind: 'house', x: 15, z: -15, w: 4, d: 4, ry: 0, name: L('FARMHOUSE', 'CASA') }, // en el centro de su parcela
-        { id: 'tractor', kind: 'tractor', x: 10.6, z: 13.4, w: 2, d: 3, ry: 1, name: L('TRACTOR', 'TRACTOR') }, // junto al granero
+        { id: 'tractor', kind: 'tractor', x: 9.9, z: 13.4, w: 2, d: 3, ry: 1, name: L('TRACTOR', 'TRACTOR') }, // junto al granero (sin pegarse)
     ],
     // Campos de cultivo. Cada uno crece al mejorarlo desde una esquina fija (corner) hacia
     // los lados que marcan dx, dz (+1 / -1).
