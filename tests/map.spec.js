@@ -1,5 +1,5 @@
 // Pruebas de el mapa de la granja: granero y sus niveles, mejorar campos, la casa y las partidas guardadas.
-const { test, expect, openFarm, screenOf, watchErrors } = require('./helpers');
+const { test, expect, frames, openFarm, screenOf, watchErrors } = require('./helpers');
 
 test('la granja es un mapa: el granero (sin mejoras) abre el armamento con las dos secciones de rachas', { tag: '@smoke' }, async ({ page }) => {
     const errors = watchErrors(page);
@@ -175,7 +175,7 @@ test('armería: en el granero se compran con oro y se montan mirillas, rifles y 
     expect(errors).toEqual([]);
 });
 
-test('torreta: con el campo al máximo, la mejora extra pone una torreta que va de esquina en esquina y recoge sola (sin sumar a la racha)', { tag: '@full' }, async ({ page }) => {
+test('torreta: con el campo al máximo, la mejora extra pone una torreta que va de esquina en esquina y recoge sola (sin sumar a la racha); se gasta y se recarga con oro', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await openFarm(page);
     await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
@@ -186,19 +186,42 @@ test('torreta: con el campo al máximo, la mejora extra pone una torreta que va 
     await page.evaluate(() => { game.state.wheat = 40; });
     await expect(page.locator('#panel-upgrade')).toBeEnabled();
     await page.locator('#panel-upgrade').click();
-    expect(await page.evaluate(() => [game.state.fields.wheat.turrets, !!game.farm.fields.wheat.turret, game.farm.fields.wheat.bases.length, game.state.wheat])).toEqual([true, true, 4, 0]);
+    expect(await page.evaluate(() => [game.state.fields.wheat.turrets, !!game.farm.fields.wheat.turret, game.farm.fields.wheat.bases.length, game.state.wheat, game.state.fields.wheat.ammo])).toEqual([true, true, 4, 0, 60]);
+    const left = await page.evaluate(() => game.state.fields.wheat.left);
+    await page.evaluate(() => game.select({ field: 'wheat' }));
     await expect(page.locator('#upgrade-label')).toHaveText('AUTOMÁTICO');
+    await page.evaluate(() => game.select(null));
     await expect(page.locator('#sign-wheat .turret-ico')).toHaveCount(1);
     // En el mapa no paran de disparar a ráfagas y recogen solas lo maduro, con su +1 de trigo
     await page.evaluate(() => {
         window.autoPops = 0;
         new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach((n) => { if (n.classList && n.classList.contains('auto-pop')) window.autoPops++; }))).observe(document.body, { childList: true });
     });
+    // (cuando acaba de bajar en paracaídas)
+    await expect.poll(() => page.evaluate(() => !game.farm.fields.wheat.drop), { timeout: 15_000 }).toBe(true);
     await expect.poll(() => page.evaluate(() => game.farm.shots.length), { timeout: 5_000 }).toBeGreaterThan(0);
-    const left = await page.evaluate(() => game.state.fields.wheat.left);
     await expect.poll(() => page.evaluate(() => game.state.wheat), { timeout: 12_000 }).toBeGreaterThan(0);
     await expect.poll(() => page.evaluate(() => window.autoPops)).toBeGreaterThan(0);
     expect(await page.evaluate(() => game.state.fields.wheat.left)).toBeLessThan(left);
+    // Cada mata gasta una de su munición; sin ella se para (su cartel parpadea en rojo) y el botón
+    // pasa a RECARGAR, que se paga con oro
+    expect(await page.evaluate(() => game.state.fields.wheat.ammo)).toBeLessThan(60);
+    await page.evaluate(() => { game.state.fields.wheat.ammo = 1; game.state.items.gold = 0; });
+    await expect.poll(() => page.evaluate(() => game.state.fields.wheat.ammo), { timeout: 12_000 }).toBe(0);
+    await expect(page.locator('#medals')).toContainText('TORRETA SIN MUNICIÓN');
+    await expect(page.locator('#sign-wheat')).toHaveClass(/turret-empty/);
+    const stopped = await page.evaluate(() => game.state.wheat);
+    await page.evaluate(() => game.select({ field: 'wheat' }));
+    await expect(page.locator('#upgrade-label')).toHaveText('RECARGAR');
+    await expect(page.locator('#upgrade-cost')).toContainText('6');
+    await expect(page.locator('#panel-upgrade')).toBeDisabled();
+    expect(await page.evaluate(() => game.state.wheat)).toBe(stopped);
+    await page.evaluate(() => { game.state.items.gold = 10; game.select({ field: 'wheat' }); });
+    await expect(page.locator('#panel-upgrade')).toBeEnabled();
+    await page.locator('#panel-upgrade').click();
+    expect(await page.evaluate(() => [game.state.fields.wheat.ammo, game.state.items.gold])).toEqual([60, 4]);
+    await expect(page.locator('#upgrade-label')).toHaveText('AUTOMÁTICO');
+    await expect(page.locator('#sign-wheat')).not.toHaveClass(/turret-empty/);
     // En el campo de tiro, un mástil en cada torre y la torreta en uno, recogiendo matas sin sumar a la racha
     await page.evaluate(() => { game.select(null); game.harvest('wheat'); });
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
@@ -226,9 +249,18 @@ test('torreta: con el campo al máximo, la mejora extra pone una torreta que va 
     const total = await page.evaluate(() => game.sniper.field.remaining);
     await expect.poll(() => page.evaluate(() => game.sniper.field.remaining), { timeout: 15_000 }).toBeLessThan(total - 1);
     expect(await page.evaluate(() => game.sniper.streak)).toBe(0);
-    // Se guarda
+    // Lo que recoge en el campo de tiro también gasta munición; sin ella, se para
+    expect(await page.evaluate(() => game.state.fields.wheat.ammo)).toBeLessThan(60);
+    await page.evaluate(() => { game.state.fields.wheat.ammo = 0; });
+    await expect.poll(() => page.evaluate(() => game.sniper.turrets.turret.target)).toBe(null);
+    const still = await page.evaluate(() => game.sniper.field.remaining);
+    await frames(page, 30);
+    expect(await page.evaluate(() => game.sniper.field.remaining)).toBe(still);
+    // Se guarda (con su munición)
+    await page.evaluate(() => { game.state.fields.wheat.ammo = 33; game.state.save(); });
     await page.reload();
     await expect.poll(() => page.evaluate(() => window.game && !!game.farm.fields.wheat.turret)).toBe(true);
+    expect(await page.evaluate(() => game.state.fields.wheat.ammo)).toBe(33);
     expect(errors).toEqual([]);
 });
 

@@ -208,7 +208,10 @@ export const FARM = {
 // abierto), y entre tanto no para de tirotear el campo. En el campo de tiro va de un mástil a
 // otro (de alto mast, en cada torre menos la tuya): acribilla una mata con una ráfaga y la
 // recoge, descansa cool s y a por otra. Lo que recoge no suma a las rachas.
-export const TURRETS = { every: 4, cool: 0.7, burst: 6, rate: 0.075, aim: 0.35, mast: 2.4, hop: 7 };
+// Munición: ammo matas recogidas (en el mapa y en el campo de tiro) y se queda sin balas, quieta
+// hasta que se recargue en el panel del campo pagando reload monedas de oro (las de cartón del
+// mercader; a medio gastar, la parte que falta, al menos 1).
+export const TURRETS = { every: 4, cool: 0.7, burst: 6, rate: 0.075, aim: 0.35, mast: 2.4, hop: 7, ammo: 60, reload: 6 };
 
 // Fichas de los edificios: un texto corto debajo del nombre
 export const INFO = {

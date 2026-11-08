@@ -140,6 +140,8 @@ rig.snap();
 // La sombra de una parcela recién comprada se retira: destellos dorados por donde pasa
 farm.onLandWave = (x, z) => farmFx.burst(x, 0.3, z, 3, [0xffd23f, 0xfff6b0, 0xffffff], { speed: 1.2, up: 3, size: 0.12, ttl: 0.6 });
 // Bala de una torreta automática en el mapa: polvo y paja donde da (y su ruido, una de cada dos)
+// Sin munición, la torreta del campo se queda quieta
+farm.turretEmpty = (id) => state.turretEmpty(id);
 farm.onTurretHit = (x, z, n) => {
     farmFx.burst(x, 0.4, z, 5, [0xffe9a0, 0xd9b77a, THEME.dust], { speed: 1.4, up: 2, size: 0.08, ttl: 0.4 });
     if (mode === 'farm' && n % 2) sfx.play('turret');
@@ -227,6 +229,9 @@ const sniper = new Sniper(THEME, {
     },
     // Bala que da a un alienígena (a pie o en ovni): aspa en el centro y su chasquido
     // La caja sorpresa: aparece (aviso y su torre marcada), se le dispara desde otra torre o se va
+    // Torreta del campo de tiro: ¿le queda munición? y cada mata que recoge gasta una
+    turretArmed: () => !state.turretEmpty(snipeField),
+    onTurretHarvest: () => turretShot(snipeField),
     onBox(what) {
         if (what === 'spawn') {
             stage(L('MYSTERY BOX!', '¡CAJA SORPRESA!'), L('JUMP TO ITS TOWER AND SHOOT IT', 'SALTA A SU TORRE Y DISPÁRALE'));
@@ -766,7 +771,8 @@ function refreshSigns() {
         el.classList.toggle('locked', !f.unlocked && !can && !forSale);
         el.classList.toggle('can-unlock', can);
         el.classList.toggle('for-sale', forSale);
-        el.classList.toggle('can-up', state.canUpgrade(id) || state.canBuyTurrets(id) || (forSale && state.canBuyLand(land.id)));
+        el.classList.toggle('can-up', state.canUpgrade(id) || state.canBuyTurrets(id) || (state.turretEmpty(id) && state.canReloadTurret(id)) || (forSale && state.canBuyLand(land.id)));
+        el.classList.toggle('turret-empty', state.turretEmpty(id));
         const html = f.unlocked
             ? `${ico(CROPS[def.crop].icon)}${f.turrets ? ico('turret') : ''}<span class="sign-level">${L('LV', 'NV')}.${f.level + 1}</span><span class="grow"><i></i></span><i class="sign-ready"></i><i class="sign-up"></i>`
             : forSale ? `${ico('gold')}<span>${state.landPrice(land.id)}</span><i class="sign-up"></i>`
@@ -913,7 +919,9 @@ function refreshPanel() {
     text.textContent = (ready
         ? L(`RIPE! ${f.left} ${what} TO HARVEST.`, `¡MADURO! ${f.left} ${what} PARA RECOGER.`)
         : `${L('GROWING... READY IN', 'CRECIENDO... LISTO EN')} ${fmt((1 - p) * crop.growTime)}`)
-        + (f.turrets ? ` ${L('THE TURRET HARVESTS IT BY ITSELF.', 'LA TORRETA LO RECOGE SOLA.')}` : '');
+        + (!f.turrets ? '' : f.ammo > 0
+            ? ` ${L(`THE TURRET HARVESTS IT BY ITSELF (AMMO ${f.ammo}/${TURRETS.ammo}).`, `LA TORRETA LO RECOGE SOLA (MUNICIÓN ${f.ammo}/${TURRETS.ammo}).`)}`
+            : ` ${L('THE TURRET IS OUT OF AMMO: RELOAD IT WITH GOLD.', 'LA TORRETA SE HA QUEDADO SIN MUNICIÓN: RECÁRGALA CON ORO.')}`);
     bar.parentElement.classList.remove('hidden');
     bar.style.width = `${Math.round(p * 20) * 5}%`;
     act.classList.toggle('hidden', !ready);
@@ -922,14 +930,18 @@ function refreshPanel() {
     $('action-label').textContent = L('HARVEST!', '¡RECOGER!');
     // Mejora: más grande y con más blancos, pagando lo que pida (trigo, tomates...). Con el
     // campo al máximo, la mejora extra: sus torretas automáticas
-    const maxed = state.maxed(id), turrets = maxed && !f.turrets, done = maxed && f.turrets;
+    // Con la torreta puesta, el botón es su recarga (con oro), y llena: AUTOMÁTICO
+    const maxed = state.maxed(id), turrets = maxed && !f.turrets, armed = !!f.turrets;
+    const full = armed && f.ammo >= TURRETS.ammo, reload = armed && !full;
     up.classList.remove('hidden');
-    up.classList.toggle('turret-up', turrets);
-    up.disabled = turrets ? !state.canBuyTurrets(id) : !state.canUpgrade(id);
-    $('upgrade-label').innerHTML = done ? `${ico('turret')}${L('AUTOMATED', 'AUTOMÁTICO')}` : turrets ? `${ico('turret')}${L('TURRET', 'TORRETA')}` : L('UPGRADE', 'MEJORAR');
-    const cost = done ? '' : Object.entries(turrets ? state.turretCost(id) : state.cost(id)).map(([c, n]) => `<span class="upgrade-cost${state.items[c] < n ? ' short' : ''}">${ico(CROPS[c].icon)}<b>${n}</b></span>`).join('');
+    up.classList.toggle('turret-up', turrets || reload);
+    up.classList.toggle('turret-empty', armed && f.ammo <= 0);
+    up.disabled = reload ? !state.canReloadTurret(id) : turrets ? !state.canBuyTurrets(id) : !state.canUpgrade(id);
+    $('upgrade-label').innerHTML = full ? `${ico('turret')}${L('AUTOMATED', 'AUTOMÁTICO')}` : reload ? `${ico('turret')}${L('RELOAD', 'RECARGAR')}` : turrets ? `${ico('turret')}${L('TURRET', 'TORRETA')}` : L('UPGRADE', 'MEJORAR');
+    const price = reload ? { gold: state.reloadCost(id) } : full ? {} : turrets ? state.turretCost(id) : state.cost(id);
+    const cost = Object.entries(price).map(([c, n]) => `<span class="upgrade-cost${state.items[c] < n ? ' short' : ''}">${ico(c === 'gold' ? 'gold' : CROPS[c].icon)}<b>${n}</b></span>`).join('');
     if ($('upgrade-cost').innerHTML !== cost) $('upgrade-cost').innerHTML = cost;
-    up.classList.toggle('maxed', done);
+    up.classList.toggle('maxed', full);
 }
 
 // Comprar la parcela de un campo con oro: ya es tuya (la sombra se retira desde su poste, que
@@ -989,10 +1001,11 @@ const autoT = {};
 function autoHarvest(dt) {
     for (const def of FARM.fields) {
         const id = def.id;
-        if (!state.fields[id].turrets || (mode !== 'farm' && id === snipeField) || !state.isReady(id)) continue;
+        if (!state.fields[id].turrets || (mode !== 'farm' && id === snipeField) || !state.isReady(id) || state.turretEmpty(id)) continue;
         if ((autoT[id] = (autoT[id] || 0) + dt) < TURRETS.every) continue;
         autoT[id] = 0;
         state.collect(id);
+        turretShot(id);
         updateCounts();
         // En el mapa, un +1 con el cultivo sale de donde acaban de acribillar
         const at = mode === 'farm' && farm.turretSpot(id);
@@ -1001,6 +1014,31 @@ function autoHarvest(dt) {
             if (_b.z < 1) killPop((_b.x * 0.5 + 0.5) * innerWidth, (-_b.y * 0.5 + 0.5) * innerHeight, CROPS[def.crop].icon, 'auto-pop');
         }
     }
+}
+
+// Cada mata que recoge una torreta gasta una de su munición; al acabarse, se para y lo avisa
+function turretShot(id) {
+    if (!state.useTurretAmmo(id)) return;
+    if (!state.turretEmpty(id)) {
+        if (selected && selected.field === id) refreshPanel();
+        return;
+    }
+    medal(`${L('TURRET OUT OF AMMO', 'TORRETA SIN MUNICIÓN')}: ${CROPS[FIELD_BY_ID[id].crop].name || FIELD_BY_ID[id].name}`, 'empty');
+    sfx.play('warn');
+    refreshSigns();
+    refreshPanel();
+}
+
+// Recargar la torreta de un campo con oro: las monedas vuelan del contador y se pone en marcha
+function reloadTurret(id) {
+    if (mode !== 'farm' || !state.reloadTurret(id)) return sfx.play('miss');
+    sfx.play('coin');
+    setTimeout(() => sfx.play('reloaded'), 160);
+    vibrate('pickup');
+    medal(L('TURRET RELOADED', 'TORRETA RECARGADA'), 'reward');
+    updateCounts();
+    refreshSigns();
+    refreshPanel();
 }
 
 function upgradeField(id) {
@@ -1489,7 +1527,8 @@ tapBtn('panel-action', () => {
 tapBtn('panel-upgrade', () => {
     if (!selected) return;
     if (selected.field) {
-        if (state.maxed(selected.field)) buyTurrets(selected.field);
+        if (state.fields[selected.field].turrets) reloadTurret(selected.field);
+        else if (state.maxed(selected.field)) buyTurrets(selected.field);
         else upgradeField(selected.field);
     }
     else if (selected.structure === 'house') upgradeHouse();

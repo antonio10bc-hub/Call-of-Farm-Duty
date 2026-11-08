@@ -161,7 +161,7 @@ test('caja sorpresa: sale en otra torre; desde lejos no se abre, desde su torre 
     await expect(page.locator('#stage')).toContainText('CAJA SORPRESA');
     await expect(page.locator('#corners i.box')).toHaveCount(1);
     await expect.poll(() => page.evaluate(() => game.sniper.box.pop)).toBeGreaterThan(0.9);
-    const center = '(() => { const p = game.sniper.box.holder.position; return { x: p.x, y: p.y + 0.35, z: p.z }; })()';
+    const center = '(() => { const p = game.sniper.box.holder.position; return { x: p.x, y: p.y + 0.25, z: p.z }; })()';
     // Desde otra torre, el tiro no la abre
     await aimAndShoot(page, center);
     await expect(page.locator('#medals')).toContainText('DESDE SU TORRE');

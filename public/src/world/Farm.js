@@ -883,11 +883,16 @@ export class Farm {
 
     // La torreta de un campo maduro no para de tirotearlo a ráfagas (elige una mata, la apunta, le
     // suelta su ráfaga y a por otra) y cada poco salta a otra esquina. Cada bala: trazada y
-    // onTurretHit(x, z, n)
-    updateTurrets(v, dt, ripe) {
+    // onTurretHit(x, z, n). empty: sin munición
+    updateTurrets(v, dt, ripe, empty = false) {
         const t = v.turret;
         t.update(dt);
         if (t.hopping) return;
+        // Sin munición: quieta en su esquina, sin disparar (hasta que se recargue)
+        if (empty) {
+            t.tgt = null;
+            return;
+        }
         if ((t.hopT -= dt) <= 0 && !t.tgt) {
             t.hopT = TURRETS.hop;
             t.corner = (t.corner + (Math.random() < 0.5 ? 1 : 3)) % 4; // a la esquina de al lado (nunca en diagonal)
@@ -1181,7 +1186,7 @@ export class Farm {
         for (const v of this.views) {
             if (v.locked) continue;
             if (v.drop) this.updateDrop(v, dt);
-            else if (v.turret) this.updateTurrets(v, dt, (progress[v.id] || 0) >= 1);
+            else if (v.turret) this.updateTurrets(v, dt, (progress[v.id] || 0) >= 1, !!(this.turretEmpty && this.turretEmpty(v.id)));
             if (!step && !v.fresh) continue;
             v.fresh = false;
             const p = progress[v.id] || 0;

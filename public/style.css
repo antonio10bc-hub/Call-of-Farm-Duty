@@ -1542,3 +1542,10 @@ body.cine .aim-btn { display: none !important; }
 .lo-class { min-height: 44px; justify-content: center; }
 
 /* Girar la vista 90°: encima de MAPA, con una flecha curva hecha a cuadritos */
+
+/* ---------- Torreta sin munición ----------
+   En su cartel, el icono de la torreta parpadea en rojo; en el panel, el botón RECARGAR en rojo */
+#bubbles .field-sign.turret-empty > .turret-ico { background-color: #c8402e; animation: turretEmpty .5s steps(2) infinite; }
+@keyframes turretEmpty { 50% { background-color: var(--cream); } }
+.upgrade-btn.turret-up.turret-empty { background: #c8402e; }
+.medal.empty { color: #fff; background: #c8402e; border-color: var(--ink); }

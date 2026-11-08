@@ -11,7 +11,8 @@ const S = 1.2; // tamaño de la torreta y los mástiles
 // fuera de la plataforma y por encima del tirador (sin taparle la vista), y una sola torreta que
 // va de uno a otro como haría un jugador (nunca al de tu torre: si llegas a la suya, se va).
 // Elige una mata al azar, la acribilla con una ráfaga y la recoge con la última bala. Lo que
-// recoge no suma a las rachas (sniper.harvest con auto).
+// recoge no suma a las rachas (sniper.harvest con auto). Cada mata gasta una de su munición
+// (hooks.onTurretHarvest); sin ella se queda quieta (hooks.turretArmed).
 export class Turrets {
     constructor(sniper) {
         this.sn = sniper;
@@ -111,9 +112,11 @@ export class Turrets {
         if (!t) return;
         t.update(dt);
         if (t.hopping) return;
+        // Sin munición, quieta en su mástil hasta que se recargue en la granja
+        const armed = !sn.hooks.turretArmed || sn.hooks.turretArmed();
         // Si llegas a su torre, se aparta; y cada poco cambia de torre por su cuenta
-        if (t.corner === sn.corner || ((t.hopT -= dt) <= 0 && !t.target)) return this.hop();
-        if (sn.unlocking || sn.ending >= 0 || !!sn.ks.predator) {
+        if (t.corner === sn.corner || (armed && (t.hopT -= dt) <= 0 && !t.target)) return this.hop();
+        if (sn.unlocking || sn.ending >= 0 || !!sn.ks.predator || (!armed && !t.target)) {
             t.target = null;
             return;
         }
@@ -141,5 +144,6 @@ export class Turrets {
         t.target = null;
         t.cool = TURRETS.cool * rand(0.8, 1.2);
         sn.harvest([s], true);
+        if (sn.hooks.onTurretHarvest) sn.hooks.onTurretHarvest();
     }
 }

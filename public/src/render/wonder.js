@@ -98,6 +98,12 @@ export function buildBox(ink) {
     lid.position.set(0, 0.6, -0.35);
     hulled(lid, ink, [1.34, 0.1, 0.74, PLANK, 0, 0.05, 0.35]);
     hulled(lid, ink, [1.36, 0.04, 0.08, METAL, 0, 0.1, 0.7]);
+    // Un «?» grande pintado en la tapa, a píxeles (se lee desde arriba, desde la torre; su parte
+    // de arriba hacia el fondo, -z)
+    const Q = ['.XXX.', 'X...X', '....X', '...X.', '..X..', '.....', '..X..'], u = 0.08;
+    Q.forEach((row, r) => [...row].forEach((ch, c) => {
+        if (ch === 'X') hulled(lid, ink, [u, 0.01, u, MARK, (c - 2) * u, 0.105, 0.35 + (r - 3) * u, true]);
+    }));
     g.add(lid);
     g.lid = lid;
     return g;

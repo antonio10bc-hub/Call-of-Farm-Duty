@@ -7,6 +7,8 @@ const rand = (a, b) => a + Math.random() * (b - a);
 const _v = new THREE.Vector3();
 const FIRE = [0xffffff, 0xffe03a, 0xff9a1f, 0xff3e1a];
 const GREEN = [0xffffff, 0xd8ffb0, 0x7dff4a, 0x3ec82a];
+const SIZE = 0.55; // la caja en la plataforma de la torre (más pequeña, para que quepa)
+const GUN = 0.65;  // y las armas que giran encima (de cerca se verían enormes)
 
 // La caja sorpresa en el campo de tiro (content/mysterybox.js) y los disparos de sus armas.
 //   estados: null (no hay) → idle (esperando en su torre) → spin (abierta, las armas girando) →
@@ -48,16 +50,19 @@ export class MysteryBox {
         this.shots = [];
     }
 
-    // Aparece en una torre que no es la tuya: en el suelo al pie de la torre, por el lado del campo
-    // (desde arriba se ve entera; desde lejos, por su rayo de luz)
+    // Aparece en una torre que no es la tuya: arriba, en su plataforma, a los pies de donde se
+    // pone el tirador (un poco hacia el campo, para que desde las otras torres se vea entre la
+    // barandilla), con su rayo de luz y su «?» encima
     spawn() {
         const sn = this.sn, f = sn.field, n = f.towers.length;
         const towers = [...Array(n).keys()].filter((i) => i !== sn.corner);
         const i = towers[(Math.random() * towers.length) | 0], t = f.towers[i];
         const dx = f.cx - t.x, dz = f.cz - t.z, d = Math.hypot(dx, dz) || 1;
         this.tower = i;
-        this.holder.position.set(t.x + (dx / d) * 2.6, 0.02, t.z + (dz / d) * 2.6);
-        this.holder.rotation.y = Math.atan2(dx, dz) + Math.PI / 2;
+        // (en la esquina de la plataforma que da al campo: lo más lejos de los ojos que cabe)
+        const cl = (v) => Math.max(-0.6, Math.min(0.6, v));
+        this.holder.position.set(t.x + cl((dx / d) * 1.1), t.floor + 0.08, t.z + cl((dz / d) * 1.1));
+        this.holder.rotation.y = Math.atan2(-dx, -dz); // de cara al tirador (la tapa se abre hacia el campo)
         this.holder.visible = true;
         this.holder.scale.setScalar(0.0001);
         this.model.lid.rotation.x = 0;
@@ -75,8 +80,8 @@ export class MysteryBox {
     // ¿La bala da a la caja? (en la caja, esperando): { t, near } (near: desde su misma torre)
     hit(origin, dir) {
         if (this.state !== 'idle' || this.pop < 0.9) return null;
-        const p = this.holder.position, r = 0.75;
-        const t = rayBox(origin, dir, p.x - r, p.y, p.z - r, p.x + r, p.y + 0.75, p.z + r);
+        const p = this.holder.position, r = 0.75 * SIZE;
+        const t = rayBox(origin, dir, p.x - r, p.y, p.z - r, p.x + r, p.y + 0.75 * SIZE, p.z + r);
         if (t === null) return null;
         return { t, near: this.sn.corner === this.tower && !this.sn.move };
     }
@@ -108,9 +113,12 @@ export class MysteryBox {
         this.t += dt;
         this.pop = Math.min(1, this.pop + dt * 2.5);
         const k = this.pop, s = 1 + 2.7 * (k - 1) ** 3 + 1.7 * (k - 1) ** 2;
-        if (this.state !== 'close') this.holder.scale.setScalar(Math.max(0.0001, s));
+        if (this.state !== 'close') this.holder.scale.setScalar(Math.max(0.0001, s * SIZE));
         this.icon.position.y = 2.2 + Math.sin(time * 3) * 0.15;
         this.beam.material.opacity = 0.18 + Math.sin(time * 5) * 0.05;
+        // Ya en su torre, el rayo y el «?» sobran (y taparían la vista)
+        const here = sn.corner === this.tower && !sn.move;
+        if (this.state === 'idle') this.beam.visible = this.icon.visible = !here;
         if (this.state === 'idle') {
             if (this.t > BOX.stay || sn.ending >= 0) this.leave();
             return;
@@ -125,10 +133,13 @@ export class MysteryBox {
                 sn.hooks.sfx.play('tick');
             }
             if (k2 >= 1) this.shown = this.pick;
+            // (de perfil hacia la cámara: el cañón, cruzado delante)
+            const p = this.holder.position, face = Math.atan2(sn.pos.x - p.x, sn.pos.z - p.z) - this.holder.rotation.y;
             this.guns.forEach((g, i) => {
                 g.visible = i === this.shown;
-                g.position.set(0, 0.85 + k2 * 0.4, 0);
-                g.rotation.set(0, Math.PI / 2 + Math.sin(time * 2) * 0.3, 0);
+                g.position.set(0, 0.75 + k2 * 0.3, 0);
+                g.scale.setScalar(GUN);
+                g.rotation.set(0, face + Math.PI / 2 + Math.sin(time * 2) * 0.25, 0);
             });
             if (this.t >= BOX.spin + 0.5) {
                 this.state = 'give';
@@ -141,7 +152,7 @@ export class MysteryBox {
             // El arma sube y vuela hacia el tirador; al llegar, es suya
             const g = this.guns[this.pick], e = Math.min(1, this.t / 0.5);
             this.holder.worldToLocal(_v.copy(sn.pos));
-            g.position.lerpVectors(new THREE.Vector3(0, 1.25, 0), _v, e * e);
+            g.position.lerpVectors(new THREE.Vector3(0, 1.05, 0), _v, e * e);
             g.rotation.y += dt * 12;
             if (e >= 1) {
                 g.visible = false;
@@ -151,7 +162,7 @@ export class MysteryBox {
             return;
         }
         if (this.state === 'close') {
-            this.holder.scale.setScalar(Math.max(0.0001, 1 - this.t / 0.4));
+            this.holder.scale.setScalar(Math.max(0.0001, (1 - this.t / 0.4) * SIZE));
             this.holder.rotation.y += dt * 8;
             if (this.t >= 0.4) {
                 this.holder.visible = false;

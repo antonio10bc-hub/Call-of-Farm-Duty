@@ -1,5 +1,5 @@
 import { CROPS } from '../content/crops.js';
-import { FARM, FIELD_BY_ID, LAND_BY_ID } from '../content/farm.js';
+import { FARM, FIELD_BY_ID, LAND_BY_ID, TURRETS } from '../content/farm.js';
 import { SHOP_ITEMS, DEFAULT_LOOK } from '../content/ufo.js';
 import { ARSENAL, ARSENAL_KINDS, DEFAULT_LOADOUT, CLASSES, arsenalItem } from '../content/arsenal.js';
 import { KILLSTREAKS } from '../content/killstreaks.js';
@@ -52,9 +52,11 @@ export class FarmState {
         this.home = { owned: [], look: { ...DEFAULT_LOOK }, placed: [] };
         // Los terrenos bloqueados se siembran al desbloquearlos (y quedan listos para recoger).
         // turrets: con sus torretas automáticas (la mejora extra con el campo al máximo)
+        // ammo: las matas que le quedan por recoger a la torreta antes de quedarse sin balas
         this.fields = Object.fromEntries(FARM.fields.map((f) => [f.id, {
             unlocked: !f.locked,
             turrets: false,
+            ammo: 0,
             level: 0,
             plantedAt: now - growMs(f.id),
             left: f.levels[0].sheaves,
@@ -102,6 +104,8 @@ export class FarmState {
                     f.plantedAt = +s.plantedAt || 0;
                     f.left = s.left | 0;
                     f.turrets = f.unlocked && !!s.turrets;
+                    // (las torretas de antes de la munición, cargadas)
+                    f.ammo = f.turrets ? Math.max(0, Math.min(TURRETS.ammo, s.ammo === undefined ? TURRETS.ammo : s.ammo | 0)) : 0;
                     // Lo que está creciendo sale con las cifras de su nivel (si cambian en el
                     // contenido, al cargar ya valen); lo maduro guardado antes de la revisión 2,
                     // también, aunque ya se hubiera empezado a recoger
@@ -387,6 +391,40 @@ export class FarmState {
         if (this.fields[id].turrets) return false;
         if (!force) for (const [c, n] of Object.entries(this.turretCost(id))) this.items[c] -= n;
         this.fields[id].turrets = true;
+        this.fields[id].ammo = TURRETS.ammo;
+        this.save();
+        return true;
+    }
+
+    // Munición de la torreta: gasta una bala-mata (false si ya no le queda)
+    useTurretAmmo(id) {
+        const f = this.fields[id];
+        if (!f.turrets || f.ammo <= 0) return false;
+        f.ammo--;
+        this.save();
+        return true;
+    }
+
+    turretEmpty(id) {
+        const f = this.fields[id];
+        return f.turrets && f.ammo <= 0;
+    }
+
+    // Lo que cuesta recargarla: la parte que le falta del precio entero (al menos 1 moneda)
+    reloadCost(id) {
+        if (this.freeCosts) return 0;
+        return Math.max(1, Math.ceil(TURRETS.reload * (1 - this.fields[id].ammo / TURRETS.ammo)));
+    }
+
+    canReloadTurret(id) {
+        const f = this.fields[id];
+        return f.turrets && f.ammo < TURRETS.ammo && this.items.gold >= this.reloadCost(id);
+    }
+
+    reloadTurret(id) {
+        if (!this.canReloadTurret(id)) return false;
+        this.items.gold -= this.reloadCost(id);
+        this.fields[id].ammo = TURRETS.ammo;
         this.save();
         return true;
     }

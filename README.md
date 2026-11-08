@@ -37,6 +37,7 @@ Las cosas se van abriendo por pasos, cada una con su cartel grande:
   - **En el mapa:** salta de esquina en esquina (a la de al lado, nunca en diagonal), tirotea el campo a ráfagas y recoge sola lo maduro (una mata cada 4 s, con la partida abierta, con su +1).
   - **En el campo de tiro:** va en lo alto de un mástil en las torres (nunca en la tuya) y acribilla matas para acabar antes.
   - Lo suyo no suma a las rachas.
+  - **Munición:** cada mata que recoge (en el mapa o en el campo de tiro) gasta una de sus 60. Sin munición se para, su icono parpadea en rojo en el cartel y sale TORRETA SIN MUNICIÓN; el botón del panel pasa a **RECARGAR**, que se paga con monedas de oro (las de cartón del mercader): 6 vacía, la parte que falta si está a medias (al menos 1). Números en `TURRETS` de `content/farm.js`.
 
 ### Parcelas en venta
 - **Oeste (15 de oro), este (25 de oro) y noroeste (40 de oro).** Mientras no son tuyas se ven en sombra, con un poste de SE VENDE junto a su portón.
@@ -84,7 +85,7 @@ Desde una torre en cada esquina del campo, con control de shooter: la vista es l
   - **De cultivos** (arriba): cada blanco recogido rellena una barra que se vacía cada vez más deprisa (empieza en 6 s y nunca baja de 2,6 s). A las 5, **fragmentación**; a las 10, **racimo** (6 mini granadas); a las 15, **incendiaria** (un fuego que quema lo de dentro y a los alienígenas que pasen). Medallas: COLATERAL xN y DOBLE / TRIPLE / MULTI KILL.
   - **Alienígena** (a la izquierda, una torre de rayas que se encienden de una en una): cada alienígena abatido suma 1 y no se pierde hasta salir del campo. A los 3, **misil Predator** (vista cenital, se guía mirando y el gatillo lo acelera; la vista se corta en seco al explotar); a los 6, **bombardero**; a los 10, **bomba nuclear** (cuenta atrás mientras cae; lo recoge todo, alienígenas y ovnis incluidos, y lo maduro del resto de la granja, con neblina radiactiva).
   - Números en `content/killstreaks.js` (y en DEBUG).
-- **Caja sorpresa** (como la de Kino der Toten en el modo zombis de Black Ops): mientras se recoge, de vez en cuando aparece una caja de madera con «?» pintados al pie de una torre que no es la tuya, con un rayo de luz azul hasta el cielo y un «?» flotando encima; su flecha de torre parpadea en azul. Espera 30 s.
+- **Caja sorpresa** (como la de Kino der Toten en el modo zombis de Black Ops): mientras se recoge, de vez en cuando aparece una caja de madera con «?» pintados arriba en una torre que no es la tuya (en su plataforma, a los pies de donde te pones, en la esquina que da al campo y con un «?» grande en la tapa), con un rayo de luz azul hasta el cielo y un «?» flotando encima; su flecha de torre parpadea en azul. Espera 30 s.
   - Disparada desde otra torre no hace nada (¡DESDE SU TORRE!). Salta a su torre y dispárale: se abre la tapa, las armas giran por encima cada vez más despacio y la que toca te vuela a las manos.
   - **Ametralladora** (90 balas, dispara sola mientras mantienes la mira), **lanzacohetes** (6 cohetes que revientan donde dan), **pistola de rayos** (20 rayos verdes con su explosión) o **ballesta explosiva** (8 virotes que se clavan, pitan y revientan al segundo).
   - Las armas no se recargan: al gastar la munición vuelve tu rifle. Números en `content/mysterybox.js`; los modelos, en `render/wonder.js`.
