@@ -65,8 +65,15 @@ export class MysteryBox {
         this.holder.add(this.rays, this.inner, this.flare);
         this.flareT = 0;
         this.root.add(this.holder);
-        this.shots = []; // proyectiles en vuelo (cohetes, rayos, virotes)
+        this.shots = []; // proyectiles en vuelo (cohetes y virotes)
         this.thrown = []; // armas de la caja gastadas, tiradas desde la torre
+        // El rayo de la pistola de rayos: verde por fuera y blanco por dentro, aditivo
+        const add = (c, o) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, depthWrite: false, blending: THREE.AdditiveBlending });
+        this.rayMesh = new THREE.Group();
+        this.rayMesh.add(new THREE.Mesh(box(1, 1, 1), add(0x7dff4a, 0.55)), new THREE.Mesh(box(0.4, 0.4, 1), add(0xffffff, 0.9)));
+        this.rayMesh.visible = false;
+        this.root.add(this.rayMesh);
+        this.ray = null;
         this.reset();
     }
 
@@ -79,6 +86,8 @@ export class MysteryBox {
         this.shots = [];
         for (const o of this.thrown) this.root.remove(o.g);
         this.thrown = [];
+        this.ray = null;
+        this.rayMesh.visible = false;
         this.rays.visible = this.flare.visible = false;
         this.rayMat.opacity = this.innerMat.opacity = 0;
     }
@@ -152,6 +161,7 @@ export class MysteryBox {
         const sn = this.sn;
         this.updateShots(dt);
         this.updateThrown(dt);
+        this.updateRay(dt);
         if (!this.state) {
             // Solo cosechando (ni en el desbloqueo, ni en el prólogo, ni con el campo acabado)
             if (sn.crop && sn.boxOn !== false && !sn.unlocking && !sn.magic && sn.ending < 0 && !sn.special && (this.next -= dt) <= 0) this.spawn();
@@ -301,6 +311,64 @@ export class MysteryBox {
             this.root.remove(o.g);
             return false;
         });
+    }
+
+    // ---------- La pistola de rayos: un rayo continuo ----------
+    // Sale de la boca hacia donde se apunta (sigue a la mirilla mientras dura) y cada tick s recoge
+    // lo que atraviesa (hasta 3 blancos; las calabazas, golpe a golpe) y abate al alienígena u ovni
+    // en el que se para. Al acabar, el arma se sobrecalienta (sniper.overheat)
+    startBeam(w) {
+        this.ray = { w, t: 0, tick: 0, sfx: 0 };
+        this.rayMesh.visible = true;
+    }
+
+    updateRay(dt) {
+        const R = this.ray, sn = this.sn, f = sn.field;
+        if (!R) return;
+        R.t += dt;
+        if (R.t >= R.w.beam) {
+            this.ray = null;
+            this.rayMesh.visible = false;
+            sn.overheat = R.w.cool;
+            sn.hooks.sfx.play('scopeOut');
+            return;
+        }
+        sn.camera.updateMatrixWorld();
+        const origin = sn.pos, dir = sn.camera.getWorldDirection(new THREE.Vector3());
+        const hits = f.raycast(origin, dir), ufo = sn.flyers.hit(origin, dir), alien = sn.walkers.hit(origin, dir);
+        let t = dir.y < -1e-3 ? Math.min(80, -origin.y / dir.y) : 80, stop = null;
+        if (alien && alien.t < t) (t = alien.t), (stop = alien);
+        if (ufo && ufo.t < t) (t = ufo.t), (stop = ufo);
+        const to = origin.clone().addScaledVector(dir, t), from = sn.rifle.muzzle.getWorldPosition(new THREE.Vector3());
+        // El rayo, de la boca a donde da, temblando
+        const m = this.rayMesh, w = 0.16 + Math.sin(R.t * 60) * 0.04 + (R.t < 0.12 ? (0.12 - R.t) * 2 : 0);
+        m.position.copy(from).lerp(to, 0.5);
+        m.lookAt(to);
+        m.scale.set(w, w, from.distanceTo(to));
+        sn.rifle.kick = Math.max(sn.rifle.kick, 0.25); // (el arma vibra)
+        if (Math.random() < dt * 40) sn.particles.burst(to.x, Math.max(0.1, to.y), to.z, 3, GREEN, { speed: 2, up: 2, size: 0.08, ttl: 0.3 });
+        if ((R.sfx -= dt) <= 0) {
+            R.sfx = 0.13;
+            sn.hooks.sfx.play('laser');
+        }
+        if ((R.tick -= dt) > 0) return;
+        R.tick = R.w.tick;
+        if (stop) {
+            if (stop.flyer) sn.flyers.shoot(stop.flyer);
+            else sn.walkers.shoot(stop.walker);
+            if (sn.hooks.onHitMarker) sn.hooks.onHitMarker();
+        }
+        const caught = [];
+        for (const h of hits) {
+            if (h.t > t || caught.length >= 3) break;
+            const s = h.sheaf;
+            if (s.hp > 0 && (s.hp -= 1) > 0) {
+                sn.damage(s);
+                break; // (la calabaza aún aguanta: para el rayo)
+            }
+            caught.push(s);
+        }
+        if (caught.length) sn.harvest(caught);
     }
 
     // ---------- Disparos de las armas de la caja (proyectiles) ----------

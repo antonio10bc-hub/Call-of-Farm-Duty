@@ -181,7 +181,7 @@ export class Sniper {
     enter(what) {
         this.setArena(what.arena || 1);
         this.special = this.base = null;
-        this.dropT = this.swapT = 0;
+        this.dropT = this.swapT = this.overheat = 0;
         this.loadout = what.loadout;
         this.stats = loadoutStats(what.loadout);
         this.rifle.setLoadout(what.loadout);
@@ -214,6 +214,7 @@ export class Sniper {
         this.hitStop = 0;
         this.streak = this.streakT = 0;
         this.aliens = 0;
+        this.alienAt = -9;
         this.ks.clear();
         this.flyers.reset();
         this.walkers.reset();
@@ -238,7 +239,7 @@ export class Sniper {
         this.stats = { ...this.base, zoom: WONDER_ZOOM, ads: 0.15, steady: 0.3, lens: null, bolt: w.rate, pierce: w.pierce || 1, damage: 3, size: w.ammo, reload: 0, regen: 0, tracer: w.tracer || this.base.tracer, recoil: w.mode === 'rocket' ? 1.6 : 0.45 };
         this.ammo = w.ammo;
         this.reloadT = this.bolt = 0;
-        this.dropT = this.swapT = 0;
+        this.dropT = this.swapT = this.overheat = 0;
         this.rifle.setSpecial(w.id);
         this.rifle.swapIn(); // (sube a las manos desde abajo)
         this.tracer.material.color.setHex(this.stats.tracer);
@@ -417,7 +418,8 @@ export class Sniper {
         const { sfx } = this.hooks;
         this.bolt = this.stats.bolt;
         if (this.special) {
-            if (--this.ammo <= 0) this.dropT = 0.45; // (sin balas: la tira y vuelve el fusil)
+            // (sin balas: la tira y vuelve el fusil; con la pistola de rayos, al acabar su rayo)
+            if (--this.ammo <= 0) this.dropT = this.special.mode === 'beam' ? this.special.beam + 0.3 : 0.45;
         } else if (!this.unlocking && --this.ammo <= 0) setTimeout(() => this.reload(), 1000 * Math.min(0.3, this.stats.bolt));
         // Retroceso: la vista salta hacia arriba (y un poco de lado) y vuelve con un muelle
         this.kickV += S.recoil * this.stats.recoil * (this.scoped ? 30 : 22);
@@ -466,7 +468,12 @@ export class Sniper {
             }
         }
         if (this.unlocking) return this.fireAtJunk(origin, dir, muzzle);
-        // Bazuca, pistola de rayos y ballesta: su proyectil
+        // Pistola de rayos: su rayo continuo
+        if (this.special && this.special.mode === 'beam') {
+            this.box.startBeam(this.special);
+            return true;
+        }
+        // Bazuca y ballesta: su proyectil
         if (this.special && this.special.mode !== 'bullet') {
             this.box.launch(this.special, origin, dir, muzzle);
             return true;
@@ -579,15 +586,19 @@ export class Sniper {
         this.streak += n;
         this.streakMax = Math.max(KS.bar.min, KS.bar.time * KS.bar.decay ** (this.streak - 1));
         this.streakT = this.streakMax;
-        if (this.hooks.onMedal && this.streak >= 2 && prev < 4) this.hooks.onMedal({ streak: Math.min(4, this.streak) });
         if (!this.scripted && this.tracks.crop) for (const k of this.streaks('crop')) if (prev < k.at && this.streak >= k.at) this.ks.trigger(k.id);
     }
 
     // Racha alienígena: cada alienígena abatido suma (no se pierde con el tiempo) y al llegar a
     // cada número se lanza su recompensa
+    // Las medallas DOBLE / TRIPLE / MULTI KILL son solo de alienígenas (abatidos seguidos, con
+    // menos de 3 s entre uno y otro)
     addAlien(n) {
         const prev = this.aliens;
         this.aliens += n;
+        this.alienChain = this.time - (this.alienAt ?? -9) < 3 ? (this.alienChain || 0) + n : n;
+        this.alienAt = this.time;
+        if (this.hooks.onMedal && this.alienChain >= 2 && this.alienChain - n < 4) this.hooks.onMedal({ streak: Math.min(4, this.alienChain) });
         if (!this.scripted && this.tracks.alien) for (const k of this.streaks('alien')) if (prev < k.at && this.aliens >= k.at) this.ks.trigger(k.id);
     }
 
@@ -711,6 +722,14 @@ export class Sniper {
         this.walkers.update(dt, time);
         this.box.update(dt, time);
         if (this.dropT > 0 && (this.dropT -= rawDt) <= 0) this.dropSpecial();
+        // La pistola de rayos, sobrecalentada tras cada rayo: echa vapor por la boca hasta enfriarse
+        if (this.overheat > 0) {
+            this.overheat -= rawDt;
+            if (Math.random() < rawDt * 22) {
+                this.rifle.muzzle.getWorldPosition(_o);
+                this.particles.burst(_o.x, _o.y, _o.z, 2, [0xffffff, 0xd8d8d8, 0xb8ffb0], { speed: 0.3, up: 0.9, size: 0.05, ttl: 0.6, grav: -0.8 });
+            }
+        }
         if (this.swapT > 0 && (this.swapT -= rawDt) <= 0) this.endSpecial();
         this.updateNightSky();
         if (this.crop) this.checkEnd();

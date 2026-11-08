@@ -548,7 +548,11 @@ export class Prologue {
         this.after(1.6, throwAt('cluster'));
         this.after(2.2, throwAt('fire'));
         this.after(3.0, () => {
-            ks.callBomber();
+            // El bombardero entra siempre por la torre de tu izquierda y cruza en diagonal (es
+            // como mejor se ve)
+            const fx = f.cx - sn.pos.x, fz = f.cz - sn.pos.z;
+            const left = f.towers.find((t) => (t.x - sn.pos.x) * -fz + (t.z - sn.pos.z) * fx < -1) || f.towers[0];
+            ks.callBomber(new THREE.Vector3(f.cx - left.x, 0, f.cz - left.z).normalize());
             this.show.bomber = true;
             this.show.look = null;
         });

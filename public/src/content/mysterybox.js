@@ -15,12 +15,16 @@ export const BOX = { first: [20, 40], every: [45, 90], stay: 30, spin: 3.2 };
 // apuntar suben al centro y se apunta con su propia mira (zoom: campo de visión al apuntar)
 //   ammo    munición, un solo cargador (al gastarla, vuelve el fusil)
 //   rate    segundos entre disparo y disparo
-//   mode    rocket, ray o bolt (proyectiles que revientan en radius al llegar; el virote de la
+//   mode    beam (un rayo continuo durante beam s que lo recoge y abate todo a su paso cada tick
+//           s; luego se sobrecalienta cool s), rocket o bolt (proyectiles que revientan en
+//           radius al llegar; el virote de la
 //           ballesta se clava con su lucecita roja parpadeando y revienta a los fuse s)
 //   speed   velocidad del proyectil (m/s)
 export const WONDER_ZOOM = 42;
 export const WONDER = [
     { id: 'rpg', name: L('BAZOOKA', 'BAZUCA'), ammo: 6, rate: 0.9, mode: 'rocket', speed: 34, radius: 3.2, sfx: 'missile', icon: 'w-rpg' },
-    { id: 'ray', name: L('RAY GUN', 'PISTOLA DE RAYOS'), ammo: 20, rate: 0.26, mode: 'ray', speed: 46, radius: 1.7, sfx: 'laser', icon: 'w-ray' },
+    // (la pistola de rayos: 3 rayos continuos de beam s que siguen a la mirilla; tras cada uno se
+    // sobrecalienta cool s)
+    { id: 'ray', name: L('RAY GUN', 'PISTOLA DE RAYOS'), ammo: 3, rate: 2.2 + 1.6, mode: 'beam', beam: 2.2, cool: 1.6, tick: 0.1, sfx: 'laser', icon: 'w-ray' },
     { id: 'xbow', name: L('EXPLOSIVE CROSSBOW', 'BALLESTA EXPLOSIVA'), ammo: 8, rate: 0.7, mode: 'bolt', speed: 60, radius: 2.5, fuse: 1.4, sfx: 'whoosh', icon: 'w-xbow' },
 ];

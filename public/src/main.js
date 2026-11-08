@@ -338,8 +338,13 @@ const prologueHooks = {
         el.classList.remove('hidden');
     },
     popPlus: () => popPlus(innerWidth * 0.62, innerHeight * 0.62),
-    // El trigo mágico te deja su viejo granero: aparece solo
-    openBarn: () => openBarn(true),
+    // El trigo mágico te deja su viejo granero: primero la vista se aleja (para ver bien todo el
+    // recinto) y luego aparece solo
+    openBarn: () => {
+        rig.focus(BARN_DEF.x, BARN_DEF.z + 1);
+        rig.zoomTarget = 2.6;
+        setTimeout(() => openBarn(true), 1100);
+    },
     cine(on) {
         document.body.classList.toggle('cine', on);
         if (on) touch = pan = pinch = null;
@@ -373,6 +378,7 @@ const prologueHooks = {
         startMusic(THEME.music);
     },
     done() {
+        rig.zoomTarget = 1.6;
         document.body.classList.remove('prologue');
         // Sigue siendo de día hasta que el reloj llegue al día de verdad
         dayNight.force = Settings.daytime || null;
@@ -2088,6 +2094,7 @@ function refreshRifle() {
     }
     for (const k of KILLSTREAKS) {
         const on = c.ks.includes(k.id);
+        ksBtns[k.id].title = state.open(k.track === 'alien' ? 'aliens' : 'grenades') ? k.desc : ''; // (bloqueada: ni su descripción)
         ksBtns[k.id].classList.toggle('on', on);
         ksBtns[k.id].querySelector('em').textContent = on ? L('ON', 'PUESTA') : L('OFF', 'QUITADA');
     }
@@ -2109,7 +2116,10 @@ function refreshRifle() {
 function updateAmmo() {
     const el = $('ammo'), st = sniper.stats, reloading = sniper.reloadT > 0;
     el.classList.toggle('special', !!sniper.special);
-    const name = sniper.special ? sniper.special.name : '';
+    // (la pistola de rayos, sobrecalentada: lo dice en rojo hasta que se enfría)
+    const hot = !!sniper.special && sniper.overheat > 0;
+    el.classList.toggle('hot', hot);
+    const name = sniper.special ? (hot ? L('OVERHEATED', 'SOBRECALENTADA') : sniper.special.name) : '';
     if ($('ammo-name').textContent !== name) $('ammo-name').textContent = name;
     el.classList.toggle('reloading', reloading);
     el.classList.toggle('low', sniper.ammo <= Math.max(1, st.size * 0.25));
@@ -2561,6 +2571,7 @@ const STORY = {
             L("YOU'RE DOING REALLY WELL!", '¡LO ESTÁS HACIENDO MUY BIEN!'),
             L('I HAVE A GIFT FOR YOU.', 'TENGO UN REGALO PARA TI.'),
             L('HARVEST IN A ROW AND YOU WILL EARN GRENADES.', 'RECOGE SEGUIDO Y GANARÁS GRANADAS.'),
+            L('YOU CAN SEE AND MANAGE YOUR STREAKS IN THE ARMORY, IN YOUR BARN.', 'PUEDES VER Y GESTIONAR TUS RACHAS EN EL ARMAMENTO, EN TU GRANERO.'),
         ],
         gift: 1,
         stage: [L('NEW: CROP STREAKS!', '¡NUEVO: RACHAS DE CULTIVOS!'), L('HARVEST IN A ROW TO EARN GRENADES', 'RECOGE SEGUIDO PARA GANAR GRANADAS')],
@@ -2572,6 +2583,7 @@ const STORY = {
             L('CAREFUL...', 'TEN CUIDADO...'),
             L('SOMETIMES THEY TRY TO STEAL YOUR CROPS.', 'A VECES INTENTAN ROBARTE LOS CULTIVOS.'),
             L("I'LL LEAVE YOU A SECRET TOOL TO HELP YOU DEFEND THEM.", 'TE DEJO UNA HERRAMIENTA SECRETA PARA FACILITARTE LA DEFENSA.'),
+            L('SHOOT THE THIEVES TO EARN IT. YOU WILL FIND IT IN THE ARMORY, WITH YOUR OTHER STREAKS.', 'ABATE A LOS LADRONES PARA GANARLA. LA TIENES EN EL ARMAMENTO, CON TUS OTRAS RACHAS.'),
         ],
         gift: 2,
         stage: [L('NEW: ALIEN STREAKS!', '¡NUEVO: RACHAS ALIENÍGENAS!'), L('SHOOT THE THIEVES: MISSILE, BOMBER AND NUKE', 'ABATE A LOS LADRONES: MISIL, BOMBARDERO Y NUCLEAR')],
@@ -2618,6 +2630,7 @@ function magicVisit(step) {
     leaveMap(false);
     rig.focus(r.cx, r.cz - 1.5); // (el trigo flota alto: la vista algo por detrás, para que se vea entero)
     rig.zoomTarget = 1.2;
+    // (el regalo, al decirlo; su cartel grande, cuando ya se ha ido)
     prologue.visit(r.cx, r.cz, S.lines, {
         [S.gift]: () => {
             state.tell(step);
@@ -2625,12 +2638,12 @@ function magicVisit(step) {
             sfx.play('achievement');
             vibrate('pickup');
             updateCounts();
-            setTimeout(() => stage(...S.stage), 250);
         },
     }, () => {
         storyBusy = false;
         rig.zoomTarget = 1;
         updateCounts();
+        setTimeout(() => stage(...S.stage), 200);
     });
 }
 

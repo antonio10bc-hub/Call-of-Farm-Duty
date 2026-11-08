@@ -213,10 +213,11 @@ export class Killstreaks {
         return g;
     }
 
-    callBomber() {
+    // (dir: por dónde entra; sin él, por cualquier lado)
+    callBomber(dir = null) {
         if (this.plane) return;
-        const f = this.sn.field, a = Math.random() * Math.PI * 2;
-        const dir = new THREE.Vector3(Math.sin(a), 0, Math.cos(a));
+        const f = this.sn.field, a = dir ? Math.atan2(dir.x, dir.z) : Math.random() * Math.PI * 2;
+        dir = new THREE.Vector3(Math.sin(a), 0, Math.cos(a));
         const model = this.buildPlane();
         model.rotation.y = a;
         this.root.add(model);

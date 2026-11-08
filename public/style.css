@@ -1712,6 +1712,17 @@ body.cine .aim-btn { display: none !important; }
 .lo-sec.locked { position: relative; }
 .lo-sec.locked .lo-ks-row { filter: grayscale(1) brightness(.5); }
 .lo-sec.locked .lo-ks { cursor: not-allowed; }
+/* (bloqueadas no se pueden leer: cada tarjeta, solo un «?») */
+.lo-sec.locked .lo-ks > * { visibility: hidden; }
+.lo-sec.locked .lo-ks::before { content: '?'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--ink); }
 .lo-sec.locked .lo-tip { visibility: hidden; }
 .lo-sec.locked::after { content: attr(data-lock); position: absolute; left: 50%; top: 58%; transform: translate(-50%, -50%); padding: 8px 12px 7px 30px; font-size: 9px; white-space: nowrap; color: var(--cream); background: var(--ink) var(--px-lock) no-repeat 8px 50% / 14px 14px; border: 3px solid #a89878; image-rendering: pixelated; pointer-events: none; }
 .gear em .lock-ico { width: 11px; height: 11px; }
+
+/* El cartel de la casa en el mapa (ya abierta): solo la casa, sin el cuadro del cartel (y la flecha
+   verde si se puede mejorar) */
+#bubbles .house-sign:not(.locked) { width: 52px; height: 52px; padding: 0; background: none; border: 0; box-shadow: none; }
+#bubbles .house-sign:not(.locked) > .ico { width: 48px; height: 48px; filter: drop-shadow(0 3px 0 rgba(42, 26, 14, .55)); }
+#bubbles .house-sign:not(.locked) > span:not(.ico), #bubbles .house-sign:not(.locked) > .pips { display: none !important; }
+.ammo.special.hot { border-color: #ff6a3a; animation: ksWarn .5s steps(2) infinite; }
+.ammo.special.hot .ammo-name { color: #ff6a3a; }

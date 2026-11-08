@@ -5,7 +5,7 @@
 // archivos con huella en el nombre (los de cada versión publicada), de la copia guardada.
 // La primera visita guarda la estructura básica al instalarse, y la página le envía la
 // lista de todo lo que ha cargado (módulos, iconos...) para que también lo guarde.
-const CACHE = 'cofd-v59';
+const CACHE = 'cofd-v60';
 const SHELL = [
     './',
     './index.html',

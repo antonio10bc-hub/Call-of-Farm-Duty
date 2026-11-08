@@ -98,9 +98,12 @@ test('colateral: una bala que atraviesa dos matas recoge las dos', { tag: '@smok
     // Dos como poco (alguna otra mata puede quedar también en la línea de tiro)
     await expect.poll(() => page.evaluate(() => game.state.wheat)).toBeGreaterThanOrEqual(2);
     const n = await page.evaluate(() => game.state.wheat);
-    // Medallas pequeñas arriba: colateral y la racha (doble kill con dos, triple con tres...)
+    // Medallas pequeñas arriba: colateral (los cultivos no cuentan para DOBLE KILL...)
     await expect(page.locator('#medals')).toContainText(`COLATERAL x${n}`);
-    await expect(page.locator('#medals')).toContainText(n === 2 ? 'DOBLE KILL' : n === 3 ? 'TRIPLE KILL' : 'MULTI KILL');
+    await expect(page.locator('#medals')).not.toContainText('KILL');
+    // DOBLE / TRIPLE / MULTI KILL: solo alienígenas abatidos seguidos
+    await page.evaluate(() => { game.sniper.addAlien(1); game.sniper.addAlien(1); });
+    await expect(page.locator('#medals')).toContainText('DOBLE KILL');
     expect(errors).toEqual([]);
 });
 
