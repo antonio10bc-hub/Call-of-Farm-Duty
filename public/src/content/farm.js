@@ -29,7 +29,8 @@ export const FARM = {
         { id: 'east', rect: [30, 0, 60, 30], price: 25, field: 'corn', name: L('EAST PLOT', 'PARCELA ESTE') },
         { id: 'nw', rect: [-30, -30, 0, 0], price: 40, field: 'milk', name: L('NORTH-WEST PLOT', 'PARCELA NOROESTE') },
         { id: 'sw', rect: [-30, 30, 0, 60], soon: true },
-        { id: 'south', rect: [0, 30, 30, 60], soon: true },
+        // (el desagüe del lago, a la derecha de los cerdos: la laguna del pescador)
+        { id: 'south', rect: [0, 30, 30, 60], price: 45, field: 'fish', name: L('FISHING POND', 'LAGUNA DEL PESCADOR') },
         { id: 'se', rect: [30, 30, 60, 60], soon: true },
         // Las otras mitades de la orilla alta (la de las ovejas), la cañada y la parcela de abajo
         { id: 'nw2', rect: [60, -30, 90, 0], price: 60, field: 'wool', name: L('SHEEP MEADOW', 'PRADO DE LAS OVEJAS') },
@@ -228,6 +229,23 @@ export const FARM = {
                 { w: 15, d: 14, sheaves: 11, arena: 1.55, sign: 0x5a9e32 },
                 { w: 20, d: 19, sheaves: 16, arena: 1.9, sign: 0x3a7ec8 },
                 { w: 28, d: 28, sheaves: 22, arena: 2.4, sign: 0xc8402e },
+            ],
+        },
+        {
+            id: 'fish',
+            crop: 'fish',
+            name: L('FISHING POND', 'LAGUNA DEL PESCADOR'),
+            corner: { x: 15, z: 45, center: true },
+            cost: { wheat: 10, fish: 3 },
+            turrets: { wheat: 40, fish: 12 },
+            locked: { land: 'south', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
+            // sheaves: peces de la laguna del campo de tiro (un pescado cada uno)
+            levels: [
+                { w: 6, d: 5, sheaves: 6, arena: 1, sign: 0x9a6a3a },
+                { w: 10, d: 9, sheaves: 10, arena: 1.25, sign: 0xb07a44 },
+                { w: 15, d: 14, sheaves: 16, arena: 1.55, sign: 0x5a9e32 },
+                { w: 20, d: 19, sheaves: 24, arena: 1.9, sign: 0x3a7ec8 },
+                { w: 28, d: 28, sheaves: 34, arena: 2.4, sign: 0xc8402e },
             ],
         },
         {

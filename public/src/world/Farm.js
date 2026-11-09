@@ -15,6 +15,7 @@ import { CROPS } from '../content/crops.js';
 import { buildCow, animateCow } from '../render/cow.js';
 import { buildSheep, animateSheep } from '../render/sheep.js';
 import { buildPig, animatePig } from '../render/pig.js';
+import { buildFish, animateFish } from '../render/fish.js';
 import { buildChicken, animateChicken } from '../render/chicken.js';
 import { BARNYARD, SLOTS, BarnPiece } from '../render/barnyard.js';
 import { FARM, TURRETS, PLACES, toWorld, worldToPlace, inShapeOf, inFieldShape, stretchLocal, floorPlace } from '../content/farm.js';
@@ -46,6 +47,7 @@ const CLEARING = [0x8fbf54, 0x9ab85a, 0xa8a060, 0xb89a64, 0x86b04e]; // el claro
 const rectOf = ([x0, z0, x1, z1]) => ({ x: x0, z: z0, w: x1 - x0, d: z1 - z0 });
 const PASTURE = [0xa8e070, 0x9ad962, 0xb4e67a]; // hierba fresca del prado de las vacas
 const MUD = [0x7a5232, 0x6a4628, 0x8a5e38]; // el barro de la pocilga
+const POND = [0x4aa8e0, 0x3f98d4], SAND = [0xd9c48a, 0xccb67a]; // la laguna del pescador y su orilla
 // La parcela en venta en la que cae un punto (o ninguna)
 const landAt = (x, z) => FARM.lands.find(({ rect: [x0, z0, x1, z1] }) => x >= x0 && x < x1 && z >= z0 && z < z1);
 // Parcela sin comprar: todo más oscuro y frío, como en sombra (se multiplica por esto)
@@ -391,10 +393,18 @@ export class Farm {
         return k && k.field ? -0.12 : k && k.path ? -0.17 : -0.15;
     }
 
+    // ¿Cae en la laguna del campo v (o en su orilla, m)? En casillas de sus coordenadas de siempre
+    inPond(v, x, z, m = 0) {
+        const f = v.rect, R = Math.min(f.w, f.d) * 0.3;
+        return Math.hypot(x - f.cx, (z - f.cz) * 1.1) + Math.sin(x * 1.3 + z * 0.7) * 0.4 < R + m;
+    }
+
     paintTile(mesh, t, i) {
         const { theme } = this, { k } = t, c = Math.floor(t.wx), r = Math.floor(t.wz); // (las vetas, por las casillas del mundo)
+        const pond = k && k.field && !k.locked && CROPS[this.fields[k.field].crop].pond ? this.fields[k.field] : null;
         const col = k && k.field
             ? (k.locked ? JUNK.ground[mod(c * 7 + r * 5 + mod(c * r, 3), JUNK.ground.length)]
+                : pond && this.inPond(pond, t.c + 0.5, t.r + 0.5) ? POND[(c + r) & 1] : pond && this.inPond(pond, t.c + 0.5, t.r + 0.5, 1) ? SAND[(c + r) & 1] // (la laguna en el centro)
                 : CROPS[this.fields[k.field].crop].mud ? MUD[mod(c * 3 + r * 5, 3)] : CROPS[this.fields[k.field].crop].pasture ? PASTURE[mod(c * 3 + r * 5, 3)]
                 // (el trigo grande, sobre rastrojo de paja: se lee lleno con menos tallos)
                 : this.fields[k.field].crop === 'wheat' && this.fields[k.field].level >= 2 ? STRAW[(r & 1) + 2 * mod(c * 3 + r, 2)] : theme.soil[r & 1]) // (el prado, de hierba)
@@ -722,6 +732,11 @@ export class Farm {
             add(solid, rx * 0.66, 0.68, rz * 0.66, 0.2, 0.12, 0.08, 0xf2a0b0, r);
             for (const [a, b] of [[0.12, 0.28], [-0.12, 0.28], [0.12, -0.28], [-0.12, -0.28]]) add(solid, rx * b + rz * a, 0.22, rz * b - rx * a, 0.1, 0.44, 0.1, 0xf6f3ea);
             add(solid, -rx * 0.1, 0.4, -rz * 0.1, 0.22, 0.12, 0.2, 0xf2a0b0, r);
+        } else if (crop === 'fish') {
+            // Un charquito de muestra con su pez saltando
+            add(solid, 0, 0.02, 0, 0.9, 0.04, 0.9, 0x4aa8e0, r);
+            add(solid, 0, 0.55, 0, 0.16, 0.2, 0.42, 0xf0a040, r);
+            add(solid, Math.sin(r) * -0.26, 0.6, Math.cos(r) * -0.26, 0.04, 0.24, 0.12, 0xd87a28, r);
         } else if (crop === 'truffle') {
             // Un cerdo de muestra: cuerpo rosa, cabeza con su hocico, patas y una mancha de barro
             const rx = Math.sin(r), rz = Math.cos(r);
@@ -1434,6 +1449,7 @@ export class Farm {
     // El prado de las vacas (o de las ovejas): una cada pocas casillas (más pequeñas que en el
     // campo de tiro), paseando y paciendo por su campo. v.plants son ellas (la torreta les dispara)
     buildHerd(v) {
+        if (v.crop === 'fish') return this.buildFishes(v);
         const f = v.rect, n = Math.max(2, Math.min(v.crop === 'egg' ? 22 : 16, Math.round((f.w * f.d) / (v.crop === 'egg' ? 9 : 14))));
         if (!v.herd) {
             v.herd = new THREE.Group();
@@ -1486,7 +1502,62 @@ export class Farm {
 
     // Cada vaca pasea hacia un sitio del prado al azar, se para a pacer y vuelve a andar; la ubre
     // se le hincha según madura el campo (a las ovejas, el vellón)
+    // La laguna del pescador: unos cuantos peces (de los tres tamaños) que de vez en cuando saltan
+    // fuera del agua en arco, con su salpicón (onFishSplash) al salir y al volver. v.plants son ellos
+    buildFishes(v) {
+        const f = v.rect, n = Math.max(3, Math.min(12, Math.round((f.w * f.d) / 30)));
+        if (!v.herd) {
+            v.herd = new THREE.Group();
+            this.groupAt(v.zone.cx, v.zone.cz).add(v.herd);
+            v.plants = [];
+        }
+        const ink = outline(this.theme.outline);
+        while (v.plants.length < n) {
+            const c = buildFish(ink, ['s', 'm', 'l'][v.plants.length % 3]);
+            c.g.visible = false;
+            v.herd.add(c.g);
+            v.plants.push({ cow: c, x: f.cx, z: f.cz, jump: null, wait: 0.5 + Math.random() * 5 });
+        }
+        this.placeBarnyard(v);
+    }
+
+    updateFishes(v, dt, ripe) {
+        const f = v.rect, R = Math.min(f.w, f.d) * 0.3;
+        for (const s of v.plants) {
+            if (!s.jump && (s.wait -= dt) <= 0) {
+                // Salta desde un sitio de la laguna, hacia dentro (con prisa si el campo está maduro)
+                const d = Math.sqrt(Math.random()) * R * 0.6, a = Math.random() * Math.PI * 2, x = f.cx + Math.sin(a) * d, z = f.cz + Math.cos(a) * d;
+                const toward = Math.atan2(f.cx - x, f.cz - z) + (Math.random() - 0.5) * 2;
+                s.jump = { x, z, y: 0, vx: Math.sin(toward) * 0.8, vz: Math.cos(toward) * 0.8, vy: 3.2 + Math.random() * 1.2 };
+                if (this.onFishSplash) this.onFishSplash(x, z);
+            }
+            const J = s.jump, g = s.cow.g;
+            if (J) {
+                J.vy -= 9 * dt;
+                J.x += J.vx * dt;
+                J.z += J.vz * dt;
+                J.y += J.vy * dt;
+                if (J.y <= 0 && J.vy < 0) {
+                    s.jump = null;
+                    s.wait = (ripe ? 1 : 3) + Math.random() * 4;
+                    if (this.onFishSplash) this.onFishSplash(J.x, J.z);
+                }
+            }
+            g.visible = !!s.jump;
+            if (s.jump) {
+                const w = stretchLocal(s.jump.x, s.jump.z);
+                s.x = s.jump.x;
+                s.z = s.jump.z;
+                g.position.set(w.x, s.jump.y + 0.1, w.z);
+                g.rotation.set(-Math.atan2(s.jump.vy, 0.8), Math.atan2(s.jump.vx, s.jump.vz), 0, 'YXZ');
+                g.scale.setScalar({ s: 0.55, m: 0.85, l: 1.3 }[s.cow.size] * 0.6);
+                animateFish(s.cow, dt, 1);
+            }
+        }
+    }
+
     updateHerd(v, dt, time, p) {
+        if (v.crop === 'fish') return this.updateFishes(v, dt, p >= 1);
         const f = v.rect;
         for (const s of v.plants) {
             if ((s.wait -= dt) <= 0 && !s.goal) {

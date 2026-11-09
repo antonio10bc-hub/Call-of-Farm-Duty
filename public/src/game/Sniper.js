@@ -184,6 +184,13 @@ export class Sniper {
             if (Math.random() < 0.18) this.hooks.sfx.play('boing');
             this.particles.burst(s.cx, 0.1, s.cz, 4, [0xd8c8a0, 0x9ad962], { speed: 1.2, up: 0.8, size: 0.08, ttl: 0.35 });
         };
+        // Un pez que salta o vuelve al agua: salpicón y su onda (más grandes los peces grandes)
+        this.field.onFishSplash = (x, z, size) => {
+            const k = { s: 0.6, m: 1, l: 1.5 }[size] || 1;
+            this.particles.burst(x, 0.1, z, Math.round(10 * k), [0xffffff, 0xc0e4f8, 0x9fdcff], { speed: 1.8 * k, up: 3 * k, size: 0.09, ttl: 0.5 });
+            this.waves.spawn(x, z, 0xc0e4f8, 0.9 * k, 0.5);
+            if (Math.random() < 0.3) this.hooks.sfx.play('pop');
+        };
         // Un cerdo deslizándose de barriga: salpica barro por detrás
         this.field.onSplash = (s) => {
             this.particles.burst(s.cx - s.vx * 0.08, 0.15, s.cz - s.vz * 0.08, 4, [0x7a5232, 0x5a3a22, 0x8a5e38], { speed: 1.6, up: 1.6, size: 0.1, ttl: 0.45 });
@@ -240,7 +247,7 @@ export class Sniper {
         // la caja
         const D = this.debug || {};
         if (this.crop) {
-            if (D.cowsFull) for (const s of this.field.targets) if (s.kind === 'cow' || s.kind === 'sheep' || s.kind === 'hen' || s.kind === 'pig') s.swell = 1;
+            if (D.cowsFull) for (const s of this.field.targets) if (s.kind === 'cow' || s.kind === 'sheep' || s.kind === 'hen' || s.kind === 'pig' || s.kind === 'fish') s.swell = 1;
             const w = D.startWonder && WONDER.find((x) => x.id === D.startWonder);
             if (w) this.giveSpecial(w);
         }

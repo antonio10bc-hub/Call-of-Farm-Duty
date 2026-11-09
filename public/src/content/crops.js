@@ -107,6 +107,24 @@ export const CROPS = {
         loot: 0xfff6dc,
         stub: [0xb4d070, 0xa8c860, 0xc0d880],
     },
+    // Pescado: peces en la laguna del centro de su campo que saltan fuera del agua cuando quieren,
+    // en arco, cada uno de su tamaño (los pequeños, altos y deprisa; los grandes, bajos y
+    // despacio); en el aire, un tiro y es tuyo. Si no, vuelve al agua y salta más tarde
+    fish: {
+        name: L('FISH', 'PESCADO'),
+        icon: 'fish',
+        growTime: 45,
+        pasture: true,
+        pond: 0.6, // (su campo: hierba con una laguna en el centro; la laguna, de este tanto del campo)
+        swell: [1.2, 4.5], // segundos bajo el agua entre salto y salto
+        // El salto de cada tamaño: velocidad hacia arriba y de lado
+        jump: { s: { up: [10, 12], side: [1.6, 3] }, m: { up: [8, 9.5], side: [1.2, 2.2] }, l: { up: [6, 7], side: [0.8, 1.5] }, grav: 9.5 },
+        burst: [0xffffff, 0xc0e4f8, 0x5ab4ff, 0x9ab8d0],
+        chaff: [0xffffff, 0x9fdcff, 0x5ab4ff],
+        unit: L('FISH', 'PESCADOS'),
+        loot: 0x9ab8d0,
+        stub: [0x6a9a3a, 0x5a8a2e, 0x7aaa4a],
+    },
     // Trufas: cerdos en su pocilga embarrada, que cogen carrerilla y se deslizan de barriga por el
     // barro una y otra vez (rebotando contra el borde y entre ellos); hozando, cada poco uno
     // encuentra una trufa y la lleva en el lomo: un tiro a la trufa, y es tuya (cada cerdo, una)

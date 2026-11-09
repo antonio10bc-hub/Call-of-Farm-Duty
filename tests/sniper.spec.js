@@ -218,6 +218,23 @@ test('cerdos: en su barro cogen carrerilla y se deslizan de barriga; la trufa qu
     expect(errors).toEqual([]);
 });
 
+test('peces: en la laguna del centro saltan fuera del agua (de tres tamaños); en el aire, un tiro y es pescado', { tag: '@full' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await enterCrop(page, 'fish');
+    expect(await page.evaluate(() => game.sniper.field.targets.length)).toBe(await page.evaluate(() => game.state.sheaves('fish')));
+    expect(await page.evaluate(() => !!game.sniper.field.pond)).toBe(true);
+    // Saltan (cada uno cuando quiere); bajo el agua no hay a qué disparar
+    await expect.poll(() => page.evaluate(() => game.sniper.field.targets.some((s) => s.jump && s.jump.y > 0.5)), { timeout: 10_000 }).toBe(true);
+    await page.evaluate(() => { for (const s of game.sniper.field.targets) { s.jump = null; s.swell = 0; s.rate = 0; } });
+    expect(await page.evaluate(() => game.sniper.field.targets.some((s) => game.sniper.field.hittable(s)))).toBe(false);
+    // Uno, quieto en el aire (sin gravedad): un tiro y es pescado
+    await page.evaluate(() => { const f = game.sniper.field, s = f.targets[0]; f.fishGrav = 0; s.jump = { x: f.pond.x, y: 2, z: f.pond.z, vx: 0, vy: 0, vz: 0 }; });
+    await frames(page, 3); // (que se coloque en el aire antes de apuntarle)
+    await aimAndShoot(page, '(() => { const s = game.sniper.field.targets[0]; return { x: s.x, y: s.y, z: s.z }; })()');
+    await expect.poll(() => page.evaluate(() => game.state.items.fish)).toBe(1);
+    expect(errors).toEqual([]);
+});
+
 test('caja sorpresa: sale en otra torre; desde lejos no se abre, desde su torre da un arma y al gastarla vuelve el rifle', { tag: '@smoke' }, async ({ page }) => {
     const errors = watchErrors(page);
     await enterBigField(page);

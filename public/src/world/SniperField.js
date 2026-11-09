@@ -7,6 +7,7 @@ import { CROPS } from '../content/crops.js';
 import { buildCow, animateCow } from '../render/cow.js';
 import { buildSheep, animateSheep } from '../render/sheep.js';
 import { buildPig, animatePig } from '../render/pig.js';
+import { buildFish, animateFish } from '../render/fish.js';
 import { buildChicken, animateChicken } from '../render/chicken.js';
 import { FIELD } from '../content/field.js';
 
@@ -238,9 +239,15 @@ export class SniperField {
     // brotes) o 'junk' (tierra sucia con maleza seca)
     dress(kind) {
         const { theme } = this;
+        // La laguna (si su cultivo la tiene): agua en el centro del campo y una orilla de arena
+        const P = CROPS[kind] && CROPS[kind].pond;
+        this.pond = P ? { x: this.cx, z: this.cz, r: edgeDist(this.poly, this.cx, this.cz) * P } : null;
+        const inPond = (x, z, m = 0) => this.pond && Math.hypot(x - this.pond.x, (z - this.pond.z) * 1.1) + Math.sin(x * 1.3 + z * 0.7) * 0.6 < this.pond.r + m;
         this.tiles.forEach(({ c, r, soil }, i) => {
             if (!soil) return;
             const col = kind === 'junk' ? JUNK.ground[mod(c * 7 + r * 5 + mod(c * r, 3), JUNK.ground.length)]
+                : inPond(c + 0.5, r + 0.5) ? [0x4aa8e0, 0x3f98d4][(c + r) & 1] // (el agua)
+                : inPond(c + 0.5, r + 0.5, 1.3) ? [0xd9c48a, 0xccb67a][(c + r) & 1] // (la orilla)
                 : CROPS[kind] && CROPS[kind].mud ? [0x7a5232, 0x6a4628, 0x8a5e38][mod(c * 3 + r * 5, 3)] // (la pocilga, de barro)
                 : CROPS[kind] && CROPS[kind].pasture ? [0xa8e070, 0x9ad962, 0xb4e67a][mod(c * 3 + r * 5, 3)] : theme.soil[r & 1];
             this.floor.setColorAt(i, _c.setHex(col).offsetHSL(0, 0, (Math.random() - 0.5) * theme.grassJitter));
@@ -249,6 +256,7 @@ export class SniperField {
         const T = CROPS.tomato;
         this.stub.forEach((s, i) => {
             const own = CROPS[kind] && CROPS[kind].stub;
+            if (inPond(s.x, s.z)) return this.stubMesh.setColorAt(i, _c.setHex(0x6ac0f0)); // (en el agua, brillos)
             const col = kind === 'junk' ? (s.tone < 0.6 ? 0x8a7a4a : 0x6f8a3a) : own ? own[i % own.length] : kind === 'tomato' ? T.leaves[i % 3] : s.tone < 0.7 ? 0xb8a050 : CROPS.wheat.stages[1];
             this.stubMesh.setColorAt(i, _c.setHex(col).offsetHSL(0, 0, (s.tone - 0.5) * 0.1));
         });
@@ -282,6 +290,7 @@ export class SniperField {
         if (crop === 'milk') return this.spawnCows(count);
         if (crop === 'wool') return this.spawnSheep(count);
         if (crop === 'truffle') return this.spawnPigs(count);
+        if (crop === 'fish') return this.spawnFish(count);
         if (crop === 'egg') return this.spawnHens(count);
         for (let i = 0; i < count; i++) {
             const { x, z } = this.freeSpot(this.targets, count > 90 ? 1.2 : 1.6); // (más juntas si hay muchas)
@@ -654,6 +663,72 @@ export class SniperField {
         }
     }
 
+    // Peces: en la laguna del centro; cada uno espera bajo el agua (swell) y salta fuera en arco
+    // (con su salpicón al salir y al volver a entrar), de su tamaño: los pequeños altos y deprisa,
+    // los grandes bajos y despacio. En el aire es el blanco; si no, vuelve al agua y salta más tarde
+    spawnFish(count) {
+        if (!this.herd) {
+            this.herd = new THREE.Group();
+            this.root.add(this.herd);
+        }
+        const ink = outline(this.theme.outline), [a, b] = CROPS.fish.swell;
+        for (let i = 0; i < count; i++) {
+            const size = Math.random() < 0.45 ? 's' : Math.random() < 0.65 ? 'm' : 'l';
+            const fish = buildFish(ink, size);
+            fish.g.visible = false;
+            this.herd.add(fish.g);
+            this.targets.push({ kind: 'fish', cow: fish, size, ur: { s: 0.34, m: 0.48, l: 0.7 }[size], jump: null, x: this.cx, y: -1, z: this.cz, cx: this.cx, cz: this.cz,
+                swell: Math.random() * 0.6, rate: 1 / (a + Math.random() * (b - a)), alive: true, grow: -0.5 - i * 0.05, landed: false, flash: 0, dying: 0 });
+        }
+    }
+
+    // Salta el pez s: desde un sitio de la laguna, hacia arriba y de lado (sin salirse de ella)
+    leap(s) {
+        const J = CROPS.fish.jump[s.size], r = (a) => a[0] + Math.random() * (a[1] - a[0]), P = this.pond;
+        const d = Math.sqrt(Math.random()) * P.r * 0.7, a0 = Math.random() * Math.PI * 2;
+        const x = P.x + Math.sin(a0) * d, z = P.z + Math.cos(a0) * d;
+        // (de lado, hacia dentro de la laguna)
+        const ang = Math.atan2(P.x - x, P.z - z) + (Math.random() - 0.5) * 2, side = r(J.side);
+        s.jump = { x, y: 0, z, vx: Math.sin(ang) * side, vy: r(J.up), vz: Math.cos(ang) * side };
+        s.swell = 0;
+        if (this.onFishSplash) this.onFishSplash(x, z, s.size);
+    }
+
+    drawFish(dt, time) {
+        const grav = this.fishGrav ?? CROPS.fish.jump.grav; // (fishGrav: las pruebas lo paran en el aire)
+        for (const s of this.targets) {
+            const c = s.cow, J = s.jump;
+            if (s.alive && s.landed && !J && !s.gone && (s.swell += dt * s.rate) >= 1) this.leap(s);
+            if (J) {
+                J.vy -= grav * dt;
+                J.x += J.vx * dt;
+                J.y += J.vy * dt;
+                J.z += J.vz * dt;
+                // De vuelta al agua: su salpicón y a esperar
+                if (J.y <= 0 && J.vy < 0) {
+                    s.jump = null;
+                    if (this.onFishSplash) this.onFishSplash(J.x, J.z, s.size);
+                }
+            }
+            const show = !!s.jump && (s.alive || s.dying > 0);
+            c.g.visible = show;
+            if (show) {
+                const j = s.jump, h = Math.hypot(j.vx, j.vz);
+                c.g.position.set(j.x, j.y, j.z);
+                // (mirando hacia donde va: sube de morro y cae de morro)
+                c.g.rotation.set(-Math.atan2(j.vy, h), Math.atan2(j.vx, j.vz), 0, 'YXZ');
+                c.g.scale.setScalar({ s: 0.55, m: 0.85, l: 1.3 }[s.size] * 1.3 * (1 + s.flash * 0.3));
+                animateFish(c, dt, 1);
+                s.x = j.x;
+                s.y = j.y;
+                s.z = j.z;
+            } else {
+                s.y = -1; // (bajo el agua)
+            }
+            if (!s.alive && s.dying <= 0) s.jump = null;
+        }
+    }
+
     // Lanza el huevo de la gallina s (hacia arriba y un poco de lado, alejándose del borde)
     toss(s) {
         const T = CROPS.egg.toss, r = (a) => a[0] + Math.random() * (a[1] - a[0]);
@@ -725,7 +800,7 @@ export class SniperField {
 
     // ¿Se le puede dar? (las vacas, solo con la ubre llena; las ovejas, con la bola de lana hecha)
     hittable(s) {
-        return s.alive && s.landed && (s.kind === 'hen' ? !!s.egg : (s.kind !== 'cow' && s.kind !== 'sheep' && s.kind !== 'pig') || s.swell >= 1);
+        return s.alive && s.landed && (s.kind === 'hen' ? !!s.egg : s.kind === 'fish' ? !!s.jump && s.jump.y > 0.25 : (s.kind !== 'cow' && s.kind !== 'sheep' && s.kind !== 'pig') || s.swell >= 1);
     }
 
     // Terreno abandonado: chatarra a montones por todo el campo y por la hierba hasta la atalaya
@@ -902,6 +977,7 @@ export class SniperField {
         if (this.crop === 'milk') this.drawCows(dt, time);
         else if (this.crop === 'wool') this.drawSheep(dt, time);
         else if (this.crop === 'truffle') this.drawPigs(dt, time);
+        else if (this.crop === 'fish') this.drawFish(dt, time);
         else if (this.crop === 'egg') this.drawHens(dt, time);
         else if (this.crop === 'wheat') this.drawWheat(time);
         else if (this.crop === 'tomato') this.drawTomatoes(dt, time);
@@ -1164,6 +1240,7 @@ function segDist(x, z, ax, az, bx, bz) {
 // al tomate (algo más grande que él, que se ve enorme pero es lo que hay que darle)
 function hitBox(s) {
     if (s.kind === 'hen') return [s.x - 0.42, s.y - 0.48, s.z - 0.42, s.x + 0.42, s.y + 0.48, s.z + 0.42]; // (el huevo, algo más grande que él)
+    if (s.kind === 'fish') return [s.x - s.ur, s.y - s.ur * 0.8, s.z - s.ur, s.x + s.ur, s.y + s.ur * 0.8, s.z + s.ur]; // (el pez, según su tamaño)
     if (s.kind === 'cow' || s.kind === 'sheep' || s.kind === 'pig') return [s.x - s.ur, s.y - s.uh, s.z - s.ur, s.x + s.ur, s.y + s.uh, s.z + s.ur]; // (la ubre, la bola de lana o la trufa)
     if (!s.plant) return [s.x - 0.36, 0, s.z - 0.36, s.x + 0.36, 1.55, s.z + 0.36];
     if (s.kind === 'pumpkin') {

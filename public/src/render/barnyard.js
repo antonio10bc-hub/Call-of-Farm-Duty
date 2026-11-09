@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { VoxelModel } from './VoxelModel.js';
 
-// Los edificios de los prados de animales (vacas, ovejas, gallinas y cerdos): cada nivel del campo
+// Los edificios de los prados de animales (vacas, ovejas, gallinas y cerdos) y de la laguna: cada nivel del campo
 // añade alguno (y se quedan los de antes), así su zona se va llenando y no tiene solo animales.
 // Cada pieza es un modelo voxel con su contorno, mirando hacia +z, en medidas del mundo.
 //   lv     nivel del campo desde el que está
@@ -138,6 +138,35 @@ export const BARNYARD = {
         { lv: 4, r: 0.9, build: (m, g) => { for (const [x, y, z] of [[0, 0, 0], [0.55, 0, 0.1], [0.25, 0.5, 0.05]]) m.part(g, 0.5, 0.5, 0.5, 0xfaf6ec, x, y + 0.25, z); } },
         { lv: 5, r: 1.3, at: [10.5, 5.2], build: (m, g) => windmill(m, g) }, // (a un lado: es alto y taparía el esquiladero)
         { lv: 5, r: 1.6, build: (m, g) => { fence(m, g, -1.4, 0, 1.4, 0); bales(m, g, [[0, 0, 0.6, 0]]); } },
+    ],
+    // La laguna del pescador: su cabaña desde el principio; luego el muelle con la barca, el
+    // secadero de pescado, el ahumadero y un farolillo con sus cañas
+    fish: [
+        { lv: 1, r: 1.6, build: (m, g) => { // la cabaña del pescador, con su red colgada y una nasa
+            shed(m, g, 2.2, 1.7, 1.3, 0x8a6a4a, 0x3a5a7a);
+            for (const x of [-1.3, 1.3]) m.part(g, 0.08, 1.2, 0.08, WOOD2, x, 0.6, 1.1);
+            m.part(g, 2.6, 0.04, 0.04, WOOD2, 0, 1.18, 1.1, false);
+            for (let i = 0; i < 6; i++) m.part(g, 0.36, 0.7, 0.02, 0xd8cca8, -1.05 + i * 0.42, 0.8, 1.1, false); // la red
+            m.part(g, 0.5, 0.4, 0.5, 0xc8a050, 1.5, 0.2, -0.4); // la nasa
+        } },
+        { lv: 2, r: 1.6, build: (m, g) => { // el muelle de tablas y la barca
+            for (let i = 0; i < 5; i++) m.part(g, 0.4, 0.08, 1.4, i % 2 ? WOOD : 0xa87848, -0.9 + i * 0.42, 0.3, 0);
+            for (const [x, z] of [[-1, -0.6], [1, -0.6], [-1, 0.6], [1, 0.6]]) m.part(g, 0.1, 0.5, 0.1, DARK, x, 0.2, z);
+            m.part(g, 0.7, 0.3, 1.6, 0xc8402e, 1.8, 0.15, 0.2);
+            m.part(g, 0.5, 0.1, 1.3, 0x8a5a2a, 1.8, 0.32, 0.2, false);
+        } },
+        { lv: 3, r: 1.2, build: (m, g) => { // secadero: un palo con los peces colgados
+            for (const x of [-0.8, 0.8]) m.part(g, 0.1, 1.4, 0.1, WOOD2, x, 0.7, 0);
+            m.part(g, 1.8, 0.06, 0.06, WOOD2, 0, 1.36, 0, false);
+            for (let i = 0; i < 4; i++) m.part(g, 0.1, 0.36, 0.2, [0x9ab8d0, 0xf0a040, 0x9ab8d0, 0x5a7a3a][i], -0.54 + i * 0.36, 1.08, 0);
+        } },
+        { lv: 4, r: 1.6, build: (m, g) => { shed(m, g, 2.0, 1.6, 1.4, 0x6a5a4a, 0x4a3a2a); m.part(g, 0.3, 0.8, 0.3, STONE2, 0.6, 2.0, -0.3); crates(m, g, [[1.5, 0, 0.4], [1.5, 0, -0.2]], 0x9ab8d0); } }, // el ahumadero, con su chimenea y cajas de pescado
+        { lv: 5, r: 0.9, build: (m, g) => { // farolillo y las cañas apoyadas
+            m.part(g, 0.12, 1.8, 0.12, DARK, 0, 0.9, 0);
+            m.part(g, 0.3, 0.3, 0.3, 0xfff0a0, 0, 1.9, 0);
+            m.part(g, 0.4, 0.06, 0.4, DARK, 0, 2.08, 0, false);
+            for (const s of [-1, 1]) m.part(g, 0.04, 2.2, 0.04, 0x8a5a2a, 0.5 + s * 0.12, 1.0, 0.2, false).rotation.z = s * 0.3;
+        } },
     ],
     truffle: [
         { lv: 1, r: 1.0, build: (m, g) => { // comedero de pienso (un tronco hueco) y un cubo

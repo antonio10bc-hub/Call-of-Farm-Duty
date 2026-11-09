@@ -187,6 +187,11 @@ const SPRITES = {
         pal: { K: INK, W: '#fff6e6', L: '#ffffff', C: '#e8d8b8' },
     },
     // Ovillo de lana: la bola con sus vueltas de hilo y la hebra suelta
+    // Pez: plateado con el vientre claro, su ojo y la cola
+    fish: {
+        rows: ['..........', '....KKK...', '..KKBBBK.K', '.KBWBBBBKB', 'KBBBBBBBBK', 'KWWWWWWBKB', '.KWWWWWK.K', '..KKKKK...', '..........', '..........'],
+        pal: { K: '#2a1a0e', B: '#7aa0c8', W: '#e8f0f6' },
+    },
     // Trufa: un terrón oscuro con sus vetas
     truffle: {
         rows: ['..........', '...KKKK...', '..KDTDDK..', '.KDDTDTDK.', 'KDTDDDDTDK', 'KDDDTDDDDK', 'KDTDDDTDDK', '.KDDTDDDK.', '..KKKKKK..', '..........'],

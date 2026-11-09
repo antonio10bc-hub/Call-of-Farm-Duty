@@ -572,6 +572,7 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
 .wool-ico { --ico: var(--px-wool); }
 .egg-ico { --ico: var(--px-egg); }
 .truffle-ico { --ico: var(--px-truffle); }
+.fish-ico { --ico: var(--px-fish); }
 .barrel-ico { --ico: var(--px-barrel); }
 .lock-ico { --ico: var(--px-lock); }
 .turret-ico { --ico: var(--px-turret); }
