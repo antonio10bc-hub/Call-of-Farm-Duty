@@ -14,3 +14,10 @@ Las pruebas renderizan el juego de verdad y son caras. En el Mac usan la GPU rea
 - Nada de esperas fijas (`waitForTimeout`): espera a un estado del juego con `expect.poll` o a fotogramas con `frames(page)`.
 - Estilo visual propio (partió de Tank-less, repo antonio10bc-hub/tanquesweb, y ya tiene identidad propia): render retro de píxel fino (~340 líneas), toon de 3 tonos, contornos de casco invertido, todo con cubos y proporciones reales (sin caras), paleta de granja con tinta marrón #2a1a0e, UI con Press Start 2P, bordes de tinta y animaciones con steps().
 - Comentarios del código en español; textos del juego en inglés y español con `L('EN', 'ES')`.
+
+## Herramientas del proyecto (`.claude/`)
+
+- Ver cómo queda algo: skill `captura` (`npm run shot -- ...`: capturas del juego con la escena preparada, y `--regions` para el reparto del valle). No escribas scripts de Playwright sueltos para eso.
+- Cerrar un cambio: skill `publicar` (build, pruebas, commit, push a `main` y comprobar el despliegue en Vercel).
+- Correr pruebas sin llenar la conversación: agente `pruebas` (devuelve solo los fallos).
+- Hooks: al empezar la sesión se pone `PW_CHROMIUM` si hay un Chromium preinstalado (la nube); tras editar `public/src`, `index.html` o `style.css` se hace el build y, si falla, se avisa al momento.

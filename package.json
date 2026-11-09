@@ -8,7 +8,8 @@
     "test": "playwright test",
     "test:smoke": "playwright test --grep @smoke",
     "test:related": "node scripts/related-tests.mjs",
-    "build": "node scripts/build.mjs"
+    "build": "node scripts/build.mjs",
+    "shot": "node scripts/shot.mjs"
   },
   "license": "ISC",
   "type": "commonjs",

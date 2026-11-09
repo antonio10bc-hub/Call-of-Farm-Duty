@@ -17,6 +17,10 @@ const MAP = [
     [/^public\/src\/(game\/Flyers|content\/ufo)\.js$/, ['ufo']],
     [/^public\/src\/game\/FarmState\.js$/, ['map', 'debug', 'unlock']],
     [/^public\/src\/content\/(crops|field)\.js$/, ['sniper', 'unlock']],
+    [/^public\/src\/render\/(cow|sheep|chicken|barnyard)\.js$/, ['map', 'sniper']],
+    [/^public\/src\/(render\/merchant|content\/merchant(Life)?)\.js$/, ['map', 'progress']],
+    [/^public\/src\/(world\/(valley|Scenery|Life|Extras)|render\/compound)\.js$/, ['map', 'unlock']],
+    [/^public\/src\/game\/(Walkers|Turrets|MysteryBox)\.js$/, ['sniper', 'killstreaks']],
 ];
 
 const files = new Set();
