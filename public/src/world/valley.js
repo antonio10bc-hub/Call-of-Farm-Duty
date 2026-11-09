@@ -123,10 +123,10 @@ export const REGIONS = [
     { place: 'tomatoP', seeds: [[98, 114]] },  // los tomates, en la suya
     { place: 'house', seeds: [[60, 62]] },
     { place: 'merchant', seeds: [[118, 38]] },
-    { place: 'nw', seeds: [[42, 52]] },        // la orilla alta (la más alta): prado de vacas
-    { place: 'nw2', seeds: [[12, 44]] },       // ... y su otra mitad, hacia el monte: ovejas
-    { place: 'west', seeds: [[36, 84]] },      // la cañada: gallinas (más pequeña: las vacas y las ovejas bajan)
-    { place: 'west2', seeds: [[10, 104]] },    // ... y su otra mitad: calabazas
+    { place: 'nw', seeds: [[42, 52], [36, 72]] }, // la orilla alta: prado de vacas (dos semillas: baja hacia la cañada)
+    { place: 'nw2', seeds: [[12, 44], [18, 66]] },       // ... y su otra mitad, hacia el monte: ovejas
+    { place: 'west', seeds: [[34, 92]] },      // la cañada: gallinas (más pequeña: las vacas y las ovejas bajan)
+    { place: 'west2', seeds: [[8, 108]] },    // ... y su otra mitad: calabazas
     { place: 'east', seeds: [[56, 138]] },     // la de abajo, en tres: maíz en la de en medio
     { place: 'east2', seeds: [[100, 140]] },
     { place: 'sw', seeds: [[14, 140]] },
