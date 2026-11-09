@@ -21,6 +21,10 @@ Solo en una partida nueva (en DEBUG, VER EL PRÓLOGO), todo al atardecer, con ba
 - **El pato del lacito** sale del lago de vez en cuando, se da un paseo anadeando por la orilla y vuelve al agua.
 - **Al volver** tras más de 3 minutos fuera (al abrir el juego o al volver a la pestaña), una tarjeta dice cuánto has estado fuera, qué campos están listos (y cuántas matas tienen), cuánto les falta a los demás y si ha llegado el mercader.
 - **Toque largo** (medio segundo) sobre una parcela o un edificio: su ficha, sin mover la cámara.
+- **Sorpresas del mapa:** pájaros posados en el granero y la casa (picotean y revolotean), un ovni pequeño que cruza el cielo de vez en cuando y deja caer una moneda (tocarla: +2 de oro), el cofre del día escondido en algún rincón del valle (+8 de oro, uno al día) y el pato del lacito, que al tocarlo hace «cuac», salta y suelta corazones.
+- **Visitas raras del mercader:** una de cada cuatro viene de fiesta (gorro de cumpleaños y bufanda dorada) y paga un 60 % más de oro.
+- **Mini-mapa** arriba a la derecha (cada parcela de su color; las que no son tuyas, apagadas) con el rectángulo de lo que se ve; tocarlo lleva la cámara allí. **Foto:** el botón de la cámara quita la interfaz y guarda una captura del mapa a píxel grande.
+- **Atardecer:** el sol baja hasta esconderse tras las montañas y las farolas se encienden en cadena, de la granja hacia fuera.
 - **Sonido de ambiente** según lo que se mira: pájaros en los bosques (más en el del mercader), el agua cerca del río y del lago, y viento en lo alto del monte.
 - **El mercader, más a la vista:** al llegar avisa (también si estabas en el campo de tiro, al volver), su cartel late un rato y del cráter sale una columna de humo alta mientras está.
 - **Al comprar una parcela** la cámara la recorre: primero entera, de lejos, y luego hacia su poste mientras se retira la sombra.

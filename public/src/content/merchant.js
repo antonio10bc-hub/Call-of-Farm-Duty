@@ -15,6 +15,12 @@ import { L } from '../core/I18n.js';
 //            ancho al final (w)
 //   ufo      dónde se para el ovni; from: de dónde viene volando (fuera de cámara)
 //   stall    dónde está él comerciando (el cartel y la cámara van ahí)
+// Visita rara: una de cada cuatro (siempre las mismas: depende del número de visita), viene de
+// fiesta (gorro de cumpleaños y bufanda dorada) y paga más (rare: lo que multiplica el oro). En las
+// pruebas, nunca
+export const RARE = { every: 4, pay: 1.6 };
+export const rareVisit = (visit) => !(typeof location !== 'undefined' && /[?&]test/.test(location.search)) && (Math.imul(visit | 0, 2654435761) >>> 0) % RARE.every === 1;
+
 export const MERCHANT = {
     cycle: 300,
     stay: 240,

@@ -14,6 +14,7 @@ import { G, REGIONS, GN, CELL, cellIndex, cellX, cellZ, MOUNT, SLOPE, RIVER_PATH
 //  - setos donde una parcela da al agua o al monte, y bosque por las laderas y las zonas sin uso
 
 const N = GN * GN;
+const _lc = new THREE.Color();
 // ¿Esta celda queda bajo el suelo de una parcela? (la parcela, estirada, llena su zona)
 const FLOOR = new Uint8Array(N);
 for (let k = 0; k < N; k++) FLOOR[k] = G.inside[k] && !G.water[k] && G.reg[k] >= 0 && floorPlace(cellX(k), cellZ(k)) ? 1 : 0;
@@ -193,7 +194,7 @@ export function buildScenery(farm) {
     }
 
     // ---------- Farolas a un lado de los caminos (una cada tanto) ----------
-    farm.lampMat = new THREE.MeshBasicMaterial({ color: 0x8a7a5a });
+    farm.lampMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const posts = [], heads = [], lamps = [];
     for (const key of pathTiles.keys()) {
         const [x, z] = key.split(',').map(Number);
@@ -206,7 +207,10 @@ export function buildScenery(farm) {
         heads.push({ x: lx, y: g + 2.35, z: lz, sx: 0.36, sy: 0.36, sz: 0.36 });
     }
     farm.addHulled(0x4a4a52, W(posts), 0.8);
-    farm.addAnimated(new THREE.InstancedMesh(box(1, 1, 1), farm.lampMat, Math.max(1, heads.length)), W(heads), 0.8);
+    const lampMesh = farm.addAnimated(new THREE.InstancedMesh(box(1, 1, 1), farm.lampMat, Math.max(1, heads.length)), W(heads), 0.8).mesh;
+    // Al anochecer se encienden en cadena: primero las de cerca de la granja y luego hacia fuera
+    const F = PLACES.find((P) => P.id === 'farm'), dist = heads.map((h) => Math.hypot(h.x - F.c[0], h.z - F.c[1])), dMax = Math.max(1, ...dist);
+    farm.lamps = { mesh: lampMesh, at: dist.map((d) => 0.25 + (d / dMax) * 0.3), on: heads.map(() => null) };
 
     // ---------- Señales en los cruces: un poste con una tablilla por cada parcela cercana, del
     // color de lo que hay en ella y apuntando hacia ella ----------
@@ -270,7 +274,18 @@ export function buildScenery(farm) {
 
 // Los destellos bajan con el río; las farolas se encienden de noche
 export function updateScenery(farm, dt) {
-    if (farm.lampMat) farm.lampMat.color.setHex((farm.nightK || 0) > 0.35 ? 0xffe9a0 : 0x8a7a5a);
+    if (farm.lamps) {
+        const L = farm.lamps, k = farm.nightK || 0;
+        let any = false;
+        L.at.forEach((t, i) => {
+            const on = k > t;
+            if (on === L.on[i]) return;
+            L.on[i] = on;
+            L.mesh.setColorAt(i, _lc.setHex(on ? 0xffe9a0 : 0x8a7a5a));
+            any = true;
+        });
+        if (any) L.mesh.instanceColor.needsUpdate = true;
+    }
     if (!farm.riverGlints) return;
     const path = RIVER_PATHS[RIVER_PATHS.length - 1];
     for (const m of farm.riverGlints) {

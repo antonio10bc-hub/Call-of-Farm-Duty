@@ -3,7 +3,7 @@ import { FARM, FIELD_BY_ID, LAND_BY_ID, TURRETS } from '../content/farm.js';
 import { SHOP_ITEMS, DEFAULT_LOOK } from '../content/ufo.js';
 import { ARSENAL, ARSENAL_KINDS, DEFAULT_LOADOUT, CLASSES, arsenalItem } from '../content/arsenal.js';
 import { KILLSTREAKS } from '../content/killstreaks.js';
-import { MERCHANT } from '../content/merchant.js';
+import { MERCHANT, RARE, rareVisit } from '../content/merchant.js';
 
 // Estado de la granja: lo recogido de cada cultivo, cada campo (desbloqueado o no, nivel, hora
 // de siembra y blancos que quedan), el nivel del granero y el equipo del fusil.
@@ -386,7 +386,7 @@ export class FarmState {
             // Cada encargo de un campo (repartidos entre los que haya)
             const f = fields[(k + visit) % fields.length], [a, b] = MERCHANT.size;
             const n = Math.max(MERCHANT.min, Math.round((this.sheaves(f.id) * (a + Math.random() * (b - a))) / MERCHANT.step) * MERCHANT.step);
-            orders.push({ crop: f.crop, n, gold: Math.ceil(n * MERCHANT.rate[f.crop]), done: false });
+            orders.push({ crop: f.crop, n, gold: Math.ceil(n * MERCHANT.rate[f.crop] * (rareVisit(visit) ? RARE.pay : 1)), done: false });
         }
         this.merchant = { visit, orders };
         this.save();

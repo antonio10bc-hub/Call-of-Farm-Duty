@@ -8,6 +8,7 @@ import { Plot } from '../render/props.js';
 import { MerchantCamp } from '../render/merchant.js';
 import { Compound } from '../render/compound.js';
 import { Life } from './Life.js';
+import { Extras } from './Extras.js';
 import { MERCHANT } from '../content/merchant.js';
 import { junkyard, barrelParts, JUNK } from '../render/junk.js';
 import { CROPS } from '../content/crops.js';
@@ -1296,6 +1297,12 @@ export class Farm {
         this.compound.root.visible = this.introT > 1.1 && this.compoundOn; // (aparece con los edificios)
         this.compound.update(dt, time);
         this.life.update(dt, time);
+        if (!this.extras) {
+            // (las sorpresas, con los edificios ya en su sitio)
+            this.extras = new Extras(this.theme.outline, this);
+            this.root.add(this.extras.root);
+        }
+        this.extras.update(dt, time, this.onSparkle);
         const night = (this.nightK || 0) > 0.35;
         this.runwayMat.color.setHex(night ? (Math.sin(time * 3) > 0 ? 0xffe066 : 0xff9a3a) : 0x6a5a3a);
         this.lensMat.color.setHex(night ? 0xfff6c0 : 0x8a8670);

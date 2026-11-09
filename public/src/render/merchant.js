@@ -310,11 +310,24 @@ export class MerchantCamp extends VoxelModel {
             this.part(g, 0.03, 0.26, 0.03, SKIN, x, 2.05, 0, false);
             this.part(g, 0.08, 0.08, 0.08, 0xffe03a, x, 2.2, 0, false);
         }
+        // De fiesta (las visitas raras): gorro de cumpleaños encima del sombrero y bufanda dorada
+        g.party = new THREE.Group();
+        g.add(g.party);
+        [[0.32, 0xff5ab8], [0.24, 0x5af0ff], [0.16, 0xffe03a], [0.08, 0xff5ab8]].forEach(([w, c], i) => this.part(g.party, w, 0.14, w, c, 0, 2.0 + i * 0.14, 0));
+        this.part(g.party, 0.12, 0.12, 0.12, 0xffffff, 0, 2.6, 0);
+        this.part(g.party, 0.56, 0.1, 0.36, 0xffcc33, 0, 1.24, 0);
+        this.part(g.party, 0.12, 0.34, 0.06, 0xffcc33, 0.16, 1.05, 0.18);
+        g.party.visible = false;
         return g;
     }
 
     get present() {
         return this.want > 0;
+    }
+
+    // Visita rara: el mercader, de fiesta
+    setRare(on) {
+        this.man.party.visible = !!on;
     }
 
     // ¿Abierto del todo? (para el cartel y los encargos)

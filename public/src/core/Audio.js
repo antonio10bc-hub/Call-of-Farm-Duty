@@ -118,6 +118,15 @@ export class Sfx {
         src.stop(t + dur + 0.02);
     }
 
+    // ¡Cuac! (el pato del lacito)
+    quack() {
+        if (!this.ctx || this.ctx.state !== 'running' || !this.enabled) return;
+        for (const [d, f] of [[0, 520], [0.16, 470]]) {
+            this.tone('square', f, f * 0.55, 0.12, 0.09, 0, d);
+            this.tone('sawtooth', f * 1.5, f * 0.8, 0.1, 0.04, 0, d);
+        }
+    }
+
     // Sonido de ambiente de la zona (pájaros, agua, viento), muy suave
     ambient(kind, vol = 1, pan = 0) {
         if (!this.ctx || this.ctx.state !== 'running' || !this.enabled) return;

@@ -1748,3 +1748,12 @@ body.cine .aim-btn { display: none !important; }
 .welcome-card li .ico { width: 18px; height: 18px; flex: none; }
 .welcome-card .btn { justify-self: center; }
 @keyframes welcomeIn { from { transform: translateY(12px) scale(.9); } }
+
+/* Mini-mapa en la esquina de arriba a la derecha, bajo el reloj */
+.minimap { position: absolute; right: 12px; top: calc(var(--safe-top) + 96px); width: 104px; height: 104px; image-rendering: pixelated; border: 3px solid var(--ink); box-shadow: 0 3px 0 var(--ink); background: #74b848; cursor: pointer; }
+body.mapview .minimap { display: none; }
+/* Foto: el botón (una cámara de píxeles) y la pantalla sin interfaz mientras se hace */
+.photo-btn { left: auto; right: 10px; bottom: calc(max(8px, env(safe-area-inset-bottom)) + 40px); padding: 6px 7px 5px; }
+.photo-ico { display: block; width: 20px; height: 14px; background: var(--ink); clip-path: polygon(0 20%, 30% 20%, 38% 0, 62% 0, 70% 20%, 100% 20%, 100% 100%, 0 100%); position: relative; }
+.photo-ico::after { content: ''; position: absolute; left: 6px; top: 4px; width: 8px; height: 8px; background: var(--cream); box-shadow: inset 0 0 0 2px var(--ink); }
+body.photo .farm-ui, body.photo .bubbles, body.photo .daytime, body.photo .panel, body.photo .stage, body.photo .medals { visibility: hidden !important; }

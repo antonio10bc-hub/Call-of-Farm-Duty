@@ -71,6 +71,10 @@
         <button id="btn-debug" class="debug-btn">DEBUG</button>
         <!-- Vista global: toda la cuadrícula de parcelas de un vistazo (y otra vez, de vuelta) -->
         <button id="btn-map" class="map-btn"><span class="ico map-ico"></span><span data-es="MAPA">MAP</span></button>
+        <!-- Foto: sin la interfaz, se guarda una captura del mapa -->
+        <button id="btn-photo" class="map-btn photo-btn" aria-label="Foto"><i class="photo-ico"></i></button>
+        <!-- Mini-mapa: el valle entero y lo que se está viendo (tocarlo lleva allí) -->
+        <canvas id="minimap" class="minimap" aria-label="Mini-mapa"></canvas>
         <!-- Al volver tras un rato: lo que ha pasado mientras no estabas -->
         <div id="welcome" class="welcome hidden" role="dialog" aria-labelledby="welcome-title">
             <div class="welcome-card">

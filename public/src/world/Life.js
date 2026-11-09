@@ -122,8 +122,15 @@ export class Life extends VoxelModel {
         const [x, z] = at(d.a, e), ahead = d.mode === 'walk' ? at(d.a + 0.05, e) : at(d.a, d.mode === 'out' ? e + 0.05 : e - 0.05);
         const onLand = !isWater(x, z), walk = onLand && d.mode !== 'swim';
         const y = onLand ? groundAt(x, z) + Math.abs(Math.sin(time * 9)) * 0.08 : this.level + Math.sin(time * 2 + d.bob) * 0.03;
-        d.g.position.set(x, y, z);
+        d.g.position.set(x, y + (d.jumpY || 0), z);
         d.g.rotation.set(walk ? Math.sin(time * 9) * 0.18 : 0, Math.atan2(-(ahead[1] - z), ahead[0] - x), 0);
+    }
+
+    // El salto del pato cuando se le toca (jump: lo que le queda)
+    hop(d, dt) {
+        if (!d.jump) return (d.jumpY = 0);
+        d.jump = Math.max(0, d.jump - dt);
+        return (d.jumpY = Math.sin((1 - d.jump / 0.6) * Math.PI) * 0.9);
     }
 
     update(dt, time) {
@@ -132,6 +139,7 @@ export class Life extends VoxelModel {
         for (const d of this.ducks) {
             if (d.wait !== Infinity) this.stroll(d, dt);
             if (d.mode !== 'swim') {
+                this.hop(d, dt);
                 this.place(d, time, c, s);
                 continue;
             }
@@ -139,7 +147,7 @@ export class Life extends VoxelModel {
             const eu = Math.cos(d.a) * LAKE.ru * d.r, ev = Math.sin(d.a) * LAKE.rv * d.r * 1.4;
             const [x, z] = toXZ(LAKE.u + eu * c - ev * s, LAKE.v + eu * s + ev * c);
             const [nx, nz] = toXZ(LAKE.u + Math.cos(d.a + Math.sign(d.speed) * 0.05) * LAKE.ru * d.r * c - Math.sin(d.a + Math.sign(d.speed) * 0.05) * LAKE.rv * d.r * 1.4 * s, LAKE.v + Math.cos(d.a + Math.sign(d.speed) * 0.05) * LAKE.ru * d.r * s + Math.sin(d.a + Math.sign(d.speed) * 0.05) * LAKE.rv * d.r * 1.4 * c);
-            d.g.position.set(x, this.level + Math.sin(time * 2 + d.bob) * 0.03, z);
+            d.g.position.set(x, this.level + Math.sin(time * 2 + d.bob) * 0.03 + this.hop(d, dt), z);
             d.g.rotation.set(Math.sin(time * 2.2 + d.bob) * 0.06, Math.atan2(-(nz - z), nx - x), 0);
         }
         // Peces: un salto en arco y al agua; luego esperan y saltan en otro sitio

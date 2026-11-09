@@ -7,8 +7,9 @@ import { KILLSTREAKS, setStreakCounts, streakOf } from './content/killstreaks.js
 import { SHOP, SHOP_ITEMS } from './content/ufo.js';
 import { ARSENAL, ARSENAL_KINDS, CLASSES } from './content/arsenal.js';
 import { gearArt } from './ui/GearArt.js';
-import { MERCHANT, MerchantClock } from './content/merchant.js';
+import { MERCHANT, MerchantClock, rareVisit } from './content/merchant.js';
 import { regionAt, isWater, groundAt } from './world/valley.js';
+import { Minimap } from './ui/Minimap.js';
 import { RetroRenderer } from './render/RetroRenderer.js';
 import { CameraRig } from './render/CameraRig.js';
 import { Particles } from './render/Particles.js';
@@ -1031,6 +1032,7 @@ function updateLandTour(dt) {
 function buyLand(id) {
     const land = state.landOf(id);
     if (!land || !state.buyLand(land.id)) return sfx.play('miss');
+    miniPaint = 0.5; // (en el mini-mapa, ya tuya)
     select(null);
     farm.ownLand(land.id);
     // Un vuelo por la parcela mientras se retira la sombra: de lejos, toda; luego, hacia su poste
@@ -1533,6 +1535,26 @@ $('btn-aim').addEventListener('pointerdown', (e) => {
 
 function tapMap(x, y) {
     ray.setFromCamera(ndcOf(x, y), rig.camera);
+    // Las sorpresas: la moneda del ovni de paso, el cofre del día y el pato del lacito
+    const ex = farm.extras && farm.extras.tap(ray);
+    if (ex === 'coin' || ex === 'chest') {
+        const p = ex === 'coin' ? farm.extras.takeCoin() : farm.extras.openChest(), n = ex === 'coin' ? 2 : 8;
+        state.items.gold += n;
+        state.save();
+        updateCounts();
+        farmParticles.burst(p.x, p.y + 0.5, p.z, 26, [0xffcc33, 0xffe080, 0xffffff], { speed: 3, up: 4, size: 0.12, ttl: 0.8 });
+        medal(ex === 'coin' ? L(`+${n} GOLD: THE UFO DROPPED IT`, `+${n} DE ORO: SE LE CAYÓ AL OVNI`) : L(`+${n} GOLD: TODAY'S CHEST!`, `+${n} DE ORO: ¡EL COFRE DE HOY!`), 'reward');
+        sfx.play('achievement');
+        vibrate('pickup');
+        return;
+    }
+    if (ex === 'duck') {
+        const d = farm.life.ducks[0], p = d.g.position;
+        d.jump = 0.6;
+        sfx.quack();
+        farmParticles.burst(p.x, p.y + 1, p.z, 10, [0xff5a8a, 0xff8ab0, 0xffffff], { speed: 1.2, up: 2.4, size: 0.16, ttl: 0.9 });
+        return;
+    }
     const hit = farm.pick(ray);
     if (!hit) return select(null);
     if (hit.merchant) return openMerchant();
@@ -1801,15 +1823,19 @@ tapBtn('ufo-close', () => {
 // Su reloj (en las pruebas, fuera salvo que DEBUG diga otra cosa). Cuando llega o se va, su ovni
 // disfrazado de coche entra o sale por el surco (si se está en el mapa, con aviso)
 farm.camp.setPresent(merchantClock.here, false);
+// Brillos de las sorpresas (la moneda, el cofre)
+farm.onSparkle = (p) => farmParticles.spawn(p.x + (Math.random() - 0.5), p.y + 0.6 + Math.random() * 0.6, p.z + (Math.random() - 0.5), 0, 1.2, 0, 0.12, 0.6, Math.random() < 0.5 ? 0xffffff : 0xffe03a, 0);
 let merchantArrived = 0, merchantNews = false;
 function updateMerchant(dt) {
     const here = merchantClock.here;
     if (here !== farm.camp.present) {
         farm.camp.setPresent(here, farm.introT > 2);
         if (here) merchantArrived = 20; // (su cartel late un rato)
+        const rare = here && rareVisit(merchantClock.visit);
+        farm.camp.setRare(rare);
         if (here && mode !== 'farm') merchantNews = true; // (se avisa al volver a la granja)
         if (mode === 'farm' && farm.introT > 2) {
-            stage(here ? L('THE MERCHANT IS HERE!', '¡HA LLEGADO EL MERCADER!') : L('THE MERCHANT LEFT', 'EL MERCADER SE HA IDO'), here ? L('HE WANTS CROPS FOR GOLD', 'PIDE COSECHA A CAMBIO DE ORO') : L('HE WILL BE BACK SOON', 'VOLVERÁ PRONTO'));
+            stage(here ? L('THE MERCHANT IS HERE!', '¡HA LLEGADO EL MERCADER!') : L('THE MERCHANT LEFT', 'EL MERCADER SE HA IDO'), rare ? L('HE IS PARTYING: HE PAYS MORE GOLD!', 'VIENE DE FIESTA: ¡PAGA MÁS ORO!') : here ? L('HE WANTS CROPS FOR GOLD', 'PIDE COSECHA A CAMBIO DE ORO') : L('HE WILL BE BACK SOON', 'VOLVERÁ PRONTO'));
             sfx.play(here ? 'bounceGet' : 'ui');
         }
         if (!here) $('merchant').classList.add('hidden');
@@ -2840,6 +2866,7 @@ function frame(now) {
         farmParticles.update(dt);
         farmParticles.sync();
         updateLandTour(dt);
+        updateMinimap(dt);
         if (welcomeFrom && farm.introT > 2.6) showWelcome();
         updateAmbient(dt);
         rig.update(dt);
@@ -2875,6 +2902,63 @@ function frame(now) {
         }
         if (mode !== 'farm') renderer.render(sniper.scene, sniper.camera, dt);
     }
+}
+
+// ---------- Mini-mapa ----------
+// Cada zona, del color de lo que tiene (las que no son tuyas, apagadas); se repinta cada poco
+const ZONE = { farm: [214, 190, 140], house: [240, 170, 170], merchant: [70, 130, 60], wheatP: [230, 200, 80], tomatoP: [220, 80, 60], west: [240, 140, 50], east: [230, 220, 90], nw: [200, 230, 160], wool: [235, 235, 225] };
+const minimap = new Minimap($('minimap'), (ri) => {
+    const P = PLACES.find((p) => p.ri === ri);
+    if (!P) return [120, 150, 100, false];
+    const land = FARM.lands.find((l) => l.id === P.id), mine = !land || (!land.soon && farm.landOwned[land.id]);
+    return [...(ZONE[P.id] || [130, 150, 110]), mine];
+});
+minimap.paint();
+let miniT = 0, miniPaint = 0;
+function updateMinimap(dt) {
+    if ((miniT -= dt) > 0) return;
+    miniT = 0.2;
+    if ((miniPaint -= 0.2) <= 0) {
+        miniPaint = 5;
+        minimap.paint();
+    }
+    minimap.draw(rig.x, rig.z, rig.halfWidth * rig.zoom, rig.halfDepth * rig.zoom);
+}
+$('minimap').addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    const r = e.target.getBoundingClientRect(), [x, z] = minimap.toWorld(((e.clientX - r.left) / r.width) * 104, ((e.clientY - r.top) / r.height) * 104);
+    if (mapView) leaveMap(false);
+    rigFocus(x, z, groundAt(x, z));
+    sfx.play('ui');
+});
+
+// ---------- Foto ----------
+// Sin la interfaz, se dibuja el mapa y se guarda la imagen (a píxel grande, con el nombre del juego)
+function takePhoto() {
+    if (mode !== 'farm') return;
+    document.body.classList.add('photo');
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        renderer.render(farmScene, rig.camera, 0);
+        const w = canvas.width, h = canvas.height, s = Math.max(2, Math.round(1080 / h));
+        const out = Object.assign(document.createElement('canvas'), { width: w * s, height: h * s }), c = out.getContext('2d');
+        c.imageSmoothingEnabled = false;
+        c.drawImage(canvas, 0, 0, w * s, h * s);
+        c.font = `${8 * s}px 'Press Start 2P', monospace`;
+        c.textAlign = 'right';
+        c.fillStyle = '#2a1a0e';
+        c.fillText('CALL OF FARM DUTY', w * s - 6 * s + s, h * s - 6 * s + s);
+        c.fillStyle = '#fff3d6';
+        c.fillText('CALL OF FARM DUTY', w * s - 6 * s, h * s - 6 * s);
+        document.body.classList.remove('photo');
+        renderer.flash(0xffffff, 0.8);
+        sfx.play('ui');
+        const d = new Date(), stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}-${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
+        const a = Object.assign(document.createElement('a'), { href: out.toDataURL('image/png'), download: `call-of-farm-duty-${stamp}.png` });
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        medal(L('PHOTO SAVED', 'FOTO GUARDADA'));
+    }));
 }
 
 // ---------- Resumen al volver ----------
@@ -2913,6 +2997,7 @@ function showWelcome() {
     sfx.play('achievement');
 }
 tapBtn('welcome-ok', () => $('welcome').classList.add('hidden'));
+tapBtn('btn-photo', takePhoto);
 $('welcome').addEventListener('pointerdown', (e) => e.stopPropagation());
 
 // La casa como se dejó en la tienda

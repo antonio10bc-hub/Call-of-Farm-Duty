@@ -17,6 +17,7 @@ function grad(stops, t, out) {
 
 export class Sky {
     constructor(radius = 380) {
+        this.r = radius;
         this.root = new THREE.Group();
         const geo = new THREE.SphereGeometry(radius, 24, 16);
         const pos = geo.attributes.position;
@@ -58,7 +59,10 @@ export class Sky {
         }
         col.needsUpdate = true;
         grad(DAY, 0, this.horizon).lerp(grad(NIGHT, 0, _b), k).lerp(grad(DUSK, 0, _b), d);
+        // El sol se va poniendo según cae la noche: baja hasta esconderse tras las montañas
         this.sun.visible = d > 0.05;
+        this.sun.position.set(0, (0.22 - 0.34 * k) * this.r, -this.r * 0.9);
+        this.sun.lookAt(0, 0, 0);
         this.sun.children.forEach((m, i) => (m.material.opacity = [1, 0.45, 0.2][i] * Math.min(1, d * 1.5)));
     }
 }
