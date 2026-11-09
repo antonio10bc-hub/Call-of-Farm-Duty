@@ -181,6 +181,11 @@ const SPRITES = {
         rows: ['..KKKKKK..', '.K......K.', 'K.KKKKKK.K', 'KKWWWWWWKK', 'KMWWWWWWMK', 'KMMMMMMMMK', '.KMLMMMMK.', '.KMLMMMMK.', '.KMMMMMDK.', '..KKKKKK..'],
         pal: { K: INK, W: '#ffffff', M: '#a8b8c8', L: '#d8e4f0', D: '#7a8898' },
     },
+    // Huevo: blanco crema con su brillo
+    egg: {
+        rows: ['...KKKK...', '..KWWWWK..', '.KWLWWWWK.', '.KWLWWWWK.', 'KWWWWWWWWK', 'KWWWWWWWWK', 'KWWWWWWCWK', 'KWWWWWWCWK', '.KWWWWCCK.', '..KKKKKK..'],
+        pal: { K: INK, W: '#fff6e6', L: '#ffffff', C: '#e8d8b8' },
+    },
     // Ovillo de lana: la bola con sus vueltas de hilo y la hebra suelta
     wool: {
         rows: ['...KKKK...', '..KWWWWK..', '.KWCCWWCK.', 'KWWWCWCWWK', 'KWCWWCWWWK', 'KCWWCWWCWK', 'KWWCWWCWWK', '.KWWCCWWK.', '..KKKKKKK.', '........KK'],
@@ -210,6 +215,11 @@ const SPRITES = {
     ammo: {
         rows: ['...KK...', '..KYYK..', '..KYYK..', '.KKKKKK.', '.KBBBBK.', '.KBWBBK.', '.KBWBBK.', '.KBBBBK.', '.KBBBBK.', '.KKKKKK.'],
         pal: { K: INK, Y: '#c87a3a', B: '#ffd23f', W: '#fff6b0' },
+    },
+    // Botón AJUSTES: un engranaje de 8 dientes con su agujero
+    gear: {
+        rows: ['....KKKK....', '.KK.KLGK.KK.', '.KLKKLGKKGK.', '.KKLLGGGGKK.', 'KKLGKKKKGGKK', 'KLGGK..KGGGK', 'KLGGK..KGGGK', 'KKGGKKKKGGKK', '.KKGGGGGGKK.', '.KGKKGGKKGK.', '.KK.KGGK.KK.', '....KKKK....'],
+        pal: { K: INK, G: '#8a98a8', L: '#c8d0d8' },
     },
     // Botón MAPA: un plano doblado con sus parcelas
     map: {

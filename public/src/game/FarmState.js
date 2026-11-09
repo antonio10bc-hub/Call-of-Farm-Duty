@@ -17,7 +17,7 @@ const KEY = 'cofd.farm.v4';
 // guardaron con las cifras de antes). 3: niveles del granero (las partidas de antes, que ya
 // tenían granada y misil Predator, empiezan con el granero en el nivel 2). 4: niveles de la
 // casa (las de antes, con la casa ya arreglada, empiezan en el nivel 1)
-const REV = 4;
+const REV = 5;
 const BARN = FARM.barn.levels;
 const HOUSE = FARM.house.levels;
 const OLD_KEYS = ['cofd.farm.v3', 'cofd.farm.v2']; // v3: un solo campo de trigo
@@ -113,6 +113,12 @@ export class FarmState {
                 // Las monedas alienígenas de antes pasan a ser de oro (la única moneda)
                 if (d.items && d.items.alien) this.items.gold += (d.items.alien | 0) * 3;
                 for (const id of Object.keys(this.lands)) this.lands[id] = !!(d.lands && d.lands[id]);
+                // (rev 5: las calabazas se mudan a la parcela de al lado; la suya pasa a ser el corral
+                // de las gallinas, aún por comprar)
+                if ((d.rev | 0) < 5 && d.lands && d.lands.west) {
+                    this.lands.west2 = true;
+                    this.lands.west = false;
+                }
                 if (d.merchant && Array.isArray(d.merchant.orders)) {
                     const m = d.merchant;
                     Object.assign(this.merchant, { visit: m.visit | 0, orders: m.orders.filter((o) => o && CROPS[o.crop] && Object.keys(orderWants(o)).every((c) => CROPS[c])),

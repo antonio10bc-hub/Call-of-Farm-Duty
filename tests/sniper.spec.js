@@ -182,6 +182,26 @@ test('ovejas: corren al azar y rebotan entre ellas; el vellón se hace una bola 
     expect(errors).toEqual([]);
 });
 
+test('gallinas: corretean y lanzan huevos al aire como platos; el blanco es el huevo (no ellas); si cae, se casca y vuelve a lanzar', { tag: '@full' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await enterCrop(page, 'egg');
+    const n = await page.evaluate(() => game.sniper.field.targets.length);
+    expect(n).toBe(await page.evaluate(() => game.state.sheaves('egg')));
+    // Sin huevo en el aire no hay a qué disparar
+    await page.evaluate(() => { for (const s of game.sniper.field.targets) { s.swell = 0; s.rate = 0; s.egg = null; } });
+    expect(await page.evaluate(() => game.sniper.field.targets.some((s) => game.sniper.field.hittable(s)))).toBe(false);
+    // Lanza uno: sube y, si no le das, cae y se casca (la gallina sigue y vuelve a cargarse)
+    await page.evaluate(() => game.sniper.field.toss(game.sniper.field.targets[1]));
+    expect(await page.evaluate(() => game.sniper.field.hittable(game.sniper.field.targets[1]))).toBe(true);
+    await expect.poll(() => page.evaluate(() => { const s = game.sniper.field.targets[1]; return [s.egg, s.alive]; }), { timeout: 20_000 }).toEqual([null, true]);
+    // Otro, parado en lo alto (en la prueba): un tiro al huevo da un huevo
+    await page.evaluate(() => { const f = game.sniper.field, s = f.targets[0]; f.toss(s); f.eggGrav = 0; Object.assign(s.egg, { vx: 0, vy: 0, vz: 0, y: 3 }); s.y = 3; });
+    await aimAndShoot(page, '(() => { const s = game.sniper.field.targets[0]; return { x: s.x, y: s.y, z: s.z }; })()');
+    await expect.poll(() => page.evaluate(() => game.state.items.egg)).toBe(1);
+    await expect.poll(() => page.evaluate(() => { const s = game.sniper.field.targets[0]; return [s.alive, s.egg, s.eggMesh.visible, s.cow.g.visible]; })).toEqual([false, null, false, true]);
+    expect(errors).toEqual([]);
+});
+
 test('caja sorpresa: sale en otra torre; desde lejos no se abre, desde su torre da un arma y al gastarla vuelve el rifle', { tag: '@smoke' }, async ({ page }) => {
     const errors = watchErrors(page);
     await enterBigField(page);

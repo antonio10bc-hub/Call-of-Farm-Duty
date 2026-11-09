@@ -3042,7 +3042,7 @@ function frame(now) {
 
 // ---------- Mini-mapa ----------
 // Cada zona, del color de lo que tiene (las que no son tuyas, apagadas); se repinta cada poco
-const ZONE = { farm: [214, 190, 140], house: [240, 170, 170], merchant: [70, 130, 60], wheatP: [230, 200, 80], tomatoP: [220, 80, 60], west: [240, 140, 50], east: [230, 220, 90], nw: [200, 230, 160], wool: [235, 235, 225] };
+const ZONE = { farm: [214, 190, 140], house: [240, 170, 170], merchant: [70, 130, 60], wheatP: [230, 200, 80], tomatoP: [220, 80, 60], west: [250, 220, 160], west2: [240, 140, 50], east: [230, 220, 90], nw: [200, 230, 160], nw2: [235, 235, 225] };
 const minimap = new Minimap($('minimap'), (ri) => {
     const P = PLACES.find((p) => p.ri === ri);
     if (!P) return [120, 150, 100, false];

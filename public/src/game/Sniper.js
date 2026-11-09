@@ -169,6 +169,17 @@ export class Sniper {
         this.field.onFull = () => {
             if (Math.random() < 0.5) this.hooks.sfx.play('moo');
         };
+        // Gallinas: cacarea al lanzar el huevo (a veces); el que cae sin que le den se casca: yema,
+        // trozos de cáscara y un chof
+        this.field.onToss = (s) => {
+            if (Math.random() < 0.6) this.hooks.sfx.play('cluck');
+            this.particles.burst(s.cx, 0.4, s.cz, 6, [0xfaf6ec, 0xf0e6d0], { speed: 1.4, up: 1.6, size: 0.07, ttl: 0.5 });
+        };
+        this.field.onSplat = (s, x, z) => {
+            this.hooks.sfx.play('splat');
+            this.particles.burst(x, 0.1, z, 18, [0xffd23f, 0xffb020, 0xfff6e6, 0xffffff], { speed: 1.8, up: 1.4, size: 0.08, ttl: 0.6 });
+            this.waves.spawn(x, z, 0xffd23f, 0.8, 0.3);
+        };
         this.field.onBoing = (s) => {
             if (Math.random() < 0.18) this.hooks.sfx.play('boing');
             this.particles.burst(s.cx, 0.1, s.cz, 4, [0xd8c8a0, 0x9ad962], { speed: 1.2, up: 0.8, size: 0.08, ttl: 0.35 });
@@ -224,7 +235,7 @@ export class Sniper {
         // la caja
         const D = this.debug || {};
         if (this.crop) {
-            if (D.cowsFull) for (const s of this.field.targets) if (s.kind === 'cow' || s.kind === 'sheep') s.swell = 1;
+            if (D.cowsFull) for (const s of this.field.targets) if (s.kind === 'cow' || s.kind === 'sheep' || s.kind === 'hen') s.swell = 1;
             const w = D.startWonder && WONDER.find((x) => x.id === D.startWonder);
             if (w) this.giveSpecial(w);
         }

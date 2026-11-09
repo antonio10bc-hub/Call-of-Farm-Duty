@@ -170,6 +170,9 @@ export class Sfx {
             case 'pop': this.tone('square', 600, 1200, 0.06, 0.12, pan); break;
             // Mugido: grave, que sube y baja
             case 'moo': this.tone('sawtooth', 150, 115, 0.55, 0.09, pan); this.tone('triangle', 300, 230, 0.55, 0.05, pan); break;
+            // Cacareo (dos picos cortos) y huevo cascado contra el suelo
+            case 'cluck': this.tone('square', 700, 520, 0.07, 0.07, pan); this.tone('square', 760, 560, 0.09, 0.06, pan, 0.1); break;
+            case 'splat': this.noise(0.14, 0.3, 900, pan); this.tone('sine', 220, 90, 0.12, 0.12, pan); break;
             case 'shot': this.tone('square', 900, 160, 0.09, 0.2, pan); this.noise(0.06, 0.25, 4000, pan); break;
             case 'shotEnemy': this.tone('square', 520, 110, 0.11, 0.16, pan); this.noise(0.07, 0.22, 2500, pan); break;
             case 'wall': this.tone('triangle', 420, 180, 0.05, 0.12, pan); break;

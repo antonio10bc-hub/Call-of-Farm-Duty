@@ -91,6 +91,22 @@ export const CROPS = {
         loot: 0xf6f3ea,
         stub: [0x8fd45a, 0x7fc84e, 0x9ad962],
     },
+    // Huevos: gallinas que corretean por su corral y, cada poco, lanzan un huevo al aire como un
+    // plato de tiro: hay que darle al huevo en el aire (a las gallinas, no). Si cae sin que le des,
+    // se casca contra el suelo y la gallina vuelve a ponerse. Cada gallina, un huevo por partida
+    egg: {
+        name: L('EGGS', 'HUEVOS'),
+        icon: 'egg',
+        growTime: 40,
+        pasture: true,
+        swell: [2.5, 6], // segundos hasta que lanza el huevo
+        toss: { up: [10, 13], side: [0.6, 2.2], grav: 9 }, // el lanzamiento: velocidad hacia arriba y de lado
+        burst: [0xffffff, 0xfff6dc, 0xffd23f, 0xf6e8c8],
+        chaff: [0xfff6dc, 0xffe06a, 0xffffff],
+        unit: L('EGGS', 'HUEVOS'),
+        loot: 0xfff6dc,
+        stub: [0xb4d070, 0xa8c860, 0xc0d880],
+    },
     // Lana: ovejas que corren por su prado de un lado a otro, al azar, rebotando entre ellas; el
     // vellón les crece hasta hacerse una bola gigante y, entonces, un tiro a la bola da un ovillo
     // (y la oveja sigue, esquilada). Su campo es un prado, como el de las vacas

@@ -6,6 +6,7 @@ import { junkyard, barrelParts, JUNK } from '../render/junk.js';
 import { CROPS } from '../content/crops.js';
 import { buildCow, animateCow } from '../render/cow.js';
 import { buildSheep, animateSheep } from '../render/sheep.js';
+import { buildChicken, animateChicken } from '../render/chicken.js';
 import { FIELD } from '../content/field.js';
 
 const _d = new THREE.Object3D();
@@ -278,6 +279,7 @@ export class SniperField {
         if (crop === 'corn') return this.spawnCorn(count);
         if (crop === 'milk') return this.spawnCows(count);
         if (crop === 'wool') return this.spawnSheep(count);
+        if (crop === 'egg') return this.spawnHens(count);
         for (let i = 0; i < count; i++) {
             const { x, z } = this.freeSpot(this.targets, count > 90 ? 1.2 : 1.6); // (más juntas si hay muchas)
             const stalks = Array.from({ length: CLUMP }, () => {
@@ -524,9 +526,100 @@ export class SniperField {
         }
     }
 
+    // Gallinas: corretean por el corral (como las vacas, de un sitio a otro) y, cuando se cargan
+    // (swell), lanzan el huevo al aire en parábola, como un plato de tiro: el blanco es el huevo
+    // en el aire (s.x, s.y, s.z), no ellas. Si cae sin que le den, se casca (onSplat) y la gallina
+    // vuelve a cargarse
+    spawnHens(count) {
+        if (!this.herd) {
+            this.herd = new THREE.Group();
+            this.root.add(this.herd);
+        }
+        const ink = outline(this.theme.outline), [a, b] = CROPS.egg.swell;
+        if (!this.eggMat) this.eggMat = toon(0xfff6e6);
+        for (let i = 0; i < count; i++) {
+            const { x, z } = this.freeSpot(this.targets, count > 16 ? 1.6 : 2.2);
+            const hen = buildChicken(ink), egg = new THREE.Group();
+            egg.add(new THREE.Mesh(box(0.42, 0.54, 0.42), this.eggMat), new THREE.Mesh(box(0.42 + OUTLINE * 2, 0.54 + OUTLINE * 2, 0.42 + OUTLINE * 2), ink));
+            egg.visible = false;
+            this.herd.add(hen.g, egg);
+            this.targets.push({ kind: 'hen', cow: hen, eggMesh: egg, egg: null, x, y: 0.5, z, cx: x, cz: z, ry: Math.random() * 6, goal: null, speed: 0, pace: 1.2 + Math.random() * 2,
+                swell: Math.random() * 0.5, rate: 1 / (a + Math.random() * (b - a)), alive: true, grow: -0.5 - i * 0.1, landed: false, flash: 0, dying: 0 });
+        }
+    }
+
+    // Lanza el huevo de la gallina s (hacia arriba y un poco de lado, alejándose del borde)
+    toss(s) {
+        const T = CROPS.egg.toss, r = (a) => a[0] + Math.random() * (a[1] - a[0]);
+        let ang = Math.random() * Math.PI * 2;
+        if (edgeDist(this.poly, s.cx, s.cz) < 4) ang = Math.atan2(this.cx - s.cx, this.cz - s.cz) + (Math.random() - 0.5);
+        const side = r(T.side);
+        s.egg = { x: s.cx, y: 0.6, z: s.cz, vx: Math.sin(ang) * side, vy: r(T.up), vz: Math.cos(ang) * side, spin: (Math.random() - 0.5) * 14 };
+        s.swell = 0;
+        s.cow.flap = 0.5;
+        if (this.onToss) this.onToss(s);
+    }
+
+    drawHens(dt, time) {
+        const grav = this.eggGrav ?? CROPS.egg.toss.grav; // (eggGrav: las pruebas lo paran en el aire)
+        for (const s of this.targets) {
+            const c = s.cow, E = s.eggMesh;
+            c.g.visible = !s.gone;
+            if (!s.goal || Math.hypot(s.goal.x - s.cx, s.goal.z - s.cz) < 0.4) {
+                s.goal = this.cowGoal();
+                s.speed = s.pace * (Math.random() < 0.35 ? 1.7 : Math.random() < 0.3 ? 0 : 1); // (a veces se para a picotear)
+                s.wait = s.speed ? 0 : 0.8 + Math.random() * 1.5;
+            }
+            let v = s.landed ? s.speed : 0;
+            if (s.wait > 0) {
+                s.wait -= dt;
+                v = 0;
+                if (s.wait <= 0) s.speed = s.pace;
+            }
+            const dx = s.goal.x - s.cx, dz = s.goal.z - s.cz, d = Math.hypot(dx, dz) || 1;
+            s.cx += (dx / d) * v * dt;
+            s.cz += (dz / d) * v * dt;
+            const want = Math.atan2(dx, dz);
+            s.ry += Math.atan2(Math.sin(want - s.ry), Math.cos(want - s.ry)) * Math.min(1, dt * 7);
+            if (s.alive && s.landed && !s.egg && !s.gone && (s.swell += dt * s.rate) >= 1) this.toss(s);
+            // El huevo en el aire: parábola girando; al tocar el suelo, se casca
+            const e = s.egg;
+            if (e) {
+                if (!s.alive) s.egg = null;
+                else {
+                    e.vy -= grav * dt;
+                    e.x += e.vx * dt;
+                    e.y += e.vy * dt;
+                    e.z += e.vz * dt;
+                    if (e.y <= 0.15) {
+                        s.egg = null;
+                        if (this.onSplat) this.onSplat(s, e.x, e.z);
+                    }
+                }
+            }
+            E.visible = !!s.egg;
+            if (s.egg) {
+                E.position.set(s.egg.x, s.egg.y, s.egg.z);
+                E.rotation.set(time * s.egg.spin, 0, time * s.egg.spin * 0.6);
+                E.scale.setScalar(1 + s.flash * 0.3);
+                s.x = s.egg.x;
+                s.y = s.egg.y;
+                s.z = s.egg.z;
+            } else {
+                s.x = s.cx;
+                s.y = 0.5;
+                s.z = s.cz;
+            }
+            c.g.position.set(s.cx, 0, s.cz);
+            c.g.rotation.y = s.ry;
+            c.g.scale.setScalar((s.g || 0.0001) * 1.3);
+            animateChicken(c, dt, time, v, s.egg ? 0 : s.swell);
+        }
+    }
+
     // ¿Se le puede dar? (las vacas, solo con la ubre llena; las ovejas, con la bola de lana hecha)
     hittable(s) {
-        return s.alive && s.landed && ((s.kind !== 'cow' && s.kind !== 'sheep') || s.swell >= 1);
+        return s.alive && s.landed && (s.kind === 'hen' ? !!s.egg : (s.kind !== 'cow' && s.kind !== 'sheep') || s.swell >= 1);
     }
 
     // Terreno abandonado: chatarra a montones por todo el campo y por la hierba hasta la atalaya
@@ -702,6 +795,7 @@ export class SniperField {
         }
         if (this.crop === 'milk') this.drawCows(dt, time);
         else if (this.crop === 'wool') this.drawSheep(dt, time);
+        else if (this.crop === 'egg') this.drawHens(dt, time);
         else if (this.crop === 'wheat') this.drawWheat(time);
         else if (this.crop === 'tomato') this.drawTomatoes(dt, time);
         else if (this.crop) this.drawPlants(dt, time);
@@ -962,6 +1056,7 @@ function segDist(x, z, ax, az, bx, bz) {
 // Caja de impacto de un blanco: se ciñe a la silueta de la mata de trigo (tallos y espigas) o
 // al tomate (algo más grande que él, que se ve enorme pero es lo que hay que darle)
 function hitBox(s) {
+    if (s.kind === 'hen') return [s.x - 0.42, s.y - 0.48, s.z - 0.42, s.x + 0.42, s.y + 0.48, s.z + 0.42]; // (el huevo, algo más grande que él)
     if (s.kind === 'cow' || s.kind === 'sheep') return [s.x - s.ur, s.y - s.uh, s.z - s.ur, s.x + s.ur, s.y + s.uh, s.z + s.ur]; // (la ubre o la bola de lana, del tamaño que tenga)
     if (!s.plant) return [s.x - 0.36, 0, s.z - 0.36, s.x + 0.36, 1.55, s.z + 0.36];
     if (s.kind === 'pumpkin') {

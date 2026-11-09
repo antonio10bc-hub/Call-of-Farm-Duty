@@ -239,17 +239,27 @@ export function buildScenery(farm) {
 
     // ---------- Bancos de nubes alrededor del valle: tapan su borde (en la vista del mapa) ----------
     const bank = [];
+    // Cada nube, un cúmulo por pisos: una base ancha y plana con la panza en sombra, encima dos o
+    // tres bolas blancas que se solapan y una más pequeña arriba (todo alineado: bloques limpios)
+    const SHADE = 0xc4d2e6, MID = 0xe6eef8, TOP = 0xffffff;
     const edge = (u, v, k) => {
-        const [x, z] = toXZ(u, v);
-        // (bolas sueltas, de alturas y tamaños distintos: nubes, no un muro)
-        for (let j = 0; j < 4; j++) {
-            const s = 3 + hash(k, j, 3) * 6, up = hash(k, j, 5);
-            bank.push({ x: x + (hash(k, j, 4) - 0.5) * 9, y: up * up * 9 + 1, z: z + (hash(k, j, 6) - 0.5) * 9, sx: s * 1.3, sy: 1.6 + hash(k, j, 7) * 2.4, sz: s, ry: hash(k, j, 8) * 1.5, c: [0xf4f6fa, 0xe8ecf4, 0xffffff, 0xdfe6ee][j] });
+        const [x, z] = toXZ(u, v), r = (j) => hash(k, j, 9);
+        const w = 11 + r(1) * 8, d = 9 + r(2) * 5, y = 1 + r(3) * 4, cx = x + (r(4) - 0.5) * 4, cz = z + (r(5) - 0.5) * 4;
+        bank.push({ x: cx, y, z: cz, sx: w, sy: 1.2, sz: d, c: SHADE });
+        const n = 2 + (r(6) < 0.5 ? 1 : 0);
+        for (let j = 0; j < n; j++) {
+            const s = (w * (0.42 + r(10 + j) * 0.18)), ox = (j - (n - 1) / 2) * w * 0.3, oz = (r(20 + j) - 0.5) * d * 0.3;
+            bank.push({ x: cx + ox, y: y + 0.6 + s * 0.3, z: cz + oz, sx: s, sy: s * 0.6, sz: Math.min(d * 0.85, s), c: MID });
         }
+        const t = w * 0.32;
+        bank.push({ x: cx + (r(30) - 0.5) * w * 0.3, y: y + 0.6 + w * 0.3 + t * 0.35, z: cz, sx: t, sy: t * 0.7, sz: t * 0.9, c: TOP });
     };
+    // (dos filas: una pegada al borde, que lo tapa, y otra más fuera, más grande)
     let k = 0;
-    for (let t = -30; t < VH + 24; t += 6) { edge(-18, t, k++); edge(VW + 18, t, k++); }
-    for (let t = -20; t < VW + 20; t += 6) edge(t, VH + 16, k++);
+    for (const [o, step] of [[-8, 8], [-24, 11]]) {
+        for (let t = -30; t < VH + 24; t += step) { edge(o, t, k++); edge(VW - o, t, k++); }
+        for (let t = -20; t < VW + 20; t += step) edge(t, VH - o, k++);
+    }
     colored(bank, 1.0);
 
     // ---------- Bosque: por las laderas, el monte bajo, el bosque del mercader y las parcelas sin uso ----------

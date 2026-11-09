@@ -14,6 +14,7 @@ import { junkyard, barrelParts, JUNK } from '../render/junk.js';
 import { CROPS } from '../content/crops.js';
 import { buildCow, animateCow } from '../render/cow.js';
 import { buildSheep, animateSheep } from '../render/sheep.js';
+import { buildChicken, animateChicken } from '../render/chicken.js';
 import { FARM, TURRETS, PLACES, toWorld, worldToPlace, inShapeOf, inFieldShape, stretchLocal, floorPlace } from '../content/farm.js';
 
 const _d = new THREE.Object3D();
@@ -156,8 +157,8 @@ export class Farm {
 
     build() {
         const { theme, root, size } = this;
-        // Césped lejano: un plano enorme bajo todo
-        const far = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), toon(theme.grassFar));
+        // Mar de nubes: un plano enorme bajo todo (el valle asoma entre las nubes del borde)
+        const far = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), toon(0xd6e4f2));
         far.rotation.x = -Math.PI / 2;
         far.position.set(this.cx, -0.31, this.cz);
         root.add(far);
@@ -722,6 +723,16 @@ export class Farm {
             add(solid, 0, 0.9, 0, 0.4, 0.2, 0.44, 0xf0e8d6, r);
             add(solid, rx * 0.42, 0.72, rz * 0.42, 0.22, 0.24, 0.24, 0x3a2e2a, r);
             for (const [a, b] of [[0.13, 0.2], [-0.13, 0.2], [0.13, -0.2], [-0.13, -0.2]]) add(solid, rx * b + rz * a, 0.2, rz * b - rx * a, 0.09, 0.4, 0.09, 0x3a2e2a);
+        } else if (crop === 'egg') {
+            // Una gallina de muestra: cuerpo, cola, cabeza con cresta y pico, y un huevo al lado
+            const rx = Math.sin(r), rz = Math.cos(r);
+            add(solid, 0, 0.42, 0, 0.34, 0.3, 0.44, 0xfaf6ec, r);
+            add(solid, -rx * 0.24, 0.56, -rz * 0.24, 0.24, 0.26, 0.14, 0xf0e6d0, r);
+            add(solid, rx * 0.2, 0.68, rz * 0.2, 0.2, 0.22, 0.2, 0xfaf6ec, r);
+            add(solid, rx * 0.2, 0.83, rz * 0.2, 0.06, 0.1, 0.16, 0xe8352a, r);
+            add(solid, rx * 0.34, 0.67, rz * 0.34, 0.1, 0.06, 0.1, 0xf0a020, r);
+            for (const a of [-0.08, 0.08]) add(thin, rz * a, 0.14, -rx * a, 0.05, 0.28, 0.05, 0xf0a020);
+            add(solid, rz * 0.4, 0.17, -rx * 0.4, 0.22, 0.3, 0.22, 0xfff6e6);
         } else if (crop === 'corn') {
             add(thin, 0, 0.9, 0, 0.12, 1.8, 0.12, 0x8ab83a);
             add(thin, 0.35, 0.7, 0.1, 0.1, 1.4, 0.1, 0x7ab83a);
@@ -1408,7 +1419,7 @@ export class Farm {
     // El prado de las vacas (o de las ovejas): una cada pocas casillas (más pequeñas que en el
     // campo de tiro), paseando y paciendo por su campo. v.plants son ellas (la torreta les dispara)
     buildHerd(v) {
-        const f = v.rect, n = Math.max(2, Math.min(16, Math.round((f.w * f.d) / 14)));
+        const f = v.rect, n = Math.max(2, Math.min(v.crop === 'egg' ? 22 : 16, Math.round((f.w * f.d) / (v.crop === 'egg' ? 9 : 14))));
         if (!v.herd) {
             v.herd = new THREE.Group();
             this.groupAt(v.zone.cx, v.zone.cz).add(v.herd);
@@ -1416,7 +1427,7 @@ export class Farm {
         }
         const ink = outline(this.theme.outline);
         while (v.plants.length < n) {
-            const c = v.crop === 'wool' ? buildSheep(ink) : buildCow(ink);
+            const c = v.crop === 'wool' ? buildSheep(ink) : v.crop === 'egg' ? buildChicken(ink) : buildCow(ink);
             c.g.scale.setScalar(0.0001);
             v.herd.add(c.g);
             v.plants.push({ cow: c, x: f.x + 1 + Math.random() * (f.w - 2), z: f.z + 1 + Math.random() * (f.d - 2), ry: Math.random() * 6, goal: null, speed: 0, wait: Math.random() * 3, t0: this.clock + 0.3 + v.plants.length * 0.12 });
@@ -1436,7 +1447,7 @@ export class Farm {
                     s.goal = null;
                     s.wait = 1.5 + Math.random() * 4;
                 } else {
-                    speed = 0.8;
+                    speed = v.crop === 'egg' ? 1.4 : 0.8;
                     s.x += (dx / d) * speed * dt;
                     s.z += (dz / d) * speed * dt;
                     const want = Math.atan2(dx, dz);
@@ -1447,8 +1458,12 @@ export class Farm {
             const w = stretchLocal(s.x, s.z);
             g.position.set(w.x, 0, w.z);
             g.rotation.y = s.ry;
-            g.scale.setScalar(intro <= 0 ? 0.0001 : 0.62 * easeOutBack(intro));
-            (v.crop === 'wool' ? animateSheep : animateCow)(s.cow, dt, time, speed, Math.min(1, p));
+            g.scale.setScalar(intro <= 0 ? 0.0001 : (v.crop === 'egg' ? 0.9 : 0.62) * easeOutBack(intro));
+            if (v.crop === 'egg') {
+                // (en el mapa, de vez en cuando aletea con un saltito)
+                if (Math.random() < dt * 0.15) s.cow.flap = 0.5;
+                animateChicken(s.cow, dt, time, speed, 0);
+            } else (v.crop === 'wool' ? animateSheep : animateCow)(s.cow, dt, time, speed, Math.min(1, p));
         }
     }
 

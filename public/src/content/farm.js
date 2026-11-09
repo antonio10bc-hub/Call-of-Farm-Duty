@@ -25,7 +25,7 @@ export const FARM = {
     //   price   monedas de oro que cuesta
     //   post    dónde está el poste (y luego la bandera): se calcula al repartir el valle (abajo)
     lands: [
-        { id: 'west', rect: [-30, 0, 0, 30], price: 15, field: 'pumpkin', name: L('WEST PLOT', 'PARCELA OESTE') },
+        { id: 'west', rect: [-30, 0, 0, 30], price: 50, field: 'egg', name: L('HEN RUN', 'CORRAL DE GALLINAS') },
         { id: 'east', rect: [30, 0, 60, 30], price: 25, field: 'corn', name: L('EAST PLOT', 'PARCELA ESTE') },
         { id: 'nw', rect: [-30, -30, 0, 0], price: 40, field: 'milk', name: L('NORTH-WEST PLOT', 'PARCELA NOROESTE') },
         { id: 'sw', rect: [-30, 30, 0, 60], soon: true },
@@ -33,7 +33,7 @@ export const FARM = {
         { id: 'se', rect: [30, 30, 60, 60], soon: true },
         // Las otras mitades de la orilla alta (la de las ovejas), la cañada y la parcela de abajo
         { id: 'nw2', rect: [60, -30, 90, 0], price: 60, field: 'wool', name: L('SHEEP MEADOW', 'PRADO DE LAS OVEJAS') },
-        { id: 'west2', rect: [60, 0, 90, 30], soon: true },
+        { id: 'west2', rect: [60, 0, 90, 30], price: 15, field: 'pumpkin', name: L('WEST PLOT', 'PARCELA OESTE') },
         { id: 'east2', rect: [60, 30, 90, 60], soon: true },
     ],
     bounds: { x0: -30, z0: -30, x1: 120, z1: 60 }, // todas las parcelas (en sus coordenadas de siempre)
@@ -145,10 +145,10 @@ export const FARM = {
             id: 'pumpkin',
             crop: 'pumpkin',
             name: L('PUMPKIN PATCH', 'CAMPO DE CALABAZAS'),
-            corner: { x: -15, z: 15, center: true }, // crece desde el centro de su parcela
+            corner: { x: 75, z: 15, center: true }, // crece desde el centro de su parcela
             cost: { wheat: 8, pumpkin: 2 },
             turrets: { wheat: 40, pumpkin: 10 },
-            locked: { land: 'west', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
+            locked: { land: 'west2', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
             levels: [
                 { w: 6, d: 5, sheaves: 6, arena: 1, sign: 0x9a6a3a },
                 { w: 10, d: 9, sheaves: 10, arena: 1.25, sign: 0xb07a44 },
@@ -205,6 +205,23 @@ export const FARM = {
                 { w: 15, d: 14, sheaves: 18, arena: 1.55, sign: 0x5a9e32 },
                 { w: 20, d: 19, sheaves: 28, arena: 1.9, sign: 0x3a7ec8 },
                 { w: 28, d: 28, sheaves: 40, arena: 2.4, sign: 0xc8402e },
+            ],
+        },
+        {
+            id: 'egg',
+            crop: 'egg',
+            name: L('HEN RUN', 'CORRAL DE GALLINAS'),
+            corner: { x: -15, z: 15, center: true }, // (donde estaban las calabazas)
+            cost: { wheat: 10, egg: 3 },
+            turrets: { wheat: 40, egg: 12 },
+            locked: { land: 'west', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
+            // sheaves: gallinas del campo de tiro (un huevo cada una)
+            levels: [
+                { w: 6, d: 5, sheaves: 5, arena: 1, sign: 0x9a6a3a },
+                { w: 10, d: 9, sheaves: 8, arena: 1.25, sign: 0xb07a44 },
+                { w: 15, d: 14, sheaves: 12, arena: 1.55, sign: 0x5a9e32 },
+                { w: 20, d: 19, sheaves: 18, arena: 1.9, sign: 0x3a7ec8 },
+                { w: 28, d: 28, sheaves: 26, arena: 2.4, sign: 0xc8402e },
             ],
         },
     ],

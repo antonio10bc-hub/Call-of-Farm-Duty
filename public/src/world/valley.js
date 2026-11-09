@@ -123,10 +123,10 @@ export const REGIONS = [
     { place: 'tomatoP', seeds: [[98, 114]] },  // los tomates, en la suya
     { place: 'house', seeds: [[60, 62]] },
     { place: 'merchant', seeds: [[118, 38]] },
-    { place: 'nw', seeds: [[42, 48]] },        // la orilla alta (la más alta): prado de vacas
-    { place: 'nw2', seeds: [[12, 36]] },       // ... y su otra mitad, hacia el monte
-    { place: 'west', seeds: [[34, 80]] },      // la cañada: calabazas
-    { place: 'west2', seeds: [[10, 100]] },    // ... y su otra mitad
+    { place: 'nw', seeds: [[42, 52]] },        // la orilla alta (la más alta): prado de vacas
+    { place: 'nw2', seeds: [[12, 44]] },       // ... y su otra mitad, hacia el monte: ovejas
+    { place: 'west', seeds: [[36, 84]] },      // la cañada: gallinas (más pequeña: las vacas y las ovejas bajan)
+    { place: 'west2', seeds: [[10, 104]] },    // ... y su otra mitad: calabazas
     { place: 'east', seeds: [[56, 138]] },     // la de abajo, en tres: maíz en la de en medio
     { place: 'east2', seeds: [[100, 140]] },
     { place: 'sw', seeds: [[14, 140]] },
@@ -234,6 +234,17 @@ export const G = {
     for (let k = 0; k < N; k++) {
         if (!inside[k] || water[k]) continue;
         h[k] = reg[k] >= 0 ? REGIONS[reg[k]].h : Math.max(0, quant(nat[k]));
+    }
+    // La orilla del lago: la tierra de alrededor nunca queda por debajo del agua (si no, el agua
+    // parece flotar): un borde de tierra a la altura de la superficie
+    for (let k = 0; k < N; k++) {
+        if (!water[k] || lakeE(U[k], V[k]) >= 1) continue;
+        const top = Math.ceil(LAKE.level / STEP) * STEP, i = k % GN;
+        for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+            if (i + di < 0 || i + di >= GN) continue;
+            const q = k + dj * GN + di;
+            if (q >= 0 && q < N && inside[q] && !water[q] && h[q] < top) h[q] = top;
+        }
     }
     // La montaña, en bloques de 4×4 (dos por dos celdas a la misma altura): menos cubos
     for (let j = 0; j < GN; j += 2) for (let i = 0; i < GN; i += 2) {
