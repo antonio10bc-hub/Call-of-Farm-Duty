@@ -26,7 +26,7 @@ Solo en una partida nueva (en DEBUG, VER EL PRÓLOGO), todo al atardecer, con ba
 - **Mini-mapa** arriba a la derecha (cada parcela de su color; las que no son tuyas, apagadas) con el rectángulo de lo que se ve; tocarlo lleva la cámara allí. **Foto:** el botón de la cámara quita la interfaz y guarda una captura del mapa a píxel grande.
 - **Atardecer:** el sol baja hasta esconderse tras las montañas y las farolas se encienden en cadena, de la granja hacia fuera.
 - **Sonido de ambiente** según lo que se mira: pájaros en los bosques (más en el del mercader), el agua cerca del río y del lago, y viento en lo alto del monte.
-- **El mercader, más a la vista:** al llegar avisa (también si estabas en el campo de tiro, al volver), su cartel late un rato y del cráter sale una columna de humo alta mientras está.
+- **El mercader, más a la vista:** al llegar avisa (también si estabas en el campo de tiro, al volver), su cartel late un rato y de su hoguera (al fondo del cráter, sin nada detrás) sale una columna de humo alta mientras está; con él fuera, apagada.
 - **Al comprar una parcela** la cámara la recorre: primero entera, de lejos, y luego hacia su poste mientras se retira la sombra.
 - **La ficha de un campo** da sus cifras: cosecha, lo que tarda en crecer, lo que da por hora y lo que añade el siguiente nivel. En la vista MAPA se ve siempre el nivel de cada parcela.
 - **El bosque del mercader:** llena su zona, a manchas, con pinos y árboles redondos y suelo de bosque; el claro, de borde irregular a lo largo del surco del ovni y alrededor de su puesto.

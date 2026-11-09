@@ -1853,10 +1853,10 @@ function updateMerchant(dt) {
         merchantNews = false;
         stage(L('THE MERCHANT IS HERE!', '¡HA LLEGADO EL MERCADER!'), L('HE WANTS CROPS FOR GOLD', 'PIDE COSECHA A CAMBIO DE ORO'));
     }
-    // Mientras está: una columna de humo alta sale del cráter (se ve desde todo el valle)
+    // Mientras está: una columna de humo alta sale de su hoguera (se ve desde todo el valle)
     if (here && farm.camp.open && Math.random() < dt * 6) {
-        const U = MERCHANT.ufo;
-        farmFx.spawn(U.x + 1 + (Math.random() - 0.5) * 1.2, 3 + Math.random(), U.z + (Math.random() - 0.5) * 1.2, 0.5 + Math.random() * 0.4, 2.4, 0.2, 0.6 + Math.random() * 0.3, 5, Math.random() < 0.5 ? 0xd8d4cc : 0xb8b2a8, -0.05);
+        const U = MERCHANT.fire;
+        farmFx.spawn(U.x + (Math.random() - 0.5) * 0.4, 1.2 + Math.random() * 0.6, U.z + (Math.random() - 0.5) * 0.4, 0.3 + Math.random() * 0.3, 2.4, 0.2, 0.6 + Math.random() * 0.3, 5, Math.random() < 0.5 ? 0xd8d4cc : 0xb8b2a8, -0.05);
     }
     // El ovni levanta polvo y tierra al ir por el surco
     if (farm.camp.gliding && Math.random() < dt * 30) {

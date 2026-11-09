@@ -79,6 +79,28 @@ export class MerchantCamp extends VoxelModel {
         this.ufoGlow.position.set(U.x, 3.4, U.z + 1.5);
         r.add(this.glow, this.ufoGlow);
 
+        // Su hoguera: corro de piedras, troncos cruzados y unas llamas que bailan (encendida solo
+        // con él aquí; de ella sale la columna de humo que se ve desde todo el valle)
+        const F = MERCHANT.fire;
+        for (let i = 0; i < 7; i++) {
+            const a = (i / 7) * Math.PI * 2;
+            this.part(r, 0.32, 0.22, 0.32, i % 2 ? STONE : 0x7a746a, F.x + Math.cos(a) * 0.62, 0.11, F.z + Math.sin(a) * 0.62);
+        }
+        for (const ry of [0.5, -0.6]) this.part(r, 1.0, 0.16, 0.16, DARK, F.x, 0.14, F.z).rotation.y = ry;
+        this.flames = new THREE.Group();
+        this.flames.position.set(F.x, 0.2, F.z);
+        for (const [w, h, c, x, z] of [[0.56, 0.7, 0xff6a1a, 0, 0], [0.36, 0.95, 0xffb020, 0.1, 0.05], [0.2, 0.6, 0xfff0a0, -0.08, -0.03]]) {
+            const m = new THREE.MeshBasicMaterial({ color: c });
+            this.own(m);
+            const f = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), m);
+            f.position.set(x, h / 2, z);
+            this.flames.add(f);
+        }
+        r.add(this.flames);
+        this.fireGlow = new THREE.PointLight(0xff9a40, 0, 6, 1.6);
+        this.fireGlow.position.set(F.x, 1.2, F.z);
+        r.add(this.fireGlow);
+
         this.ufo = this.buildUfo();
         r.add(this.ufo);
         this.man = this.buildAlien();
@@ -94,7 +116,7 @@ export class MerchantCamp extends VoxelModel {
 
         // El surco, los árboles tumbados, la mesa y el cartel no se mueven: en pocas mallas (lo que
         // sale por niveles y la colección, cada cosa por su lado: se muestran u ocultan)
-        const keep = [this.ufo, this.man, this.cousin, this.goods, lamp, ...this.bulbs.map((b) => b.mesh), ...this.levels, ...Object.values(this.items), this.antennaTip];
+        const keep = [this.flames, this.ufo, this.man, this.cousin, this.goods, lamp, ...this.bulbs.map((b) => b.mesh), ...this.levels, ...Object.values(this.items), this.antennaTip];
         this.bake([r], keep);
         this.bake([...this.levels, ...Object.values(this.items).filter((g) => !g.spin)], [this.antennaTip, this.discoBall]);
 
@@ -609,6 +631,11 @@ export class MerchantCamp extends VoxelModel {
             c.rotation.y = 0.3 + Math.sin(time * 0.7) * 0.6;
             c.arm.rotation.z = Math.sin(time * 0.6 + 2) > 0.8 ? 2.4 + Math.sin(time * 12) * 0.35 : 0.1;
         }
+        // La hoguera: llamas que bailan con él aquí (de noche, además, alumbra); sin él, apagada
+        const lit = this.present && this.open;
+        this.flames.visible = lit;
+        if (lit) this.flames.children.forEach((f, i) => f.scale.set(1, 0.75 + Math.abs(Math.sin(time * (7 + i * 3) + i)) * 0.5, 1));
+        this.fireGlow.intensity = lit ? (1.5 + nightK * 4) * (0.85 + Math.sin(time * 13) * 0.15) : 0;
         // La antena: cuando no está, parpadea (llama a casa)
         if (this.antennaTip) this.antennaMat.color.setHex(!this.present && Math.sin(time * 5) > 0.3 ? 0x7dff4a : 0x3a6a3a);
         if (this.discoBall && this.items.discoball.visible) {

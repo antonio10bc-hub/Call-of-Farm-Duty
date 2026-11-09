@@ -37,6 +37,7 @@ export const MERCHANT = {
     furrow: { from: 59.6, to: 46.6, z: -15, w: 6.2 },
     ufo: { x: 45, z: -15, from: { x: 80, y: 16, z: -30 } },
     stall: { x: 41.6, z: -12.4 },
+    fire: { x: 45.8, z: -19.9 }, // su hoguera: al fondo del cráter, sin nada detrás que el humo pueda tapar
     crater: 6.4,
     fan: { w: 3.4, open: 0.6 },
     name: L('MERCHANT', 'MERCADER'),
