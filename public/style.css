@@ -633,6 +633,30 @@ body.cine .farm-ui, body.cine .bubbles { visibility: hidden; }
 .merchant-sign .pips { display: flex; gap: 2px; }
 .merchant-sign .pip { width: 6px; height: 8px; background: rgba(0, 0, 0, .35); border: 1px solid var(--ink); }
 .merchant-sign .pip.on { background: var(--yellow); }
+.order { position: relative; }
+.order-tag { position: absolute; top: -8px; left: 8px; padding: 2px 4px; font-size: 6px; font-style: normal; color: #fff; background: #8a5a2a; border: 2px solid var(--ink); }
+.order.urgent .order-tag { background: #d84a3a; }
+.order.special .order-tag { background: #7a5ab8; }
+.order.cousin .order-tag { background: #4a6a8a; }
+.order.basket .order-tag { background: #3a8a4a; }
+.order-want b + .ico { margin-left: 4px; }
+.order-pay small { font-size: 6px; color: #7a5ab8; }
+.order-pay { flex-wrap: wrap; }
+.order.shop, .order.gift { grid-template-columns: 1fr auto auto; height: 48px; }
+.order.shop .order-want b, .order.gift .order-want b { font-size: 8px; line-height: 1.4; }
+.order.shop.party { background: #ffe0f4; }
+.order.gift { background: #fff3a0; }
+.merchant-sub { margin-top: 4px; font-size: 8px; color: #ffd23f; text-align: center; }
+.merchant-coll { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+.merchant-coll span { padding: 3px 5px; font-size: 6px; color: #8a7060; background: #3a2418; border: 2px solid var(--ink); }
+.merchant-coll span.on { color: var(--ink); background: var(--cream); }
+.merchant-trust { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 8px; font-size: 8px; color: #fff3d6; }
+.merchant-trust .pips { display: flex; gap: 2px; }
+.merchant-trust .pip { width: 8px; height: 10px; background: rgba(0, 0, 0, .35); border: 2px solid var(--ink); }
+.merchant-trust .pip.on { background: var(--yellow); }
+.trust-bar { width: 70px; height: 8px; background: #2a1a0e; border: 2px solid var(--ink); }
+.trust-bar i { display: block; height: 100%; background: #8fd14f; }
+.trust-meta { width: 100%; text-align: center; font-size: 7px; color: #e8d4b0; }
 .merchant-away { padding: 18px 10px; font-size: 9px; line-height: 1.7; color: #e8d4b0; text-align: center; }
 
 /* Tienda del ovni: hoja abajo con la casa visible arriba */

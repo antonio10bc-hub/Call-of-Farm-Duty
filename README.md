@@ -67,6 +67,15 @@ Al empezar está todo bloqueado (con su candado): la casa, todas las parcelas (t
 - **Quién es:** un alienígena muy mal disfrazado de humano (careta plana con su goma, gabardina y sombrero con las antenas asomando). Llega en un ovni disfrazado de coche (una careta gigante de cartón con un coche rojo de perfil) al claro del bosque donde una vez se estrelló una nave y dejó un surco largo y ancho que cruza la parcela de punta a punta: baja al surco, lo recorre pegado al suelo levantando polvo, baja la rampa y sale.
 - **Su ritmo,** con el reloj de verdad: cada 5 min llega y se queda 4; luego se vuelve por donde vino. De noche, farol, guirnalda de bombillas y luz cálida.
 - **Sus encargos:** su hoja trae 3 encargos de cosecha, de los campos que tienes y en cantidad según su nivel, y los paga en **monedas de oro** (más por los tomates y las calabazas). Al cerrar un trato lo celebra: salta, gira y se le cae la careta.
+- **Su vida con el tiempo** (`content/merchantLife.js`; lógica en `FarmState`):
+  - **Confianza** en 5 niveles (DESCONOCIDO, CLIENTE, HABITUAL, SOCIO, AMIGO DEL ALMA; 0/4/10/20/35 puntos): +1 por encargo, +2 los especiales y combinados, +1 al cumplirlo todo. Cada nivel paga un 6 % más, pide más variado y saluda distinto (te reconoce y acaba confesando que no es de aquí). Su hoja enseña nivel, barra, racha y ánimo.
+  - **Racha:** visitas seguidas con todo cumplido; cada 3, la siguiente trae un **regalo** (una pieza de colección o 30 de oro).
+  - **Ánimo:** contento si cumpliste la anterior (paga +10 % y baila de vez en cuando); serio si lo dejas plantado dos visitas seguidas sin entregarle nada (paga −10 %, pide un encargo menos, no sonríe ni saluda).
+  - **Encargos nuevos:** combinado (nivel 2, con dos campos o más: varios cultivos, +30 %), urgente (nivel 3: 2:30 de cuenta atrás; a tiempo paga el doble) y especial (nivel 2 una visita sí y otra no, desde el 4 siempre: mucho de un cultivo a cambio de una pieza de colección; con todas, +50 % de oro).
+  - **Su primo** (una visita de cada cinco): otro alienígena, morado, junto al puesto; pide el cultivo que menos se pide ese día y paga +50 %.
+  - **Su tienda:** 2-3 cosas cada visita (siempre las mismas para esa visita); en las de fiesta, además, una exclusiva (bola de discoteca, estatua del mercader).
+  - **El campamento crece:** 2, toldo de rayas y un banco; 3, cartel sobre el toldo y una caja olvidada; 4, tienda de campaña junto al ovni y una antena; 5, alfombra, banderines y sillón. Banco, caja y antena se quedan cuando se va (la antena parpadea: llama a casa).
+  - **Colección** (7 piezas, compradas o regaladas, a la vista en su claro): gnomo alienígena, flamenco, bandera, trofeo, bola de discoteca, estatua y la chistera del pato del lacito.
 - **El oro es la única moneda:** monedas de cartón muy falsas, recortadas a tijera y con un $ de rotulador.
 
 ### La casa y su tienda
@@ -121,6 +130,7 @@ Con el reloj de verdad: 4 min de día y 2 de noche, con amanecer y atardecer de 
 - **Ajustes:** música, sonido, vibración e idioma.
 - **Debug** (botón discreto abajo a la derecha de la granja): seis columnas una al lado de otra que caben en la pantalla sin desplazar, con VOLVER arriba a la izquierda (en las pantallas estrechas, pestañas: una columna cada vez, y se recuerda la última).
   - **GRANJA:** COSTES 0, HORA (AUTO, DÍA o NOCHE), COMERCIANTE (AUTO, AQUÍ o FUERA), MONEDAS DE ORO (de 10 en 10), +100 DE CADA COSECHA, VER EL PRÓLOGO y BORRAR PROGRESO (dos toques; no borra los ajustes).
+  - **MERCADER:** CONFIANZA (nivel 1-5), RACHA, ÁNIMO, FIESTA y PRIMO (AUTO, SÍ o NO), VISITA (CUMPLIR: da lo que falta y lo entrega todo; SIGUIENTE: como si se fuera y volviera), ENCARGOS (NUEVOS; URGENTE TARDE), REGALO (DAR), COLECCIÓN (de una en una) y REINICIAR MERCADER.
   - **CAMPOS:** el nivel de cada campo con - / + (lo desbloquea si hace falta; enseña nivel·blancos del campo de tiro), MADURAR TODO y la munición de todas las torretas (VACIAR o LLENAR).
   - **CAMPO DE TIRO:** la caja sorpresa (SALE: NORMAL o ENSEGUIDA; DA: AL AZAR o un arma fija; EMPIEZAS CON: FUSIL o un arma de la caja), las vacas (NORMAL o UBRES LLENAS) y ALIENÍGENAS Y OVNIS (SÍ o NO).
   - **RACHAS:** las bajas que pide cada una (y RACHAS POR DEFECTO).

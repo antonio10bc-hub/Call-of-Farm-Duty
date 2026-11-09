@@ -290,7 +290,7 @@ test('comerciante: su ovni disfrazado de coche recorre el surco, sale él, pide 
     await page.evaluate(() => { game.rig.focus(37, -15); game.rig.zoomTarget = 0.8; });
     await page.locator('#sign-merchant').click();
     await expect(page.locator('#merchant')).toBeVisible();
-    await expect(page.locator('.order')).toHaveCount(3);
+    await expect(page.locator('#merchant-orders [id^=order-]')).toHaveCount(3);
     await expect(page.locator('#order-0 button')).toBeDisabled();
     const o = await page.evaluate(() => game.state.ordersFor(game.merchantClock.visit)[0]);
     expect(o.crop).toBe('wheat');
@@ -340,6 +340,58 @@ test('claro del comerciante: un bosque con el surco del ovni, sin niveles ni mej
     await page.evaluate(() => game.openMerchant());
     await expect(page.locator('#merchant')).toBeVisible();
     await expect(page.locator('#village-up')).toHaveCount(0);
+    expect(errors).toEqual([]);
+});
+
+test('vida del mercader (con DEBUG): confianza por niveles, racha con regalo, ánimo, primo, tienda y colección en el mapa', { tag: '@full' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await openFarm(page);
+    await page.evaluate(() => { game.state.story.merchant = true; game.merchantClock.force = 'here'; });
+    await expect.poll(() => page.evaluate(() => game.farm.camp.open), { timeout: 60_000 }).toBe(true);
+    const tap = (id) => page.evaluate((id) => document.getElementById(id).click(), id);
+    const camp = () => page.evaluate(() => { const c = game.farm.camp, M = game.state.merchant; return { lv: game.state.trustLv, shown: c.levels.map((g) => g.visible), mood: M.mood, streak: M.streak, kinds: M.orders.map((o) => o.kind || '') }; });
+    // Nivel 1: solo la mesa; encargos sencillos
+    expect(await camp()).toMatchObject({ lv: 1, shown: [false, false, false, false], kinds: ['', '', ''] });
+    // Paso a paso hasta el 5: el campamento crece y aparecen combinado, urgente y especial
+    for (let k = 0; k < 4; k++) await page.evaluate(() => document.querySelector('#dbg-trust-row .ks-step[data-d="1"]').click());
+    const top = await camp();
+    expect(top.lv).toBe(5);
+    expect(top.shown).toEqual([true, true, true, true]);
+    // (con un solo campo no hay combinado)
+    expect(top.kinds).toEqual(['', 'urgent', '', 'special']);
+    // Cumplir la visita y pasar a la siguiente: sube la racha y viene contento; a la tercera, regalo
+    for (let k = 0; k < 3; k++) {
+        await tap('dbg-visit-done');
+        await tap('dbg-visit-next');
+    }
+    expect(await camp()).toMatchObject({ streak: 3, mood: 'happy' });
+    const gift = await page.evaluate(() => game.state.merchant.gift);
+    expect(gift).toBeTruthy();
+    // El primo: un encargo más y él en el claro
+    await tap('dbg-cousin');
+    expect((await camp()).kinds).toContain('cousin');
+    await expect.poll(() => page.evaluate(() => game.farm.camp.cousin.visible)).toBe(true);
+    // La hoja: abrir el regalo y comprar en su tienda; lo que tienes se ve en el mapa (la chistera, en el pato)
+    await page.evaluate(() => { game.state.items.gold = 999; game.openMerchant(); });
+    await expect(page.locator('#merchant-trust')).toContainText('AMIGO DEL ALMA');
+    await page.locator('button[data-gift]').click();
+    const buy = page.locator('button[data-buy]:not([disabled])').first();
+    const id = await buy.getAttribute('data-buy');
+    await buy.click();
+    const owned = await page.evaluate(() => game.state.merchant.owned);
+    // (más las piezas de los encargos especiales cumplidos)
+    expect(owned).toEqual(expect.arrayContaining([gift, id]));
+    expect(await page.evaluate((ids) => ids.map((i) => (i === 'duckhat' ? game.farm.life.ducks[0].g.hat.visible : game.farm.camp.items[i].visible)), owned)).toEqual(owned.map(() => true));
+    // Dejarlo plantado dos veces: serio y pide uno menos
+    await tap('dbg-cousin');
+    await tap('dbg-cousin');
+    await tap('dbg-visit-next');
+    await tap('dbg-visit-next');
+    await tap('dbg-visit-next');
+    expect((await camp()).mood).toBe('serious');
+    // Reiniciar: vuelve a desconocido
+    await tap('dbg-merchant-reset');
+    expect(await camp()).toMatchObject({ lv: 1, streak: 0, mood: 'neutral' });
     expect(errors).toEqual([]);
 });
 

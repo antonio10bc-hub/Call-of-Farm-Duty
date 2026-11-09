@@ -41,6 +41,11 @@ export class Life extends VoxelModel {
         this.buildMill();
     }
 
+    // La chistera del pato del lacito (de la colección del mercader)
+    setHat(on) {
+        this.ducks[0].g.hat.visible = !!on;
+    }
+
     // Un pato: cuerpo, cola, cabeza, pico y (el de la pajarita) su lacito naranja
     duck(bow) {
         const g = new THREE.Group(), body = bow ? YELLOW : WHITE;
@@ -53,6 +58,13 @@ export class Life extends VoxelModel {
             // El lacito, encima de la cabeza: dos lazos grandes y el nudo
             for (const s of [-1, 1]) this.part(g, 0.1, 0.22, 0.26, ORANGE, 0.24, 0.64, s * 0.17).rotation.x = s * 0.5;
             this.part(g, 0.12, 0.12, 0.12, 0xd86a10, 0.24, 0.63, 0);
+            // La chistera (de la colección del mercader): entre los lazos, si la tienes
+            g.hat = new THREE.Group();
+            this.part(g.hat, 0.3, 0.04, 0.3, INK, 0.26, 0.58, 0);
+            this.part(g.hat, 0.2, 0.26, 0.2, INK, 0.26, 0.73, 0);
+            this.part(g.hat, 0.21, 0.05, 0.21, 0xc8402e, 0.26, 0.64, 0, false);
+            g.hat.visible = false;
+            g.add(g.hat);
         }
         g.scale.setScalar(1.9);
         return g;

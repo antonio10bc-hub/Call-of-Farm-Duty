@@ -1,4 +1,5 @@
 import { L } from '../core/I18n.js';
+import { FORCE } from './merchantLife.js';
 
 // El comerciante: un alienígena disfrazado de humano (muy mal: una careta plana con su goma).
 // Llega en su ovni, también "disfrazado" de coche con una careta gigante, al claro del bosque donde
@@ -19,7 +20,7 @@ import { L } from '../core/I18n.js';
 // fiesta (gorro de cumpleaños y bufanda dorada) y paga más (rare: lo que multiplica el oro). En las
 // pruebas, nunca
 export const RARE = { every: 4, pay: 1.6 };
-export const rareVisit = (visit) => !(typeof location !== 'undefined' && /[?&]test/.test(location.search)) && (Math.imul(visit | 0, 2654435761) >>> 0) % RARE.every === 1;
+export const rareVisit = (visit) => FORCE.party !== null ? FORCE.party : !(typeof location !== 'undefined' && /[?&]test/.test(location.search)) && (Math.imul(visit | 0, 2654435761) >>> 0) % RARE.every === 1;
 
 export const MERCHANT = {
     cycle: 300,
@@ -88,6 +89,6 @@ export class MerchantClock {
 
     // Número de la visita (fijado en DEBUG, cuenta como la del reloj)
     get visit() {
-        return Math.floor(Date.now() / 1000 / MERCHANT.cycle);
+        return Math.floor(Date.now() / 1000 / MERCHANT.cycle) + (this.shift | 0); // (shift: DEBUG, visitas adelantadas)
     }
 }

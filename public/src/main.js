@@ -15,7 +15,8 @@ import { CameraRig } from './render/CameraRig.js';
 import { Particles } from './render/Particles.js';
 import { weatherParticle } from './render/weather.js';
 import { Farm } from './world/Farm.js';
-import { FarmState } from './game/FarmState.js';
+import { FarmState, MERCHANT_FRESH, orderWants } from './game/FarmState.js';
+import { TRUST, LEVEL_NAMES, HELLO, MOOD_LINES, MOODS, COUSIN_LINE, GIFT_EVERY, URGENT, ITEM, COLLECTION, FORCE, cousinVisit } from './content/merchantLife.js';
 import { WONDER } from './content/mysterybox.js';
 import { Sniper } from './game/Sniper.js';
 import { DayNight } from './game/DayNight.js';
@@ -1835,11 +1836,13 @@ function updateMerchant(dt) {
     if (here !== farm.camp.present) {
         farm.camp.setPresent(here, farm.introT > 2);
         if (here) merchantArrived = 20; // (su cartel late un rato)
+        if (here) state.ordersFor(merchantClock.visit); // (al llegar cuenta cómo fue la anterior: ánimo, racha)
         const rare = here && rareVisit(merchantClock.visit);
         farm.camp.setRare(rare);
+        syncMerchantLife();
         if (here && mode !== 'farm') merchantNews = true; // (se avisa al volver a la granja)
         if (mode === 'farm' && farm.introT > 2) {
-            stage(here ? L('THE MERCHANT IS HERE!', '¡HA LLEGADO EL MERCADER!') : L('THE MERCHANT LEFT', 'EL MERCADER SE HA IDO'), rare ? L('HE IS PARTYING: HE PAYS MORE GOLD!', 'VIENE DE FIESTA: ¡PAGA MÁS ORO!') : here ? L('HE WANTS CROPS FOR GOLD', 'PIDE COSECHA A CAMBIO DE ORO') : L('HE WILL BE BACK SOON', 'VOLVERÁ PRONTO'));
+            stage(here ? L('THE MERCHANT IS HERE!', '¡HA LLEGADO EL MERCADER!') : L('THE MERCHANT LEFT', 'EL MERCADER SE HA IDO'), rare ? L('HE IS PARTYING: HE PAYS MORE GOLD!', 'VIENE DE FIESTA: ¡PAGA MÁS ORO!') : here && cousinVisit(merchantClock.visit) ? L('HE CAME WITH HIS COUSIN', 'HA VENIDO CON SU PRIMO') : here && state.merchant.gift !== null ? L('HE BROUGHT YOU A GIFT', 'TE HA TRAÍDO UN REGALO') : here ? L('HE WANTS CROPS FOR GOLD', 'PIDE COSECHA A CAMBIO DE ORO') : L('HE WILL BE BACK SOON', 'VOLVERÁ PRONTO'));
             sfx.play(here ? 'bounceGet' : 'ui');
         }
         if (!here) $('merchant').classList.add('hidden');
@@ -1869,7 +1872,7 @@ function openMerchant() {
     sfx.play('ui');
     rig.focus(MERCHANT.stall.x + 2, MERCHANT.stall.z + 3);
     rig.zoomTarget = 0.85;
-    merchantSay(farm.camp.open ? MERCHANT.lines.hello[(Math.random() * MERCHANT.lines.hello.length) | 0] : MERCHANT.lines.away);
+    merchantSay(farm.camp.open ? merchantHello() : MERCHANT.lines.away);
     renderMerchant();
     const el = $('merchant');
     el.classList.remove('hidden', 'in');
@@ -1887,36 +1890,103 @@ function merchantSay(text, warn = false) {
     }
 }
 
-function renderMerchant() {
-    $('merchant-gold').textContent = state.items.gold;
-    const here = farm.camp.open, left = merchantClock.left;
-    $('merchant-timer').textContent = left === null ? '' : here ? `${L('LEAVES IN', 'SE VA EN')} ${fmt(left)}` : `${L('BACK IN', 'VUELVE EN')} ${fmt(left)}`;
-    if (!here) {
-        $('merchant-orders').innerHTML = `<div class="merchant-away">${L('NOBODY HERE BUT THE OLD CRASH FURROW. HE COMES BACK "BY CAR" WITH NEW ORDERS EVERY FEW MINUTES.', 'AQUÍ SOLO ESTÁ EL SURCO. VUELVE "EN COCHE" CON ENCARGOS NUEVOS CADA POCOS MINUTOS.')}</div>`;
-        return;
-    }
-    $('merchant-orders').innerHTML = state.ordersFor(merchantClock.visit).map((o, i) => {
-        const can = state.canDeliver(o), need = o.n - state.items[o.crop];
-        const label = o.done ? L('DONE', 'HECHO') : can ? L('DELIVER', 'ENTREGAR') : `${L('NEED', 'FALTAN')} ${need}`;
-        return `<div class="order${o.done ? ' done' : ''}" id="order-${i}"><span class="order-want">${ico(CROPS[o.crop].icon)}<b>${o.n}</b></span><span class="order-arrow">&gt;</span>`
-            + `<span class="order-pay">${ico('gold')}<b>+${o.gold}</b></span><button data-i="${i}"${o.done || !can ? ' disabled' : ''}>${label}</button></div>`;
-    }).join('');
+// Lo que dice al abrir su hoja: según la confianza (te reconoce), su ánimo, su primo o su regalo
+function merchantHello() {
+    const M = state.merchant, pick = (a) => a[(Math.random() * a.length) | 0];
+    if (M.gift !== null) return L('I BROUGHT YOU A GIFT! FOR BEING SO RELIABLE.', '¡TE HE TRAÍDO UN REGALO! POR SER TAN FORMAL.');
+    if (cousinVisit(merchantClock.visit) && Math.random() < 0.5) return COUSIN_LINE;
+    if (MOOD_LINES[M.mood] && Math.random() < 0.6) return MOOD_LINES[M.mood];
+    return pick(HELLO[state.trustLv - 1]);
 }
 
+// Lo que se ve de su vida en el mapa: el campamento por niveles, su ánimo, su primo y tu colección
+function syncMerchantLife() {
+    const M = state.merchant;
+    farm.camp.setLevel(state.trustLv);
+    farm.camp.setMood(M.mood);
+    farm.camp.setCousin(merchantClock.here && cousinVisit(merchantClock.visit));
+    farm.camp.setCollection(M.owned);
+    farm.life.setHat(M.owned.includes('duckhat'));
+}
+syncMerchantLife();
+
+const KIND_TAG = { basket: L('COMBO', 'COMBINADO'), urgent: L('URGENT', 'URGENTE'), special: L('SPECIAL', 'ESPECIAL'), cousin: L('COUSIN', 'PRIMO') };
+function renderMerchant() {
+    $('merchant-gold').textContent = state.items.gold;
+    const here = farm.camp.open, left = merchantClock.left, M = state.merchant, lv = state.trustLv;
+    $('merchant-timer').textContent = left === null ? '' : here ? `${L('LEAVES IN', 'SE VA EN')} ${fmt(left)}` : `${L('BACK IN', 'VUELVE EN')} ${fmt(left)}`;
+    // Confianza (nivel, nombre y lo que falta), racha (hacia el regalo) y ánimo
+    const from = TRUST[lv - 1], to = TRUST[lv], k = to === undefined ? 1 : (M.trust - from) / (to - from);
+    $('merchant-trust').innerHTML = `<span class="trust-name">${LEVEL_NAMES[lv - 1]}</span><span class="pips">${[1, 2, 3, 4, 5].map((i) => `<i class="pip${i <= lv ? ' on' : ''}"></i>`).join('')}</span>`
+        + `<span class="trust-bar"><i style="width:${Math.round(k * 100)}%"></i></span>`
+        + `<span class="trust-meta">${L('STREAK', 'RACHA')} ${M.streak % GIFT_EVERY}/${GIFT_EVERY} · ${MOODS[M.mood]}</span>`;
+    if (!here) {
+        $('merchant-orders').innerHTML = `<div class="merchant-away">${L('NOBODY HERE BUT THE OLD CRASH FURROW. HE COMES BACK "BY CAR" WITH NEW ORDERS EVERY FEW MINUTES.', 'AQUÍ SOLO ESTÁ EL SURCO. VUELVE "EN COCHE" CON ENCARGOS NUEVOS CADA POCOS MINUTOS.')}</div>` + collectionHtml();
+        return;
+    }
+    const visit = merchantClock.visit;
+    let html = M.gift === null ? '' : `<div class="order gift"><span class="order-want">${typeof M.gift === 'number' ? `${ico('gold')}<b>+${M.gift}</b>` : `<b>${ITEM[M.gift].name}</b>`}</span><button data-gift="1">${L('OPEN GIFT', 'ABRIR REGALO')}</button></div>`;
+    html += state.ordersFor(visit).map((o, i) => {
+        const can = state.canDeliver(o), want = orderWants(o), need = Math.max(...Object.entries(want).map(([c, n]) => n - state.items[c]));
+        const label = o.done ? L('DONE', 'HECHO') : can ? L('DELIVER', 'ENTREGAR') : `${L('NEED', 'FALTAN')} ${need}`;
+        const late = o.until && Date.now() >= o.until, tag = o.kind ? `<em class="order-tag">${KIND_TAG[o.kind]}${o.kind === 'urgent' && !o.done ? ` ${late ? L('LATE', 'TARDE') : `${fmt((o.until - Date.now()) / 1000)} x${URGENT.pay}`}` : ''}</em>` : '';
+        const pay = o.done ? o.paid || o.gold : state.payOf(o);
+        return `<div class="order${o.done ? ' done' : ''}${o.kind ? ` ${o.kind}` : ''}" id="order-${i}">${tag}<span class="order-want">${Object.entries(want).map(([c, n]) => `${ico(CROPS[c].icon)}<b>${n}</b>`).join('')}</span><span class="order-arrow">&gt;</span>`
+            + `<span class="order-pay">${ico('gold')}<b>+${pay}</b>${o.reward ? `<small>+ ${ITEM[o.reward].name}</small>` : ''}</span><button data-i="${i}"${o.done || !can ? ' disabled' : ''}>${label}</button></div>`;
+    }).join('');
+    // Su tienda de hoy (2-3 cosas; de fiesta, alguna exclusiva)
+    html += `<div class="merchant-sub">${L('HIS SHOP TODAY', 'SU TIENDA DE HOY')}</div>` + state.stock(visit).map((id) => {
+        const it = ITEM[id], have = state.collects(id), short = state.items.gold < it.gold;
+        return `<div class="order shop${have ? ' done' : ''}${it.party ? ' party' : ''}"><span class="order-want"><b>${it.name}</b></span><span class="order-pay">${ico('gold')}<b>${it.gold}</b></span><button data-buy="${id}"${have || short ? ' disabled' : ''}>${have ? L('YOURS', 'TUYO') : L('BUY', 'COMPRAR')}</button></div>`;
+    }).join('') + collectionHtml();
+    $('merchant-orders').innerHTML = html;
+}
+
+function collectionHtml() {
+    const own = state.merchant.owned;
+    return `<div class="merchant-sub">${L('YOUR COLLECTION', 'TU COLECCIÓN')} ${own.length}/${COLLECTION.length}</div><div class="merchant-coll">${COLLECTION.map((id) => `<span class="${own.includes(id) ? 'on' : ''}">${own.includes(id) ? ITEM[id].name : '?'}</span>`).join('')}</div>`;
+}
 
 $('merchant').addEventListener('click', (e) => {
     e.stopPropagation();
+    const visit = merchantClock.visit, gb = e.target.closest('button[data-gift]'), bb = e.target.closest('button[data-buy]');
+    if (gb) {
+        const g = state.claimGift();
+        if (g === null) return;
+        sfx.play('bounceGet');
+        merchantSay(L('ENJOY IT, FRIEND!', '¡QUE LO DISFRUTES, AMIGO!'));
+        if (typeof g !== 'number') stage(L('NEW IN YOUR COLLECTION', 'NUEVO EN TU COLECCIÓN'), ITEM[g].name);
+        merchantDeal($('merchant'));
+        syncMerchantLife();
+        updateCounts(true);
+        return renderMerchant();
+    }
+    if (bb) {
+        if (!state.buy(visit, bb.dataset.buy)) return sfx.play('miss'), merchantSay(MERCHANT.lines.short, true);
+        sfx.play('coin');
+        merchantSay(L('GOOD CHOICE! IT IS ALREADY IN PLACE.', '¡BUENA ELECCIÓN! YA ESTÁ EN SU SITIO.'));
+        stage(L('NEW IN YOUR COLLECTION', 'NUEVO EN TU COLECCIÓN'), ITEM[bb.dataset.buy].name);
+        merchantDeal($('merchant'), $('merchant-gold'));
+        syncMerchantLife();
+        updateCounts(true);
+        return renderMerchant();
+    }
     const b = e.target.closest('button[data-i]');
     if (!b) return;
-    if (!state.deliver(merchantClock.visit, Number(b.dataset.i))) return sfx.play('miss'), merchantSay(MERCHANT.lines.short, true);
+    const res = state.deliver(visit, Number(b.dataset.i));
+    if (!res) return sfx.play('miss'), merchantSay(MERCHANT.lines.short, true);
     sfx.play('coin');
     setTimeout(() => sfx.play('coin'), 120);
     vibrate('pickup');
-    const all = state.ordersFor(merchantClock.visit).every((o) => o.done);
-    merchantSay(all ? MERCHANT.lines.done : MERCHANT.lines.thanks);
+    merchantSay(res.all ? MERCHANT.lines.done : MERCHANT.lines.thanks);
     const r = b.getBoundingClientRect();
     for (let k = 0; k < 3; k++) setTimeout(() => flyItem('gold', r.x + r.width / 2, r.y, $('merchant-gold'), () => {}), k * 90);
     merchantDeal($('merchant'));
+    if (res.levelUp) {
+        stage(`${L('TRUST LEVEL', 'CONFIANZA NIVEL')} ${res.levelUp}`, LEVEL_NAMES[res.levelUp - 1]);
+        sfx.play('bounceGet');
+    } else if (res.reward) stage(L('NEW IN YOUR COLLECTION', 'NUEVO EN TU COLECCIÓN'), ITEM[res.reward].name);
+    syncMerchantLife();
     updateCounts(true);
     renderMerchant();
 });
@@ -2239,6 +2309,7 @@ function refreshDebug() {
     refreshUnlockRows();
     refreshHomeRows();
     refreshMerchantDbg();
+    refreshMerchantLifeDbg();
     refreshFieldRows();
     refreshSnipeDbg();
 }
@@ -2317,6 +2388,67 @@ for (const b of $('gold-row').querySelectorAll('.ks-step')) {
     });
 }
 refreshMerchantDbg();
+// Depuración: la vida del mercader paso a paso (confianza, racha, ánimo, fiesta, primo, visitas,
+// encargos, regalo y colección). renew: pide los encargos de nuevo (para ver el cambio ya)
+const TRI = [null, true, false], triName = (v) => (v === null ? L('AUTO', 'AUTO') : v ? L('YES', 'SÍ') : L('NO', 'NO'));
+function refreshMerchantLifeDbg() {
+    const M = state.merchant, lv = state.trustLv;
+    $('dbg-trust').textContent = `${lv} (${M.trust})`;
+    $('dbg-streak').textContent = M.streak;
+    $('dbg-mood').textContent = MOODS[M.mood];
+    $('dbg-party').textContent = triName(FORCE.party);
+    $('dbg-cousin').textContent = triName(FORCE.cousin);
+    $('dbg-coll').textContent = `${M.owned.length}/${COLLECTION.length}`;
+}
+function dbgMerchant(fn, renew = false) {
+    fn(state.merchant);
+    if (renew && state.merchant.visit >= 0) state.newOrders(merchantClock.visit);
+    state.save();
+    farm.camp.setRare(merchantClock.here && rareVisit(merchantClock.visit));
+    syncMerchantLife();
+    refreshMerchantLifeDbg();
+    refreshMerchantDbg();
+    updateCounts();
+    if (!$('merchant').classList.contains('hidden')) renderMerchant();
+    sfx.play('ui');
+}
+const stepRow = (id, fn) => $(id).querySelectorAll('.ks-step').forEach((b) => b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    fn(Number(b.dataset.d));
+}));
+stepRow('dbg-trust-row', (d) => dbgMerchant((M) => (M.trust = TRUST[Math.min(5, Math.max(1, state.trustLv + d)) - 1]), true));
+stepRow('dbg-streak-row', (d) => dbgMerchant((M) => (M.streak = Math.max(0, M.streak + d))));
+stepRow('dbg-coll-row', (d) => dbgMerchant((M) => {
+    if (d > 0) {
+        const id = COLLECTION.find((c) => !M.owned.includes(c));
+        if (id) M.owned.push(id);
+    } else M.owned.pop();
+}));
+tapBtn('dbg-mood', () => dbgMerchant((M) => (M.mood = { neutral: 'happy', happy: 'serious', serious: 'neutral' }[M.mood]), true));
+tapBtn('dbg-party', () => dbgMerchant(() => (FORCE.party = TRI[(TRI.indexOf(FORCE.party) + 1) % 3]), true));
+tapBtn('dbg-cousin', () => dbgMerchant(() => (FORCE.cousin = TRI[(TRI.indexOf(FORCE.cousin) + 1) % 3]), true));
+// Cumplir la visita: da lo que falta de cada encargo y los entrega todos
+tapBtn('dbg-visit-done', () => dbgMerchant(() => {
+    const visit = merchantClock.visit;
+    state.ordersFor(visit).forEach((o, i) => {
+        if (o.done) return;
+        for (const [c, n] of Object.entries(orderWants(o))) state.items[c] = Math.max(state.items[c], n);
+        state.deliver(visit, i);
+    });
+}));
+// La siguiente visita (como si se fuera y volviera): cuenta cómo fue esta y pide encargos nuevos
+tapBtn('dbg-visit-next', () => dbgMerchant(() => {
+    merchantClock.shift = (merchantClock.shift | 0) + 1;
+    state.ordersFor(merchantClock.visit);
+}));
+tapBtn('dbg-orders', () => dbgMerchant(() => {}, true));
+tapBtn('dbg-urgent-late', () => dbgMerchant((M) => M.orders.forEach((o) => o.until && (o.until = Date.now() - 1))));
+tapBtn('dbg-gift', () => dbgMerchant((M) => (M.gift = state.giftItem())));
+tapBtn('dbg-merchant-reset', () => dbgMerchant(() => {
+    state.merchant = MERCHANT_FRESH();
+    if (merchantClock.here) state.ordersFor(merchantClock.visit);
+}));
+refreshMerchantLifeDbg();
 // Depuración: +100 de cada cosecha (para probar mejoras)
 tapBtn('btn-crops', () => {
     for (const c of Object.keys(CROPS)) state.items[c] = Math.min(99999, (state.items[c] || 0) + 100);

@@ -4,6 +4,10 @@ import { SHOP_ITEMS, DEFAULT_LOOK } from '../content/ufo.js';
 import { ARSENAL, ARSENAL_KINDS, DEFAULT_LOADOUT, CLASSES, arsenalItem } from '../content/arsenal.js';
 import { KILLSTREAKS } from '../content/killstreaks.js';
 import { MERCHANT, RARE, rareVisit } from '../content/merchant.js';
+import { trustLevel, TRUST_PAY, MOOD_PAY, GIFT_EVERY, URGENT, BASKET_PAY, SPECIAL, COUSIN, cousinVisit, COLLECTION, ITEM, stockFor } from '../content/merchantLife.js';
+
+// Lo que pide un encargo: { cultivo: cuánto } (el combinado, varios)
+export const orderWants = (o) => o.items || { [o.crop]: o.n };
 
 // Estado de la granja: lo recogido de cada cultivo, cada campo (desbloqueado o no, nivel, hora
 // de siembra y blancos que quedan), el nivel del granero y el equipo del fusil.
@@ -20,6 +24,9 @@ const OLD_KEYS = ['cofd.farm.v3', 'cofd.farm.v2']; // v3: un solo campo de trigo
 const levelsOf = (id) => FIELD_BY_ID[id].levels;
 const STORY = ['crop', 'alien', 'box', 'merchant', 'sold', 'house'];
 const growMs = (id) => CROPS[FIELD_BY_ID[id].crop].growTime * 1000;
+
+const MERCHANT_FRESH = () => ({ visit: -1, orders: [], trust: 0, streak: 0, missed: 0, mood: 'neutral', gift: null, owned: [] });
+export { MERCHANT_FRESH };
 
 export class FarmState {
     constructor(now = Date.now()) {
@@ -43,7 +50,10 @@ export class FarmState {
         this.items = Object.fromEntries([...Object.keys(CROPS), 'gold'].map((c) => [c, 0]));
         // El comerciante: la visita de la que son los encargos que hay (cada uno: cultivo, cuánto,
         // cuánto oro paga y si ya se ha entregado)
-        this.merchant = { visit: -1, orders: [] };
+        // Su vida con el tiempo (ver content/merchantLife.js): confianza (puntos), racha de visitas
+        // cumplidas, visitas seguidas sin entregarle nada, ánimo, el regalo pendiente y lo que
+        // tienes de su colección
+        this.merchant = MERCHANT_FRESH();
         // La historia: lo que ya ha pasado, una vez cada cosa (y lo que abre):
         //   crop      el trigo a nivel 2: el trigo mágico regala las rachas de cultivos
         //   alien     el trigo a nivel 3: regala las rachas alienígenas (y empiezan los alienígenas)
@@ -103,7 +113,13 @@ export class FarmState {
                 // Las monedas alienígenas de antes pasan a ser de oro (la única moneda)
                 if (d.items && d.items.alien) this.items.gold += (d.items.alien | 0) * 3;
                 for (const id of Object.keys(this.lands)) this.lands[id] = !!(d.lands && d.lands[id]);
-                if (d.merchant && Array.isArray(d.merchant.orders)) this.merchant = { visit: d.merchant.visit | 0, orders: d.merchant.orders.filter((o) => o && CROPS[o.crop]) };
+                if (d.merchant && Array.isArray(d.merchant.orders)) {
+                    const m = d.merchant;
+                    Object.assign(this.merchant, { visit: m.visit | 0, orders: m.orders.filter((o) => o && CROPS[o.crop] && Object.keys(orderWants(o)).every((c) => CROPS[c])),
+                        trust: m.trust | 0, streak: m.streak | 0, missed: m.missed | 0, mood: MOOD_PAY[m.mood] ? m.mood : 'neutral',
+                        gift: m.gift === null || m.gift === undefined ? null : ITEM[m.gift] || typeof m.gift === 'number' ? m.gift : null,
+                        owned: Array.isArray(m.owned) ? m.owned.filter((id) => ITEM[id]) : [] });
+                }
                 this.ufo.met = !!(d.ufo && d.ufo.met);
                 if (d.home) {
                     if (Array.isArray(d.home.owned)) this.home.owned = d.home.owned.filter((id) => SHOP_ITEMS[id]);
@@ -375,38 +391,139 @@ export class FarmState {
     }
 
     // ---------- Comerciante ----------
-    // Los encargos de la visita (se piden al llegar: cultivos de los campos que hay, en cantidad
-    // según su nivel)
+    get trustLv() {
+        return trustLevel(this.merchant.trust);
+    }
+
+    // Los encargos de la visita (se piden al llegar). Antes de pedir los nuevos, cuenta cómo fue la
+    // anterior que viste: todo cumplido sube la racha (cada GIFT_EVERY, un regalo) y lo pone
+    // contento; nada entregado dos veces seguidas lo pone serio
     ordersFor(visit) {
-        if (this.merchant.visit === visit) return this.merchant.orders;
+        const M = this.merchant;
+        if (M.visit === visit) return M.orders;
+        if (M.visit >= 0 && M.orders.length) {
+            const done = M.orders.filter((o) => o.done).length;
+            if (done === M.orders.length) {
+                M.streak++;
+                M.missed = 0;
+                M.mood = 'happy';
+                if (M.streak % GIFT_EVERY === 0) M.gift = this.giftItem();
+            } else {
+                M.streak = 0;
+                M.missed = done ? 0 : M.missed + 1;
+                M.mood = M.missed >= 2 ? 'serious' : 'neutral';
+            }
+        }
+        this.newOrders(visit);
+        return M.orders;
+    }
+
+    // Los encargos nuevos: cultivos de los campos que hay, en cantidad según su nivel; con más
+    // confianza paga más y pide más variado (combinado, urgente, especial); su primo, uno más
+    newOrders(visit) {
+        const M = this.merchant, lv = this.trustLv;
         const fields = FARM.fields.filter((f) => this.fields[f.id].unlocked);
         if (!fields.length) fields.push(FARM.fields[0]);
+        const pay = (1 + TRUST_PAY * (lv - 1)) * MOOD_PAY[M.mood] * (rareVisit(visit) ? RARE.pay : 1);
+        const [a, b] = MERCHANT.size;
+        const size = (f, k = 1) => Math.max(MERCHANT.min, Math.round((this.sheaves(f.id) * (a + Math.random() * (b - a)) * k) / MERCHANT.step) * MERCHANT.step);
+        const gold = (want) => Math.ceil(Object.entries(want).reduce((g, [c, n]) => g + n * MERCHANT.rate[c], 0) * pay);
         const orders = [];
-        for (let k = 0; k < MERCHANT.orders; k++) {
+        const count = MERCHANT.orders - (M.mood === 'serious' ? 1 : 0);
+        for (let k = 0; k < count; k++) {
             // Cada encargo de un campo (repartidos entre los que haya)
-            const f = fields[(k + visit) % fields.length], [a, b] = MERCHANT.size;
-            const n = Math.max(MERCHANT.min, Math.round((this.sheaves(f.id) * (a + Math.random() * (b - a))) / MERCHANT.step) * MERCHANT.step);
-            orders.push({ crop: f.crop, n, gold: Math.ceil(n * MERCHANT.rate[f.crop] * (rareVisit(visit) ? RARE.pay : 1)), done: false });
+            const f = fields[(k + visit) % fields.length], n = size(f);
+            orders.push({ crop: f.crop, n, gold: gold({ [f.crop]: n }), done: false });
         }
-        this.merchant = { visit, orders };
+        // Combinado (desde el nivel 2, con dos campos o más): varios cultivos a la vez, paga más
+        if (lv >= 2 && fields.length >= 2) {
+            const items = {};
+            for (let k = 0; k < Math.min(fields.length, lv >= 4 ? 3 : 2); k++) {
+                const f = fields[(k + visit + 1) % fields.length];
+                items[f.crop] = size(f, 0.6);
+            }
+            const c0 = Object.keys(items)[0];
+            orders[0] = { kind: 'basket', crop: c0, n: items[c0], items, gold: Math.ceil(gold(items) * BASKET_PAY), done: false };
+        }
+        // Urgente (desde el nivel 3): con cuenta atrás; a tiempo, paga URGENT.pay veces
+        if (lv >= 3 && orders.length > 1) Object.assign(orders[1], { kind: 'urgent', until: Date.now() + URGENT.secs * 1000 });
+        // Especial (desde el nivel 2, una visita sí y otra no; desde el 4, siempre): mucho de su
+        // cultivo favorito a cambio de una pieza de su colección (si ya las tienes todas, oro)
+        if (lv >= 2 && (lv >= 4 || visit % 2 === 0)) {
+            const f = fields[fields.length - 1], n = size(f, SPECIAL.size), reward = COLLECTION.find((id) => !M.owned.includes(id) && !stockFor(visit, rareVisit(visit)).includes(id)) || null;
+            orders.push({ kind: 'special', crop: f.crop, n, gold: reward ? gold({ [f.crop]: n }) : Math.ceil(gold({ [f.crop]: n }) * SPECIAL.gold), reward, done: false });
+        }
+        // Su primo: pide el cultivo que menos se pide hoy y paga más
+        if (cousinVisit(visit)) {
+            const used = (c) => orders.filter((o) => orderWants(o)[c]).length;
+            const f = [...fields].sort((p, q) => used(p.crop) - used(q.crop))[0], n = size(f);
+            orders.push({ kind: 'cousin', crop: f.crop, n, gold: Math.ceil(gold({ [f.crop]: n }) * COUSIN.pay), done: false });
+        }
+        M.visit = visit;
+        M.orders = orders;
         this.save();
         return orders;
     }
 
-    canDeliver(o) {
-        return !o.done && this.items[o.crop] >= o.n;
+    // Lo que paga ahora (el urgente, a tiempo, más)
+    payOf(o) {
+        return o.until && Date.now() < o.until ? o.gold * URGENT.pay : o.gold;
     }
 
-    // Entregar un encargo: se da lo que pide y se cobra en oro
+    canDeliver(o) {
+        return !o.done && Object.entries(orderWants(o)).every(([c, n]) => this.items[c] >= n);
+    }
+
+    // Entregar un encargo: se da lo que pide y se cobra en oro (y la pieza, el especial). Sube la
+    // confianza (más los especiales y combinados; y uno más al cumplirlo todo). Devuelve qué pasó
     deliver(visit, i) {
-        const o = this.ordersFor(visit)[i];
+        const M = this.merchant, o = this.ordersFor(visit)[i];
         if (!o || !this.canDeliver(o)) return false;
-        this.items[o.crop] -= o.n;
-        this.items.gold += o.gold;
+        const lv = this.trustLv, paid = this.payOf(o);
+        for (const [c, n] of Object.entries(orderWants(o))) this.items[c] -= n;
+        this.items.gold += paid;
         o.done = true;
+        o.paid = paid;
+        if (o.reward && !M.owned.includes(o.reward)) M.owned.push(o.reward);
+        M.trust += o.kind === 'special' || o.kind === 'basket' ? 2 : 1;
+        const all = M.orders.every((q) => q.done);
+        if (all) M.trust++;
         this.story.sold = true; // (la primera venta: el trigo mágico tiene una idea)
         this.save();
+        return { paid, reward: o.reward || null, all, levelUp: this.trustLv > lv ? this.trustLv : 0 };
+    }
+
+    // ---------- Su tienda, sus regalos y su colección ----------
+    stock(visit) {
+        return stockFor(visit, rareVisit(visit));
+    }
+
+    collects(id) {
+        return this.merchant.owned.includes(id);
+    }
+
+    buy(visit, id) {
+        const it = ITEM[id];
+        if (!it || this.collects(id) || !this.stock(visit).includes(id) || this.items.gold < it.gold) return false;
+        this.items.gold -= it.gold;
+        this.merchant.owned.push(id);
+        this.save();
         return true;
+    }
+
+    // El regalo de la racha: una pieza que no tengas (o, si las tienes todas, oro)
+    giftItem() {
+        return COLLECTION.find((id) => !this.merchant.owned.includes(id)) || 30;
+    }
+
+    claimGift() {
+        const M = this.merchant, g = M.gift;
+        if (g === null) return null;
+        if (typeof g === 'number') this.items.gold += g;
+        else if (!M.owned.includes(g)) M.owned.push(g);
+        M.gift = null;
+        this.save();
+        return g;
     }
 
     // ---------- Torretas automáticas (la mejora extra con el campo al máximo) ----------

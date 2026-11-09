@@ -173,6 +173,8 @@
             <button id="merchant-close" class="panel-x" aria-label="Close" data-es-aria="Cerrar">X</button>
         </div>
         <!-- El poblado: su nivel, lo que da el siguiente y su mejora -->
+        <!-- Su confianza (nivel y lo que falta), la racha hacia el regalo y su ánimo -->
+        <div id="merchant-trust" class="merchant-trust"></div>
         <div id="merchant-timer" class="merchant-timer"></div>
         <div id="merchant-orders" class="merchant-orders"></div>
     </div>
@@ -255,6 +257,20 @@
             <button id="btn-crops" class="btn btn-small set-btn" data-es="+100 DE CADA COSECHA">+100 OF EVERY CROP</button>
             <button id="btn-prologue" class="btn btn-small set-btn" data-es="VER EL PRÓLOGO">WATCH PROLOGUE</button>
             <button id="btn-reset" class="btn btn-danger set-btn" data-es="BORRAR PROGRESO">RESET PROGRESS</button>
+        </div>
+        <div class="debug-box" id="debug-merchant">
+            <div class="debug-box-title" data-es="MERCADER">MERCHANT</div>
+            <!-- Su vida con el tiempo: confianza, racha, ánimo, visitas, primo, fiesta y colección -->
+            <div class="ks-row" id="dbg-trust-row"><span data-es="CONFIANZA">TRUST</span><button class="ks-step" data-d="-1">-</button><b id="dbg-trust"></b><button class="ks-step" data-d="1">+</button></div>
+            <div class="ks-row" id="dbg-streak-row"><span data-es="RACHA">STREAK</span><button class="ks-step" data-d="-1">-</button><b id="dbg-streak"></b><button class="ks-step" data-d="1">+</button></div>
+            <div class="ks-row unlock-row"><span data-es="ÁNIMO">MOOD</span><button class="unlock-one" id="dbg-mood"></button></div>
+            <div class="ks-row unlock-row"><span data-es="FIESTA">PARTY</span><button class="unlock-one" id="dbg-party"></button></div>
+            <div class="ks-row unlock-row"><span data-es="PRIMO">COUSIN</span><button class="unlock-one" id="dbg-cousin"></button></div>
+            <div class="ks-row unlock-row"><span data-es="VISITA">VISIT</span><button class="unlock-one" id="dbg-visit-done" data-es="CUMPLIR">COMPLETE</button><button class="unlock-one" id="dbg-visit-next" data-es="SIGUIENTE">NEXT</button></div>
+            <div class="ks-row unlock-row"><span data-es="ENCARGOS">ORDERS</span><button class="unlock-one" id="dbg-orders" data-es="NUEVOS">NEW</button><button class="unlock-one" id="dbg-urgent-late" data-es="URGENTE TARDE">URGENT LATE</button></div>
+            <div class="ks-row unlock-row"><span data-es="REGALO">GIFT</span><button class="unlock-one" id="dbg-gift" data-es="DAR">GIVE</button></div>
+            <div class="ks-row" id="dbg-coll-row"><span data-es="COLECCIÓN">COLLECTION</span><button class="ks-step" data-d="-1">-</button><b id="dbg-coll"></b><button class="ks-step" data-d="1">+</button></div>
+            <button id="dbg-merchant-reset" class="btn btn-danger set-btn" data-es="REINICIAR MERCADER">RESET MERCHANT</button>
         </div>
         <div class="debug-box" id="debug-fields">
             <div class="debug-box-title" data-es="CAMPOS">FIELDS</div>

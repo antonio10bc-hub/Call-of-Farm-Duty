@@ -83,9 +83,20 @@ export class MerchantCamp extends VoxelModel {
         r.add(this.ufo);
         this.man = this.buildAlien();
         r.add(this.man);
+        // Su primo (algunas visitas): otro alienígena, morado, con su careta, junto al puesto
+        this.cousin = this.buildAlien(0xc08aff, 0x4a6a8a, 0x2a3a5a);
+        this.cousin.position.set(S.x + 0.9, 0, S.z + 1.2);
+        this.cousin.rotation.y = 0.3;
+        this.cousin.visible = false;
+        r.add(this.cousin);
+        this.buildLevels();
+        this.buildCollection();
 
-        // El surco, los árboles tumbados, la mesa y el cartel no se mueven: en pocas mallas
-        this.bake([r], [this.ufo, this.man, this.goods, lamp, ...this.bulbs.map((b) => b.mesh)]);
+        // El surco, los árboles tumbados, la mesa y el cartel no se mueven: en pocas mallas (lo que
+        // sale por niveles y la colección, cada cosa por su lado: se muestran u ocultan)
+        const keep = [this.ufo, this.man, this.cousin, this.goods, lamp, ...this.bulbs.map((b) => b.mesh), ...this.levels, ...Object.values(this.items), this.antennaTip];
+        this.bake([r], keep);
+        this.bake([...this.levels, ...Object.values(this.items).filter((g) => !g.spin)], [this.antennaTip, this.discoBall]);
 
         this.deal = -1;  // segundos de su baile de trato hecho (-1: no baila)
         this.step = 0;   // por dónde va la llegada (0 = no está; T.open = abierto)
@@ -263,8 +274,8 @@ export class MerchantCamp extends VoxelModel {
     // Él: un alienígena verde disfrazado de humano. Gabardina, pantalón, zapatos y sombrero (con
     // las antenas asomando por arriba); la cabeza verde, enorme, con una careta plana de cara
     // humana delante sujeta con su goma
-    buildAlien() {
-        const g = new THREE.Group(), SKIN = 0x7dff4a, COAT = 0x8a6a4a, COAT2 = 0x6a4f34, HAT = 0x4a3a2a;
+    buildAlien(SKIN = 0x7dff4a, COAT = 0x8a6a4a, COAT2 = 0x6a4f34) {
+        const g = new THREE.Group(), HAT = 0x4a3a2a;
         for (const x of [-0.11, 0.11]) {
             this.part(g, 0.15, 0.42, 0.17, 0x3a3a4a, x, 0.26, 0);
             this.part(g, 0.18, 0.12, 0.26, 0x2a1a0e, x, 0.06, 0.04);
@@ -298,7 +309,7 @@ export class MerchantCamp extends VoxelModel {
             this.part(mask, 0.06, 0.04, 0.02, 0xff9fb0, x * 1.4, -0.03, 0.02, false);
         }
         this.part(mask, 0.18, 0.04, 0.02, 0x6a3a22, 0, -0.06, 0.02, false); // bigote
-        this.part(mask, 0.12, 0.025, 0.02, 0xc8402e, 0, -0.12, 0.02, false); // sonrisa
+        g.smile = this.part(mask, 0.12, 0.025, 0.02, 0xc8402e, 0, -0.12, 0.02, false); // sonrisa (serio: recta y corta)
         // La goma alrededor de la cabeza
         for (const s of [-1, 1]) this.part(g, 0.03, 0.04, 0.44, 0x2a2a2a, s * 0.26, 1.45, 0, false);
         this.part(g, 0.52, 0.04, 0.03, 0x2a2a2a, 0, 1.45, -0.23, false);
@@ -319,6 +330,144 @@ export class MerchantCamp extends VoxelModel {
         this.part(g.party, 0.12, 0.34, 0.06, 0xffcc33, 0.16, 1.05, 0.18);
         g.party.visible = false;
         return g;
+    }
+
+    // El campamento crece con la confianza (setLevel): 2, un toldo de rayas sobre la mesa y un banco
+    // que deja aquí; 3, el cartel encima del toldo y una caja olvidada; 4, su tienda de campaña
+    // junto al ovni y una antena (parpadea cuando no está: llama a casa); 5, alfombra, banderines
+    // y un sillón. Lo que deja (banco, caja, antena) se queda también cuando se va
+    buildLevels() {
+        const S = MERCHANT.stall, T0 = this.table, r = this.root;
+        const lv = () => {
+            const g = new THREE.Group();
+            r.add(g);
+            return g;
+        };
+        const g2 = lv(), g3 = lv(), g4 = lv(), g5 = lv();
+        // 2: toldo (cuatro palos y la lona a rayas) y el banco
+        for (const [dx, dz] of [[-0.95, -0.6], [0.95, -0.6], [-0.95, 0.6], [0.95, 0.6]]) this.part(g2, 0.1, 2.1, 0.1, WOOD2, T0.x + dx, 1.05, T0.z + dz);
+        for (let i = 0; i < 6; i++) this.part(g2, 0.34, 0.08, 1.5, i % 2 ? 0xfff3d6 : 0xd84a3a, T0.x - 0.85 + i * 0.34, 2.14, T0.z);
+        for (let i = 0; i < 6; i++) this.part(g2, 0.34, 0.18, 0.06, i % 2 ? 0xfff3d6 : 0xd84a3a, T0.x - 0.85 + i * 0.34, 2.02, T0.z + 0.76, false);
+        const B = { x: S.x - 3.0, z: S.z + 1.0 };
+        for (const dx of [-0.5, 0.5]) this.part(g2, 0.1, 0.4, 0.4, WOOD2, B.x + dx, 0.2, B.z);
+        this.part(g2, 1.3, 0.1, 0.46, WOOD, B.x, 0.44, B.z);
+        // 3: el cartel sobre el toldo (una moneda y "letras") y una caja olvidada con su paja
+        this.part(g3, 1.8, 0.5, 0.1, WOOD, T0.x, 2.5, T0.z + 0.62);
+        this.part(g3, 0.34, 0.34, 0.04, 0xffd23f, T0.x - 0.6, 2.5, T0.z + 0.69, false);
+        for (let i = 0; i < 4; i++) this.part(g3, 0.16, 0.22, 0.03, 0x2a1a0e, T0.x - 0.2 + i * 0.24, 2.5, T0.z + 0.69, false);
+        const C = { x: S.x + 1.8, z: S.z + 1.8 };
+        this.part(g3, 0.6, 0.46, 0.5, 0xb8864a, C.x, 0.23, C.z);
+        this.part(g3, 0.62, 0.06, 0.06, WOOD2, C.x, 0.3, C.z + 0.26, false);
+        this.part(g3, 0.4, 0.08, 0.3, 0xf6cf4a, C.x + 0.05, 0.5, C.z, false);
+        // 4: la tienda de campaña (escalonada) junto al ovni y la antena
+        const K = { x: S.x + 0.4, z: S.z - 6.0 };
+        for (let i = 0; i < 5; i++) this.part(g4, 2.2 - i * 0.42, 0.28, 1.8, i % 2 ? 0x7a5ab8 : 0x9a7ad8, K.x, 0.14 + i * 0.28, K.z);
+        this.part(g4, 0.5, 0.7, 0.04, 0x2a1a3a, K.x, 0.35, K.z + 0.91, false);
+        this.part(g4, 0.06, 0.6, 0.06, WOOD2, K.x, 1.6, K.z);
+        const A = { x: S.x - 1.4, z: S.z - 3.2 };
+        this.part(g4, 0.5, 0.2, 0.5, METAL2, A.x, 0.1, A.z);
+        this.part(g4, 0.08, 2.2, 0.08, METAL, A.x, 1.2, A.z);
+        for (const y of [1.4, 1.9]) this.part(g4, 0.6, 0.05, 0.05, METAL, A.x, y, A.z, false);
+        this.antennaMat = new THREE.MeshBasicMaterial({ color: 0x3a6a3a });
+        this.own(this.antennaMat);
+        this.antennaTip = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.16), this.antennaMat);
+        this.antennaTip.position.set(A.x, 2.38, A.z);
+        g4.add(this.antennaTip);
+        // 5: alfombra delante del puesto, banderines del toldo al farol y su sillón
+        this.part(g5, 2.0, 0.03, 1.2, 0xb83a5a, S.x - 0.2, 0.02, S.z + 0.9, false);
+        this.part(g5, 1.6, 0.035, 0.8, 0xffcc33, S.x - 0.2, 0.025, S.z + 0.9, false);
+        for (let i = 0; i < 7; i++) {
+            const k = i / 6, x = lerp(T0.x - 0.95, T0.x + 2.4, k), z = lerp(T0.z + 0.6, T0.z + 2.6, k), y = 2.0 - Math.sin(k * Math.PI) * 0.45;
+            this.part(g5, 0.2, 0.24, 0.04, [0xff5ab8, 0x5af0ff, 0xffe03a, 0x7dff4a][i % 4], x, y, z, false);
+        }
+        this.part(g5, 0.1, 2.1, 0.1, WOOD2, T0.x + 2.4, 1.05, T0.z + 2.6);
+        const Q = { x: S.x - 1.4, z: S.z + 0.2 };
+        this.part(g5, 0.7, 0.3, 0.6, 0x5a8a4a, Q.x, 0.25, Q.z);
+        this.part(g5, 0.7, 0.6, 0.14, 0x5a8a4a, Q.x, 0.6, Q.z - 0.28);
+        for (const s of [-1, 1]) this.part(g5, 0.12, 0.42, 0.6, 0x4a7a3a, Q.x + s * 0.34, 0.4, Q.z);
+        this.levels = [g2, g3, g4, g5];
+        this.setLevel(1);
+    }
+
+    setLevel(lv) {
+        this.level = lv;
+        this.levels.forEach((g, i) => (g.visible = lv >= i + 2));
+    }
+
+    // Tu colección (lo que le compras o te regala): cada pieza en su sitio del claro (la chistera
+    // va en el pato, en world/Life.js)
+    buildCollection() {
+        const S = MERCHANT.stall, r = this.root, items = {};
+        const at = (id, x, z) => {
+            const g = new THREE.Group();
+            g.position.set(x, 0, z);
+            g.visible = false;
+            r.add(g);
+            items[id] = g;
+            return g;
+        };
+        // Gnomo alienígena: verde, con gorro rojo
+        let g = at('gnome', S.x + 1.0, S.z + 1.4);
+        this.part(g, 0.3, 0.34, 0.24, 0x3a6ab8, 0, 0.17, 0);
+        this.part(g, 0.26, 0.24, 0.24, 0x7dff4a, 0, 0.46, 0);
+        for (const x of [-0.06, 0.06]) this.part(g, 0.06, 0.08, 0.02, 0x0a0a0c, x, 0.48, 0.13, false);
+        this.part(g, 0.28, 0.12, 0.28, 0xd84a3a, 0, 0.64, 0);
+        this.part(g, 0.16, 0.14, 0.16, 0xd84a3a, 0, 0.76, 0);
+        this.part(g, 0.06, 0.1, 0.06, 0xd84a3a, 0, 0.88, 0, false);
+        // Flamenco de plástico: rosa, sobre una pata
+        g = at('flamingo', S.x - 2.0, S.z + 2.4);
+        this.part(g, 0.04, 0.5, 0.04, 0x2a1a0e, 0, 0.25, 0, false);
+        this.part(g, 0.42, 0.22, 0.2, 0xff8ab8, 0, 0.6, 0);
+        this.part(g, 0.08, 0.36, 0.08, 0xff8ab8, 0.16, 0.86, 0);
+        this.part(g, 0.16, 0.12, 0.12, 0xff8ab8, 0.2, 1.06, 0);
+        this.part(g, 0.1, 0.05, 0.06, 0x2a1a0e, 0.31, 1.03, 0, false);
+        // Bandera alienígena: mástil y bandera verde con su platillo
+        g = at('banner', S.x + 2.2, S.z + 0.2);
+        this.part(g, 0.1, 2.6, 0.1, METAL, 0, 1.3, 0);
+        this.part(g, 0.9, 0.56, 0.04, 0x3aa83a, 0.5, 2.25, 0);
+        this.part(g, 0.4, 0.1, 0.03, 0xd8e0e8, 0.5, 2.25, 0.03, false);
+        this.part(g, 0.18, 0.1, 0.03, 0x9fdcff, 0.5, 2.33, 0.03, false);
+        // Trofeo dorado sobre un tocón
+        g = at('trophy', S.x + 0.2, S.z + 2.4);
+        this.part(g, 0.5, 0.4, 0.5, WOOD2, 0, 0.2, 0);
+        this.part(g, 0.3, 0.08, 0.3, 0xc8952a, 0, 0.44, 0);
+        this.part(g, 0.08, 0.16, 0.08, 0xffd23f, 0, 0.56, 0, false);
+        this.part(g, 0.3, 0.26, 0.3, 0xffd23f, 0, 0.77, 0);
+        for (const s of [-1, 1]) this.part(g, 0.06, 0.14, 0.06, 0xffd23f, s * 0.2, 0.8, 0, false);
+        // Bola de discoteca: colgada de un poste en L; gira y brilla de noche
+        g = at('discoball', S.x - 2.4, S.z - 1.4);
+        this.part(g, 0.1, 2.6, 0.1, WOOD2, 0, 1.3, 0);
+        this.part(g, 0.7, 0.08, 0.08, WOOD2, 0.3, 2.6, 0);
+        this.part(g, 0.02, 0.4, 0.02, 0x2a2a2a, 0.6, 2.38, 0, false);
+        this.discoBall = new THREE.Group();
+        this.discoBall.position.set(0.6, 2.02, 0);
+        for (let i = 0; i < 8; i++) this.part(this.discoBall, 0.18, 0.18, 0.18, i % 3 ? 0xd8e0e8 : 0x9fdcff, ((i & 1) - 0.5) * 0.18, (((i >> 1) & 1) - 0.5) * 0.18, ((i >> 2) - 0.5) * 0.18, false);
+        g.add(this.discoBall);
+        // Estatua del mercader (de piedra, con su careta), al borde del cráter
+        g = at('statue', S.x + 2.6, S.z - 6.2);
+        this.part(g, 0.9, 0.5, 0.9, STONE, 0, 0.25, 0);
+        const st = this.buildAlien(0xb8b2a8, 0xa8a298, 0x989288);
+        st.position.y = 0.5;
+        st.scale.setScalar(1.15);
+        st.remove(st.party);
+        g.add(st);
+        this.items = items;
+    }
+
+    // Lo que tienes de la colección, a la vista
+    setCollection(owned) {
+        for (const [id, g] of Object.entries(this.items)) g.visible = owned.includes(id);
+    }
+
+    // Su ánimo: contento (baila de vez en cuando), tranquilo o serio (sin sonrisa, sin saludar)
+    setMood(mood) {
+        this.mood = mood;
+        this.man.smile.scale.set(mood === 'serious' ? 0.6 : 1, mood === 'serious' ? 0.6 : mood === 'happy' ? 1.6 : 1, 1);
+    }
+
+    // ¿Viene su primo? (sale con él y se va con él)
+    setCousin(on) {
+        this.cousinOn = !!on;
     }
 
     get present() {
@@ -442,10 +591,28 @@ export class MerchantCamp extends VoxelModel {
             }
             return;
         }
-        // Él: respira y, abierto, saluda de vez en cuando
+        // Él: respira y, abierto, saluda de vez en cuando (contento: además baila un rato cada poco;
+        // serio: ni saluda)
         if (this.man.visible && this.open) {
-            this.man.position.y = Math.abs(Math.sin(time * 2)) * 0.02;
-            this.man.arm.rotation.z = Math.sin(time * 0.8) > 0.7 ? 2.4 + Math.sin(time * 10) * 0.35 : 0.1;
+            const m = this.man, dance = this.mood === 'happy' && Math.sin(time * 0.5) > 0.6;
+            m.position.y = dance ? Math.abs(Math.sin(time * 8)) * 0.14 : Math.abs(Math.sin(time * 2)) * 0.02;
+            m.rotation.y = Math.PI / 4 + (dance ? Math.sin(time * 4) * 0.5 : 0);
+            m.rotation.z = dance ? Math.sin(time * 8) * 0.08 : 0;
+            m.arm.rotation.z = dance ? 2.6 + Math.sin(time * 16) * 0.4 : this.mood !== 'serious' && Math.sin(time * 0.8) > 0.7 ? 2.4 + Math.sin(time * 10) * 0.35 : 0.1;
+            m.mask.rotation.x = this.mood === 'serious' ? 0.15 : 0;
+        }
+        // Su primo: está mientras él está abierto; se balancea y mira a todos lados
+        const c = this.cousin;
+        c.visible = !!this.cousinOn && this.open;
+        if (c.visible) {
+            c.position.y = Math.abs(Math.sin(time * 2.4 + 1)) * 0.03;
+            c.rotation.y = 0.3 + Math.sin(time * 0.7) * 0.6;
+            c.arm.rotation.z = Math.sin(time * 0.6 + 2) > 0.8 ? 2.4 + Math.sin(time * 12) * 0.35 : 0.1;
+        }
+        // La antena: cuando no está, parpadea (llama a casa)
+        if (this.antennaTip) this.antennaMat.color.setHex(!this.present && Math.sin(time * 5) > 0.3 ? 0x7dff4a : 0x3a6a3a);
+        if (this.discoBall && this.items.discoball.visible) {
+            this.discoBall.rotation.y = time * 1.5;
         }
         this.updateFx(dt);
     }
