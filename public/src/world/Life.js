@@ -126,6 +126,18 @@ export class Life extends VoxelModel {
         d.g.rotation.set(walk ? Math.sin(time * 9) * 0.18 : 0, Math.atan2(-(ahead[1] - z), ahead[0] - x), 0);
     }
 
+    // Un corazón de píxeles que sube bien alto desde el pato y revienta (boom(p): el estallido)
+    heart(d, boom) {
+        const g = new THREE.Group(), rows = ['.XX.XX.', 'XXXXXXX', 'XXXXXXX', '.XXXXX.', '..XXX..', '...X...'];
+        rows.forEach((row, j) => [...row].forEach((ch, i) => {
+            if (ch === 'X') this.part(g, 0.2, 0.2, 0.2, j < 2 && i % 3 === 1 ? 0xff9ac0 : 0xff4a7a, (i - 3) * 0.2, (2.5 - j) * 0.2, 0, false);
+        }));
+        g.position.copy(d.g.position).add(new THREE.Vector3(0, 1, 0));
+        g.scale.setScalar(0.0001);
+        this.root.add(g);
+        (this.hearts || (this.hearts = [])).push({ g, t: 0, boom });
+    }
+
     // El salto del pato cuando se le toca (jump: lo que le queda)
     hop(d, dt) {
         if (!d.jump) return (d.jumpY = 0);
@@ -134,6 +146,21 @@ export class Life extends VoxelModel {
     }
 
     update(dt, time) {
+        // Corazones: salen, suben unas cuatro casillas balanceándose y revientan
+        for (const h of this.hearts || []) {
+            h.t += dt;
+            const k = Math.min(1, h.t / 1.1);
+            h.g.position.y += dt * 8 * (1 - k * 0.55);
+            h.g.scale.setScalar(Math.max(0.0001, Math.min(1, h.t * 4) * (1.4 + k * 0.8)));
+            // (de cara a la cámara, que mira en diagonal desde arriba, balanceándose)
+            h.g.rotation.set(-0.6, Math.PI / 4, Math.sin(h.t * 8) * 0.15, 'YXZ');
+            if (k >= 1) {
+                if (h.boom) h.boom(h.g.position);
+                h.g.removeFromParent();
+                h.done = true;
+            }
+        }
+        if (this.hearts) this.hearts = this.hearts.filter((h) => !h.done);
         // Patos: dan vueltas por el lago, cabeceando con las olas
         const c = Math.cos(LAKE.rot), s = Math.sin(LAKE.rot);
         for (const d of this.ducks) {

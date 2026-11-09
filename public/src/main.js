@@ -1552,7 +1552,11 @@ function tapMap(x, y) {
         const d = farm.life.ducks[0], p = d.g.position;
         d.jump = 0.6;
         sfx.quack();
-        farmParticles.burst(p.x, p.y + 1, p.z, 10, [0xff5a8a, 0xff8ab0, 0xffffff], { speed: 1.2, up: 2.4, size: 0.16, ttl: 0.9 });
+        // Su corazón sube bien alto y revienta en chispas rosas
+        farm.life.heart(d, (h) => {
+            farmParticles.burst(h.x, h.y, h.z, 34, [0xff4a7a, 0xff9ac0, 0xffffff], { speed: 4, up: 2, size: 0.16, ttl: 0.9 });
+            sfx.play('pop');
+        });
         return;
     }
     const hit = farm.pick(ray);
