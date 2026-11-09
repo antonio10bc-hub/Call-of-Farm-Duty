@@ -15,6 +15,7 @@ import { CROPS } from '../content/crops.js';
 import { buildCow, animateCow } from '../render/cow.js';
 import { buildSheep, animateSheep } from '../render/sheep.js';
 import { buildChicken, animateChicken } from '../render/chicken.js';
+import { BARNYARD, SLOTS, BarnPiece } from '../render/barnyard.js';
 import { FARM, TURRETS, PLACES, toWorld, worldToPlace, inShapeOf, inFieldShape, stretchLocal, floorPlace } from '../content/farm.js';
 
 const _d = new THREE.Object3D();
@@ -1342,6 +1343,7 @@ export class Farm {
             else if (v.crop === 'corn') this.updateCorn(v, time, p);
             else if (v.herd) this.updateHerd(v, pdt, time, p);
             else this.updateTomato(v, time, p);
+            if (v.barn) for (const b of v.barn) if (b.root.visible) b.update(pdt, time);
             for (const m of v.meshes) {
                 m.instanceMatrix.needsUpdate = true;
                 if (m.instanceColor) m.instanceColor.needsUpdate = true;
@@ -1432,6 +1434,41 @@ export class Farm {
             v.herd.add(c.g);
             v.plants.push({ cow: c, x: f.x + 1 + Math.random() * (f.w - 2), z: f.z + 1 + Math.random() * (f.d - 2), ry: Math.random() * 6, goal: null, speed: 0, wait: Math.random() * 3, t0: this.clock + 0.3 + v.plants.length * 0.12 });
         }
+        this.placeBarnyard(v);
+    }
+
+    // Los edificios del prado (render/barnyard.js): los de su nivel y los de antes, cada uno en su
+    // sitio junto al borde del campo (se recolocan cuando crece). Los nuevos salen con un bote
+    placeBarnyard(v) {
+        const defs = BARNYARD[v.crop];
+        if (!defs) return;
+        if (!v.barn) {
+            v.barn = defs.map((d) => new BarnPiece(this.theme.outline, d));
+            for (const b of v.barn) {
+                b.root.visible = false;
+                this.groupAt(v.zone.cx, v.zone.cz).add(b.root);
+            }
+        }
+        const f = v.rect;
+        v.spots = [];
+        v.barn.forEach((b, i) => {
+            const on = !v.locked && v.level + 1 >= b.def.lv;
+            // (su hueco, desde el borde de arriba del campo; si cae fuera de su forma, se acerca al centro)
+            // (los huecos van en casillas del mundo: la parcela se estira distinto en cada sitio)
+            const [ox, oz] = b.def.at || SLOTS[i % SLOTS.length], a0 = stretchLocal(f.cx, f.z + 2.4), kx = Math.hypot(...['x', 'z'].map((c) => stretchLocal(f.cx + 1, f.z + 2.4)[c] - a0[c])), kz = Math.hypot(...['x', 'z'].map((c) => stretchLocal(f.cx, f.z + 3.4)[c] - a0[c]));
+            let x = Math.min(f.x + f.w - 1.2, Math.max(f.x + 1.2, f.cx + (ox * 2.1) / kx)), z = Math.min(f.z + f.d - 1.2, f.z + 2.4 + (oz * 2.1) / kz);
+            for (let k = 0; k < 8 && !this.inField(v, x, z); k++) {
+                x += (f.cx - x) * 0.25;
+                z += (f.cz - z) * 0.25;
+            }
+            const at = stretchLocal(x, z);
+            b.root.position.set(at.x, 0, at.z);
+            b.root.rotation.y = 0; // (de frente a la cámara)
+            if (on) v.spots.push({ x, z, r: b.def.r * 1.2 });
+            if (on && !b.shown && this.introT > 2) b.select();
+            b.shown = on;
+            b.root.visible = on;
+        });
     }
 
     // Cada vaca pasea hacia un sitio del prado al azar, se para a pacer y vuelve a andar; la ubre
@@ -1439,7 +1476,13 @@ export class Farm {
     updateHerd(v, dt, time, p) {
         const f = v.rect;
         for (const s of v.plants) {
-            if ((s.wait -= dt) <= 0 && !s.goal) s.goal = { x: f.x + 1 + Math.random() * (f.w - 2), z: f.z + 1 + Math.random() * (f.d - 2) };
+            if ((s.wait -= dt) <= 0 && !s.goal) {
+                // (un sitio libre del prado: no dentro de un edificio)
+                for (let k = 0; k < 6; k++) {
+                    s.goal = { x: f.x + 1 + Math.random() * (f.w - 2), z: f.z + 1 + Math.random() * (f.d - 2) };
+                    if (!(v.spots || []).some((p) => Math.hypot(p.x - s.goal.x, p.z - s.goal.z) < p.r + 0.6)) break;
+                }
+            }
             let speed = 0;
             if (s.goal) {
                 const dx = s.goal.x - s.x, dz = s.goal.z - s.z, d = Math.hypot(dx, dz);

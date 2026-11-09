@@ -395,6 +395,24 @@ test('vida del mercader (con DEBUG): confianza por niveles, racha con regalo, á
     expect(errors).toEqual([]);
 });
 
+test('prados de animales: cada nivel añade edificios típicos (vacas, ovejas y gallinas) y los animales no se meten en ellos', { tag: '@full' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await openFarm(page);
+    await page.evaluate(() => { for (const id of ['milk', 'wool', 'egg']) game.state.unlock(id, Date.now(), true); while (game.revealUnlocked()); });
+    const shown = () => page.evaluate(() => ['milk', 'wool', 'egg'].map((id) => game.farm.fields[id].barn.filter((b) => b.root.visible).length));
+    // Nivel 1: lo primero de cada uno (abrevadero, comedero, nidales)
+    expect(await shown()).toEqual([1, 1, 1]);
+    // Subiendo de nivel van saliendo más, hasta todos al máximo
+    const up = (lv) => page.evaluate((lv) => { for (const id of ['milk', 'wool', 'egg']) { game.state.fields[id].level = lv; game.farm.setLevel(id, lv); } }, lv);
+    await up(2);
+    expect(await shown()).toEqual([3, 3, 3]);
+    await up(4);
+    expect(await shown()).toEqual(await page.evaluate(() => ['milk', 'wool', 'egg'].map((id) => game.farm.fields[id].barn.length)));
+    // Ningún animal va a por un sitio dentro de un edificio
+    await expect.poll(() => page.evaluate(() => ['milk', 'wool', 'egg'].every((id) => { const v = game.farm.fields[id]; return v.plants.every((s) => !s.goal || !v.spots.some((p) => Math.hypot(p.x - s.goal.x, p.z - s.goal.z) < p.r)); }))).toBe(true);
+    expect(errors).toEqual([]);
+});
+
 test('dock: CAMPOS abre encima otra barra con los cultivos desbloqueados y tocar uno lleva la cámara a su campo', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await openFarm(page);
