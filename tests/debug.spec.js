@@ -93,8 +93,8 @@ test('debug: DESBLOQUEAR TODO limpia todos los terrenos sin requisitos', { tag: 
     expect(await page.evaluate(() => [game.farm.fields.wheat.locked, game.farm.fields.tomato.locked])).toEqual([false, false]);
     await expect(page.locator('#sign-wheat')).toHaveText('NV.1');
     await expect(page.locator('#sign-tomato')).toHaveText('NV.1');
-    await expect(page.locator('#bubbles .field-sign.ready')).toHaveCount(7); // trigo, tomates, calabazas, maíz, leche, lana y huevos
-    expect(await page.evaluate(() => game.state.lands)).toEqual({ west: true, east: true, nw: true, nw2: true, west2: true });
+    await expect(page.locator('#bubbles .field-sign.ready')).toHaveCount(8); // trigo, tomates, calabazas, maíz, leche, lana, trufas y huevos
+    expect(await page.evaluate(() => game.state.lands)).toEqual({ west: true, east: true, nw: true, nw2: true, west2: true, house: true });
     await expect(page.locator('#farm-tomato')).toBeVisible();
     expect(errors).toEqual([]);
 });
@@ -123,7 +123,9 @@ test('debug: desbloquear de uno en uno los terrenos y la armería', { tag: '@ful
     expect(errors).toEqual([]);
 });
 
-test('debug de la casa: costes 0, nivel, monedas, el ovni y la tienda entera', { tag: '@full' }, async ({ page }) => {
+// (aparcada: la casa personalizable está oculta de momento —FARM.house.hidden—; su prueba se queda
+// para cuando vuelva)
+test.skip('debug de la casa: costes 0, nivel, monedas, el ovni y la tienda entera', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto('/?test');
     await expect.poll(() => page.evaluate(() => window.game && game.farm.introT > 0), { timeout: 30_000 }).toBe(true);

@@ -21,7 +21,8 @@ test('progresión: granero, trigo, regalos del trigo mágico, mercader, casa y p
     expect(await gates()).toEqual([false, false, false, false, false, false, false]);
     // Todo bloqueado: la casa y las parcelas (también las que se compran), con su candado; solo la
     // primera clase
-    await expect(page.locator('#sign-house')).toHaveClass(/locked/);
+    await expect(page.locator('#sign-house')).toBeHidden(); // (la casa, aparcada)
+    await expect(page.locator('#sign-truffle')).toHaveClass(/locked/);
     await expect(page.locator('#sign-pumpkin')).toHaveClass(/locked/);
     await expect(page.locator('#sign-land-sw')).toHaveClass(/locked/);
     expect(await page.evaluate(() => [0, 1, 2, 3, 4].map((i) => game.state.classOpen(i)))).toEqual([true, false, false, false, false]);
@@ -65,7 +66,7 @@ test('progresión: granero, trigo, regalos del trigo mágico, mercader, casa y p
     await page.evaluate(() => { const S = game.state; S.items.wheat = S.items.tomato = 9999; S.deliver(game.merchantClock.visit, 0); game.updateCounts(); });
     await listen(page);
     expect(await gates()).toEqual([true, true, true, true, true, true, true]);
-    await expect(page.locator('#sign-house')).not.toHaveClass(/locked/);
+    await expect(page.locator('#sign-truffle')).toHaveClass(/for-sale/); // (la pocilga, donde estaba la casa)
     await expect(page.locator('#sign-pumpkin')).toHaveClass(/for-sale/);
     await expect(page.locator('#sign-land-sw')).toHaveClass(/locked/); // (las de PRONTO, aún no)
     // Se guarda

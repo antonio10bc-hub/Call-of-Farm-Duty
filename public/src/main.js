@@ -694,7 +694,7 @@ const DOCK = [
         go: () => { const b = farm.byId.barn.def; dockGo(b.x, b.z + 1, () => select({ structure: 'barn' })); } },
     { id: 'fields', icon: 'wheat', label: L('FIELDS', 'CAMPOS'), show: () => true, alert: () => FARM.fields.some((f) => fieldNeeds(f.id)),
         go: () => toggleFieldsPop() },
-    { id: 'house', icon: 'home', label: L('FARMHOUSE', 'CASA'), show: () => state.open('house'), alert: () => state.canUpgradeHouse,
+    { id: 'house', icon: 'home', label: L('FARMHOUSE', 'CASA'), show: () => !FARM.house.hidden && state.open('house'), alert: () => state.canUpgradeHouse,
         go: () => { const h = farm.byId.house.def; dockGo(h.x, h.z, () => select({ structure: 'house' })); } },
     { id: 'merchant', icon: 'merchant', label: L('MERCHANT', 'MERCADER'), show: () => !merchantClock.locked, alert: () => farm.camp.open && state.ordersFor(merchantClock.visit).some((o) => state.canDeliver(o)),
         go: () => dockGo(MERCHANT.stall.x, MERCHANT.stall.z, () => openMerchant()) },
@@ -811,14 +811,14 @@ const _b = new THREE.Vector3();
 function placeBubbles() {
     const show = mode === 'farm' && farm.introT > 1.6;
     armory.classList.toggle('hidden', !show);
-    houseSign.classList.toggle('hidden', !show);
+    houseSign.classList.toggle('hidden', !show || FARM.house.hidden); // (la casa, aparcada)
     merchantSign.classList.toggle('hidden', !show || merchantClock.locked);
     if (show) {
         farm.world(MERCHANT.stall.x, 3.1, MERCHANT.stall.z, _b).project(rig.camera);
         merchantSign.style.left = `${Math.round((_b.x * 0.5 + 0.5) * innerWidth)}px`;
         merchantSign.style.top = `${Math.round((-_b.y * 0.5 + 0.5) * innerHeight)}px`;
     }
-    const ufoOn = show && state.open('shop') && state.houseMaxed && !cine; // (la tienda, con la casa al máximo)
+    const ufoOn = show && !FARM.house.hidden && state.open('shop') && state.houseMaxed && !cine; // (la tienda, con la casa al máximo)
     ufoSign.classList.toggle('hidden', !ufoOn);
     if (ufoOn) {
         const h = farm.byId.house;
@@ -1743,7 +1743,7 @@ function say(text, warn = false) {
 }
 
 function openShop() {
-    if (mode !== 'farm' || inCine() || !state.open('shop') || !state.houseMaxed) return;
+    if (mode !== 'farm' || inCine() || FARM.house.hidden || !state.open('shop') || !state.houseMaxed) return;
     if (!state.ufo.met) {
         state.ufo.met = true;
         state.save();
@@ -2315,7 +2315,9 @@ function refreshDebug() {
 }
 // En las pantallas estrechas, una columna cada vez: pestañas con el título de cada una
 {
-    const boxes = [...document.querySelectorAll('#debug .debug-box')];
+    // (la de la casa, aparcada con ella: ni se ve ni tiene pestaña)
+    if (FARM.house.hidden) $('debug-home').classList.add('parked');
+    const boxes = [...document.querySelectorAll('#debug .debug-box:not(.parked)')];
     // (la pestaña abierta se recuerda, también al recargar desde el debug)
     const show = (i) => {
         boxes.forEach((b, k) => {
@@ -2829,15 +2831,21 @@ const STORY = {
     },
     house: {
         when: () => state.story.sold,
-        at: () => ({ cx: farm.byId.house.def.x, cz: farm.byId.house.def.z + 4.5 }),
-        lines: [
+        // (la casa está aparcada: con la primera venta se abren las parcelas, a la venta)
+        at: () => (FARM.house.hidden ? { cx: BARN_DEF.x, cz: BARN_DEF.z + 6 } : { cx: farm.byId.house.def.x, cz: farm.byId.house.def.z + 4.5 }),
+        lines: FARM.house.hidden ? [
+            L('YOUR FIRST SALE! WELL DONE.', '¡TU PRIMERA VENTA! BIEN HECHO.'),
+            L('I HAVE AN IDEA FOR THAT MONEY...', 'SE ME OCURRE UNA IDEA PARA USAR ESE DINERO...'),
+            L('WITH GOLD YOU CAN BUY ANY PLOT YOU LIKE: PIGS, COWS, SHEEP, HENS... GROW YOUR FARM!', 'CON EL ORO PODRÁS COMPRAR LAS PARCELAS QUE QUIERAS: CERDOS, VACAS, OVEJAS, GALLINAS... ¡AMPLÍA TU GRANJA!'),
+        ] : [
             L('YOUR FIRST SALE! WELL DONE.', '¡TU PRIMERA VENTA! BIEN HECHO.'),
             L('I HAVE AN IDEA FOR THAT MONEY...', 'SE ME OCURRE UNA IDEA PARA USAR ESE DINERO...'),
             L('A HOUSE OF YOUR OWN! AND WITH GOLD YOU CAN BUY ANY PLOT YOU LIKE.', '¡TU PROPIA CASA! Y CON EL ORO PODRÁS COMPRAR LAS PARCELAS QUE QUIERAS.'),
         ],
         gift: 2,
-        give: () => revealHouse(),
-        stage: [L('HOUSE UNLOCKED!', '¡CASA DESBLOQUEADA!'), L('AND THE PLOTS ARE FOR SALE', 'Y LAS PARCELAS, A LA VENTA')],
+        give: () => (FARM.house.hidden ? refreshGates() : revealHouse()),
+        stage: FARM.house.hidden ? [L('PLOTS FOR SALE!', '¡PARCELAS A LA VENTA!'), L('BUY THEM WITH GOLD, IN ANY ORDER', 'CÓMPRALAS CON ORO, EN EL ORDEN QUE QUIERAS')]
+            : [L('HOUSE UNLOCKED!', '¡CASA DESBLOQUEADA!'), L('AND THE PLOTS ARE FOR SALE', 'Y LAS PARCELAS, A LA VENTA')],
     },
 };
 let storyBusy = false;

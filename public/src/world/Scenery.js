@@ -167,6 +167,44 @@ export function buildScenery(farm) {
     hedge.forEach((_, i) => hm.setColorAt(i, new THREE.Color(theme.leaves[i % 3])));
     colored(rocks, 0.8);
 
+    // ---------- Vallas de los corrales de animales ----------
+    // Las cuatro zonas de animales (vacas, ovejas, gallinas y cerdos), cada una con su valla de
+    // madera alrededor: postes y dos travesaños por el borde de su zona (entre celdas), a la altura
+    // de su suelo. Por las fronteras van los caminos: la valla va por dentro del corral, pegada al
+    // camino (sin cortarlo), y no se mete en el agua
+    const PENS = new Set(['nw', 'nw2', 'west', 'house'].map((id) => REGIONS.findIndex((r) => r.place === id)).filter((i) => i >= 0));
+    const pen = (k) => PENS.has(G.reg[k]) && !onPath(cellX(k) - 0.5, cellZ(k) - 0.5, 0.5); // (dentro del corral y sin camino)
+    const fRails = [], fPosts = [], seen = new Set();
+    const post = (x, z, y) => {
+        const key = `${x},${z}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        fPosts.push({ x, y: y + 0.5, z, sx: 0.16, sy: 1.0, sz: 0.16 });
+    };
+    for (let k = 0; k < N; k++) {
+        if (!G.inside[k] || G.water[k]) continue;
+        const i = k % GN, pk = pen(k);
+        for (const [j, right] of [[i < GN - 1 ? k + 1 : -1, true], [k + GN < N ? k + GN : -1, false]]) {
+            if (j < 0 || !G.inside[j] || G.water[j]) continue;
+            const pj = pen(j);
+            // Valla donde acaba un corral: entre el corral y lo de fuera (otra zona o el camino), o
+            // entre dos corrales
+            if (!(pk !== pj || (pk && pj && G.reg[k] !== G.reg[j]))) continue;
+            const xm = right ? cellX(k) + CELL / 2 : cellX(k), zm = right ? cellZ(k) : cellZ(k) + CELL / 2;
+            const y = pk && pj ? Math.max(G.h[k], G.h[j]) : pk ? G.h[k] : G.h[j];
+            for (const h of [0.38, 0.78]) fRails.push(right ? { x: xm, y: y + h, z: zm, sx: 0.08, sy: 0.1, sz: CELL } : { x: xm, y: y + h, z: zm, sx: CELL, sy: 0.1, sz: 0.08 });
+            if (right) {
+                post(xm, zm - CELL / 2, y);
+                post(xm, zm + CELL / 2, y);
+            } else {
+                post(xm - CELL / 2, zm, y);
+                post(xm + CELL / 2, zm, y);
+            }
+        }
+    }
+    if (fRails.length) farm.addHulled(0x9a6a3a, W(fRails), 0.75);
+    if (fPosts.length) farm.addHulled(0x7a4f2a, W(fPosts), 0.75);
+
     // ---------- Caminos y puentes ----------
     const road = [], deck = [], rails = [];
     for (const [key, y] of pathTiles) {

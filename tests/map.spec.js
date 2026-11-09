@@ -89,7 +89,9 @@ test('partida guardada con las cifras de antes: los campos salen con los blancos
     expect(errors).toEqual([]);
 });
 
-test('casa: empieza en ruinas con la parcela sucia; 3 niveles la arreglan y limpian la parcela', { tag: '@smoke' }, async ({ page }) => {
+// (aparcada: la casa personalizable está oculta de momento —FARM.house.hidden—; su prueba se queda
+// para cuando vuelva)
+test.skip('casa: empieza en ruinas con la parcela sucia; 3 niveles la arreglan y limpian la parcela', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto('/?test');
     await expect.poll(() => page.evaluate(() => window.game && game.farm.introT > 2), { timeout: 60_000 }).toBe(true);

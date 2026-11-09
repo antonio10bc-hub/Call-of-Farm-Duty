@@ -202,6 +202,22 @@ test('gallinas: corretean y lanzan huevos al aire como platos; el blanco es el h
     expect(errors).toEqual([]);
 });
 
+test('cerdos: en su barro cogen carrerilla y se deslizan de barriga; la trufa que encuentran se lleva de un tiro', { tag: '@full' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await enterCrop(page, 'truffle');
+    expect(await page.evaluate(() => game.sniper.field.targets.length)).toBe(await page.evaluate(() => game.state.sheaves('truffle')));
+    // Carrerilla y, luego, de barriga: todos acaban deslizándose (y se mueven)
+    await expect.poll(() => page.evaluate(() => game.sniper.field.targets.some((s) => s.mode === 'slide' && Math.hypot(s.vx, s.vz) > 1)), { timeout: 10_000 }).toBe(true);
+    // Sin trufa no hay a qué disparar; con ella, un tiro a la trufa del lomo
+    await page.evaluate(() => { for (const s of game.sniper.field.targets) { s.swell = 0; s.rate = 0; } });
+    expect(await page.evaluate(() => game.sniper.field.targets.some((s) => game.sniper.field.hittable(s)))).toBe(false);
+    // (uno, quieto: corriendo a velocidad 0)
+    await page.evaluate(() => { const s = game.sniper.field.targets[0]; s.swell = 1; s.top = 0; s.vx = s.vz = 0; s.mode = 'run'; s.t = 999; });
+    await aimAndShoot(page, '(() => { const s = game.sniper.field.targets[0]; return { x: s.x, y: s.y, z: s.z }; })()');
+    await expect.poll(() => page.evaluate(() => game.state.items.truffle)).toBe(1);
+    expect(errors).toEqual([]);
+});
+
 test('caja sorpresa: sale en otra torre; desde lejos no se abre, desde su torre da un arma y al gastarla vuelve el rifle', { tag: '@smoke' }, async ({ page }) => {
     const errors = watchErrors(page);
     await enterBigField(page);

@@ -107,6 +107,22 @@ export const CROPS = {
         loot: 0xfff6dc,
         stub: [0xb4d070, 0xa8c860, 0xc0d880],
     },
+    // Trufas: cerdos en su pocilga embarrada, que cogen carrerilla y se deslizan de barriga por el
+    // barro una y otra vez (rebotando contra el borde y entre ellos); hozando, cada poco uno
+    // encuentra una trufa y la lleva en el lomo: un tiro a la trufa, y es tuya (cada cerdo, una)
+    truffle: {
+        name: L('TRUFFLES', 'TRUFAS'),
+        icon: 'truffle',
+        growTime: 50,
+        pasture: true,
+        mud: true, // (su campo, de barro)
+        swell: [3, 7], // segundos que tarda cada cerdo en encontrar su trufa
+        burst: [0x4a2e1a, 0x7a5232, 0xffe03a, 0xf2a8b0],
+        chaff: [0x7a5232, 0x5a3a22, 0x8a5e38],
+        unit: L('TRUFFLES', 'TRUFAS'),
+        loot: 0x4a2e1a,
+        stub: [0x7a5232, 0x6a4628, 0x8a5e38],
+    },
     // Lana: ovejas que corren por su prado de un lado a otro, al azar, rebotando entre ellas; el
     // vellón les crece hasta hacerse una bola gigante y, entonces, un tiro a la bola da un ovillo
     // (y la oveja sigue, esquilada). Su campo es un prado, como el de las vacas

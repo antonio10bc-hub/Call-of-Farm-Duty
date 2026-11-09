@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { VoxelModel } from './VoxelModel.js';
 
-// Los edificios de los prados de animales (vacas, ovejas y gallinas): cada nivel del campo
+// Los edificios de los prados de animales (vacas, ovejas, gallinas y cerdos): cada nivel del campo
 // añade alguno (y se quedan los de antes), así su zona se va llenando y no tiene solo animales.
 // Cada pieza es un modelo voxel con su contorno, mirando hacia +z, en medidas del mundo.
 //   lv     nivel del campo desde el que está
@@ -138,6 +138,25 @@ export const BARNYARD = {
         { lv: 4, r: 0.9, build: (m, g) => { for (const [x, y, z] of [[0, 0, 0], [0.55, 0, 0.1], [0.25, 0.5, 0.05]]) m.part(g, 0.5, 0.5, 0.5, 0xfaf6ec, x, y + 0.25, z); } },
         { lv: 5, r: 1.3, at: [10.5, 5.2], build: (m, g) => windmill(m, g) }, // (a un lado: es alto y taparía el esquiladero)
         { lv: 5, r: 1.6, build: (m, g) => { fence(m, g, -1.4, 0, 1.4, 0); bales(m, g, [[0, 0, 0.6, 0]]); } },
+    ],
+    truffle: [
+        { lv: 1, r: 1.0, build: (m, g) => { // comedero de pienso (un tronco hueco) y un cubo
+            m.part(g, 1.4, 0.34, 0.5, WOOD2, 0, 0.17, 0);
+            m.part(g, 1.2, 0.06, 0.34, 0xc8a050, 0, 0.35, 0, false);
+            m.part(g, 0.3, 0.34, 0.3, METAL2, 0.95, 0.17, 0.2);
+        } },
+        { lv: 2, r: 1.4, build: (m, g) => shed(m, g, 2.2, 1.6, 1.1, 0xc89a7a, 0x8a5a3a) }, // la pocilga, de madera vieja
+        { lv: 3, r: 1.6, build: (m, g) => { // tobogán de barro (por ahí cogen carrerilla)
+            for (const [x, h] of [[-0.9, 1.2], [-0.4, 1.2]]) for (const s of [-1, 1]) m.part(g, 0.1, h, 0.1, WOOD2, x, h / 2, s * 0.35);
+            m.part(g, 0.7, 0.1, 0.8, WOOD, -0.65, 1.2, 0);
+            const ramp = m.part(g, 1.8, 0.08, 0.7, 0x7a5232, 0.45, 0.62, 0);
+            ramp.rotation.z = -0.62;
+            m.part(g, 1.0, 0.04, 1.0, 0x5a3a22, 1.4, 0.03, 0, false);
+        } },
+        { lv: 4, r: 1.8, build: (m, g) => { shed(m, g, 2.6, 1.8, 1.3, 0xe8b0a0, ROOF); for (const [x, z] of [[1.6, 0.4], [1.6, -0.2]]) m.part(g, 0.5, 0.56, 0.4, 0xe0d0a0, x, 0.28, z); } }, // cobertizo y sacos de pienso
+        { lv: 4, r: 0.9, build: (m, g) => { for (const [x, z] of [[0, 0], [0.6, 0.2], [0.3, -0.4]]) m.part(g, 0.5, 0.06, 0.5, 0x5a3a22, x, 0.03, z, false); } }, // charcos
+        { lv: 5, r: 1.1, build: (m, g) => windpump(m, g) },
+        { lv: 5, r: 1.8, build: (m, g) => { fence(m, g, -1.4, 0, 1.4, 0); trough(m, g, 0, 0.7, 2.2); } },
     ],
     egg: [
         { lv: 1, r: 0.9, build: (m, g) => { // nidales con paja y un comedero

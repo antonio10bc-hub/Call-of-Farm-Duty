@@ -184,6 +184,11 @@ export class Sniper {
             if (Math.random() < 0.18) this.hooks.sfx.play('boing');
             this.particles.burst(s.cx, 0.1, s.cz, 4, [0xd8c8a0, 0x9ad962], { speed: 1.2, up: 0.8, size: 0.08, ttl: 0.35 });
         };
+        // Un cerdo deslizándose de barriga: salpica barro por detrás
+        this.field.onSplash = (s) => {
+            this.particles.burst(s.cx - s.vx * 0.08, 0.15, s.cz - s.vz * 0.08, 4, [0x7a5232, 0x5a3a22, 0x8a5e38], { speed: 1.6, up: 1.6, size: 0.1, ttl: 0.45 });
+            if (Math.random() < 0.06) this.hooks.sfx.play('sand');
+        };
     }
 
     // what: { crop, count, arena, turrets } para cosechar (count blancos de ese cultivo en un
@@ -235,7 +240,7 @@ export class Sniper {
         // la caja
         const D = this.debug || {};
         if (this.crop) {
-            if (D.cowsFull) for (const s of this.field.targets) if (s.kind === 'cow' || s.kind === 'sheep' || s.kind === 'hen') s.swell = 1;
+            if (D.cowsFull) for (const s of this.field.targets) if (s.kind === 'cow' || s.kind === 'sheep' || s.kind === 'hen' || s.kind === 'pig') s.swell = 1;
             const w = D.startWonder && WONDER.find((x) => x.id === D.startWonder);
             if (w) this.giveSpecial(w);
         }

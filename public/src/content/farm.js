@@ -34,6 +34,9 @@ export const FARM = {
         // Las otras mitades de la orilla alta (la de las ovejas), la cañada y la parcela de abajo
         { id: 'nw2', rect: [60, -30, 90, 0], price: 60, field: 'wool', name: L('SHEEP MEADOW', 'PRADO DE LAS OVEJAS') },
         { id: 'west2', rect: [60, 0, 90, 30], price: 15, field: 'pumpkin', name: L('WEST PLOT', 'PARCELA OESTE') },
+        // La de la casa (aparcada de momento, la casa personalizable: ver house.hidden) es ahora la
+        // pocilga de los cerdos
+        { id: 'house', rect: [0, -30, 30, 0], price: 35, field: 'truffle', name: L('PIGSTY', 'POCILGA') },
         { id: 'east2', rect: [60, 30, 90, 60], soon: true },
     ],
     bounds: { x0: -30, z0: -30, x1: 120, z1: 60 }, // todas las parcelas (en sus coordenadas de siempre)
@@ -75,7 +78,10 @@ export const FARM = {
     // La casa y su parcela: empieza en ruinas con toda la parcela abandonada (zone). Nivel 1: la
     // casita arreglada y limpio alrededor; 2: gran parte de la parcela; 3: toda (clear).
     //   cost   lo que cuesta llegar a ese nivel
+    // hidden: aparcada de momento (no se ve ni se usa: su parcela es la pocilga). El código se queda
+    // por si vuelve
     house: {
+        hidden: true,
         zone: [0, -30, 30, 0], // (toda la parcela: en el mapa llena su zona)
         levels: [
             { clear: null },
@@ -205,6 +211,23 @@ export const FARM = {
                 { w: 15, d: 14, sheaves: 18, arena: 1.55, sign: 0x5a9e32 },
                 { w: 20, d: 19, sheaves: 28, arena: 1.9, sign: 0x3a7ec8 },
                 { w: 28, d: 28, sheaves: 40, arena: 2.4, sign: 0xc8402e },
+            ],
+        },
+        {
+            id: 'truffle',
+            crop: 'truffle',
+            name: L('PIGSTY', 'POCILGA'),
+            corner: { x: 15, z: -15, center: true }, // (donde estaba la casa)
+            cost: { wheat: 10, truffle: 3 },
+            turrets: { wheat: 40, truffle: 10 },
+            locked: { land: 'house', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
+            // sheaves: cerdos del campo de tiro (una trufa cada uno)
+            levels: [
+                { w: 6, d: 5, sheaves: 4, arena: 1, sign: 0x9a6a3a },
+                { w: 10, d: 9, sheaves: 7, arena: 1.25, sign: 0xb07a44 },
+                { w: 15, d: 14, sheaves: 11, arena: 1.55, sign: 0x5a9e32 },
+                { w: 20, d: 19, sheaves: 16, arena: 1.9, sign: 0x3a7ec8 },
+                { w: 28, d: 28, sheaves: 22, arena: 2.4, sign: 0xc8402e },
             ],
         },
         {

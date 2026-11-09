@@ -14,6 +14,7 @@ import { junkyard, barrelParts, JUNK } from '../render/junk.js';
 import { CROPS } from '../content/crops.js';
 import { buildCow, animateCow } from '../render/cow.js';
 import { buildSheep, animateSheep } from '../render/sheep.js';
+import { buildPig, animatePig } from '../render/pig.js';
 import { buildChicken, animateChicken } from '../render/chicken.js';
 import { BARNYARD, SLOTS, BarnPiece } from '../render/barnyard.js';
 import { FARM, TURRETS, PLACES, toWorld, worldToPlace, inShapeOf, inFieldShape, stretchLocal, floorPlace } from '../content/farm.js';
@@ -44,6 +45,7 @@ const STRAW = [0x9a7a3a, 0x8a6a30, 0xa8843e, 0x94723a];
 const CLEARING = [0x8fbf54, 0x9ab85a, 0xa8a060, 0xb89a64, 0x86b04e]; // el claro del mercader
 const rectOf = ([x0, z0, x1, z1]) => ({ x: x0, z: z0, w: x1 - x0, d: z1 - z0 });
 const PASTURE = [0xa8e070, 0x9ad962, 0xb4e67a]; // hierba fresca del prado de las vacas
+const MUD = [0x7a5232, 0x6a4628, 0x8a5e38]; // el barro de la pocilga
 // La parcela en venta en la que cae un punto (o ninguna)
 const landAt = (x, z) => FARM.lands.find(({ rect: [x0, z0, x1, z1] }) => x >= x0 && x < x1 && z >= z0 && z < z1);
 // Parcela sin comprar: todo más oscuro y frío, como en sombra (se multiplica por esto)
@@ -102,8 +104,9 @@ export class Farm {
         this.zone = rectOf(FARM.barn.zone);
         this.yard = rectOf(FARM.barn.levels[barnLevel].yard);
         this.houseLevel = houseLevel;
-        this.houseZone = rectOf(FARM.house.zone);
-        this.houseYard = houseClear(houseLevel);
+        // (la casa, aparcada: sin zona ni patio; su parcela es la pocilga)
+        this.houseZone = FARM.house.hidden ? rectOf([0, 0, 0, 0]) : rectOf(FARM.house.zone);
+        this.houseYard = FARM.house.hidden ? rectOf([0, 0, 0, 0]) : houseClear(houseLevel);
         // El bosque del comerciante y su claro (el del surco del ovni)
         this.villageZone = rectOf(MERCHANT.site.zone);
         this.villageYard = rectOf(MERCHANT.site.clear);
@@ -196,6 +199,8 @@ export class Farm {
         // Lo comprado en la tienda del ovni para la parcela de la casa, cada cosa en su hueco
         this.plot = new Plot(theme.outline);
         this.places.house.add(this.plot.root);
+        // La casa personalizable, aparcada: ni se ve ni se toca (su parcela es la pocilga)
+        if (FARM.house.hidden) this.byId.house.root.visible = this.plot.root.visible = false;
         // El claro del comerciante: el surco del aterrizaje y su ovni disfrazado de coche
         this.camp = new MerchantCamp(theme.outline);
         this.camp.root.traverse((o) => (o.userData.merchant = true));
@@ -390,7 +395,7 @@ export class Farm {
         const { theme } = this, { k } = t, c = Math.floor(t.wx), r = Math.floor(t.wz); // (las vetas, por las casillas del mundo)
         const col = k && k.field
             ? (k.locked ? JUNK.ground[mod(c * 7 + r * 5 + mod(c * r, 3), JUNK.ground.length)]
-                : CROPS[this.fields[k.field].crop].pasture ? PASTURE[mod(c * 3 + r * 5, 3)]
+                : CROPS[this.fields[k.field].crop].mud ? MUD[mod(c * 3 + r * 5, 3)] : CROPS[this.fields[k.field].crop].pasture ? PASTURE[mod(c * 3 + r * 5, 3)]
                 // (el trigo grande, sobre rastrojo de paja: se lee lleno con menos tallos)
                 : this.fields[k.field].crop === 'wheat' && this.fields[k.field].level >= 2 ? STRAW[(r & 1) + 2 * mod(c * 3 + r, 2)] : theme.soil[r & 1]) // (el prado, de hierba)
             : k && k.path ? theme.path[mod(c * 7 + r * 3, 2)]
@@ -550,7 +555,7 @@ export class Farm {
 
     // La casa sube de nivel: se arregla (del 0 al 1) y se limpia más parcela
     setHouseLevel(level) {
-        if (level === this.houseLevel) return;
+        if (level === this.houseLevel || FARM.house.hidden) return;
         this.houseLevel = level;
         this.houseYard = houseClear(level);
         this.refreshGround();
@@ -717,6 +722,14 @@ export class Farm {
             add(solid, rx * 0.66, 0.68, rz * 0.66, 0.2, 0.12, 0.08, 0xf2a0b0, r);
             for (const [a, b] of [[0.12, 0.28], [-0.12, 0.28], [0.12, -0.28], [-0.12, -0.28]]) add(solid, rx * b + rz * a, 0.22, rz * b - rx * a, 0.1, 0.44, 0.1, 0xf6f3ea);
             add(solid, -rx * 0.1, 0.4, -rz * 0.1, 0.22, 0.12, 0.2, 0xf2a0b0, r);
+        } else if (crop === 'truffle') {
+            // Un cerdo de muestra: cuerpo rosa, cabeza con su hocico, patas y una mancha de barro
+            const rx = Math.sin(r), rz = Math.cos(r);
+            add(solid, 0, 0.5, 0, 0.5, 0.42, 0.8, 0xf2a8b0, r);
+            add(solid, rx * 0.5, 0.56, rz * 0.5, 0.36, 0.32, 0.28, 0xf2a8b0, r);
+            add(solid, rx * 0.68, 0.5, rz * 0.68, 0.2, 0.14, 0.08, 0xe0889a, r);
+            add(solid, 0, 0.72, 0, 0.3, 0.04, 0.3, 0x7a5232, r);
+            for (const [a, b] of [[0.15, 0.25], [-0.15, 0.25], [0.15, -0.25], [-0.15, -0.25]]) add(solid, rx * b + rz * a, 0.16, rz * b - rx * a, 0.11, 0.32, 0.11, 0xf2a8b0);
         } else if (crop === 'wool') {
             // Una oveja de muestra: su bola de lana, la cabeza oscura y las patas
             const rx = Math.sin(r), rz = Math.cos(r);
@@ -1235,7 +1248,7 @@ export class Farm {
     // Lo que hay bajo un rayo de la cámara: un edificio, un campo o nada
     pick(ray) {
         if (ray.intersectObject(this.camp.root, true).length) return { merchant: true };
-        const hits = ray.intersectObjects([...this.structures.map((m) => m.root), this.compound.root], true);
+        const hits = ray.intersectObjects([...this.structures.filter((m) => m.root.visible).map((m) => m.root), this.compound.root], true);
         if (hits.length) return { structure: hits[0].object.userData.structure };
         // El suelo de cada parcela, a su altura: el más cercano en el que caiga el rayo
         let best = null;
@@ -1299,7 +1312,7 @@ export class Farm {
                 m.landed = true;
                 m.root.scale.setScalar(1);
                 m.select();
-                if (this.onLand) this.onLand(m);
+                if (this.onLand && m.root.visible) this.onLand(m);
             }
             m.update(dt, time);
         });
@@ -1429,7 +1442,7 @@ export class Farm {
         }
         const ink = outline(this.theme.outline);
         while (v.plants.length < n) {
-            const c = v.crop === 'wool' ? buildSheep(ink) : v.crop === 'egg' ? buildChicken(ink) : buildCow(ink);
+            const c = v.crop === 'wool' ? buildSheep(ink) : v.crop === 'egg' ? buildChicken(ink) : v.crop === 'truffle' ? buildPig(ink) : buildCow(ink);
             c.g.scale.setScalar(0.0001);
             v.herd.add(c.g);
             v.plants.push({ cow: c, x: f.x + 1 + Math.random() * (f.w - 2), z: f.z + 1 + Math.random() * (f.d - 2), ry: Math.random() * 6, goal: null, speed: 0, wait: Math.random() * 3, t0: this.clock + 0.3 + v.plants.length * 0.12 });
@@ -1506,7 +1519,8 @@ export class Farm {
                 // (en el mapa, de vez en cuando aletea con un saltito)
                 if (Math.random() < dt * 0.15) s.cow.flap = 0.5;
                 animateChicken(s.cow, dt, time, speed, 0);
-            } else (v.crop === 'wool' ? animateSheep : animateCow)(s.cow, dt, time, speed, Math.min(1, p));
+            } else if (v.crop === 'truffle') animatePig(s.cow, dt, time, speed, 0, p >= 1 ? 1 : 0); // (madura: cada uno con su trufa)
+            else (v.crop === 'wool' ? animateSheep : animateCow)(s.cow, dt, time, speed, Math.min(1, p));
         }
     }
 

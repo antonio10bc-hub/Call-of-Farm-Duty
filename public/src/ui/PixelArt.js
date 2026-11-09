@@ -187,6 +187,11 @@ const SPRITES = {
         pal: { K: INK, W: '#fff6e6', L: '#ffffff', C: '#e8d8b8' },
     },
     // Ovillo de lana: la bola con sus vueltas de hilo y la hebra suelta
+    // Trufa: un terrón oscuro con sus vetas
+    truffle: {
+        rows: ['..........', '...KKKK...', '..KDTDDK..', '.KDDTDTDK.', 'KDTDDDDTDK', 'KDDDTDDDDK', 'KDTDDDTDDK', '.KDDTDDDK.', '..KKKKKK..', '..........'],
+        pal: { K: '#1e120a', D: '#5a3a22', T: '#8a6040' },
+    },
     wool: {
         rows: ['...KKKK...', '..KWWWWK..', '.KWCCWWCK.', 'KWWWCWCWWK', 'KWCWWCWWWK', 'KCWWCWWCWK', 'KWWCWWCWWK', '.KWWCCWWK.', '..KKKKKKK.', '........KK'],
         pal: { K: INK, W: '#fffdf6', C: '#d8cbb0' },

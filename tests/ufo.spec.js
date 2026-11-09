@@ -1,7 +1,9 @@
 // Pruebas de la tienda de la casa (la lleva el mercader, en oro) y de los ovnis pequeños.
 const { test, expect, aimAndShoot, enterField, watchErrors } = require('./helpers');
 
-test('tienda de la casa: con la casa al máximo sale su cartel (sin ovni estrellado) y se paga con oro', { tag: '@full' }, async ({ page }) => {
+// (aparcada: la casa personalizable está oculta de momento —FARM.house.hidden—; su prueba se queda
+// para cuando vuelva)
+test.skip('tienda de la casa: con la casa al máximo sale su cartel (sin ovni estrellado) y se paga con oro', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto('/?test');
     await expect.poll(() => page.evaluate(() => window.game && game.farm.introT > 2.2), { timeout: 60_000 }).toBe(true);

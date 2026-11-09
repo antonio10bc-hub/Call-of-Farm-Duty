@@ -202,7 +202,7 @@ export class FarmState {
     }
 
     get canUpgradeHouse() {
-        return this.open('house') && !this.houseMaxed && Object.entries(this.houseCost()).every(([c, n]) => this.items[c] >= n);
+        return !FARM.house.hidden && this.open('house') && !this.houseMaxed && Object.entries(this.houseCost()).every(([c, n]) => this.items[c] >= n);
     }
 
     upgradeHouse() {
