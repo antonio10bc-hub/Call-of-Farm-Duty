@@ -372,7 +372,8 @@ test('vida del mercader (con DEBUG): confianza por niveles, racha con regalo, á
     expect((await camp()).kinds).toContain('cousin');
     await expect.poll(() => page.evaluate(() => game.farm.camp.cousin.visible)).toBe(true);
     // La hoja: abrir el regalo y comprar en su tienda; lo que tienes se ve en el mapa (la chistera, en el pato)
-    await page.evaluate(() => { game.state.items.gold = 999; game.openMerchant(); });
+    // (sin las piezas de los especiales: la tienda de hoy, que depende de la hora, siempre tiene algo que comprar)
+    await page.evaluate(() => { game.state.merchant.owned = []; game.state.items.gold = 999; game.openMerchant(); });
     await expect(page.locator('#merchant-trust')).toContainText('AMIGO DEL ALMA');
     await page.locator('button[data-gift]').click();
     const buy = page.locator('button[data-buy]:not([disabled])').first();
