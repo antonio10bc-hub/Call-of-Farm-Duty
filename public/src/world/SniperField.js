@@ -239,10 +239,11 @@ export class SniperField {
     // brotes) o 'junk' (tierra sucia con maleza seca)
     dress(kind) {
         const { theme } = this;
-        // La laguna (si su cultivo la tiene): agua en el centro del campo y una orilla de arena
+        // La laguna (si su cultivo la tiene): llena casi todo el campo, con una orilla de arena
+        // junto a la valla
         const P = CROPS[kind] && CROPS[kind].pond;
-        this.pond = P ? { x: this.cx, z: this.cz, r: edgeDist(this.poly, this.cx, this.cz) * P } : null;
-        const inPond = (x, z, m = 0) => this.pond && Math.hypot(x - this.pond.x, (z - this.pond.z) * 1.1) + Math.sin(x * 1.3 + z * 0.7) * 0.6 < this.pond.r + m;
+        this.pond = P ? { x: this.cx, z: this.cz, edge: P } : null;
+        const inPond = (x, z, m = 0) => this.inPond(x, z, m);
         this.tiles.forEach(({ c, r, soil }, i) => {
             if (!soil) return;
             const col = kind === 'junk' ? JUNK.ground[mod(c * 7 + r * 5 + mod(c * r, 3), JUNK.ground.length)]
@@ -663,6 +664,22 @@ export class SniperField {
         }
     }
 
+    // ¿Cae en el agua de la laguna (m: con m de orilla)? Sigue la forma del campo, a pond.edge de
+    // la valla (con la orilla algo ondulada)
+    inPond(x, z, m = 0) {
+        return !!this.pond && inside(this.poly, x, z) && edgeDist(this.poly, x, z) + Math.sin(x * 1.3 + z * 0.7) * 0.35 > this.pond.edge - m;
+    }
+
+    // Un sitio de la laguna (lejos de la orilla)
+    pondSpot(margin = 1.2) {
+        const xs = this.poly.map((p) => p.x), zs = this.poly.map((p) => p.z);
+        for (let k = 0; k < 60; k++) {
+            const x = Math.min(...xs) + Math.random() * (Math.max(...xs) - Math.min(...xs)), z = Math.min(...zs) + Math.random() * (Math.max(...zs) - Math.min(...zs));
+            if (this.inPond(x, z, -margin)) return { x, z };
+        }
+        return { x: this.cx, z: this.cz };
+    }
+
     // Peces: en la laguna del centro; cada uno espera bajo el agua (swell) y salta fuera en arco
     // (con su salpicón al salir y al volver a entrar), de su tamaño: los pequeños altos y deprisa,
     // los grandes bajos y despacio. En el aire es el blanco; si no, vuelve al agua y salta más tarde
@@ -674,10 +691,10 @@ export class SniperField {
         const ink = outline(this.theme.outline), [a, b] = CROPS.fish.swell;
         for (let i = 0; i < count; i++) {
             const size = Math.random() < 0.45 ? 's' : Math.random() < 0.65 ? 'm' : 'l';
-            const fish = buildFish(ink, size);
+            const fish = buildFish(ink, size), at = this.pondSpot(2);
             fish.g.visible = false;
             this.herd.add(fish.g);
-            this.targets.push({ kind: 'fish', cow: fish, size, ur: { s: 0.34, m: 0.48, l: 0.7 }[size], jump: null, x: this.cx, y: -1, z: this.cz, cx: this.cx, cz: this.cz,
+            this.targets.push({ kind: 'fish', cow: fish, size, ur: { s: 0.34, m: 0.48, l: 0.7 }[size], jump: null, x: at.x, y: -1, z: at.z, cx: at.x, cz: at.z,
                 swell: Math.random() * 0.6, rate: 1 / (a + Math.random() * (b - a)), alive: true, grow: -0.5 - i * 0.05, landed: false, flash: 0, dying: 0 });
         }
     }
@@ -685,8 +702,9 @@ export class SniperField {
     // Salta el pez s: desde un sitio de la laguna, hacia arriba y de lado (sin salirse de ella)
     leap(s) {
         const J = CROPS.fish.jump[s.size], r = (a) => a[0] + Math.random() * (a[1] - a[0]), P = this.pond;
-        const d = Math.sqrt(Math.random()) * P.r * 0.7, a0 = Math.random() * Math.PI * 2;
-        const x = P.x + Math.sin(a0) * d, z = P.z + Math.cos(a0) * d;
+        const { x, z } = this.pondSpot(2);
+        s.cx = x; // (su sitio en la laguna: ahí va a por él un alienígena)
+        s.cz = z;
         // (de lado, hacia dentro de la laguna)
         const ang = Math.atan2(P.x - x, P.z - z) + (Math.random() - 0.5) * 2, side = r(J.side);
         s.jump = { x, y: 0, z, vx: Math.sin(ang) * side, vy: r(J.up), vz: Math.cos(ang) * side };
@@ -723,7 +741,9 @@ export class SniperField {
                 s.y = j.y;
                 s.z = j.z;
             } else {
-                s.y = -1; // (bajo el agua)
+                s.x = s.cx; // (bajo el agua, en su sitio)
+                s.z = s.cz;
+                s.y = -1;
             }
             if (!s.alive && s.dying <= 0) s.jump = null;
         }

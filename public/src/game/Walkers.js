@@ -51,6 +51,10 @@ function limb(parent, ink, w, h, d, color, x, y, z) {
 // se le abate, lo robado se recupera (hooks.onHit, como si se hubiera recogido). Si no queda nada
 // que robar, cruzan el campo y se van. De noche salen muchos más y brillan en la oscuridad. Cada
 // uno abatido suma a la racha alienígena (sniper.addAlien).
+// Adónde hay que ir a por un blanco: los animales, a por su cuerpo (que se mueve); los peces, a su
+// sitio de la laguna; lo demás, donde está
+const spotOf = (s) => (s.cx !== undefined ? { x: s.cx, z: s.cz } : { x: s.x, z: s.z });
+
 export class Walkers {
     constructor(sniper) {
         this.sn = sniper;
@@ -94,8 +98,9 @@ export class Walkers {
         const loot = new THREE.Group();
         loot.position.y = 1.55;
         const C = CROPS[crop] || CROPS.wheat;
-        hulled(loot, ink, 0.5, 0.36, 0.42, C.fruit || C.ear, 0, 0.18, 0);
-        hulled(loot, ink, 0.12, 0.16, 0.12, C.calyx || C.earDark, 0, 0.42, 0);
+        // (de lo que roba: los animales no tienen fruto ni espiga, su botín es lo que dan)
+        hulled(loot, ink, 0.5, 0.36, 0.42, C.fruit || C.ear || C.loot || 0xffd23f, 0, 0.18, 0);
+        hulled(loot, ink, 0.12, 0.16, 0.12, C.calyx || C.earDark || C.loot || 0xd9a42e, 0, 0.42, 0);
         const alarm = new THREE.Mesh(box(0.22, 0.22, 0.22), ALARM);
         alarm.position.y = 0.85;
         alarm.rotation.set(Math.PI / 4, 0, Math.PI / 4);
@@ -120,28 +125,32 @@ export class Walkers {
         return w;
     }
 
-    // A por la mata (o tomate) viva más cercana que nadie más tenga echada el ojo; si no queda
-    // ninguna, cruza el campo y se va por el otro lado
+    // A por lo vivo más cercano que nadie más tenga echado el ojo (matas, frutos y también los
+    // animales: a las vacas, ovejas y cerdos, cuando ya tienen algo que llevarse, persiguiéndolos;
+    // a las gallinas, sus huevos; y a por los peces, metiéndose a nado en la laguna); si no queda
+    // nada, cruza el campo y se va por el otro lado
     pickTarget(w) {
         const f = this.sn.field, taken = new Set(this.list.map((o) => o.tgt));
         let best = null, bd = Infinity;
         for (const s of f.targets) {
-            if (!s.alive || !s.landed || taken.has(s) || s.kind === 'cow' || s.kind === 'sheep' || s.kind === 'hen' || s.kind === 'pig' || s.kind === 'fish') continue; // (a las vacas y las ovejas, que corren, no las persiguen)
-            const d = Math.hypot(s.x - w.x, s.z - w.z) * rand(0.7, 1.3); // no todos a la más cercana
+            if (!s.alive || !s.landed || taken.has(s) || s.gone) continue;
+            if ((s.kind === 'cow' || s.kind === 'sheep' || s.kind === 'pig') && s.swell < 0.5) continue; // (aún sin nada que llevarse)
+            const at = spotOf(s), d = Math.hypot(at.x - w.x, at.z - w.z) * rand(0.7, 1.3); // no todos a la más cercana
             if (d < bd) [best, bd] = [s, d];
         }
         w.tgt = best;
         if (best) {
             w.mode = 'in';
-            w.to = { x: best.x, z: best.z };
+            w.to = spotOf(best);
         } else {
             w.mode = 'cross';
             w.to = { x: 2 * f.cx - w.x, z: 2 * f.cz - w.z };
         }
     }
 
+    // (nadando, metido en el agua hasta el cuello)
     place(w) {
-        w.g.position.set(w.x, 0, w.z);
+        w.g.position.set(w.x, w.swim ? -0.85 + Math.sin(w.x * 3 + w.z * 2) * 0.05 : 0, w.z);
     }
 
     // Rayo de llegada o de salida: columna de chispas verdes y un anillo en el suelo
@@ -155,7 +164,7 @@ export class Walkers {
     // Caja de su cuerpo (de los pies a la antena)
     boxOf(w, out) {
         const p = w.g.position, s = w.g.scale.x;
-        return out.set(_v.set(p.x - 0.32 * s, 0, p.z - 0.32 * s), _max.set(p.x + 0.32 * s, 1.55 * s, p.z + 0.32 * s));
+        return out.set(_v.set(p.x - 0.32 * s, Math.max(0, p.y), p.z - 0.32 * s), _max.set(p.x + 0.32 * s, p.y + 1.55 * s, p.z + 0.32 * s));
     }
 
     // El más cercano de los vivos en la línea de tiro: { walker, t } o null
@@ -253,8 +262,13 @@ export class Walkers {
     // Un paso hacia donde va; false cuando sale del campo (con o sin botín)
     walk(w, dt, time) {
         const sn = this.sn;
-        // Si lo que iba a robar ya no está (lo han recogido), a por otra cosa
-        if (w.mode === 'in' && (!w.tgt || !w.tgt.alive)) this.pickTarget(w);
+        // Si lo que iba a robar ya no está (lo han recogido), a por otra cosa; si se mueve (un
+        // animal), detrás de él
+        if (w.mode === 'in' && (!w.tgt || !w.tgt.alive || w.tgt.gone)) this.pickTarget(w);
+        if (w.mode === 'in' && w.tgt) w.to = spotOf(w.tgt);
+        // En la laguna, a nado (más despacio)
+        const f = sn.field;
+        w.swim = !!(f.inPond && f.inPond(w.x, w.z, -0.3));
         if (w.mode === 'grab') {
             w.grab -= dt;
             w.body.rotation.x = 0.6; // agachado cogiéndolo
@@ -278,7 +292,7 @@ export class Walkers {
             this.root.remove(w.g);
             return false;
         }
-        const step = Math.min(d - reach + 0.01, w.speed * dt);
+        const step = Math.min(d - reach + 0.01, w.speed * dt * (w.swim ? 0.55 : 1));
         w.x += (dx / d) * step;
         w.z += (dz / d) * step;
         this.place(w);
@@ -293,6 +307,16 @@ export class Walkers {
         w.arms[1].rotation.x = arm + (w.loot ? 0 : Math.sin(stride) * swing * 0.9);
         w.body.position.y = Math.abs(Math.cos(stride)) * 0.06 * (0.5 + k);
         w.body.rotation.x = 0.08 + k * 0.18;
+        if (w.swim) {
+            // A crol: los brazos dan la vuelta entera, uno tras otro, y salpica
+            const c = time * 7 + w.ph;
+            w.arms[0].rotation.x = c % (Math.PI * 2);
+            w.arms[1].rotation.x = (c + Math.PI) % (Math.PI * 2);
+            w.legs[0].rotation.x = Math.sin(c * 2) * 0.4;
+            w.legs[1].rotation.x = -Math.sin(c * 2) * 0.4;
+            w.body.rotation.x = 0.5;
+            if (Math.random() < dt * 8) sn.particles.burst(w.x, 0.1, w.z, 3, [0xffffff, 0xc0e4f8, 0x9fdcff], { speed: 1, up: 1.4, size: 0.07, ttl: 0.4 });
+        }
         return true;
     }
 }

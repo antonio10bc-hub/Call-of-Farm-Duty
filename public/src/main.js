@@ -229,6 +229,11 @@ const sniper = new Sniper(THEME, {
     },
     // Un alienígena (o un ovni, con varias) se ha escapado con algo del campo: se pierde, con su -n
     // rojo donde se fue
+    // Un ovni ladrón echa su rayo: aviso (¡dispárale antes de que se vaya!)
+    onUfoBeam() {
+        if (prologue.active) return;
+        medal(L('UFO THIEF! SHOOT IT DOWN', '¡OVNI LADRÓN! DERRÍBALO'), 'stolen');
+    },
     onStolen(target, nx, ny, n = 1) {
         if (prologue.active) return;
         for (let k = 0; k < n; k++) state.lose(snipeField);

@@ -395,7 +395,7 @@ export class Farm {
 
     // ¿Cae en la laguna del campo v (o en su orilla, m)? En casillas de sus coordenadas de siempre
     inPond(v, x, z, m = 0) {
-        const f = v.rect, R = Math.min(f.w, f.d) * 0.3;
+        const f = v.rect, R = Math.min(f.w, f.d) * 0.42; // (casi todo el campo)
         return Math.hypot(x - f.cx, (z - f.cz) * 1.1) + Math.sin(x * 1.3 + z * 0.7) * 0.4 < R + m;
     }
 
@@ -596,7 +596,7 @@ export class Farm {
                 && !FARM.paths.some(([x0, z0, x1, z1]) => x > x0 - m && x < x1 + m && z > z0 - m && z < z1 + m)
                 && !FARM.structures.some((st) => Math.abs(x - st.x) < st.w / 2 + m && Math.abs(z - st.z) < st.d / 2 + m)
                 && !FARM.lands.some((l) => Math.hypot(x - l.post.x, z - l.post.z) < m + 1.2) // (ni sobre su poste)
-                && !this.hintSpots.some(([hx, hz]) => Math.hypot(hx - x, hz - z) < m + 0.8);
+                && !this.hintSpots.some(([hx, hz, hr]) => Math.hypot(hx - x, hz - z) < m + (hr || 0.8)); // (hr: lo que ocupa, si es grande)
             // Lo que estira la parcela en cada punto (área en el mundo de una casilla suya): donde
             // estira más, se ponen más cosas, para que en el mapa quede igual de tupido
             const areaAt = (x, z) => {
@@ -677,6 +677,12 @@ export class Farm {
             if (!v.locked) continue;
             // Bastantes (según el tamaño de la zona) y grandes, para que se vea bien lo que vendrá
             const Z = v.zone, spots = [], want = Math.min(34, Math.max(12, Math.round(Z.w * Z.d * 0.07)));
+            // (la laguna: una sola, grande, en el centro)
+            if (v.crop === 'fish') {
+                this.hintBy[v.id] = [[Z.x + Z.w / 2, Z.z + Z.d / 2, 6]];
+                this.hintSpots.push(...this.hintBy[v.id]);
+                continue;
+            }
             for (let tries = 0; spots.length < want && tries < 900; tries++) {
                 const x = Z.x + 0.8 + Math.random() * (Z.w - 1.6), z = Z.z + 0.8 + Math.random() * (Z.d - 1.6);
                 if (FARM.paths.some(([x0, z0, x1, z1]) => x > x0 - 0.7 && x < x1 + 0.7 && z > z0 - 0.7 && z < z1 + 0.7)) continue;
@@ -733,10 +739,21 @@ export class Farm {
             for (const [a, b] of [[0.12, 0.28], [-0.12, 0.28], [0.12, -0.28], [-0.12, -0.28]]) add(solid, rx * b + rz * a, 0.22, rz * b - rx * a, 0.1, 0.44, 0.1, 0xf6f3ea);
             add(solid, -rx * 0.1, 0.4, -rz * 0.1, 0.22, 0.12, 0.2, 0xf2a0b0, r);
         } else if (crop === 'fish') {
-            // Un charquito de muestra con su pez saltando
-            add(solid, 0, 0.02, 0, 0.9, 0.04, 0.9, 0x4aa8e0, r);
-            add(solid, 0, 0.55, 0, 0.16, 0.2, 0.42, 0xf0a040, r);
-            add(solid, Math.sin(r) * -0.26, 0.6, Math.cos(r) * -0.26, 0.04, 0.24, 0.12, 0xd87a28, r);
+            // La laguna de muestra (una sola, grande): agua a cuadros con su orilla de arena, unas
+            // cañas y un par de peces saltando
+            const R = 3.4;
+            for (let a = -4; a <= 4; a++) for (let b = -4; b <= 4; b++) {
+                const d = Math.hypot(a, b * 1.1) + Math.sin(a * 1.3 + b * 0.7) * 0.4;
+                if (d < R) add(solid, a, 0.02, b, 1, 0.04, 1, (a + b) & 1 ? 0x4aa8e0 : 0x3f98d4);
+                else if (d < R + 0.9) {
+                    add(solid, a, 0.02, b, 1, 0.04, 1, (a + b) & 1 ? 0xd9c48a : 0xccb67a);
+                    if ((a * 7 + b * 3) % 5 === 0) add(thin, a + 0.2, 0.4, b, 0.06, 0.8, 0.06, 0x6a9a3a);
+                }
+            }
+            for (const [dx, dz, c, y] of [[-1, 0.5, 0xf0a040, 1.1], [1.4, -0.8, 0x9ab8d0, 0.8]]) {
+                add(solid, dx, y, dz, 0.16, 0.2, 0.42, c, r);
+                add(solid, dx + Math.sin(r) * -0.26, y + 0.05, dz + Math.cos(r) * -0.26, 0.04, 0.24, 0.12, 0xd87a28, r);
+            }
         } else if (crop === 'truffle') {
             // Un cerdo de muestra: cuerpo rosa, cabeza con su hocico, patas y una mancha de barro
             const rx = Math.sin(r), rz = Math.cos(r);
@@ -1522,7 +1539,7 @@ export class Farm {
     }
 
     updateFishes(v, dt, ripe) {
-        const f = v.rect, R = Math.min(f.w, f.d) * 0.3;
+        const f = v.rect, R = Math.min(f.w, f.d) * 0.42;
         for (const s of v.plants) {
             if (!s.jump && (s.wait -= dt) <= 0) {
                 // Salta desde un sitio de la laguna, hacia dentro (con prisa si el campo está maduro)

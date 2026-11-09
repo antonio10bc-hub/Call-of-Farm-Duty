@@ -59,7 +59,8 @@ export class Flyers {
         const model = new Ufo(this.sn.theme.outline, true);
         model.root.scale.setScalar(0.35);
         this.root.add(model.root);
-        const spot = thief ? this.sn.ks.bestSpot(B.radius) : null;
+        // (el ladrón va a por lo que se está viendo, si hay algo: para que se le vea robar)
+        const spot = thief ? this.sn.ks.bestSpot(B.radius, true) : null;
         const side = (Math.random() - 0.5) * f.radius;
         const cx = spot ? spot.x : f.cx + dir.z * side, cz = spot ? spot.z : f.cz - dir.x * side;
         const fl = {
@@ -137,6 +138,7 @@ export class Flyers {
         fl.beamT = B.time;
         sn.waves.spawn(S.x, S.z, 0x7dff4a, B.radius * 1.3, 0.5);
         sn.hooks.sfx.play('ufo');
+        if (sn.hooks.onUfoBeam) sn.hooks.onUfoBeam(near.length);
         const C = CROPS[sn.crop] || CROPS.wheat, cubeMat = toon(C.loot || C.fruit || 0xffd23f);
         near.forEach((s, k) => {
             s.alive = false;
@@ -176,9 +178,20 @@ export class Flyers {
             if (!fl.falling) {
                 if (fl.mode === 'beam') this.beaming(fl, dt, time);
                 else if (fl.spot && fl.mode === 'fly' && fl.dist >= fl.len / 2) {
-                    // Ladrón: al llegar encima de su zona se para y baja; luego echa el rayo
+                    // Ladrón: al llegar encima de su zona se para y baja; luego echa el rayo. Mientras
+                    // baja sigue a lo más cercano que quede vivo (los animales se mueven: que no se
+                    // le escapen de debajo)
                     fl.dist = fl.len / 2;
                     fl.low = Math.min(1, fl.low + dt * 1.2);
+                    const near = sn.field.targets.filter((s) => s.alive && s.landed && !s.gone)
+                        .reduce((b, s) => (!b || Math.hypot(s.x - fl.spot.x, s.z - fl.spot.z) < Math.hypot(b.x - fl.spot.x, b.z - fl.spot.z) ? s : b), null);
+                    if (near && Math.hypot(near.x - fl.spot.x, near.z - fl.spot.z) < 10) {
+                        const a = Math.min(1, dt * 3);
+                        fl.spot.x += (near.x - fl.spot.x) * a;
+                        fl.spot.z += (near.z - fl.spot.z) * a;
+                        fl.x0 = fl.spot.x - fl.dir.x * (fl.len / 2);
+                        fl.z0 = fl.spot.z - fl.dir.z * (fl.len / 2);
+                    }
                     if (fl.low >= 1) this.startBeam(fl);
                 } else {
                     fl.dist += F.speed * dt;

@@ -1,5 +1,5 @@
 // Pruebas de la tienda de la casa (la lleva el mercader, en oro) y de los ovnis pequeños.
-const { test, expect, aimAndShoot, enterField, watchErrors } = require('./helpers');
+const { test, expect, aimAndShoot, enterField, openFarm, watchErrors } = require('./helpers');
 
 // (aparcada: la casa personalizable está oculta de momento —FARM.house.hidden—; su prueba se queda
 // para cuando vuelva)
@@ -59,5 +59,31 @@ test('ovnis pequeños: cruzan el cielo del campo de tiro y se pueden derribar (n
     await aimAndShoot(page, '(() => { const fl = game.sniper.flyers, f = fl.list.find((x) => !x.falling); if (f) { f.dist = f.len / 2; fl.place(f, game.sniper.time); } return f && f.model.root.position; })()');
     await expect(page.locator('#medals')).toContainText('OVNI DERRIBADO', { timeout: 10_000 });
     expect(await page.evaluate(() => game.state.items.gold)).toBe(0);
+    expect(errors).toEqual([]);
+});
+
+test('ladrones en los prados: el ovni se lleva vacas con su rayo y el alienígena se mete a nado en la laguna a por un pez', { tag: '@full' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    const enter = async (id) => {
+        await page.evaluate((id) => { game.state.unlock(id, Date.now(), true); while (game.revealUnlocked()); game.harvest(id); }, id);
+        await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
+        await expect.poll(() => page.evaluate(() => game.sniper.field.targets.every((s) => s.landed)), { timeout: 20_000 }).toBe(true);
+        await page.evaluate(() => { const sn = game.sniper; sn.walkers.reset(); sn.walkers.next = Infinity; sn.flyers.reset(); sn.flyers.next = Infinity; });
+    };
+    await openFarm(page);
+    await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
+    // Vacas: un ovni ladrón baja, echa su rayo (con su aviso) y se lleva alguna
+    await enter('milk');
+    await page.evaluate(() => { const fl = game.sniper.flyers.spawn(true); fl.dist = fl.len / 2 - 1; window._fl = fl; });
+    await expect.poll(() => page.evaluate(() => window._fl.mode), { timeout: 15_000 }).toBe('beam');
+    expect(await page.evaluate(() => window._fl.loot.length)).toBeGreaterThan(0);
+    await expect(page.locator('#medals')).toContainText('OVNI LADRÓN');
+    // Peces: el alienígena va a por uno metiéndose a nado y sale con él
+    await page.evaluate(() => game.goFarm());
+    await expect.poll(() => page.evaluate(() => game.mode)).toBe('farm');
+    await enter('fish');
+    await page.evaluate(() => { window._w = game.sniper.walkers.spawn(); });
+    await expect.poll(() => page.evaluate(() => window._w.swim), { timeout: 20_000 }).toBe(true);
+    await expect.poll(() => page.evaluate(() => window._w.loot && window._w.loot.kind), { timeout: 25_000 }).toBe('fish');
     expect(errors).toEqual([]);
 });

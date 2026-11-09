@@ -115,7 +115,7 @@ export const CROPS = {
         icon: 'fish',
         growTime: 45,
         pasture: true,
-        pond: 0.6, // (su campo: hierba con una laguna en el centro; la laguna, de este tanto del campo)
+        pond: 2.4, // (su campo: una laguna que lo llena casi entero; desde la valla, este tanto de orilla)
         swell: [1.2, 4.5], // segundos bajo el agua entre salto y salto
         // El salto de cada tamaño: velocidad hacia arriba y de lado
         jump: { s: { up: [10, 12], side: [1.6, 3] }, m: { up: [8, 9.5], side: [1.2, 2.2] }, l: { up: [6, 7], side: [0.8, 1.5] }, grav: 9.5 },
