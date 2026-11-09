@@ -244,7 +244,7 @@ export function buildScenery(farm) {
     const SHADE = 0xc4d2e6, MID = 0xe6eef8, TOP = 0xffffff;
     const edge = (u, v, k) => {
         const [x, z] = toXZ(u, v), r = (j) => hash(k, j, 9);
-        const w = 11 + r(1) * 8, d = 9 + r(2) * 5, y = 1 + r(3) * 4, cx = x + (r(4) - 0.5) * 4, cz = z + (r(5) - 0.5) * 4;
+        const w = 9 + r(1) * 6, d = 7 + r(2) * 4, y = 0.5 + r(3) * 2.5, cx = x + (r(4) - 0.5) * 4, cz = z + (r(5) - 0.5) * 4;
         bank.push({ x: cx, y, z: cz, sx: w, sy: 1.2, sz: d, c: SHADE });
         const n = 2 + (r(6) < 0.5 ? 1 : 0);
         for (let j = 0; j < n; j++) {
@@ -254,9 +254,9 @@ export function buildScenery(farm) {
         const t = w * 0.32;
         bank.push({ x: cx + (r(30) - 0.5) * w * 0.3, y: y + 0.6 + w * 0.3 + t * 0.35, z: cz, sx: t, sy: t * 0.7, sz: t * 0.9, c: TOP });
     };
-    // (dos filas: una pegada al borde, que lo tapa, y otra más fuera, más grande)
+    // (dos filas fuera del borde del valle: no tapan las parcelas)
     let k = 0;
-    for (const [o, step] of [[-8, 8], [-24, 11]]) {
+    for (const [o, step] of [[-17, 9], [-31, 12]]) {
         for (let t = -30; t < VH + 24; t += step) { edge(o, t, k++); edge(VW - o, t, k++); }
         for (let t = -20; t < VW + 20; t += step) edge(t, VH - o, k++);
     }
