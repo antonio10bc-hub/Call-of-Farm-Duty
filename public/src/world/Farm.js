@@ -545,7 +545,7 @@ export class Farm {
             const c = Math.cos(g.a), s = Math.sin(g.a);
             if (g.def.mother) {
                 const px = g.pad.x - VILLAGE.cx, pz = g.pad.z - VILLAGE.cz;
-                d = Math.min(d, Math.hypot(dx - px, dz - pz) - 7 - wob);
+                d = Math.min(d, Math.hypot(dx - px, dz - pz) - 9.6 - wob); // (hasta el anillo de su zona de impacto)
                 const t = Math.max(0, Math.min(g.padR, dx * c + dz * s));
                 d = Math.min(d, Math.hypot(dx - c * t, dz - s * t) - 1.8 - wob * 0.4);
                 continue;
@@ -561,7 +561,10 @@ export class Farm {
     inCrater(x, z) {
         if (!inRect(this.villageZone, x, z)) return false;
         const [dx, dz] = this.villageAt(x, z);
-        return Math.hypot(dx, dz) < VILLAGE.R;
+        if (Math.hypot(dx, dz) < VILLAGE.R) return true;
+        // (y el fondo de la zona de impacto de la nave madre: tierra quemada y removida)
+        const M = this.vgeo.find((g) => g.def.mother);
+        return !!M && Math.hypot(dx - (M.pad.x - VILLAGE.cx), dz - (M.pad.z - VILLAGE.cz)) < 8.2;
     }
 
     // ¿En el abanico de árboles tumbados a los lados de un surco? (ahí no queda ninguno en pie)
@@ -569,7 +572,7 @@ export class Farm {
         if (!inRect(this.villageZone, x, z)) return false;
         const [dx, dz] = this.villageAt(x, z);
         return this.vgeo.some((g) => {
-            if (g.def.mother) return false;
+            if (g.def.mother) return Math.hypot(dx - (g.pad.x - VILLAGE.cx), dz - (g.pad.z - VILLAGE.cz)) < VILLAGE.impact + 0.8; // (su zona de impacto)
             const c = Math.cos(g.a), s = Math.sin(g.a), t = dx * c + dz * s;
             return t > g.parkR && t < g.endR + 2 && Math.abs(-dx * s + dz * c) < furrowHalf(g, t) + 3.4 + (t - g.parkR) * 0.1;
         });

@@ -134,6 +134,8 @@ export const REGIONS = [
     { place: 'se', seeds: [[140, 104]] },      // la margen este, al otro lado del río (lo de abajo: más baja que los mercaderes)
 ].map((r) => ({ ...r, seeds: r.seeds.map(([u, v]) => [u * K, v * K]) }));
 
+const DIGS = [[142, 31, 7, 9]];
+
 // ---------- La rejilla: celdas de 2×2 casillas ----------
 export const CELL = 2;
 export const GX0 = -168, GZ0 = -168, GN = 168; // celdas por lado (de -168 a 168)
@@ -181,6 +183,16 @@ export const G = {
         if (e < 1) { water[k] = 1; h[k] = LAKE.level - 0.3; }
         else if (n > LAKE.level) n = LAKE.level + (n - LAKE.level) * sm(0, 7, (e - 1) * Math.min(LAKE.ru, LAKE.rv));
         nat[k] = n;
+    }
+    // Rebajes del monte (en las medidas del boceto: centro, radio y hasta qué altura): detrás del
+    // claro de la nave madre, para que su zona de impacto quepa sin pegarse a la ladera
+    for (const [du, dv, dr, cap] of DIGS) {
+        const cu = du * K, cv = dv * K, R = dr * K;
+        for (let k = 0; k < N; k++) {
+            if (!inside[k] || water[k]) continue;
+            const d = Math.hypot(U[k] - cu, V[k] - cv);
+            if (d < R && nat[k] > cap) nat[k] = cap + (nat[k] - cap) * sm(R * 0.55, R, d);
+        }
     }
     // La montaña: lo que pasa del umbral no se reparte
     for (let k = 0; k < N; k++) if (inside[k] && !water[k]) reg[k] = nat[k] > 11.5 ? MOUNT : SLOPE;

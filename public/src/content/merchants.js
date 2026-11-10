@@ -29,7 +29,7 @@ export const MERCHANTS = [
         intro: L('I LOVE NATURE. AND FISH. RAW FISH. LIKE EVERY HUMAN.', 'ME ENCANTA LA NATURALEZA. Y EL PESCADO. CRUDO. COMO A TODO HUMANO.') },
     { id: 'm6', name: L('THE FAKE FARMER', 'EL FALSO GRANJERO'), fav: 'pumpkin', vehicle: 'tractor', len: 4.4, skin: 0x5ae8c8, coat: 0x8a4a2a, hat: 0xe8c050, angle: 170, slot: 420, p: 0.55, stay: 210, pay: 1,
         intro: L('HOWDY, FELLOW FARMER! I ALSO FARM. PUMPKINS. ON EARTH.', '¡BUENAS, COLEGA! YO TAMBIÉN SOY GRANJERO. DE CALABAZAS. EN LA TIERRA.') },
-    { id: 'mother', name: L('THE MOTHERSHIP', 'LA NAVE MADRE'), fav: 'truffle', vehicle: 'mother', len: 0, skin: 0xc8a0ff, coat: 0x4a3a6a, hat: 0x8a5ad8, angle: -80, slot: 1200, p: 0.4, stay: 300, pay: 1.6, mother: true,
+    { id: 'mother', name: L('THE MOTHERSHIP', 'LA NAVE MADRE'), fav: 'truffle', vehicle: 'mother', len: 0, skin: 0xc8a0ff, coat: 0x4a3a6a, hat: 0x8a5ad8, angle: -115, slot: 1200, p: 0.4, stay: 300, pay: 1.6, mother: true,
         intro: L('GREETINGS FROM... THE VILLAGE. A NORMAL FLOATING VILLAGE.', 'SALUDOS DESDE... EL PUEBLO. UN PUEBLO FLOTANTE NORMAL.') },
 ];
 export const MERCHANT_BY_ID = Object.fromEntries(MERCHANTS.map((m) => [m.id, m]));
@@ -38,9 +38,10 @@ export const MERCHANT_BY_ID = Object.fromEntries(MERCHANTS.map((m) => [m.id, m])
 // la zona es (cx, cz); las medidas, las del mundo):
 //   R       radio del cráter (el anillo de tierra levantada, con huecos donde entran los surcos)
 //   stall   a qué distancia del centro monta cada uno su puesto
-//   pad     a qué distancia está la nave madre (fuera del cráter, en su claro)
-//   fire    la hoguera (detrás: en pantalla no hay nada detrás que el humo pueda tapar)
-export const VILLAGE = { cx: 45, cz: -15, R: 10, stall: 8.4, pad: 21, fire: { r: 8.8, angle: -128 } };
+//   pad     a qué distancia está la nave madre (en el hueco entre surcos, detrás del cráter);
+//           impact: el radio de la zona arrasada por su aterrizaje (árboles tumbados, tierra)
+//   fire    la hoguera (entre dos puestos, al borde del cráter)
+export const VILLAGE = { cx: 45, cz: -15, R: 10, stall: 8.4, pad: 20, impact: 14, fire: { r: 8.6, angle: 152 } };
 export const polar = (r, deg) => ({ x: VILLAGE.cx + Math.cos((deg * Math.PI) / 180) * r, z: VILLAGE.cz + Math.sin((deg * Math.PI) / 180) * r });
 
 // Lo que vende cada uno: objetos raros (de su estilo) que, comprados, decoran el cráter. at: dónde
@@ -68,7 +69,7 @@ export const DECOR = [
     { id: 'pumpkins', by: 'm6', name: L('ALIEN PUMPKINS', 'CALABAZAS ALIENÍGENAS'), gold: 10, r: 6, da: 16 },
     { id: 'scarecrow', by: 'm6', name: L('ALIEN SCARECROW', 'ESPANTAPÁJAROS ALIENÍGENA'), gold: 12, r: 4.2, da: 0 },
     { id: 'fountain', by: 'mother', name: L('GOLDEN FOUNTAIN', 'FUENTE DORADA'), gold: 60, r: 0, a: 0 },
-    { id: 'statue', by: 'mother', name: L('STATUE OF THE MERCHANTS', 'ESTATUA DE LOS MERCADERES'), gold: 50, r: 2.6, a: -80 },
+    { id: 'statue', by: 'mother', name: L('STATUE OF THE MERCHANTS', 'ESTATUA DE LOS MERCADERES'), gold: 50, r: 2.6, a: -115 },
     { id: 'discoball', by: 'mother', name: L('DISCO BALL', 'BOLA DE DISCOTECA'), gold: 30, r: 2.6, a: 40 },
     { id: 'tree', by: 'mother', name: L('GIANT ALIEN TREE', 'ÁRBOL ALIENÍGENA GIGANTE'), gold: 45, r: 2.6, a: 160 },
 ];

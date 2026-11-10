@@ -481,6 +481,7 @@ body.cine .farm-ui, body.cine .bubbles { visibility: hidden; }
 /* Cartel del comerciante: madera oscura; sin él, gris con lo que falta para que vuelva */
 .merchant-sign { --sign: #8a5a2a; }
 .merchant-sign.away { --sign: #7a7068; }
+#bubbles .merchant-sign.compact:not(:hover) > span:not(.ico):not(.pips):not(.grow) { display: none; }
 /* Cartel de una parcela en venta: dorado, con su precio en oro */
 .field-sign.for-sale { --sign: #b07a10; }
 /* Hoja del comerciante (con la base de la del ovni): en madera y crema */

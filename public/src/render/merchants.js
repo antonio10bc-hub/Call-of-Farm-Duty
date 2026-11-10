@@ -32,7 +32,7 @@ export function villageGeometry(reach) {
         const a = def.angle * RAD, c = Math.cos(a), s = Math.sin(a);
         const stall = polar(VILLAGE.stall, def.angle);
         if (def.mother) {
-            const r = Math.max(R + 8, Math.min(VILLAGE.pad, reach(def.angle) - 8));
+            const r = Math.max(R + 8, Math.min(VILLAGE.pad, reach(def.angle) - 10));
             return [def.id, { def, a, dir: [-c, -s], pad: polar(r, def.angle), padR: r, stall, half: 6 }];
         }
         const sc = def.len / 4.9, half = 1.95 * sc + 0.3; // (medio ancho del ovni)
@@ -464,10 +464,10 @@ export class Mother extends VoxelModel {
         [[12, 0x6a4a8a], [10, 0x5a3a7a], [7.5, 0x4a3a5a]].forEach(([w, c], k) => {
             const y = Y0 + 1.6 - k * 0.8;
             P(w, 0.8, w, c, 0, y, 0);
-            P(w * 0.86, 0.8, w * 0.86, c, 0, y, 0).rotation.y = Math.PI / 4;
+            P(w * 0.86, 0.76, w * 0.86, c, 0, y - 0.01, 0).rotation.y = Math.PI / 4;
         });
         P(12.2, 0.4, 12.2, 0x3ac8b0, 0, Y0 + 2.2, 0);
-        P(10.4, 0.4, 10.4, 0x5ad8c8, 0, Y0 + 2.2, 0).rotation.y = Math.PI / 4;
+        P(10.4, 0.46, 10.4, 0x5ad8c8, 0, Y0 + 2.23, 0).rotation.y = Math.PI / 4; // (algo más alto: sin caras en el mismo plano)
         for (const [x, z, s, c] of [[-4, -3, 1, 0xff7ae0], [-4.4, 2.6, 0.8, 0x5af0ff], [4.2, 3, 0.9, 0xffe03a], [3.4, -4, 1.1, 0xff7ae0], [-1, 4.4, 0.7, 0x7dff4a]]) {
             const y = Y0 + 2.4;
             P(0.35 * s, 1.8 * s, 0.35 * s, 0xd8c8f0, x, y + 0.9 * s, z);
@@ -488,7 +488,7 @@ export class Mother extends VoxelModel {
         P(5, 1.3, 0.14, 0xc8955a, -2, Y0 + 4.4, 5.7);
         for (let j = 0; j < 6; j++) P(0.45, 0.65, 0.05, 0xc8402e, -3.9 + j * 0.78, Y0 + 4.4, 5.8, false);
         P(11, 1.4, 11, MET[0], 0, Y0, 0);
-        P(9.6, 1.4, 9.6, MET[1], 0, Y0, 0).rotation.y = Math.PI / 4;
+        P(9.6, 1.5, 9.6, MET[0], 0, Y0, 0).rotation.y = Math.PI / 4;
         for (let j = 0; j < 20; j++) {
             const a = (j / 20) * Math.PI * 2;
             glow(b, 0.4, 0.4, 0.4, j % 2 ? TRIM : 0x5af0ff, Math.cos(a) * 5.6, Y0, Math.sin(a) * 5.6);
@@ -512,7 +512,7 @@ export class Mother extends VoxelModel {
         let y = Y0 - 0.7;
         [[3.4, 3, MET[1]], [2.8, 2, TRIM], [3.0, 3, MET[0]], [2.2, 2.5, MET[2]], [3.2, 1.6, MET[1]], [1.8, 2.4, MET[0]], [1.1, 2, MET[2]], [0.6, 1.8, 0x8a98a8]].forEach(([w, h, c], k) => {
             P(w, h, w, c, 0, y - h / 2, 0);
-            P(w * 0.9, h, w * 0.9, c, 0, y - h / 2, 0).rotation.y = Math.PI / 4;
+            P(w * 0.9, h * 0.94, w * 0.9, c, 0, y - h / 2, 0).rotation.y = Math.PI / 4;
             if (k % 2 === 0) for (let j = 0; j < 4; j++) {
                 const a = (j / 4) * Math.PI * 2 + k;
                 glow(b, 0.3, 0.3, 0.3, WIN[(j + k) % 3], Math.cos(a) * w * 0.55, y - h / 2, Math.sin(a) * w * 0.55);
@@ -941,12 +941,51 @@ export class Village extends VoxelModel {
                 }
             }
         }
-        // El claro de la nave madre: quemado en círculo, con piedras alrededor
+        // La zona de impacto de la nave madre: el suelo quemado y con grietas que salen del centro, un
+        // anillo de tierra levantada, terrones y piedras sueltos y, alrededor, los árboles tumbados
+        // hacia fuera por la onda (hasta VILLAGE.impact)
         const M = geos.find((g) => g.def.mother);
-        if (M) for (let k = 0; k < 18; k++) {
-            const a = (k / 18) * Math.PI * 2;
-            this.part(r, 0.5, 0.3, 0.4, k % 2 ? STONE : 0x8a847a, M.pad.x + Math.cos(a) * 4.6, 0.15, M.pad.z + Math.sin(a) * 4.6).rotation.y = -a;
-            if (k % 3 === 0) this.part(r, 1.4, 0.03, 1.0, 0x3a3028, M.pad.x + Math.cos(a) * 2.2, 0.015, M.pad.z + Math.sin(a) * 2.2, false);
+        if (M) {
+            const at = (d, a) => ({ x: M.pad.x + Math.cos(a) * d, z: M.pad.z + Math.sin(a) * d });
+            for (let k = 0; k < 14; k++) {
+                const a = k * 2.39, d = 1 + (k % 5) * 1.5, s = 1.1 + (k % 3) * 0.5, p = at(d, a);
+                this.part(r, s, 0.03, s * 0.8, k % 2 ? 0x3a3028 : 0x4a3a2a, p.x, 0.015, p.z, false).rotation.y = a;
+            }
+            for (let k = 0; k < 9; k++) {
+                const a = (k / 9) * Math.PI * 2 + 0.3;
+                for (let d = 2.5; d < 7.5; d += 0.9) {
+                    const p = at(d, a + Math.sin(d * 1.7 + k) * 0.08);
+                    this.part(r, 0.9, 0.04, 0.22, 0x2a1e14, p.x, 0.03, p.z, false).rotation.y = -a;
+                }
+            }
+            const ring = 40;
+            for (let k = 0; k < ring; k++) {
+                const a = (k / ring) * Math.PI * 2, d = 8.4 + ((k * 7) % 4) * 0.25, p = at(d, a), hh = 0.5 + ((k * 5) % 4) * 0.15;
+                // (con un hueco hacia el cráter: por ahí va la embajadora)
+                if (Math.abs(Math.atan2(Math.sin(a - M.a - Math.PI), Math.cos(a - M.a - Math.PI))) < 0.32) continue;
+                this.part(r, 1.3, hh, 1.0, DIRT[k % 3], p.x, hh / 2, p.z).rotation.y = -a;
+                if (k % 3 === 0) this.part(r, 0.3, 0.2, 0.3, [0x4caf3c, 0x3d9a34][k % 2], p.x, hh + 0.1, p.z);
+            }
+            for (let k = 0; k < 26; k++) {
+                const a = k * 1.93, d = 3 + ((k * 13) % 11) * 0.95, p = at(d, a), big = k % 4 === 0;
+                this.part(r, big ? 0.6 : 0.36, big ? 0.36 : 0.22, big ? 0.5 : 0.3, k % 3 ? STONE : DIRT[k % 3], p.x, big ? 0.18 : 0.11, p.z).rotation.y = k;
+            }
+            for (let k = 0; k < 30; k++) {
+                const a = (k / 30) * Math.PI * 2 + (k % 3) * 0.05, d = 9.8 + ((k * 7) % 5) * 0.85;
+                if (d > VILLAGE.impact || Math.abs(Math.atan2(Math.sin(a - M.a - Math.PI), Math.cos(a - M.a - Math.PI))) < 0.4) continue;
+                const p = at(d, a), pivot = new THREE.Group(), sc = 0.8 + (k % 4) * 0.12;
+                pivot.position.set(p.x, 0, p.z);
+                pivot.rotation.y = -a; // (su x local: hacia fuera)
+                const tree = new THREE.Group();
+                tree.rotation.z = -(0.7 + (k % 3) * 0.25); // tumbado hacia fuera
+                tree.scale.setScalar(sc);
+                this.part(tree, 0.3, 1.0, 0.3, 0x7a4f2a, 0, 0.5, 0);
+                this.part(tree, 1.5, 0.9, 1.5, 0x3d9a34, 0, 1.35, 0).rotation.y = k * 0.7;
+                this.part(tree, 1.05, 0.7, 1.05, 0x4caf3c, 0, 2.0, 0).rotation.y = k * 0.7 + 0.4;
+                this.part(tree, 0.7, 0.18, 0.5, DIRT[k % 3], -0.35, 0.06, 0); // (la raíz levantada, del lado de la nave)
+                pivot.add(tree);
+                r.add(pivot);
+            }
         }
     }
 

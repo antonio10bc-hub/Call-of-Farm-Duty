@@ -857,6 +857,7 @@ function placeBubbles() {
         const el = merchantSigns[d.id], v = farm.village.byId[d.id], on = show && !merchantClock.locked && (v.open || d.id === 'm0');
         el.classList.toggle('hidden', !on);
         if (!on) continue;
+        el.classList.toggle('compact', rig.zoom > 1.15); // (de lejos, solo el icono: no se amontonan)
         const w = vWorld(v.spot.x, v.spot.z, 3.1);
         _b.set(w.x, w.y, w.z).project(rig.camera);
         el.style.left = `${Math.round((_b.x * 0.5 + 0.5) * innerWidth)}px`;
