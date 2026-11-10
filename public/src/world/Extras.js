@@ -19,10 +19,12 @@ export class Extras extends VoxelModel {
         this.farm = farm;
         this.birds = [];
         this.perch(farm.byId.barn.root, [[-1.0, 0], [0.2, 0], [1.1, 0]], 4.82);
-        const hb = new THREE.Box3().setFromObject(farm.byId.house.whole);
-        farm.byId.house.root.updateMatrixWorld(true);
-        const top = farm.byId.house.root.worldToLocal(_v.set(0, hb.max.y, 0)).y;
-        this.perch(farm.byId.house.root, [[-0.5, 0], [0.6, 0]], top);
+        if (farm.byId.house.root.visible) { // (la casa, aparcada: sin pájaros en su tejado)
+            const hb = new THREE.Box3().setFromObject(farm.byId.house.whole);
+            farm.byId.house.root.updateMatrixWorld(true);
+            const top = farm.byId.house.root.worldToLocal(_v.set(0, hb.max.y, 0)).y;
+            this.perch(farm.byId.house.root, [[-0.5, 0], [0.6, 0]], top);
+        }
         // El ovni de paso y su moneda
         this.ufo = new Ufo(outlineColor, true);
         this.ufo.root.scale.setScalar(0.7);

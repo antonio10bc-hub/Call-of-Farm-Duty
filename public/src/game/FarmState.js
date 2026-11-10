@@ -271,31 +271,6 @@ export class FarmState {
         this.save();
     }
 
-    // ---------- Granero ----------
-    get barnMaxed() {
-        return this.barn.level >= BARN.length - 1;
-    }
-
-    // Lo que cuesta el siguiente nivel del granero (todo a 0 con la depuración de costes)
-    barnCost() {
-        const c = this.barnMaxed ? {} : BARN[this.barn.level + 1].cost;
-        return this.freeCosts ? Object.fromEntries(Object.keys(c).map((k) => [k, 0])) : c;
-    }
-
-    // El granero ya no se mejora: se queda como está
-    get canUpgradeBarn() {
-        return false;
-    }
-
-    // Sube el granero (agranda su recinto); false si no se puede
-    upgradeBarn() {
-        if (!this.canUpgradeBarn) return false;
-        for (const [c, n] of Object.entries(this.barnCost())) this.items[c] -= n;
-        this.barn.level++;
-        this.save();
-        return true;
-    }
-
     // ---------- Armería (en el granero) ----------
     // ¿Se tiene ya? (lo de serie, sí)
     ownsGear(kind, id) {
@@ -456,7 +431,7 @@ export class FarmState {
         // Especial (desde el nivel 2, una visita sí y otra no; desde el 4, siempre): mucho de su
         // cultivo favorito a cambio de una pieza de su colección (si ya las tienes todas, oro)
         if (lv >= 2 && (lv >= 4 || visit % 2 === 0)) {
-            const f = fields[fields.length - 1], n = size(f, SPECIAL.size), reward = COLLECTION.find((id) => !M.owned.includes(id) && !stockFor(visit, rareVisit(visit)).includes(id)) || null;
+            const f = fields[fields.length - 1], n = size(f, SPECIAL.size), reward = COLLECTION.find((id) => !M.owned.includes(id) && id !== M.gift && !stockFor(visit, rareVisit(visit)).includes(id)) || null; // (ni lo de la tienda de hoy ni el regalo de la racha)
             orders.push({ kind: 'special', crop: f.crop, n, gold: reward ? gold({ [f.crop]: n }) : Math.ceil(gold({ [f.crop]: n }) * SPECIAL.gold), reward, done: false });
         }
         // Su primo: pide el cultivo que menos se pide hoy y paga más

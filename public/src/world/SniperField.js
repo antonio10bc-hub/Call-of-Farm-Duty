@@ -1015,7 +1015,7 @@ export class SniperField {
     drawWheat(time) {
         this.targets.forEach((s, ti) => {
             const gone = !s.alive && s.dying <= 0;
-            const pop = !s.alive ? 1 + (0.14 - s.dying) * 2.5 : 1;
+            const pop = !s.alive ? 1 + Math.max(0, 0.14 - s.dying) * 2.5 : 1;
             s.stalks.forEach((st, k) => {
                 const i = ti * CLUMP + k;
                 const h = st.h * (s.g || 0.0001) * (gone ? 0.0001 : 1);
@@ -1075,7 +1075,7 @@ export class SniperField {
         });
         this.targets.forEach((s, i) => {
             const gone = !s.alive && s.dying <= 0;
-            const pop = !s.alive ? 1 + (0.14 - s.dying) * 3 : 1;
+            const pop = !s.alive ? 1 + Math.max(0, 0.14 - s.dying) * 3 : 1;
             const e = gone ? 0.0001 : (s.g || 0.0001) * pop;
             const sw = s.plant.sway * s.y;
             _d.position.set(s.x + sw, s.y, s.z);
@@ -1137,7 +1137,7 @@ export class SniperField {
         });
         this.targets.forEach((s, i) => {
             const gone = !s.alive && s.dying <= 0;
-            const pop = !s.alive ? 1 + (0.14 - s.dying) * 3 : 1;
+            const pop = !s.alive ? 1 + Math.max(0, 0.14 - s.dying) * 3 : 1;
             const e = gone ? 0.0001 : (s.g || 0.0001) * pop;
             let w = s.size, hh = s.size, d = s.size, x = s.x, y = s.y, z = s.z;
             if (s.kind === 'pumpkin') {

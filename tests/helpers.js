@@ -67,7 +67,6 @@ async function touchPath(page, steps, target = 'view', id = 7) {
     await page.evaluate(async ([steps, target, id]) => {
         const el = document.getElementById(target);
         const ev = (type, x, y) => el.dispatchEvent(new PointerEvent(type, { pointerId: id, pointerType: 'touch', clientX: x, clientY: y, bubbles: true, isPrimary: true }));
-        steps.forEach(([type, x, y, wait], i) => (steps[i] = [type, x, y, wait]));
         for (const [type, x, y, wait] of steps) {
             ev(type, x, y);
             if (wait) await new Promise((r) => setTimeout(r, wait));
@@ -75,7 +74,6 @@ async function touchPath(page, steps, target = 'view', id = 7) {
     }, [steps, target, id]);
 }
 
-// Mira a la siguiente mata, mantiene el botón derecho (sube el arma) y lo suelta: un disparo
 // La cámara del mapa sobre un campo (la de inicio es la del granero: los carteles de los campos
 // pueden quedar fuera de la pantalla) y espera a que su cartel se vea entero
 async function focusField(page, id) {
@@ -93,6 +91,7 @@ async function centerMouse(page) {
     await page.mouse.move(Math.round(v.width / 2), Math.round(v.height / 2));
 }
 
+// Mira a la siguiente mata, mantiene el botón derecho (sube el arma) y lo suelta: un disparo
 async function shootNext(page) {
     const ok = await page.evaluate(() => {
         const s = game.sniper.field.sheaves.find((x) => x.alive);

@@ -26,9 +26,9 @@ En la nube, antes: `export PW_CHROMIUM=...` (lo pone solo el hook de inicio de s
 
 ## Sitios útiles (coordenadas de parcela)
 
-- Granero (0,0)-(30,30), centro (15,15). Casa (15,-15). Mercader: puesto (41,-13), ovni (45,-15).
+- Granero (0,0)-(30,30), centro (15,15). Mercader: puesto (41,-13), ovni (45,-15).
 - Trigo (105,15), tomates (105,45), calabazas (75,15), maíz (45,15).
-- Vacas (-15,-15), ovejas (75,-15), gallinas (-15,15).
+- Vacas (-15,-15), ovejas (75,-15), gallinas (-15,15), cerdos (15,-15; donde estaba la casa), laguna de peces (15,45).
 
 ## Ejemplos
 

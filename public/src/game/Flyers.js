@@ -32,6 +32,7 @@ export class Flyers {
 
     // Fuera de la escena y sus materiales liberados (con su rayo y lo que se llevaba)
     drop(fl) {
+        fl.left = true;
         this.root.remove(fl.model.root);
         for (const m of fl.model.materials) m.dispose();
         this.endBeam(fl);
@@ -110,7 +111,10 @@ export class Flyers {
             const C = CROPS[sn.crop] || CROPS.wheat;
             sn.particles.burst(p.x, p.y, p.z, 50, C.burst, { speed: 4, up: 2, size: 0.1, ttl: 1 });
             _v.copy(p).project(sn.camera);
-            for (const s of fl.loot) if (sn.hooks.onHit) sn.hooks.onHit(s, _v.x, _v.y);
+            for (const s of fl.loot) {
+                s.gone = false; // (el animal vuelve a su prado, ya sin lo suyo)
+                if (sn.hooks.onHit) sn.hooks.onHit(s, _v.x, _v.y);
+            }
             fl.loot = [];
             for (const c of fl.cubes) this.root.remove(c.mesh);
             fl.cubes = [];

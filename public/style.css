@@ -13,13 +13,11 @@
     --wood-dark: #6a4524;
     --cream: #fff3d6;
     --barn: #c8402e;
-    --olive: #8a9a3a;
     --cyan: #6fc8e8;
     --pink: #c8402e;
     --yellow: #ffcc33;
     --orange: #e8902a;
     --purple: #6a4524;
-    --sea: #9fdcff;
     --font: 'Press Start 2P', ui-monospace, monospace;
     --safe-top: max(10px, env(safe-area-inset-top));
 }
@@ -68,28 +66,6 @@ html, body {
         repeating-conic-gradient(rgba(42, 26, 14, .28) 0 25%, transparent 0 50%) 0 0 / 6px 6px;
 }
 
-.logo {
-    margin: 0;
-    font-size: clamp(26px, 9.2vw, 72px);
-    letter-spacing: 2px;
-    line-height: 1;
-}
-.logo .word { display: block; white-space: nowrap; }
-.logo .ch {
-    display: inline-block;
-    text-shadow:
-        0 5px 0 var(--ink), 0 10px 0 var(--ink),
-        4px 0 0 var(--ink), -4px 0 0 var(--ink), 0 -4px 0 var(--ink);
-    animation: hop 1.6s steps(6) infinite;
-}
-.logo .ch:nth-child(7n+1) { color: var(--yellow); animation-delay: 0s; }
-.logo .ch:nth-child(7n+2) { color: var(--pink); animation-delay: .1s; }
-.logo .ch:nth-child(7n+3) { color: var(--cyan); animation-delay: .2s; }
-.logo .ch:nth-child(7n+4) { color: var(--orange); animation-delay: .3s; }
-.logo .ch:nth-child(7n+5) { color: #b6ff5c; animation-delay: .4s; }
-.logo .ch:nth-child(7n+6) { color: var(--purple); animation-delay: .5s; }
-.logo .ch:nth-child(7n+7) { color: var(--yellow); animation-delay: .6s; }
-
 @keyframes hop {
     0%, 60%, 100% { transform: translateY(0); }
     30% { transform: translateY(-10px) rotate(-4deg); }
@@ -106,7 +82,6 @@ html, body {
     box-shadow: 4px 4px 0 var(--ink);
 }
 .tag:empty { display: none; }
-
 
 .btn {
     font-family: var(--font);
@@ -135,12 +110,6 @@ html, body {
         4px 0 0 var(--ink), -4px 0 0 var(--ink), 0 -4px 0 var(--ink);
     animation: hop 1.2s steps(6) infinite;
 }
-.end-title.lose {
-    color: var(--pink);
-    text-shadow:
-        0 5px 0 var(--purple), 0 10px 0 var(--ink),
-        4px 0 0 var(--ink), -4px 0 0 var(--ink), 0 -4px 0 var(--ink);
-}
 /* Monedas de oro */
 .coin {
     display: inline-block;
@@ -166,25 +135,6 @@ html, body {
 }
 .coins-badge.static { position: static; }
 .coins-badge .coin { width: 16px; height: 16px; }
-.spark {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 28px;
-    height: 28px;
-    margin: -14px 0 0 -14px;
-    background: var(--px-spark-a) center / 100% 100% no-repeat;
-    image-rendering: pixelated;
-    transform: translate(var(--x, 0), var(--y, 0));
-    animation: sparkBlink .5s steps(1) infinite;
-}
-.reward .spark { animation: sparkBlink .5s steps(1) infinite, sparkIn .45s steps(3) both; }
-@keyframes sparkBlink {
-    0% { background-image: var(--px-spark-a); }
-    50% { background-image: var(--px-spark-b); }
-    75% { opacity: 0; }
-}
-@keyframes sparkIn { from { transform: translate(0, 0); opacity: 0; } }
 .coin-counter {
     position: fixed;
     left: 50%;
@@ -197,33 +147,6 @@ html, body {
     0% { transform: translateX(-50%) scale(1.4); background: #fff; }
     33% { transform: translateX(-50%) scale(1.2); }
     66%, 100% { transform: translateX(-50%) scale(1); }
-}
-/* ---------- AVISOS (monedas, logros) ---------- */
-.toast {
-    position: fixed;
-    left: 50%;
-    top: calc(max(10px, env(safe-area-inset-top)) + 104px);
-    z-index: 30;
-    transform: translate(-50%, -20px);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
-    font-size: 11px;
-    color: var(--ink);
-    background: #fff;
-    border: 3px solid var(--ink);
-    box-shadow: 0 5px 0 var(--ink);
-    white-space: nowrap;
-    opacity: 0;
-    pointer-events: none;
-}
-.toast.show { animation: toastIn 2.6s ease forwards; }
-.toast.trophy-toast { background: var(--yellow); }
-@keyframes toastIn {
-    0% { opacity: 0; transform: translate(-50%, -20px); }
-    10%, 85% { opacity: 1; transform: translate(-50%, 0); }
-    100% { opacity: 0; transform: translate(-50%, -10px); }
 }
 /* ---------- AJUSTES ---------- */
 .corner-btn {
@@ -270,7 +193,6 @@ html, body {
 .set-col { display: flex; flex-direction: column; gap: 12px; width: min(270px, 100%); }
 .set-col .set-btn { width: 100%; font-size: 11px; }
 .set-col .btn-danger, .debug-box .btn-danger { margin-top: 0; font-size: 9px; }
-/* Caja de depuración: borde discontinuo, para que se vea que no es del juego */
 /* Las dos tablas una al lado de la otra (en el móvil, una debajo de otra) */
 .debug-cols { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 12px; width: 100%; }
 .debug-box-title { font-size: 11px; color: var(--yellow); }
@@ -313,40 +235,6 @@ html, body {
 /* Volver: el botón que manda en esta pantalla */
 .home-btn { display: flex; align-items: center; justify-content: center; gap: 12px; width: min(270px, 100%); font-size: 18px; padding: 14px 16px; }
 .home-icon { width: 26px; height: 24px; background: var(--px-home) center / contain no-repeat; image-rendering: pixelated; }
-.set-foot {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: calc(max(14px, env(safe-area-inset-bottom)) + 4px);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 10px;
-}
-.set-foot .toggle.mini { font-size: 8px; padding: 8px 10px; box-shadow: 0 4px 0 var(--ink); }
-.set-foot .toggle.mini.off { text-decoration: none; }
-.set-foot .btn-danger { margin-top: 0; font-size: 8px; padding: 8px 10px; }
-
-/* ---------- PAUSA ---------- */
-.pause-btn {
-    position: absolute;
-    top: var(--safe-top);
-    left: 50%;
-    transform: translateX(-50%);
-    width: 44px;
-    height: 44px;
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    justify-content: center;
-    background: var(--ink);
-    border: 3px solid #fff;
-    box-shadow: 0 4px 0 rgba(42, 26, 14, .45);
-    cursor: pointer;
-    pointer-events: auto;
-}
-.pause-btn span { width: 7px; height: 18px; background: #fff; }
-.pause-btn:active { transform: translateX(-50%) translateY(3px); }
 
 .toggles { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
 .toggle {
@@ -502,26 +390,8 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
 }
 .loader.done { animation: ldOut .45s steps(4) forwards; }
 @keyframes ldOut { to { opacity: 0; visibility: hidden; } }
-.ld-logo { font-size: clamp(26px, 9vw, 44px); white-space: nowrap; }
-.ld-logo span {
-    display: inline-block;
-    color: var(--yellow);
-    text-shadow: 0 4px 0 #000, 3px 0 0 #000, -3px 0 0 #000, 0 -3px 0 #000;
-    animation: ldHop .9s steps(2) infinite;
-}
-.ld-logo span:nth-child(4n+2) { color: var(--pink); animation-delay: .15s; }
-.ld-logo span:nth-child(4n+3) { color: var(--cyan); animation-delay: .3s; }
-.ld-logo span:nth-child(4n+4) { color: var(--orange); animation-delay: .45s; }
-.ld-logo span.g { color: #a8957a; }
-@keyframes ldHop { 50% { transform: translateY(-4px); } }
 .ld-road { position: relative; width: min(260px, 70vw); padding-top: 44px; }
-.ld-rider { position: absolute; top: 0; left: 0; width: 88px; height: 44px; transform: translateX(-50%); }
-.ld-tank { width: 100%; height: 100%; animation: ldBump .2s steps(1) infinite; }
 @keyframes ldBump { 50% { transform: translateY(-2px); } }
-.ld-f2 { opacity: 0; }
-.ld-tank .ld-f1 { animation: ldWheel .2s steps(1) infinite; }
-.ld-tank .ld-f2 { animation: ldWheel .2s steps(1) infinite reverse; }
-@keyframes ldWheel { 0% { opacity: 1; } 50% { opacity: 0; } }
 .ld-bar {
     height: 18px;
     border: 4px solid #fff;
@@ -589,11 +459,6 @@ body.cine .daytime, body.predator .daytime { visibility: hidden; }
 .alien-ico { --ico: var(--px-alien); }
 .merchant-ico { --ico: var(--px-merchant); }
 .home-ico { --ico: var(--px-home); }
-.alarm-ico { --ico: var(--px-alarm); }
-/* Monedas alienígenas: insignia verde */
-.alien-badge { background: #7dff4a; }
-.alien-badge.hidden, .farm-items .alien-badge.hidden { display: none; }
-.snipe-alien { position: absolute; left: 14px; top: calc(var(--safe-top) + 58px); font-size: 12px; padding: 5px 9px 5px 6px; }
 
 /* Cinemática: bandas negras y nada de interfaz encima */
 .letterbox { position: fixed; inset: 0; z-index: 30; pointer-events: none; }
@@ -687,7 +552,6 @@ body.cine .farm-ui, body.cine .bubbles { visibility: hidden; }
 .ufo-shop.in { animation: shopIn .3s steps(3) both; }
 @keyframes shopIn { from { transform: translate(-50%, 60px); } }
 .ufo-head { position: relative; display: flex; align-items: center; gap: 10px; padding-right: 34px; }
-.ufo-portrait { flex: none; width: 60px; height: 44px; background: var(--px-ufo-alien) center / 100% 100% no-repeat; image-rendering: pixelated; animation: hop 1.2s steps(4) infinite; }
 .ufo-talk { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 6px 8px; font-size: 7px; line-height: 1.6; color: var(--ink); background: #d8ffb0; border: 3px solid var(--ink); }
 .ufo-talk b { font-size: 9px; font-weight: normal; color: #2f6a1a; }
 .ufo-talk.warn { animation: ksWarn .6s steps(2) 2; }
@@ -797,7 +661,6 @@ body.cine .farm-ui, body.cine .bubbles { visibility: hidden; }
 .arrow-btn.prev .key-cap { right: auto; left: -10px; }
 @media (hover: none) { .key-cap { display: none; } }
 
-
 /* +1 que salta donde le das y el haz que vuela al contador */
 .pop-plus {
     position: fixed;
@@ -833,7 +696,7 @@ body.cine .farm-ui, body.cine .bubbles { visibility: hidden; }
 }
 
 /* Pantalla de carga: haz de trigo saltando sobre la barra */
-.ld-logo { text-align: center; line-height: 1.5; white-space: normal; }
+
 .ld-sheaf { position: absolute; top: 0; left: 0; width: 36px; height: 40px; transform: translateX(-50%); image-rendering: pixelated; animation: ldBump .3s steps(1) infinite; }
 .hint {
     position: absolute;
@@ -1069,78 +932,15 @@ body.unlocking .arrow-btn, body.unlocking .corners, body.unlocking .left-badge {
 
 /* Granero: menú de rachas de bajas. Tarjetas con icono, bajas que piden y si están equipadas */
 .streaks-screen { gap: 14px; }
-.ks-pick-info { font-size: 9px; color: #c8b89a; }
-.ks-pick-info.warn { animation: ksWarn .6s steps(2) 2; }
 @keyframes ksWarn { 50% { color: #ff6a4a; transform: scale(1.15); } }
-.ks-cards { display: flex; flex-direction: column; gap: 10px; width: min(330px, 100%); }
-.ks-card {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px;
-    font-family: var(--font);
-    text-align: left;
-    color: var(--ink);
-    background: var(--cream);
-    border: 3px solid var(--ink);
-    box-shadow: 0 5px 0 var(--ink), inset 0 -4px 0 #e6d6b4;
-    cursor: pointer;
-}
-.ks-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--ink); }
-.ks-card.on { background: var(--yellow); box-shadow: 0 5px 0 var(--ink), inset 0 -4px 0 #e8a82a; }
-.ks-card.full { opacity: .55; }
-.ks-card.locked { opacity: .5; filter: grayscale(1); }
-.ks-card.locked em { background: var(--ink); }
 /* Pestaña RACHAS: dos paneles iguales (granadas a la izquierda, alienígena a la derecha), cada
    uno con su cabecera de color y tres fichas del mismo tamaño. La ficha tocada queda marcada
    (amarilla, más gruesa y levantada) y su detalle sale debajo, a todo lo ancho */
-#ks-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: min(560px, 100%); }
-.ks-col { display: grid; grid-template-rows: auto repeat(3, 84px); gap: 8px; min-width: 0; padding: 0 0 10px; background: rgba(255, 243, 214, .06); border: 3px solid var(--track); --track: var(--yellow); }
-.ks-col-alien { --track: #7dff4a; }
-.ks-track { display: flex; flex-direction: column; gap: 5px; height: 60px; overflow: hidden; padding: 7px 8px 8px; text-align: left; background: var(--track); }
-.ks-track b { font-size: 9px; font-weight: normal; color: var(--ink); }
-.ks-track span { font-size: 6px; line-height: 1.6; color: rgba(42, 26, 14, .75); }
-.kc {
-    position: relative;
-    display: grid;
-    grid-template-columns: 40px 1fr;
-    grid-template-rows: 1fr auto;
-    align-items: center;
-    gap: 2px 8px;
-    margin: 0 8px;
-    padding: 8px;
-    font-family: var(--font);
-    text-align: left;
-    color: var(--ink);
-    background: var(--cream);
-    border: 3px solid var(--ink);
-    box-shadow: 0 4px 0 var(--ink);
-    cursor: pointer;
-}
-.kc:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--ink); }
-.kc .ks-ico { width: 40px; height: 40px; grid-row: 1; }
 .kc-n { justify-self: end; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
 .kc-n b { font-size: 18px; font-weight: normal; line-height: 1; color: var(--barn); }
 .kc-n small { font-size: 6px; color: #8a6a4a; }
 .kc-name { grid-column: 1 / -1; font-size: 8px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.kc.sel { background: var(--yellow); border-color: var(--ink); box-shadow: 0 4px 0 var(--ink), inset 0 0 0 3px #fff; transform: translateY(-2px); }
-.kc.sel::before { content: ''; position: absolute; left: -11px; top: 50%; margin-top: -6px; border: 6px solid transparent; border-left-color: var(--track); }
-.ks-col-alien .kc.sel { background: #b8ff8a; }
-/* Detalle de la ficha marcada */
-.ks-detail { display: flex; align-items: center; gap: 12px; width: min(560px, 100%); padding: 10px 12px; text-align: left; color: var(--ink); background: var(--cream); border: 3px solid var(--ink); box-shadow: 0 4px 0 var(--ink), inset 0 0 0 3px var(--kd, var(--yellow)); }
-.ks-detail .ks-ico { width: 48px; height: 48px; }
-.kd-text { flex: 1; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-.kd-text b { font-size: 10px; font-weight: normal; line-height: 1.3; }
-.kd-text span { font-size: 8px; color: var(--barn); }
-.kd-text small { font-size: 7px; line-height: 1.6; color: #6a5440; }
-.ks-detail em { flex: none; align-self: flex-start; font-style: normal; font-size: 7px; padding: 5px 6px; color: #fff; background: #17d65a; border: 2px solid var(--ink); text-shadow: 1px 1px 0 var(--ink); }
-/* Granero en el menú: su nivel y la mejora */
-.barn-box { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: min(330px, 100%); padding: 8px 10px; background: rgba(255, 243, 214, .1); border: 3px solid #a8957a; }
-.barn-head { display: flex; flex-direction: column; gap: 5px; text-align: left; }
-.barn-head b { font-size: 10px; font-weight: normal; color: var(--yellow); }
-.barn-head span { font-size: 7px; line-height: 1.5; color: #c8b89a; }
-.barn-box .upgrade-btn.hidden { display: none; }
-/* Piezas del nivel del granero en su cartel */
+/* Cartel de la casa */
 .house-sign { --sign: #d98a3a; }
 .armory-sign .pips, .house-sign .pips { display: flex; gap: 2px; }
 .house-sign .pip { width: 6px; height: 8px; background: rgba(0, 0, 0, .35); border: 1px solid var(--ink); }
@@ -1148,56 +948,15 @@ body.unlocking .arrow-btn, body.unlocking .corners, body.unlocking .left-badge {
 .armory-sign .pip { width: 6px; height: 8px; background: rgba(0, 0, 0, .35); border: 1px solid var(--ink); }
 .armory-sign .pip.on { background: var(--yellow); }
 .ks-ico { flex: none; width: 40px; height: 40px; background: var(--ico) center / 100% 100% no-repeat; image-rendering: pixelated; }
-.ks-info { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-.ks-info b { font-size: 10px; font-weight: normal; }
-.ks-kills { font-size: 9px; color: var(--barn); }
-.ks-info small { font-size: 7px; line-height: 1.5; color: #6a5440; }
-.ks-card em { flex: none; font-style: normal; font-size: 7px; padding: 5px 6px; color: #fff; background: #a8957a; border: 2px solid var(--ink); }
-.ks-card.on em { background: #17d65a; text-shadow: 1px 1px 0 var(--ink); }
-
-/* Pestañas del granero: RACHAS y RIFLE */
-.barn-tabs { display: flex; gap: 8px; width: min(330px, 100%); }
-.barn-tab { flex: 1; padding: 8px 6px; font-family: var(--font); font-size: 10px; color: var(--cream); background: transparent; border: 3px solid #a8957a; cursor: pointer; }
-.barn-tab.on { color: var(--ink); background: var(--yellow); border-color: var(--ink); box-shadow: 0 3px 0 var(--ink); }
-.barn-page { display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%; }
-.barn-page.hidden { display: none; }
-/* Mejora del rifle: icono, nombre con sus piezas, lo que hace, ahora → siguiente y el botón */
-/* Todo el menú del granero al mismo ancho; las fichas del rifle, todas de la misma altura */
-.barn-box, .barn-tabs, #rf-cards { width: min(560px, 100%); }
-#rf-cards .rf-card { height: 96px; }
-.rf-card { cursor: default; }
-.rf-card:active { transform: none; box-shadow: 0 5px 0 var(--ink), inset 0 -4px 0 #e6d6b4; }
-.rf-card .pips { display: flex; gap: 2px; }
-.rf-card .pip { width: 7px; height: 9px; background: #d6c6a4; border: 1px solid var(--ink); }
-.rf-card .pip.on { background: #17d65a; }
-.rf-name { display: flex; align-items: center; gap: 8px; }
-.rf-val { font-size: 8px; color: var(--barn); }
-.rf-card .upgrade-btn { flex: none; flex-direction: column; gap: 5px; padding: 7px 8px; font-size: 8px; }
-.rf-card .upgrade-cost { padding: 2px 4px; border-width: 2px; }
-.rf-card .upgrade-cost .ico { width: 11px; height: 12px; }
-.rf-card .upgrade-btn.maxed { background: #a8957a; }
-.rf-card.bump { animation: badgeBump .4s steps(1); }
 
 /* Armería: una fila por pieza (mirilla, rifle, cargador), cada una un carrusel horizontal que se
    centra en la ficha (la montada, marcada en amarillo) */
 .gear-gold { display: flex; align-items: center; justify-content: space-between; width: min(560px, 100%); font-size: 8px; color: #c8b89a; }
 .gear-gold .coins-badge { font-size: 11px; }
 .gear-rows { display: flex; flex-direction: column; gap: 12px; width: min(560px, 100%); }
-/* El maletín: espuma gris con puntitos, cantos de aluminio y huecos recortados con la pieza dentro */
-.gear-case { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; width: min(560px, 100%); box-sizing: border-box; padding: 16px 14px 14px; background: #3a3a42 radial-gradient(#33333a 2px, transparent 2px) 0 0 / 10px 10px; border: 8px solid #9aa0a8; border-radius: 10px; box-shadow: 0 8px 0 var(--ink), inset 0 0 0 3px #0a0a0c; }
-.case-slot { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 0; font-family: var(--font); font-size: 8px; color: #c8c8d0; background: none; border: 0; cursor: pointer; }
-.case-rifle { grid-column: 1 / -1; }
-.case-slot .cut { display: flex; align-items: center; justify-content: center; width: 100%; height: 54px; background: #18181c; border: 3px solid #0a0a0c; box-shadow: inset 4px 4px 0 #000; }
-.case-rifle .cut { height: 66px; }
-.case-slot img { height: 100%; image-rendering: pixelated; }
-.case-slot.on .cut { outline: 4px solid var(--yellow); outline-offset: 3px; }
-.case-slot.on b { color: var(--ink); background: var(--yellow); }
-.case-slot b { font-weight: normal; padding: 4px 6px; border: 2px solid #0a0a0c; background: #2a2a30; }
 /* Las piezas de la que se cambia: en fila; las que no tienes, como huecos vacíos (silueta) */
 .gear-row { display: flex; flex-direction: column; gap: 6px; }
 .gear-row.hidden { display: none; }
-.gear-title { display: flex; justify-content: space-between; font-size: 10px; color: var(--yellow); text-align: left; }
-.gear-title span { color: #c8b89a; font-size: 8px; }
 .gear-strip { display: flex; flex-direction: column; gap: 8px; }
 .gear { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: center; column-gap: 10px; row-gap: 4px; padding: 8px; font-family: var(--font); color: #e8e8f0; text-align: left; background: #2a2a30; border: 3px solid #0a0a0c; box-shadow: 0 4px 0 #0a0a0c; cursor: pointer; }
 .gear:active { transform: translateY(2px); box-shadow: 0 2px 0 #0a0a0c; }
@@ -1582,8 +1341,6 @@ body.cine .aim-btn { display: none !important; }
 .lo-ks .ks-ico { width: 32px; height: 32px; }
 .lo-ks { grid-template-columns: 32px 1fr; padding: 10px 8px; }
 .lo-class { min-height: 44px; justify-content: center; }
-
-/* Girar la vista 90°: encima de MAPA, con una flecha curva hecha a cuadritos */
 
 /* ---------- Torreta sin munición ----------
    En su cartel, el icono de la torreta parpadea en rojo; en el panel, el botón RECARGAR en rojo */

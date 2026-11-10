@@ -8,7 +8,7 @@ const INK = '#2a1a0e';
 // garabateado con rotulador. Muy falsa, pero es la moneda oficial.
 const CARD = { edge: '#8a5a2e', dark: '#a8763e', base: '#c8955a', paint: '#ffd23f', paint2: '#f2b830', pen: '#6a3a1a' };
 // size: lado del sprite en píxeles; half: media anchura (para la moneda girando: de frente = size/2 - 1)
-export function drawCoin(ctx, half, S = 16) {
+function drawCoin(ctx, half, S = 16) {
     const c = (S - 1) / 2, ry = S / 2 - 0.1, rx = Math.min(ry, half + 0.9);
     ctx.clearRect(0, 0, S, S);
     // Recortada a tijera: el radio sube y baja un poco con el ángulo
@@ -39,123 +39,12 @@ export function drawCoin(ctx, half, S = 16) {
         ctx.fillRect(x, y, 1, 1);
     }
 }
-export const COIN_SPIN = [7, 6, 4, 1, 4, 6];
 
 const SPRITES = {
-    trophy: {
-        rows: [
-            '.KKKKKKKKKK.',
-            'KK.KYYYYYK.K',
-            'K..KWYYYOK.K',
-            'K..KWYYYOK.K',
-            '.K.KYYYYOK.K',
-            '..KKYYYOOKK.',
-            '....KYYOK...',
-            '.....KOK....',
-            '.....KOK....',
-            '....KYYOK...',
-            '...KKKKKKK..',
-            '...KOOOOOK..',
-            '...KKKKKKK..',
-        ],
-        pal: { K: INK, Y: '#ffd23f', O: '#e6a400', W: '#fff4b0' },
-    },
-    starOn: {
-        rows: ['.....K.....', '....KYK....', '....KYK....', 'KKKKKWYKKKK', 'KYYYYWYYYYK', '.KYYYYYYYK.', '..KYYYYYK..',
-            '..KYYKYYK..', '.KYYK.KYYK.', '.KYK...KYK.', '.KK.....KK.'],
-        pal: { K: INK, Y: '#ffd23f', W: '#fff4b0' },
-    },
-    starOff: {
-        rows: ['.....K.....', '....KYK....', '....KYK....', 'KKKKKYYKKKK', 'KYYYYYYYYYK', '.KYYYYYYYK.', '..KYYYYYK..',
-            '..KYYKYYK..', '.KYYK.KYYK.', '.KYK...KYK.', '.KK.....KK.'],
-        pal: { K: INK, Y: '#3b2d6b' },
-    },
-    skull: {
-        rows: ['..KKKKKKKK..', '.KWWWWWWWWK.', 'KWWWWWWWWWWK', 'KWRRKWWKRRWK', 'KWRRKWWKRRWK', 'KWWWWKKWWWWK',
-            '.KWWWWWWWWK.', '..KWKWKWKK..', '..KWKWKWKK..', '...KKKKKK...'],
-        pal: { K: INK, W: '#ffffff', R: '#ff1a3a' },
-    },
-    // Casita del botón de volver (Ajustes)
     // La casa: tejado rojo con sus tejas, chimenea, ventana encendida y la puerta
     home: {
         rows: ['.....KK.....', '....KRRK.KK.', '...KRRRRKSK.', '..KRRDRRRKK.', '.KRRRRRDRRK.', 'KRDRRRRRRRRK', 'KKKKKKKKKKKK', '.KWWWWWWWWK.', '.KWKKKWKKKK.', '.KWKYKWKNNK.', '.KWKKKWKNNK.', 'KKKKKKKKKKKK'],
         pal: { K: INK, R: '#e8452e', D: '#b8321e', S: '#9a948c', W: '#fff3d6', Y: '#ffd23f', N: '#a8642e' },
-    },
-    // Mejoras de supervivencia (vida, recarga, daño, velocidad)
-    upHeart: {
-        rows: ['............', '..KK....KK..', '.KRRK..KRRK.', 'KRWRRKKRRRRK', 'KRWRRRRRRRRK', 'KRRRRRRRRRRK', '.KRRRRRRRRK.', '..KRRRRRRK..', '...KRRRRK...', '....KRRK....', '.....KK.....', '............'],
-        pal: { K: INK, R: '#ff3e5e', W: '#ffd0d8' },
-    },
-    upReload: {
-        rows: ['............', '.KK..KK..KK.', 'KYYKKYYKKYYK', 'KYYKKYYKKYYK', 'KOOKKOOKKOOK', 'KOOKKOOKKOOK', 'KOOKKOOKKOOK', 'KKKKKKKKKKKK', '........K...', 'KKKKKKKKWK..', 'KWWWWWWWWWK.', 'KKKKKKKKWK..'],
-        pal: { K: INK, Y: '#ffd23f', O: '#e6a400', W: '#ffffff' },
-    },
-    upDamage: {
-        rows: ['.....K......', '....KOK.....', '....KOOK.K..', '...KOOYOKOK.', '..KOOYYOOOK.', '.KOOYYWYOOK.', '.KOYYWWYYOK.', '.KOYYWWYYOK.', '.KOOYYYYOOK.', '..KOOOOOOK..', '...KKKKKK...', '............'],
-        pal: { K: INK, O: '#ff6a00', Y: '#ffd23f', W: '#ffffff' },
-    },
-    upShield: {
-        rows: ['..KKKKKKKK..', '.KBBBBBBBBK.', '.KBWWBBBBBK.', '.KBWBBBBBBK.', '.KBBBBBBBBK.', '.KBBBBBBBBK.', '..KBBBBBBK..', '..KBBBBBBK..', '...KBBBBK...', '....KBBK....', '.....KK.....', '............'],
-        pal: { K: INK, B: '#6ff6ff', W: '#ffffff' },
-    },
-    upMagnet: {
-        rows: ['............', '.KKKK..KKKK.', '.KRRK..KBBK.', '.KRRK..KBBK.', '.KRRK..KBBK.', '.KRRK..KBBK.', '.KRRKKKKBBK.', '.KRRRRRRRRK.', '..KRRRRRRK..', '...KKKKKK...', '.W.......W..', '..W.....W...'],
-        pal: { K: INK, R: '#ff3e5e', B: '#d0dcff', W: '#ffe03a' },
-    },
-    upSpeed: {
-        rows: ['............', '.KK...KK....', '.KCK..KCK...', '..KCK..KCK..', '...KCK..KCK.', '....KCK..KCK', '....KCK..KCK', '...KCK..KCK.', '..KCK..KCK..', '.KCK..KCK...', '.KK...KK....', '............'],
-        pal: { K: INK, C: '#23e0d6' },
-    },
-    // Pestañas de "Mi Tanque": gorro, pintura, estela, baile y mascota
-    tabHat: {
-        rows: ['.....KK.....', '....KWWK....', '.....KK.....', '....KPPK....', '....KYYK....', '...KPPPPK...',
-            '...KYYYYK...', '..KPPPPPPK..', '..KYYYYYYK..', '.KPPPPPPPPK.', 'KKKKKKKKKKKK', '............'],
-        pal: { K: INK, W: '#ffffff', P: '#ff3e8e', Y: '#ffe03a' },
-    },
-    tabPaint: {
-        rows: ['...KKKKKK...', '..K......K..', '.KKKKKKKKKK.', '.KPPPPPPPPK.', '.KPPPPPPPPK.', '.KKPKKKKPKK.',
-            '.KWPWWWWPLK.', '.KWPWWWWWLK.', '.KWWWWWWWLK.', '.KWWWWWWWLK.', '..KKKKKKKK..', '............'],
-        pal: { K: INK, W: '#e2dcff', L: '#b9b0d8', P: '#23e0d6' },
-    },
-    tabTrail: {
-        rows: ['............', '............', '.......KKKK.', 'PPPP..KWWYYK', '......KWYYYK', '.YYYYYKYYYYK',
-            '......KYYYOK', 'CCCC..KYYOOK', '.......KKKK.', '............', '............', '............'],
-        pal: { K: INK, W: '#fff4b0', Y: '#ffd23f', O: '#e6a400', P: '#ff3e8e', C: '#23e0d6' },
-    },
-    tabDance: {
-        rows: ['...KKKKKKKK.', '...KPPPPPPK.', '...KPKKKKPK.', '...KPK..KPK.', '...KPK..KPK.', '...KPK..KPK.',
-            '.KKKPK.KKPK.', 'KPPPPKKPPPK.', 'KPPPPKPPPPK.', 'KPPPKKPPPK..', '.KKK..KKK...', '............'],
-        pal: { K: INK, P: '#7b5cff' },
-    },
-    tabPet: {
-        rows: ['..KKK..KKK..', '..KPK..KPK..', '..KKK..KKK..', 'KKK......KKK', 'KPK.KKKK.KPK', 'KKKKPPPPKKKK',
-            '...KPPPPK...', '..KPPPPPPK..', '..KPPPPPPK..', '..KPPPPPPK..', '...KKKKKK...', '............'],
-        pal: { K: INK, P: '#ff9a1f' },
-    },
-    // Panel lateral del ordenador: bala del cargador y objetos que llevas
-    pwBullet: {
-        rows: ['..KKK...', '.KWYYK..', '.KYYYK..', '.KYYOK..', '.KYYOK..', 'KKKKKKK.', 'KOOOOOK.', 'KOOOOOK.', 'KKKKKKK.'],
-        pal: { K: INK, W: '#fff4b0', Y: '#ffd23f', O: '#e6a400' },
-    },
-    pwBounce: {
-        rows: ['...KKKKKK...', '..KPPPPPPK..', '.KPWWPPPPPK.', '.KPWPPPPPPK.', '.KPPPPPPPPK.', '.KPPPPPPPPK.', '..KPPPPPPK..', '...KKKKKK...', '............', '.K..K..K..K.', '..KK.KK.KK..', '............'],
-        pal: { K: INK, P: '#ff4fd8', W: '#ffffff' },
-    },
-    pwTriple: {
-        rows: ['.KK..KK..KK.', 'KCCKKCCKKCCK', 'KWCKKWCKKWCK', 'KCCKKCCKKCCK', 'KCCKKCCKKCCK', 'KBBKKBBKKBBK', 'KBBKKBBKKBBK', 'KKKKKKKKKKKK', '............', '.K...K...K..', 'K...K....K..', '............'],
-        pal: { K: INK, C: '#6ff6ff', W: '#ffffff', B: '#2a8bff' },
-    },
-    pwNuke: {
-        rows: ['.......KK...', '......KYK...', '....KKKK....', '...KYYYYK...', '..KYKKKKYK..', '.KYKYYYYKYK.', '.KYKYKKYKYK.', '.KYKYKKYKYK.', '.KYKYYYYKYK.', '..KYKKKKYK..', '...KYYYYK...', '....KKKK....'],
-        pal: { K: INK, Y: '#ffe600' },
-    },
-    pwRadar: {
-        rows: ['KKKKKKKKKKKK', 'KDDDDDDDDDDK', 'KDDDDGDDDDDK', 'KDDDDGDDDWDK', 'KDDDDGDDDDDK', 'KDGGGGGGGGDK', 'KDDDDGDDDDDK', 'KDWDDGDDDDDK', 'KDDDDGDDDDDK', 'KDDDDDDDDDDK', 'KKKKKKKKKKKK', '............'],
-        pal: { K: INK, D: '#0b3d22', G: '#7dff4a', W: '#ffffff' },
-    },
-    pwCloak: {
-        rows: ['...KKKKKK...', '..KLLLLLLK..', '.KLLLLLLLLK.', '.KLKKLLKKLK.', '.KLKKLLKKLK.', '.KLLLLLLLLK.', '.KLLLLLLLLK.', '.KLLLLLLLLK.', '.KLLLLLLLLK.', '.KLKLLKLLKK.', '.KK.KK.KK...', '............'],
-        pal: { K: INK, L: '#e2dcff' },
     },
     // Call of Farm Duty: haz de trigo (contador) y bala del rifle
     wheat: {
@@ -186,7 +75,6 @@ const SPRITES = {
         rows: ['...KKKK...', '..KWWWWK..', '.KWLWWWWK.', '.KWLWWWWK.', 'KWWWWWWWWK', 'KWWWWWWWWK', 'KWWWWWWCWK', 'KWWWWWWCWK', '.KWWWWCCK.', '..KKKKKK..'],
         pal: { K: INK, W: '#fff6e6', L: '#ffffff', C: '#e8d8b8' },
     },
-    // Ovillo de lana: la bola con sus vueltas de hilo y la hebra suelta
     // Pez: plateado con el vientre claro, su ojo y la cola
     fish: {
         rows: ['..........', '....KKK...', '..KKBBBK.K', '.KBWBBBBKB', 'KBBBBBBBBK', 'KWWWWWWBKB', '.KWWWWWK.K', '..KKKKK...', '..........', '..........'],
@@ -197,6 +85,7 @@ const SPRITES = {
         rows: ['..........', '...KKKK...', '..KDTDDK..', '.KDDTDTDK.', 'KDTDDDDTDK', 'KDDDTDDDDK', 'KDTDDDTDDK', '.KDDTDDDK.', '..KKKKKK..', '..........'],
         pal: { K: '#1e120a', D: '#5a3a22', T: '#8a6040' },
     },
+    // Ovillo de lana: la bola con sus vueltas de hilo y la hebra suelta
     wool: {
         rows: ['...KKKK...', '..KWWWWK..', '.KWCCWWCK.', 'KWWWCWCWWK', 'KWCWWCWWWK', 'KCWWCWWCWK', 'KWWCWWCWWK', '.KWWCCWWK.', '..KKKKKKK.', '........KK'],
         pal: { K: INK, W: '#fffdf6', C: '#d8cbb0' },
@@ -254,15 +143,6 @@ const SPRITES = {
         rows: ['..KKKK..', '.KWKKWK.', '.KK..KK.', 'KKKKKKKK', 'KYYYYYYK', 'KYWKKYOK', 'KYYKKYOK', 'KYYYYOOK', 'KKKKKKKK'],
         pal: { K: INK, Y: '#ffd23f', O: '#e6a400', W: '#fff4b0' },
     },
-    round: {
-        rows: ['..KK..', '.KWYK.', '.KYYK.', '.KYOK.', '.KYOK.', 'KKKKKK', 'KOOOOK', 'KOOOOK', 'KKKKKK'],
-        pal: { K: INK, W: '#fff4b0', Y: '#ffd23f', O: '#e6a400' },
-    },
-    // Mirilla del francotirador
-    reticle: {
-        rows: ['....KKKKK....', '..KKCCRCCKK..', '.KCC..R..CCK.', '.KC...R...CK.', 'KC....R....CK', 'KC.........CK', 'KRRRR.W.RRRRK', 'KC.........CK', 'KC....R....CK', '.KC...R...CK.', '.KCC..R..CCK.', '..KKCCRCCKK..', '....KKKKK....'],
-        pal: { K: INK, C: '#fff3d6', R: '#c8402e', W: '#ffffff' },
-    },
     // Rachas de bajas (menú del granero): granada, misil, bombardero y bomba nuclear
     ksGrenade: {
         rows: ['.....KKK....', '....KYYK.KK.', '...KKKKKKOK.', '..KGGGGGGK..', '.KGLGGGGGGK.', '.KGLGGGGGGK.', '.KGGGGGGGGK.', '.KDDDDDDDDK.', '.KGGGGGGGGK.', '.KGGGGGGGDK.', '..KGGGGGDK..', '...KKKKKK...'],
@@ -288,27 +168,10 @@ const SPRITES = {
         rows: ['..KKKKKKKK..', '.KOOYYYYOOK.', 'KOYYWWWYYYOK', 'KOOYYYYYYOOK', '.KKKOYYOKKK.', '....KYYK....', '....KOYK....', '....KYOK....', '...KOYYOK...', '.KKOOYYOOKK.', 'KOOOOOOOOOOK', 'KKKKKKKKKKKK'],
         pal: { K: INK, Y: '#ffd23f', O: '#ff9a1f', W: '#fff4b0' },
     },
-    // Mejoras del rifle (menú del granero): mira, estabilidad (nivel de burbuja) y cerrojo (balas)
-    rfZoom: {
-        rows: ['...KKKKKK...', '..KBBBRBBK..', '.KBBBBRBBWK.', 'KBBBBBRBBBBK', 'KBBBBBRBBBBK', 'KRRRRR.RRRRK', 'KBBBBBRBBBBK', 'KBBBBBRBBBBK', '.KBBBBRBBBK.', '..KBBBRBBK..', '...KKKKKK...', '............'],
-        pal: { K: INK, B: '#6ab0e0', R: '#c8402e', W: '#e8f6ff' },
-    },
-    rfSteady: {
-        rows: ['............', '............', '............', 'KKKKKKKKKKKK', 'KGGGKWWKGGGK', 'KGGGKWWKGGGK', 'KDDDKDDKDDDK', 'KKKKKKKKKKKK', '..KMMMMMMK..', '..KKKKKKKK..', '............', '............'],
-        pal: { K: INK, G: '#9ad84a', W: '#ffffff', D: '#5a9e32', M: '#a8957a' },
-    },
-    rfBolt: {
-        rows: ['.K...K...K..', 'KCK.KCK.KCK.', 'KCK.KCK.KCK.', 'KKK.KKK.KKK.', 'KYK.KYK.KYK.', 'KYK.KYK.KYK.', 'KYK.KYK.KYK.', 'KYK.KYK.KYK.', 'KYK.KYK.KYK.', 'KDK.KDK.KDK.', 'KKK.KKK.KKK.', '............'],
-        pal: { K: INK, C: '#c87a3a', Y: '#ffd23f', D: '#c89a2a' },
-    },
-    // El ovni: moneda alienígena, luz de alarma del cartel y el alienígena en su nave (tienda)
+    // Lo alienígena: su cara (racha alienígena) y el alienígena en su nave (tienda de la casa)
     alien: {
         rows: ['..KKKKKK..', '.KGGGGGGK.', 'KGWGGGGGGK', 'KGKKGGKKGK', 'KGKKGGKKGK', 'KGGGGGGGGK', 'KGGGKKGGGK', '.KGGGGGGK.', '..KKKKKK..'],
         pal: { K: INK, G: '#7dff4a', W: '#d8ffb0' },
-    },
-    alarm: {
-        rows: ['...KKKK...', '..KRRWRK..', '.KRRRWRRK.', '.KRRRRRRK.', '.KRRRRRRK.', 'KKKKKKKKKK', 'KGGGGGGGGK', 'KKKKKKKKKK'],
-        pal: { K: INK, R: '#ff2a1a', W: '#ffd0c0', G: '#9aa8b8' },
     },
     ufoAlien: {
         rows: ['.....KKKKK.....', '....KCCCCCK....', '...KCCGGGCCK...', '...KCGKGKGCK...', '...KCGGGGGCK...', '..KKKKKKKKKKK..', '.KMMMMMMMMMMMK.', 'KMYMMRMMYMMRMMK', '.KMMMMMMMMMMMK.', '..KKDDDDDDDKK..', '....KK...KK....'],
@@ -343,7 +206,7 @@ function spriteUrl({ rows, pal }) {
     return `url(${cv.toDataURL()})`;
 }
 
-// Deja los sprites como variables CSS (--px-coin, --px-trophy...) para usarlos en el CSS.
+// Deja los sprites como variables CSS (--px-coin, --px-wheat...) para usarlos en el CSS.
 export function installPixelSprites() {
     const root = document.documentElement.style;
     const cv = Object.assign(document.createElement('canvas'), { width: 16, height: 16 });

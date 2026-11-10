@@ -25,7 +25,7 @@ module.exports = defineConfig({
         hasTouch: true,
         locale: 'es-ES',
         serviceWorkers: 'block',
-        // WebGL por software: funciona igual en una máquina sin tarjeta gráfica
+        // Con GPU (el Mac), el Chromium de Playwright con Metal; sin ella, WebGL por software (GL_ARGS)
         // PW_CHROMIUM: navegador ya instalado en la máquina (si no coincide con la versión de Playwright)
         ...(GPU ? { channel: 'chromium' } : {}),
         launchOptions: { executablePath: process.env.PW_CHROMIUM || undefined, args: GL_ARGS },

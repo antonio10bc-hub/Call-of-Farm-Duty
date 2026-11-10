@@ -5,7 +5,7 @@
 //   --at nombre:x,z   cámara sobre (x, z) en coordenadas de parcela (se repite: una captura por cada una)
 //   --zoom n          zoom de la cámara (0.6 cerca, 1 normal, 2 lejos)        [1]
 //   --map             vista MAPA (todo el valle)
-//   --unlock a,b      desbloquea esos campos (wheat, tomato, pumpkin, corn, milk, wool, egg)
+//   --unlock a,b      desbloquea esos campos (wheat, tomato, pumpkin, corn, milk, wool, egg, truffle, fish)
 //   --level n         pone esos campos a ese nivel (0-4)
 //   --merchant        el mercader aquí (espera a que monte el puesto)
 //   --trust n         confianza del mercader (puntos: 0, 4, 10, 20, 35 = niveles 1-5)

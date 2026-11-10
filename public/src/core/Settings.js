@@ -1,9 +1,6 @@
-// Preferencias del jugador (música, sonido, vibración, estadísticas anónimas, tamaño de interfaz). Se guardan en el navegador;
+// Preferencias del jugador (música, sonido, vibración) y ajustes de depuración. Se guardan en el navegador;
 // si el almacenamiento no está disponible, simplemente no se recuerdan.
 const KEY = 'cofd.settings';
-// analytics: null mientras no ha contestado al aviso; true/false después
-// uiSize: tamaño de la interfaz en el ordenador ('small' | 'normal' | 'large')
-// pixel: tamaño del píxel del juego en el ordenador ('big' | 'normal' | 'fine'; fino por defecto)
 // freeCosts: depuración, las mejoras de campos y granero cuestan 0
 // freeHome: depuración, las de la casa y lo de la tienda del ovni cuestan 0
 // streaks: depuración, bajas que pide cada racha ({ grenade: 5, ... }; null = las normales)
@@ -14,7 +11,7 @@ const KEY = 'cofd.settings';
 // startWonder: depuración, se empieza el campo de tiro con esa arma de la caja (null = el fusil)
 // cowsFull: depuración, las vacas salen con la ubre llena (gigantes y botando)
 // noAliens: depuración, sin alienígenas a pie ni ovnis en el campo de tiro
-const DEFAULTS = { music: true, sfx: true, vibration: true, analytics: null, uiSize: 'normal', pixel: 'fine', freeCosts: false, freeHome: false, streaks: null, daytime: null, merchant: null, boxFast: false, boxPick: null, startWonder: null, cowsFull: false, noAliens: false };
+const DEFAULTS = { music: true, sfx: true, vibration: true, freeCosts: false, freeHome: false, streaks: null, daytime: null, merchant: null, boxFast: false, boxPick: null, startWonder: null, cowsFull: false, noAliens: false };
 
 export const Settings = {
     ...DEFAULTS,

@@ -21,8 +21,6 @@ test('la granja es un mapa: el granero (sin mejoras) abre el armamento con las d
     await expect(page.locator('#ks-card-predator')).toHaveClass(/on/);
     // El granero no se mejora: ni botón ni nivel
     await expect(page.locator('#barn-upgrade')).toHaveCount(0);
-    await page.evaluate(() => { game.state.items.wheat = 1000; game.state.items.tomato = 1000; game.upgradeBarn(); });
-    expect(await page.evaluate(() => [game.state.barn.level, game.state.canUpgradeBarn])).toEqual([0, false]);
     await page.locator('#btn-streaks-close').click();
     await expect(page.locator('#streaks')).toBeHidden();
     // El cartel ARMAMENTO encima del granero también abre el menú

@@ -42,12 +42,6 @@ export const MERCHANT = {
     fan: { w: 3.4, open: 0.6 },
     name: L('MERCHANT', 'MERCADER'),
     lines: {
-        hello: [
-            L('GREETINGS, FELLOW HUMAN. I PAY IN GOLD.', 'SALUDOS, COMPAÑERO HUMANO. PAGO EN ORO.'),
-            L('I CAME BY CAR. A NORMAL CAR. WHAT HAVE YOU GOT?', 'HE VENIDO EN COCHE. UN COCHE NORMAL. ¿QUÉ TIENES?'),
-            L('GOLD FOR GRAIN, FRIEND. NOTHING SUSPICIOUS HERE.', 'ORO POR GRANO, AMIGO. AQUÍ NADA RARO.'),
-            L('REAL GOLD COINS. THE CARDBOARD IS... FOR PROTECTION.', 'MONEDAS DE ORO DE VERDAD. EL CARTÓN ES... PARA PROTEGERLAS.'),
-        ],
         thanks: L('A PLEASURE DOING HUMAN BUSINESS!', '¡UN PLACER HACER NEGOCIOS HUMANOS!'),
         short: L('THAT IS NOT ENOUGH, EARTHLING... I MEAN, FRIEND.', 'NO TE LLEGA, TERRÍCOLA... DIGO, AMIGO.'),
         done: L('ALL DONE! TIME TO DRIVE MY CAR HOME.', '¡TODO LISTO! ME VUELVO EN MI COCHE.'),
@@ -77,6 +71,7 @@ export class MerchantClock {
     // Que venga ya (la primera vez, tras su llamada): se queda una visita entera
     arriveNow() {
         this.until = Date.now() + MERCHANT.stay * 1000;
+        this.pinned = this.visit; // (toda esa visita es la misma, aunque el reloj cambie de ciclo)
     }
 
     // Segundos para que se vaya (si está) o vuelva (si no); null si está fijado
@@ -90,6 +85,7 @@ export class MerchantClock {
 
     // Número de la visita (fijado en DEBUG, cuenta como la del reloj)
     get visit() {
+        if (this.until > Date.now() && this.pinned !== undefined) return this.pinned;
         return Math.floor(Date.now() / 1000 / MERCHANT.cycle) + (this.shift | 0); // (shift: DEBUG, visitas adelantadas)
     }
 }

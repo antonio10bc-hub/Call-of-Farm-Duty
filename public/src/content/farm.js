@@ -41,9 +41,6 @@ export const FARM = {
         { id: 'east2', rect: [60, 30, 90, 60], soon: true },
     ],
     bounds: { x0: -30, z0: -30, x1: 120, z1: 60 }, // todas las parcelas (en sus coordenadas de siempre)
-    // Vallas: tramos rectos de [x, z] a [x, z]; gap: hueco [desde, hasta] a lo largo del tramo
-    // (las de la cuadrícula, con sus portones, al final del archivo)
-    fences: [],
     // El granero (armamento: rachas de bajas y mejoras del rifle) y su recinto militar, que llena
     // toda su zona: tierra apisonada (zone/yard) con un borde de hierba, la pista con el avión y su
     // hangar (strip), y las plataformas de hormigón (pads) de la nuclear, la armería y el
@@ -299,28 +296,6 @@ export const INFO = {
 export const FIELD_BY_ID = Object.fromEntries(FARM.fields.map((f) => [f.id, f]));
 
 export const LAND_BY_ID = Object.fromEntries(FARM.lands.map((l) => [l.id, l]));
-
-// Vallas de la cuadrícula de 3×3 parcelas: cada lado de 30 casillas, con un portón (hueco) donde
-// pasa un camino. [eje de la línea, dónde está, hueco desde, hasta]
-const GRID = [-30, 0, 30, 60];
-const GATES = [
-    ['x', 0, 14, 17],    // a la parcela oeste
-    ['x', 0, -16, -14],  // al prado de vacas
-    ['x', 30, 14, 17],   // a la parcela este
-    ['x', 30, -16, -14], // el camino al claro del comerciante
-    ['z', 0, 14, 16],    // entre los campos y la casa
-    ['z', 30, 14, 16],   // el camino principal
-    ['z', 60, 14, 16],   // ... que sigue hacia fuera
-];
-for (const v of GRID) {
-    for (let k = 0; k < 3; k++) {
-        const a0 = GRID[k], a1 = GRID[k + 1];
-        const gate = (ax) => GATES.find(([e, at, g0, g1]) => e === ax && at === v && g0 >= a0 && g1 <= a1);
-        const gx = gate('x'), gz = gate('z');
-        FARM.fences.push({ from: [v, a0], to: [v, a1], ...(gx ? { gap: [gx[2], gx[3]] } : {}) });
-        FARM.fences.push({ from: [a0, v], to: [a1, v], ...(gz ? { gap: [gz[2], gz[3]] } : {}) });
-    }
-}
 
 // ---------- Composición del mapa ----------
 // Cada parcela de 30×30 casillas guarda su lógica en sus coordenadas de siempre (from: su esquina

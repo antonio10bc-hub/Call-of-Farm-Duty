@@ -18,8 +18,6 @@ uniform float uDither;
 uniform float uSat;
 uniform vec3 uTint;
 uniform float uTintAmt;
-uniform vec3 uGrade;
-uniform float uGradeAmt;
 varying vec2 vUv;
 float bayer(vec2 p) {
     ivec2 q = ivec2(mod(p, 4.0));
@@ -30,12 +28,9 @@ void main() {
     vec3 c = texture2D(tDiffuse, vUv).rgb;
     float l = dot(c, vec3(0.299, 0.587, 0.114));
     c = mix(vec3(l), c, uSat);
-    c = mix(c, c * uGrade, uGradeAmt);
     c = mix(c, uTint, uTintAmt);
     vec2 d = vUv - 0.5;
     c *= 1.0 - dot(d, d) * 0.5;
-    // Modo difícil: bordes que se oscurecen hacia un rojo casi negro
-    c = mix(c, vec3(0.28, 0.0, 0.04), clamp(dot(d, d) * 2.6 * uGradeAmt, 0.0, 0.85));
     c += bayer(gl_FragCoord.xy) * uDither / uLevels;
     c = floor(clamp(c, 0.0, 1.0) * uLevels + 0.5) / uLevels;
     gl_FragColor = vec4(c, 1.0);
@@ -62,8 +57,6 @@ export class RetroRenderer {
             uSat: { value: cfg.saturation },
             uTint: { value: new THREE.Color(0xffffff) },
             uTintAmt: { value: 0 },
-            uGrade: { value: new THREE.Color(1, 1, 1) },
-            uGradeAmt: { value: 0 },
         };
         const quad = new THREE.Mesh(
             new THREE.PlaneGeometry(2, 2),
@@ -122,7 +115,7 @@ export class RetroRenderer {
     // pantalla (en las de alta densidad, de medio en medio) y nunca más de un tercio más fino
     scaleFor(w, h) {
         const { targetPixels, maxScale } = this.cfg;
-        const base = Math.min(maxScale, Math.max(1, Math.round(Math.min(w, h) / (this.lines || targetPixels))));
+        const base = Math.min(maxScale, Math.max(1, Math.round(Math.min(w, h) / targetPixels)));
         const f = this.detail || 1;
         if (f <= 1) return base;
         const dpr = Math.min(3, Math.max(1, Math.round(window.devicePixelRatio || 1)));
@@ -140,45 +133,10 @@ export class RetroRenderer {
         }
     }
 
-    // Tamaño del píxel (Ajustes, en el ordenador): líneas en el lado corto de la pantalla
-    setLines(lines) {
-        this.lines = lines;
-        this.lastW = 0; // fuerza a recalcular aunque la ventana no haya cambiado
-        this.resize();
-    }
-
-    // Gradación de color fija (modo difícil: todo teñido de rojo y con bordes oscuros).
-    setGrade(r, g, b, amount) {
-        this.uniforms.uGrade.value.setRGB(r, g, b);
-        this.uniforms.uGradeAmt.value = amount;
-    }
-
     // Tinte de pantalla completa que se desvanece (daño, explosiones...).
     flash(color, amount) {
         this.uniforms.uTint.value.setHex(color);
         this.uniforms.uTintAmt.value = Math.max(this.uniforms.uTintAmt.value, amount);
-    }
-
-    // Pantalla partida (duelo): "bottom" en la mitad de abajo y "top" en la de arriba, con el
-    // mismo pixelado y la misma trama que el resto
-    renderSplit(scene, bottom, top, dt) {
-        const tint = this.uniforms.uTintAmt;
-        tint.value = Math.max(0, tint.value - dt * 2.5);
-        const t = this.target, w = this.width, h = this.height, hb = Math.floor(h / 2);
-        this.gl.setRenderTarget(t);
-        this.gl.clear();
-        t.scissorTest = true;
-        for (const [cam, y, hh] of [[bottom, 0, hb], [top, hb, h - hb]]) {
-            t.viewport.set(0, y, w, hh);
-            t.scissor.set(0, y, w, hh);
-            this.gl.setRenderTarget(t); // aplica el nuevo recorte
-            this.gl.render(scene, cam);
-        }
-        t.scissorTest = false;
-        t.viewport.set(0, 0, w, h);
-        t.scissor.set(0, 0, w, h);
-        this.gl.setRenderTarget(null);
-        this.gl.render(this.postScene, this.postCamera);
     }
 
     render(scene, camera, dt) {

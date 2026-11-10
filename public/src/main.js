@@ -3,7 +3,7 @@ import { CONFIG } from './config.js';
 import { THEME } from './content/theme.js';
 import { CROPS } from './content/crops.js';
 import { FARM, FIELD_BY_ID, INFO, TURRETS, toWorld, PLACES } from './content/farm.js';
-import { KILLSTREAKS, setStreakCounts, streakOf } from './content/killstreaks.js';
+import { KILLSTREAKS, setStreakCounts } from './content/killstreaks.js';
 import { SHOP, SHOP_ITEMS } from './content/ufo.js';
 import { ARSENAL, ARSENAL_KINDS, CLASSES } from './content/arsenal.js';
 import { gearArt } from './ui/GearArt.js';
@@ -423,6 +423,10 @@ const ndcOf = (x, y) => {
     const r = canvas.getBoundingClientRect();
     return new THREE.Vector2(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1);
 };
+// Cambia el HTML de un elemento solo si es otro (rehacerlo cada poco se come los clics a medias)
+const setHtml = (el, html) => {
+    if (el._html !== html) el.innerHTML = el._html = html;
+};
 const ico = (icon) => `<span class="ico ${icon}-ico"></span>`;
 // Lo que cuesta algo, en sus pastillas (cultivos y oro); short: en rojo lo que no llega
 const costHtml = (cost) => Object.entries(cost).map(([c, n]) => `<span class="upgrade-cost${state.items[c] < n ? ' short' : ''}">${ico(c === 'gold' ? 'gold' : CROPS[c].icon)}<b>${n}</b></span>`).join('');
@@ -540,7 +544,7 @@ function updateCounts(bump = false) {
     refreshSigns();
     refreshArmory();
     if (bump) {
-        for (const id of [hud === 'tomato' ? 'farm-tomato' : 'farm-wheat', 'snipe-wheat']) {
+        for (const id of [`farm-${hud}`, 'snipe-wheat']) {
             const el = $(id);
             el.classList.remove('bump');
             void el.offsetWidth;
@@ -650,7 +654,10 @@ function updateBoxHud() {
     [...$('corners').children].forEach((el, k) => el.classList.toggle('box', k === t));
 }
 
-const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.ceil(s) % 60).padStart(2, '0')}`;
+const fmt = (s) => {
+    const t = Math.ceil(s);
+    return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+};
 
 // Encima de cada campo: un cartel flotante con su nivel (tocarlo abre su ficha para mejorarlo)
 // y, cuando está maduro, la burbuja de RECOGER. En un terreno bloqueado el cartel lleva un
@@ -699,7 +706,7 @@ const dockGo = (x, z, open) => {
 };
 const fieldNeeds = (id) => state.isReady(id) || state.canUnlock(id) || state.canUpgrade(id);
 const DOCK = [
-    { id: 'barn', icon: 'ks-grenade', label: L('ARMORY', 'ARMAMENTO'), show: () => state.open('barn'), alert: () => state.canUpgradeBarn,
+    { id: 'barn', icon: 'ks-grenade', label: L('ARMORY', 'ARMAMENTO'), show: () => state.open('barn'), alert: () => armoryNews(),
         go: () => { const b = farm.byId.barn.def; dockGo(b.x, b.z + 1, () => select({ structure: 'barn' })); } },
     { id: 'fields', icon: 'wheat', label: L('FIELDS', 'CAMPOS'), show: () => true, alert: () => FARM.fields.some((f) => fieldNeeds(f.id)),
         go: () => toggleFieldsPop() },
@@ -770,7 +777,11 @@ function refreshUfoSign() {
 refreshUfoSign();
 houseSign.id = 'sign-house';
 
-// Con el nivel del granero (y de la casa) en piezas y la flecha verde si se puede mejorar
+// ¿Hay algo de la armería que ya se puede comprar? (flecha verde en su cartel y aviso en el dock)
+function armoryNews() {
+    return ARSENAL_KINDS.some((k) => ARSENAL[k].some((x) => !state.ownsGear(k, x.id) && state.items.gold >= state.gearPrice(k, x.id)));
+}
+// Los carteles del granero (armamento) y de la casa
 function refreshArmory() {
     const hl = state.house.level, hmax = FARM.house.levels.length - 1;
     const hp = Array.from({ length: hmax }, (_, i) => `<i class="pip${i < hl ? ' on' : ''}"></i>`).join('');
@@ -784,7 +795,7 @@ function refreshArmory() {
         : `${ico('ks-grenade')}<span>${L('ARMORY', 'ARMAMENTO')}</span><i class="sign-up"></i>`;
     if (armory.innerHTML !== html) armory.innerHTML = html;
     armory.classList.toggle('can-unlock', !state.open('barn'));
-    armory.classList.toggle('can-up', state.canUpgradeBarn || ARSENAL_KINDS.some((k) => ARSENAL[k].some((x) => !state.ownsGear(k, x.id) && state.items.gold >= state.gearPrice(k, x.id))));
+    armory.classList.toggle('can-up', armoryNews());
 }
 
 for (const def of FARM.fields) {
@@ -947,7 +958,7 @@ function refreshPanel() {
     }
     if (!f.unlocked && land && !state.lands[land.id]) {
         title.textContent = land.name;
-        text.textContent = L(`FOR SALE. FULL OF JUNK, BUT IT HAS ROOM FOR A ${def.name}. PAY IN GOLD FROM THE MERCHANT, THEN BLOW UP ITS BARREL.`, `EN VENTA. LLENA DE PORQUERÍA, PERO CABE UN ${def.name}. SE PAGA CON EL ORO DEL COMERCIANTE Y LUEGO SE VUELA SU BARRIL.`);
+        text.textContent = L(`FOR SALE. FULL OF JUNK, BUT IT HAS ROOM FOR A ${def.name}. PAY IN GOLD FROM THE MERCHANT, THEN BLOW UP ITS BARREL.`, `EN VENTA. LLENA DE PORQUERÍA, PERO AQUÍ CABE: ${def.name}. SE PAGA CON EL ORO DEL COMERCIANTE Y LUEGO SE VUELA SU BARRIL.`);
         bar.parentElement.classList.add('hidden');
         act.classList.remove('hidden');
         act.classList.add('unlock-btn');
@@ -964,7 +975,11 @@ function refreshPanel() {
         title.textContent = def.locked.name;
         bar.parentElement.classList.toggle('hidden', can);
         if (can) text.textContent = L('FULL OF RUSTY JUNK. HIT THE RED BARREL FROM FAR AWAY TO BLOW IT ALL UP!', 'LLENO DE CHATARRA OXIDADA. ¡DALE AL BARRIL ROJO DESDE LEJOS PARA VOLARLO TODO!');
-        else {
+        else if (!def.locked.after) {
+            // (el trigo, con el granero aún cerrado)
+            text.textContent = L('FULL OF RUSTY JUNK. OPEN THE BARN FIRST.', 'LLENO DE CHATARRA OXIDADA. ABRE ANTES EL GRANERO.');
+            bar.parentElement.classList.add('hidden');
+        } else {
             const after = FIELD_BY_ID[def.locked.after], af = state.fields[after.id];
             text.textContent = L(`FULL OF RUSTY JUNK. MAX OUT THE ${after.name} (LV.${after.levels.length}) TO UNLOCK IT.`, `LLENO DE CHATARRA OXIDADA. SUBE EL ${after.name} AL NIVEL MÁXIMO (NV.${after.levels.length}) PARA DESBLOQUEARLO.`);
             bar.style.width = `${Math.round(((af.level + 1) / after.levels.length) * 20) * 5}%`;
@@ -1007,9 +1022,9 @@ function refreshPanel() {
     up.classList.toggle('turret-up', turrets || reload);
     up.classList.toggle('turret-empty', armed && f.ammo <= 0);
     up.disabled = reload ? !state.canReloadTurret(id) : turrets ? !state.canBuyTurrets(id) : !state.canUpgrade(id);
-    $('upgrade-label').innerHTML = full ? `${ico('turret')}${L('AUTOMATED', 'AUTOMÁTICO')}` : reload ? `${ico('turret')}${L('RELOAD', 'RECARGAR')}` : turrets ? `${ico('turret')}${L('TURRET', 'TORRETA')}` : L('UPGRADE', 'MEJORAR');
+    setHtml($('upgrade-label'), full ? `${ico('turret')}${L('AUTOMATED', 'AUTOMÁTICO')}` : reload ? `${ico('turret')}${L('RELOAD', 'RECARGAR')}` : turrets ? `${ico('turret')}${L('TURRET', 'TORRETA')}` : L('UPGRADE', 'MEJORAR'));
     const price = reload ? { gold: state.reloadCost(id) } : full ? {} : turrets ? state.turretCost(id) : state.cost(id);
-    const cost = Object.entries(price).map(([c, n]) => `<span class="upgrade-cost${state.items[c] < n ? ' short' : ''}">${ico(c === 'gold' ? 'gold' : CROPS[c].icon)}<b>${n}</b></span>`).join('');
+    const cost = costHtml(price);
     if ($('upgrade-cost').innerHTML !== cost) $('upgrade-cost').innerHTML = cost;
     up.classList.toggle('maxed', full);
 }
@@ -1161,7 +1176,7 @@ function revealUnlocked() {
         rig.focus(f.cx, f.cz + 1);
         rig.shake(0.2);
         for (let k = 0; k < 10; k++) farmFx.burst(f.x + Math.random() * f.w, 0.2, f.z + Math.random() * f.d, 6, [THEME.dust, 0x8a5a34, 0x6f8a3a], { speed: 2.4, up: 2, size: 0.14, ttl: 0.6 });
-        setTimeout(() => stage(L('LAND CLEARED!', '¡TERRENO LIMPIO!'), `${FIELD_BY_ID[v.id].name} ${L('UNLOCKED', 'DESBLOQUEADO')}`), 300);
+        setTimeout(() => stage(L('LAND CLEARED!', '¡TERRENO LIMPIO!'), `${L('UNLOCKED', 'DESBLOQUEADO')}: ${FIELD_BY_ID[v.id].name}`), 300);
         return true;
     }
     return false;
@@ -1232,6 +1247,7 @@ function startMusic(cfg) {
 let snipeStart = 0;
 // Al campo de tiro: a cosechar (harvest) o a desbloquear un terreno (startUnlock)
 function goSnipe(id, unlock) {
+    leaveMap(false); // (desde la vista MAPA: que al volver no siga puesta)
     sfx.unlock();
     sfx.play('go');
     vibrate('pickup');
@@ -1293,7 +1309,7 @@ function enterSnipe() {
 }
 
 function goFarm(done = false) {
-    if (mode !== 'snipe') return;
+    if (mode !== 'snipe' || prologue.active) return; // (del prólogo no se sale: se quedaría a medias)
     mode = 'toFarm';
     modeT = 0;
     touch = null;
@@ -1601,7 +1617,7 @@ addEventListener('keydown', (e) => {
     if (prologueLocked()) return;
     if (mode === 'farm') {
         if (k === 'escape') select(null);
-        if (k === 'enter' || k === ' ') quickAction();
+        if ((k === 'enter' || k === ' ') && !menuOpen() && !storyBusy && $('welcome').classList.contains('hidden')) quickAction(); // (con un menú abierto, no)
         return;
     }
     if (mode !== 'snipe') return;
@@ -1612,6 +1628,7 @@ addEventListener('keydown', (e) => {
     else if (k === 'e') sniper.goSide(1);
     else if (k === 'r') sniper.reload();
 });
+addEventListener('blur', () => keys.clear()); // (sin foco no llegan los keyup: que no se queden pulsadas)
 addEventListener('keyup', (e) => {
     const k = e.key.toLowerCase();
     keys.delete(k);
@@ -1700,8 +1717,8 @@ tapBtn('btn-settings-close', () => {
 
 // ---------- El ovni ----------
 // Cinemática del mapa (la usa el prólogo; con locked se bloquea el control)
-let cine = null; // { t, locked }
-const inCine = () => !!(cine && cine.locked);
+// ¿En una cinemática? (el prólogo en el mapa y las visitas del trigo mágico: sin mover la cámara ni tocar nada)
+const inCine = () => document.body.classList.contains('cine');
 
 // Sin nubes delante con la tienda abierta
 function shopClouds() {
@@ -1714,7 +1731,7 @@ function applyLook() {
     const colors = {};
     for (const [slot, id] of Object.entries(state.home.look)) colors[slot] = SHOP_ITEMS[id].color;
     farm.byId.house.setLook(colors);
-    farm.plot.setPlaced(state.home.placed);
+    if (farm.plot) farm.plot.setPlaced(state.home.placed);
 }
 
 // La cámara encuadra en la mitad de arriba (la tienda tapa la de abajo) un punto de la parcela
@@ -1926,11 +1943,11 @@ function renderMerchant() {
     $('merchant-timer').textContent = left === null ? '' : here ? `${L('LEAVES IN', 'SE VA EN')} ${fmt(left)}` : `${L('BACK IN', 'VUELVE EN')} ${fmt(left)}`;
     // Confianza (nivel, nombre y lo que falta), racha (hacia el regalo) y ánimo
     const from = TRUST[lv - 1], to = TRUST[lv], k = to === undefined ? 1 : (M.trust - from) / (to - from);
-    $('merchant-trust').innerHTML = `<span class="trust-name">${LEVEL_NAMES[lv - 1]}</span><span class="pips">${[1, 2, 3, 4, 5].map((i) => `<i class="pip${i <= lv ? ' on' : ''}"></i>`).join('')}</span>`
+    setHtml($('merchant-trust'), `<span class="trust-name">${LEVEL_NAMES[lv - 1]}</span><span class="pips">${[1, 2, 3, 4, 5].map((i) => `<i class="pip${i <= lv ? ' on' : ''}"></i>`).join('')}</span>`
         + `<span class="trust-bar"><i style="width:${Math.round(k * 100)}%"></i></span>`
-        + `<span class="trust-meta">${L('STREAK', 'RACHA')} ${M.streak % GIFT_EVERY}/${GIFT_EVERY} · ${MOODS[M.mood]}</span>`;
+        + `<span class="trust-meta">${L('STREAK', 'RACHA')} ${M.streak % GIFT_EVERY}/${GIFT_EVERY} · ${MOODS[M.mood]}</span>`);
     if (!here) {
-        $('merchant-orders').innerHTML = `<div class="merchant-away">${L('NOBODY HERE BUT THE OLD CRASH FURROW. HE COMES BACK "BY CAR" WITH NEW ORDERS EVERY FEW MINUTES.', 'AQUÍ SOLO ESTÁ EL SURCO. VUELVE "EN COCHE" CON ENCARGOS NUEVOS CADA POCOS MINUTOS.')}</div>` + collectionHtml();
+        setHtml($('merchant-orders'), `<div class="merchant-away">${L('NOBODY HERE BUT THE OLD CRASH FURROW. HE COMES BACK "BY CAR" WITH NEW ORDERS EVERY FEW MINUTES.', 'AQUÍ SOLO ESTÁ EL SURCO. VUELVE "EN COCHE" CON ENCARGOS NUEVOS CADA POCOS MINUTOS.')}</div>` + collectionHtml());
         return;
     }
     const visit = merchantClock.visit;
@@ -1948,7 +1965,7 @@ function renderMerchant() {
         const it = ITEM[id], have = state.collects(id), short = state.items.gold < it.gold;
         return `<div class="order shop${have ? ' done' : ''}${it.party ? ' party' : ''}"><span class="order-want"><b>${it.name}</b></span><span class="order-pay">${ico('gold')}<b>${it.gold}</b></span><button data-buy="${id}"${have || short ? ' disabled' : ''}>${have ? L('YOURS', 'TUYO') : L('BUY', 'COMPRAR')}</button></div>`;
     }).join('') + collectionHtml();
-    $('merchant-orders').innerHTML = html;
+    setHtml($('merchant-orders'), html);
 }
 
 function collectionHtml() {
@@ -2006,9 +2023,6 @@ tapBtn('merchant-close', () => {
     rig.zoomTarget = 1;
 });
 
-// ---------- Granero: subirlo de nivel y ver las dos rachas de bajas (activas siempre) ----------
-// (el granero ya no se mejora: el menú solo tiene las clases)
-function refreshStreaks() {}
 
 // Ficha de la casa: su nivel, qué hace el siguiente y su mejora
 function refreshHousePanel(title, text, bar, act, up) {
@@ -2033,8 +2047,8 @@ function refreshHousePanel(title, text, bar, act, up) {
     up.classList.remove('hidden');
     up.disabled = !state.canUpgradeHouse;
     up.classList.toggle('maxed', state.houseMaxed);
-    $('upgrade-label').textContent = state.houseMaxed ? L('MAX LEVEL', 'NIVEL MÁXIMO') : lv === 0 ? L('FIX UP', 'ARREGLAR') : L('CLEAR', 'LIMPIAR');
-    const cost = Object.entries(state.houseCost()).map(([c, n]) => `<span class="upgrade-cost${state.items[c] < n ? ' short' : ''}">${ico(CROPS[c].icon)}<b>${n}</b></span>`).join('');
+    setHtml($('upgrade-label'), state.houseMaxed ? L('MAX LEVEL', 'NIVEL MÁXIMO') : lv === 0 ? L('FIX UP', 'ARREGLAR') : L('CLEAR', 'LIMPIAR'));
+    const cost = costHtml(state.houseCost());
     if ($('upgrade-cost').innerHTML !== cost) $('upgrade-cost').innerHTML = cost;
 }
 
@@ -2084,26 +2098,9 @@ function houseFx(x, z, c) {
     setTimeout(() => sfx.play('achievement'), 300);
 }
 
-// Subir el granero: se cierra el menú para ver crecer el recinto en el mapa
-function upgradeBarn() {
-    if (!state.upgradeBarn()) return;
-    $('streaks').classList.add('hidden');
-    farm.setBarnLevel(state.barn.level);
-    const b = farm.byId.barn;
-    rig.focus(b.def.x, b.def.z + 1);
-    rig.shake(0.2);
-    const y = FARM.barn.levels[state.barn.level].yard;
-    for (let k = 0; k < 14; k++) farmFx.burst(y[0] + Math.random() * (y[2] - y[0]), 0.2, y[1] + Math.random() * (y[3] - y[1]), 6, [THEME.dust, 0x8a5a34, 0x6f8a3a], { speed: 2.4, up: 2, size: 0.14, ttl: 0.6 });
-    sfx.play('power');
-    vibrate('pickup');
-    updateCounts();
-    stage(L('BARN UPGRADED!', '¡GRANERO MEJORADO!'), `${L('BARN', 'GRANERO')} ${L('LV', 'NV')}.${state.barn.level}`);
-}
-
 function openStreaks() {
     sfx.play('ui');
     loEdit = state.arsenal.active;
-    refreshStreaks();
     refreshRifle();
     $('gear-picker').classList.add('hidden');
     $('streaks').classList.remove('hidden');
@@ -2585,7 +2582,6 @@ function setStreakCount(k, n) {
     Settings.set('streaks', counts);
     setStreakCounts(counts);
     refreshStreakRows();
-    refreshStreaks();
     sfx.play('ui');
 }
 // Depuración: todos los terrenos bloqueados, limpios y sembrados de golpe (sin requisitos), y el
@@ -2671,7 +2667,6 @@ tapBtn('ks-default', () => {
     Settings.set('streaks', null);
     setStreakCounts(null);
     refreshStreakRows();
-    refreshStreaks();
     sfx.play('ui');
 });
 refreshStreakRows();
@@ -3000,7 +2995,7 @@ function frame(now) {
         }
         // Humo de la chimenea y del tractor; destellos sobre el campo maduro
         // (la casa en ruinas no echa humo)
-        if (state.house.level > 0 && Math.random() < dt * 5) {
+        if (!FARM.house.hidden && state.house.level > 0 && Math.random() < dt * 5) {
             const h = farm.byId.house;
             h.root.localToWorld(_w.copy(h.chimney));
             farmParticles.spawn(_w.x, _w.y, _w.z, 0.2 + Math.random() * 0.2, 0.7, 0.1, 0.18 + Math.random() * 0.1, 2.2, Math.random() < 0.5 ? 0xe8e4dc : 0xcfc8c0, -0.1);
@@ -3059,7 +3054,7 @@ function frame(now) {
 
 // ---------- Mini-mapa ----------
 // Cada zona, del color de lo que tiene (las que no son tuyas, apagadas); se repinta cada poco
-const ZONE = { farm: [214, 190, 140], house: [240, 170, 170], merchant: [70, 130, 60], wheatP: [230, 200, 80], tomatoP: [220, 80, 60], west: [250, 220, 160], west2: [240, 140, 50], east: [230, 220, 90], nw: [200, 230, 160], nw2: [235, 235, 225] };
+const ZONE = { farm: [214, 190, 140], house: [240, 170, 170], merchant: [70, 130, 60], wheatP: [230, 200, 80], tomatoP: [220, 80, 60], west: [250, 220, 160], west2: [240, 140, 50], east: [230, 220, 90], nw: [200, 230, 160], nw2: [235, 235, 225], south: [90, 170, 220] };
 const minimap = new Minimap($('minimap'), (ri) => {
     const P = PLACES.find((p) => p.ri === ri);
     if (!P) return [120, 150, 100, false];
@@ -3171,4 +3166,4 @@ if ('serviceWorker' in navigator && !/^(localhost|127\.)/.test(location.hostname
 }
 
 // Para las pruebas (Playwright)
-window.game = { state, sniper, farm, rig, prologue, dayNight, merchantClock, openMerchant, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, upgradeBarn, upgradeHouse, openShop, get cine() { return cine; }, goFarm, select, updateCounts, pause: () => (paused = true) };
+window.game = { state, sniper, farm, rig, prologue, dayNight, merchantClock, openMerchant, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, upgradeHouse, openShop, get cine() { return inCine(); }, goFarm, select, updateCounts, pause: () => (paused = true) };

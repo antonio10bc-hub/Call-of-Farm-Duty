@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { box, toon, outline, OUTLINE } from '../render/materials.js';
 import { buildScenery, updateScenery, onPathWorld } from './Scenery.js';
-import { G, GN, cellX, cellZ } from './valley.js';
+import { G, GN, cellX, cellZ, hash } from './valley.js';
 import { easeOutBack } from '../core/math.js';
 import { STRUCTURES, Turret, Sandbags, LandPost } from '../render/structures.js';
 import { Plot } from '../render/props.js';
@@ -199,10 +199,13 @@ export class Farm {
         this.byId.barn.setLevel(this.barnLevel);
         this.byId.house.setLevel(this.houseLevel);
         // Lo comprado en la tienda del ovni para la parcela de la casa, cada cosa en su hueco
-        this.plot = new Plot(theme.outline);
-        this.places.house.add(this.plot.root);
-        // La casa personalizable, aparcada: ni se ve ni se toca (su parcela es la pocilga)
-        if (FARM.house.hidden) this.byId.house.root.visible = this.plot.root.visible = false;
+        // (la casa personalizable, aparcada: ni se ve ni se toca, y lo de su parcela ni se construye;
+        // su parcela es la pocilga)
+        if (FARM.house.hidden) this.byId.house.root.visible = false;
+        else {
+            this.plot = new Plot(theme.outline);
+            this.places.house.add(this.plot.root);
+        }
         // El claro del comerciante: el surco del aterrizaje y su ovni disfrazado de coche
         this.camp = new MerchantCamp(theme.outline);
         this.camp.root.traverse((o) => (o.userData.merchant = true));
@@ -317,7 +320,7 @@ export class Farm {
         // En trozos del valle (lo que queda fuera de cámara no se dibuja); cada casilla sabe en qué
         // malla está (t.mesh) y en qué sitio (t.i)
         this.floor = { tiles, entries: [] };
-        const mat = toon(0xffffff), groups = new Map();
+        const mat = (this.floorMat = this.floorMat || toon(0xffffff)), groups = new Map(); // (un solo material, también al rehacerlo)
         for (const t of tiles) {
             const key = chunkKey(t.wx, t.wz);
             if (!groups.has(key)) groups.set(key, []);
@@ -420,7 +423,7 @@ export class Farm {
             : k && k.clearing && this.inCrater(t.c + 0.5, t.r + 0.5) ? CRATER[mod(c * 3 + r * 5 + mod(c * r, 2), CRATER.length)]
             : k && k.clearing ? CLEARING[mod(Math.floor(Math.sin(c * 0.5) * 1.6 + Math.sin(r * 0.43 + c * 0.2) * 1.6) + mod(c * 7 + r * 3, 2), CLEARING.length)]
             : k && k.yard ? YARD[mod(c + r, 2)] : theme.grass[mod(c * 5 + r * 3 + mod(c * r, 3), 3)];
-        _c.setHex(col).offsetHSL(0, 0, (Math.random() - 0.5) * theme.grassJitter);
+        _c.setHex(col).offsetHSL(0, 0, (hash(c, r, 5) - 0.5) * theme.grassJitter); // (fijo por casilla: al rehacer el suelo no cambia de tono)
         // (su color de verdad se guarda: si es de una parcela sin comprar, se ve en sombra)
         t.col = [_c.r, _c.g, _c.b];
         mesh.setColorAt(i, this.shadeColor(t.col, t.land, t.c + 0.5, t.r + 0.5));
@@ -519,17 +522,6 @@ export class Farm {
         for (const e of this.wild) e.positions.forEach((p) => (p.hide = p.hide || this.cleared(p.x, p.z)));
         for (const e of this.hints || []) e.positions.forEach((p) => (p.hide = p.hide || !this.fields[p.field].locked));
         for (const e of [...this.decor, ...this.wild, ...(this.hints || [])]) this.layout(e, this.introT);
-    }
-
-    // El granero sube de nivel: el recinto crece (lo abandonado de dentro se aparta y la tierra
-    // queda apisonada) y aparecen sus construcciones nuevas
-    setBarnLevel(level) {
-        if (level === this.barnLevel) return;
-        this.barnLevel = level;
-        this.yard = rectOf(FARM.barn.levels[level].yard);
-        this.refreshGround();
-        this.byId.barn.setLevel(level);
-        this.byId.barn.select();
     }
 
     // El claro del mercader: lo que el ovni arrasó al aterrizar (a lo largo del surco, más ancho
@@ -935,7 +927,6 @@ export class Farm {
             b.root.position.set(at.x, 0, at.z);
             b.root.scale.setScalar(S);
             this.groupAt(f.cx, f.cz).add(b.root);
-            if (pop) b.select();
             return b;
         });
         const t = (v.turret = new Turret(this.theme.outline));
@@ -1106,28 +1097,6 @@ export class Farm {
         v.junk = null;
         this.refreshGround();
         this.buildPlants(v, null, true);
-    }
-
-    // Valla de madera alrededor de toda la granja
-    // Vallas de madera: los tramos de FARM.fences, con sus huecos para los caminos
-    buildFences() {
-        const posts = [], rails = [];
-        for (const { from: [x0, z0], to: [x1, z1], gap } of FARM.fences) {
-            const alongX = z0 === z1, a0 = alongX ? x0 : z0, a1 = alongX ? x1 : z1;
-            const at = (a) => (alongX ? [a, z0] : [x0, a]);
-            // Trozos sin hueco
-            const runs = gap ? [[a0, gap[0]], [gap[1], a1]] : [[a0, a1]];
-            for (const [r0, r1] of runs) {
-                for (let a = r0; a <= r1; a++) {
-                    const [x, z] = at(a);
-                    posts.push({ x, y: 0.35, z, sx: 0.14, sy: 0.7, sz: 0.14 });
-                }
-                const [mx, mz] = at((r0 + r1) / 2), len = r1 - r0;
-                for (const y of [0.28, 0.55]) rails.push({ x: mx, y, z: mz, sx: alongX ? len : 0.06, sy: 0.08, sz: alongX ? 0.06 : len });
-            }
-        }
-        this.addHulled(0x9a6a3a, posts, 0.3);
-        this.addHulled(0xb07a44, rails, 0.35);
     }
 
     // Árboles: el bosque por los huecos entre parcelas (Scenery decide dónde, en el mundo)
@@ -1348,7 +1317,7 @@ export class Farm {
             }
             m.update(dt, time);
         });
-        this.plot.update(dt, time);
+        if (this.plot) this.plot.update(dt, time);
         updateScenery(this, dt);
         this.camp.update(dt, time, this.nightK || 0);
         this.compound.root.visible = this.introT > 1.1 && this.compoundOn; // (aparece con los edificios)

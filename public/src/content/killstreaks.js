@@ -1,6 +1,6 @@
 import { L } from '../core/I18n.js';
 
-// Dos rachas de bajas, las dos activas siempre (sin equipar nada):
+// Dos rachas de bajas (saltan las que lleve la clase equipada y la progresión haya abierto):
 //   crop   la de granadas (como en Call of Duty): cada blanco recogido suma 1 y rellena la
 //          barra, que se vacía cada vez más deprisa; si llega a vaciarse, la racha se pierde. Al
 //          llegar a cada número se lanza su granada sola (lo que recoge también suma)

@@ -3,9 +3,10 @@
 // Estrategia "primero la red" para la página: con conexión siempre se descarga lo último (y se
 // guarda una copia); sin conexión, o si la red tarda demasiado, se usa la copia guardada. Los
 // archivos con huella en el nombre (los de cada versión publicada), de la copia guardada.
-// La primera visita guarda la estructura básica al instalarse, y la página le envía la
-// lista de todo lo que ha cargado (módulos, iconos...) para que también lo guarde.
-const CACHE = 'cofd-v66';
+// La primera visita guarda la estructura básica al instalarse.
+// (Este archivo es la plantilla: scripts/build.mjs le pone a CACHE la huella de la versión y a
+// SHELL los archivos con huella. En local no se registra, así que CACHE aquí no hay que tocarlo.)
+const CACHE = 'cofd-dev';
 const SHELL = [
     './',
     './index.html',
@@ -30,13 +31,6 @@ self.addEventListener('activate', (event) => {
         for (const key of await caches.keys()) if (key !== CACHE) await caches.delete(key);
         await self.clients.claim();
     })());
-});
-
-// La página manda las URLs que ya ha cargado para guardarlas también.
-self.addEventListener('message', (event) => {
-    if (!event.data || event.data.type !== 'cache-urls') return;
-    const urls = event.data.urls.filter((u) => new URL(u).origin === self.location.origin);
-    event.waitUntil(caches.open(CACHE).then((c) => Promise.all(urls.map((u) => c.add(u).catch(() => {})))));
 });
 
 self.addEventListener('fetch', (event) => {

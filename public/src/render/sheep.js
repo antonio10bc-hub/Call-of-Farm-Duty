@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { box, toon, OUTLINE } from './materials.js';
 
 // Oveja voxel (para su prado del mapa y su campo de tiro): cuerpo crema, cabeza y patas oscuras
-// (sin cara, como todo en el juego) y el vellón, que le va creciendo (setFluff) hasta hacerse una
+// (sin cara, como todo en el juego) y el vellón, que le va creciendo (animateSheep) hasta hacerse una
 // bola de lana gigante en la que va metida. Mira hacia +z.
 const WOOL = [0xfaf6ec, 0xf0e8d6, 0xfffdf6], SKIN = 0xf3ead2, DARK = 0x3a2e2a;
 const MATS = new Map();

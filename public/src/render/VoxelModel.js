@@ -44,8 +44,11 @@ export class VoxelModel {
     }
 
     // Al tocarlo en el mapa: destello y un bote de gelatina
+    // (el bote parte del tamaño que tenga el modelo: los hay a otra escala, como la torreta o los
+    // edificios de los prados)
     select() {
         this.fx.flash.value = 0.55;
+        if (!(this.pop > 0)) this.popBase = this.root.scale.x;
         this.pop = 1;
     }
 
@@ -58,7 +61,8 @@ export class VoxelModel {
         if (this.pop > 0) {
             this.pop = Math.max(0, this.pop - dt * 2.5);
             const s = Math.sin(this.pop * Math.PI * 3) * 0.08 * this.pop;
-            this.root.scale.set(1 + s, 1 - s, 1 + s);
+            const b = this.popBase || 1;
+            this.root.scale.set(b * (1 + s), b * (1 - s), b * (1 + s));
         }
     }
 

@@ -3,7 +3,7 @@ import { box, toon, OUTLINE } from './materials.js';
 
 // Vaca voxel (para el prado del mapa y su campo de tiro): cuerpo blanco con manchas negras, cabeza
 // con hocico rosa y cuernos, cuatro patas que galopan, rabo y la ubre rosa con sus cuatro pezones,
-// que se hincha (setUdder). Mira hacia +z. Sin cara, como todo en el juego.
+// que se hincha (animateCow). Mira hacia +z. Sin cara, como todo en el juego.
 const WHITE = 0xf6f3ea, BLACK = 0x2a2622, PINK = 0xf2a0b0, PINK2 = 0xd8708a, HORN = 0xe8dcc0, HOOF = 0x3a2a1e;
 const MATS = new Map();
 const mat = (c) => MATS.get(c) || MATS.set(c, toon(c)).get(c);

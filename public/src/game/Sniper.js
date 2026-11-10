@@ -222,6 +222,8 @@ export class Sniper {
         this.waves.clear();
         this.corner = 0;
         this.move = null;
+        this.roll = 0;
+        this.rifle.swap = null; // (si se salió a medio cambiar de arma)
         this.eyeOf(0, this.pos);
         this.scoped = false;
         this.fov = S.fov;
@@ -259,7 +261,7 @@ export class Sniper {
     giveSpecial(w) {
         this.base = this.base || this.stats;
         this.special = w;
-        this.stats = { ...this.base, zoom: WONDER_ZOOM, ads: 0.15, steady: 0.3, lens: null, bolt: w.rate, pierce: w.pierce || 1, damage: 3, size: w.ammo, reload: 0, regen: 0, tracer: w.tracer || this.base.tracer, recoil: w.mode === 'rocket' ? 1.6 : 0.45 };
+        this.stats = { ...this.base, zoom: WONDER_ZOOM, ads: 0.15, steady: 0.3, lens: null, bolt: w.rate, size: w.ammo, reload: 0, regen: 0, recoil: w.mode === 'rocket' ? 1.6 : 0.45 };
         this.ammo = w.ammo;
         this.reloadT = this.bolt = 0;
         this.dropT = this.swapT = this.overheat = 0;
@@ -415,7 +417,7 @@ export class Sniper {
         const steady = this.stats.steady;
         const settle = (this.adsK >= S.adsReady ? S.settleSpread * this.settle : this.adsK > 0.4 ? S.settleSpread : 0) * steady;
         const turning = Math.min(S.lookSpreadMax, this.turnSpeed * S.lookSpread);
-        return (hip + settle + turning + ((this.special && this.special.spread) || 0)) * (this.move ? 1 + S.moveSpread : 1);
+        return (hip + settle + turning) * (this.move ? 1 + S.moveSpread : 1);
     }
 
     get canFire() {
@@ -497,7 +499,7 @@ export class Sniper {
             return true;
         }
         // Bazuca y ballesta: su proyectil
-        if (this.special && this.special.mode !== 'bullet') {
+        if (this.special) {
             this.box.launch(this.special, origin, dir, muzzle);
             return true;
         }
@@ -506,7 +508,10 @@ export class Sniper {
         // Un alienígena (a pie o en ovni pequeño) en la línea de tiro para la bala: cae él y lo
         // que la bala haya atravesado antes (colateral)
         const ufo = this.flyers.hit(origin, dir), alien = this.walkers.hit(origin, dir);
-        const stop = ufo && (!alien || ufo.t < alien.t) ? ufo : alien;
+        let stop = ufo && (!alien || ufo.t < alien.t) ? ufo : alien;
+        // (una calabaza por delante para la bala: no llega al alienígena)
+        const wall = hits.find((h) => h.sheaf.hp > 0);
+        if (stop && wall && wall.t < stop.t) stop = null;
         if (stop) {
             const before = hits.filter((h) => h.t < stop.t);
             if (this.hooks.onHitMarker) this.hooks.onHitMarker();

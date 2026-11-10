@@ -97,7 +97,7 @@ export class MysteryBox {
         const p = this.holder.position, sn = this.sn;
         this.flareT = 0.35;
         sn.particles.burst(p.x, p.y + 0.6, p.z, n, colors, { speed: 2.5, up, size: 0.1, ttl: 0.7 });
-        if (sn.waves) sn.waves.spawn(p.x, p.z, colors[1], 1.8, 0.45, p.y + 0.05);
+        sn.waves.spawn(p.x, p.z, colors[1], 1.8, 0.45, p.y + 0.05);
     }
 
     // Aparece en una torre que no es la tuya: en la plataforma pequeña de su barandilla izquierda,
@@ -325,6 +325,13 @@ export class MysteryBox {
     updateRay(dt) {
         const R = this.ray, sn = this.sn, f = sn.field;
         if (!R) return;
+        // (guiando el misil Predator la cámara es la del misil: el rayo se corta)
+        if (sn.ks.predator) {
+            this.ray = null;
+            this.rayMesh.visible = false;
+            sn.overheat = R.w.cool;
+            return;
+        }
         R.t += dt;
         if (R.t >= R.w.beam) {
             this.ray = null;
@@ -396,11 +403,6 @@ export class MysteryBox {
             this.part(g, 0.14, 0.14, 0.5, 0x6a7a5a);
             this.part(g, 0.1, 0.1, 0.12, 0xc8402e, 0, 0, -0.3);
             for (const r of [0, Math.PI / 2]) this.part(g, 0.3, 0.03, 0.12, 0x3a3a3a, 0, 0, 0.22).rotation.z = r;
-        } else if (w.mode === 'ray') {
-            const b = new THREE.Mesh(box(0.34, 0.34, 0.34), new THREE.MeshBasicMaterial({ color: 0x7dff4a }));
-            const c = new THREE.Mesh(box(0.2, 0.2, 0.2), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-            g.add(b, c);
-            b.rotation.set(0.6, 0.6, 0);
         } else {
             this.part(g, 0.04, 0.04, 0.7, 0x7a4f2a);
             this.part(g, 0.1, 0.1, 0.12, 0xc8402e, 0, 0, -0.36);
@@ -450,10 +452,9 @@ export class MysteryBox {
             }
             s.d = Math.min(s.len, s.d + s.w.speed * dt);
             p.lerpVectors(s.from, s.to, s.d / (s.len || 1));
-            if (s.w.mode === 'ray') s.mesh.rotation.z += dt * 12;
             if ((s.trail -= dt) <= 0) {
                 s.trail = 0.02;
-                const cols = s.w.mode === 'ray' ? GREEN : s.w.mode === 'rocket' ? [0xffe03a, 0xff9a1f, 0x7a7068] : [0xc8c0b0];
+                const cols = s.w.mode === 'rocket' ? [0xffe03a, 0xff9a1f, 0x7a7068] : [0xc8c0b0];
                 sn.particles.spawn(p.x, p.y, p.z, (Math.random() - 0.5) * 0.4, 0.3, (Math.random() - 0.5) * 0.4, 0.1 + Math.random() * 0.1, 0.4, cols[(Math.random() * cols.length) | 0], -0.5);
             }
             if (s.d < s.len) return true;
@@ -479,16 +480,15 @@ export class MysteryBox {
     }
 
     // ¡Pum! Donde llegó: si era un ovni, cae; y en el suelo, la explosión que recoge lo de
-    // alrededor y abate a los alienígenas (verde la de la pistola de rayos)
+    // alrededor y abate a los alienígenas
     boom(s) {
         const sn = this.sn, p = s.mesh.position;
         this.root.remove(s.mesh);
-        if (s.flyer && !s.flyer.falling) {
+        if (s.flyer && !s.flyer.falling && !s.flyer.left) { // (si ya se ha ido del campo, no cuenta)
             sn.flyers.shoot(s.flyer);
             if (sn.hooks.onHitMarker) sn.hooks.onHitMarker();
         }
-        if (s.w.mode === 'ray') sn.particles.burst(p.x, Math.max(0.3, p.y), p.z, 40, GREEN, { speed: 5, up: 4, size: 0.12, ttl: 0.6 });
-        else sn.particles.burst(p.x, Math.max(0.3, p.y), p.z, 30, FIRE, { speed: 6, up: 5, size: 0.14, ttl: 0.6 });
+        sn.particles.burst(p.x, Math.max(0.3, p.y), p.z, 30, FIRE, { speed: 6, up: 5, size: 0.14, ttl: 0.6 });
         sn.blast(p.x, p.z, s.w.radius, s.w.mode === 'rocket' ? 1.3 : 0.8);
     }
 }
