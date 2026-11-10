@@ -122,7 +122,7 @@ export const REGIONS = [
     { place: 'wheatP', seeds: [[44, 114]] },   // el trigo, en su zona
     { place: 'tomatoP', seeds: [[98, 114]] },  // los tomates, en la suya
     { place: 'house', seeds: [[60, 62]] },
-    { place: 'merchant', seeds: [[118, 38]] },
+    { place: 'merchant', seeds: [[118, 38], [124, 60], [138, 56]], h: 7.8 }, // los mercaderes: el bosque alto y la parte de arriba de la margen este, todo a la altura del bosque
     { place: 'nw', seeds: [[40, 50], [38, 70]] }, // la orilla alta: prado de vacas (a la derecha, junto al lago)
     { place: 'nw2', seeds: [[6, 42], [8, 66]] },  // ... y su otra mitad, a la izquierda: ovejas (las dos, de tamaño parecido)
     { place: 'west', seeds: [[34, 96]] },      // la cañada, debajo de las dos: gallinas (más pequeña)
@@ -131,7 +131,7 @@ export const REGIONS = [
     { place: 'east2', seeds: [[100, 140]] },
     { place: 'sw', seeds: [[14, 140]] },
     { place: 'south', seeds: [[94, 64]] },     // el desagüe del lago
-    { place: 'se', seeds: [[140, 80]] },       // la margen este, al otro lado del río
+    { place: 'se', seeds: [[140, 104]] },      // la margen este, al otro lado del río (lo de abajo: más baja que los mercaderes)
 ].map((r) => ({ ...r, seeds: r.seeds.map(([u, v]) => [u * K, v * K]) }));
 
 // ---------- La rejilla: celdas de 2×2 casillas ----------
@@ -229,7 +229,7 @@ export const G = {
     // encima no se cultiva: queda como ladera de monte (con su relieve), sin muro contra la montaña
     const sum = REGIONS.map(() => [0, 0]);
     for (let k = 0; k < N; k++) if (reg[k] >= 0) { sum[reg[k]][0] += nat[k]; sum[reg[k]][1]++; }
-    REGIONS.forEach((r, ri) => (r.h = sum[ri][1] ? Math.max(0, quant(sum[ri][0] / sum[ri][1])) : 0));
+    REGIONS.forEach((r, ri) => (r.h = r.h ?? (sum[ri][1] ? Math.max(0, quant(sum[ri][0] / sum[ri][1])) : 0))); // (h fija: la de los mercaderes)
     for (let k = 0; k < N; k++) if (reg[k] >= 0 && nat[k] > REGIONS[reg[k]].h + 2.6) reg[k] = SLOPE;
     for (let k = 0; k < N; k++) {
         if (!inside[k] || water[k]) continue;

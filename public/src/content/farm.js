@@ -365,7 +365,7 @@ const NA = 96; // direcciones en las que se mide la zona desde su centro
     }
 }
 // Cuánto llega la zona de P en la dirección ang (interpolado entre las medidas)
-function reachAt(P, ang) {
+export function reachAt(P, ang) {
     const f = ((ang / (Math.PI * 2)) * NA + NA) % NA, i = Math.floor(f), k = f - i;
     return P.reach[i] * (1 - k) + P.reach[(i + 1) % NA] * k;
 }

@@ -4,7 +4,8 @@ import { SHOP_ITEMS, DEFAULT_LOOK } from '../content/ufo.js';
 import { ARSENAL, ARSENAL_KINDS, DEFAULT_LOADOUT, CLASSES, arsenalItem } from '../content/arsenal.js';
 import { KILLSTREAKS } from '../content/killstreaks.js';
 import { MERCHANT, RARE, rareVisit } from '../content/merchant.js';
-import { trustLevel, TRUST_PAY, MOOD_PAY, GIFT_EVERY, URGENT, BASKET_PAY, SPECIAL, COUSIN, cousinVisit, COLLECTION, ITEM, stockFor } from '../content/merchantLife.js';
+import { trustLevel, TRUST_PAY, MOOD_PAY, GIFT_EVERY, URGENT, BASKET_PAY, SPECIAL } from '../content/merchantLife.js';
+import { MERCHANTS, MERCHANT_BY_ID, DECOR_BY_ID, decorOf, FAV_PAY } from '../content/merchants.js';
 
 // Lo que pide un encargo: { cultivo: cuánto } (el combinado, varios)
 export const orderWants = (o) => o.items || { [o.crop]: o.n };
@@ -25,7 +26,7 @@ const levelsOf = (id) => FIELD_BY_ID[id].levels;
 const STORY = ['crop', 'alien', 'box', 'merchant', 'sold', 'house'];
 const growMs = (id) => CROPS[FIELD_BY_ID[id].crop].growTime * 1000;
 
-const MERCHANT_FRESH = () => ({ visit: -1, orders: [], trust: 0, streak: 0, missed: 0, mood: 'neutral', gift: null, owned: [] });
+const MERCHANT_FRESH = () => ({ visit: -1, orders: [], trust: 0, streak: 0, missed: 0, mood: 'neutral', gift: null });
 export { MERCHANT_FRESH };
 
 export class FarmState {
@@ -53,7 +54,9 @@ export class FarmState {
         // Su vida con el tiempo (ver content/merchantLife.js): confianza (puntos), racha de visitas
         // cumplidas, visitas seguidas sin entregarle nada, ánimo, el regalo pendiente y lo que
         // tienes de su colección
-        this.merchant = MERCHANT_FRESH();
+        this.merchants = Object.fromEntries(MERCHANTS.map((m) => [m.id, MERCHANT_FRESH()]));
+        // Lo que les has comprado (o te han regalado): la decoración del cráter (ver DECOR)
+        this.village = [];
         // La historia: lo que ya ha pasado, una vez cada cosa (y lo que abre):
         //   crop      el trigo a nivel 2: el trigo mágico regala las rachas de cultivos
         //   alien     el trigo a nivel 3: regala las rachas alienígenas (y empiezan los alienígenas)
@@ -119,13 +122,15 @@ export class FarmState {
                     this.lands.west2 = true;
                     this.lands.west = false;
                 }
-                if (d.merchant && Array.isArray(d.merchant.orders)) {
-                    const m = d.merchant;
-                    Object.assign(this.merchant, { visit: m.visit | 0, orders: m.orders.filter((o) => o && CROPS[o.crop] && Object.keys(orderWants(o)).every((c) => CROPS[c])),
-                        trust: m.trust | 0, streak: m.streak | 0, missed: m.missed | 0, mood: MOOD_PAY[m.mood] ? m.mood : 'neutral',
-                        gift: m.gift === null || m.gift === undefined ? null : ITEM[m.gift] || typeof m.gift === 'number' ? m.gift : null,
-                        owned: Array.isArray(m.owned) ? m.owned.filter((id) => ITEM[id]) : [] });
-                }
+                // Los mercaderes (las de antes: un solo mercader, que es el primero; su colección pasa a
+                // ser decoración del pueblo)
+                const loadM = (m, M) => Object.assign(M, { visit: m.visit | 0, orders: (m.orders || []).filter((o) => o && CROPS[o.crop] && Object.keys(orderWants(o)).every((c) => CROPS[c])),
+                    trust: m.trust | 0, streak: m.streak | 0, missed: m.missed | 0, mood: MOOD_PAY[m.mood] ? m.mood : 'neutral',
+                    gift: m.gift === null || m.gift === undefined ? null : DECOR_BY_ID[m.gift] || typeof m.gift === 'number' ? m.gift : null });
+                if (d.merchants) for (const id of Object.keys(this.merchants)) { if (d.merchants[id]) loadM(d.merchants[id], this.merchants[id]); }
+                else if (d.merchant && Array.isArray(d.merchant.orders)) loadM(d.merchant, this.merchants.m0);
+                const own = Array.isArray(d.village) ? d.village : d.merchant && Array.isArray(d.merchant.owned) ? d.merchant.owned : [];
+                this.village = [...new Set(own.filter((id) => DECOR_BY_ID[id]))];
                 this.ufo.met = !!(d.ufo && d.ufo.met);
                 if (d.home) {
                     if (Array.isArray(d.home.owned)) this.home.owned = d.home.owned.filter((id) => SHOP_ITEMS[id]);
@@ -185,7 +190,7 @@ export class FarmState {
 
     save() {
         try {
-            localStorage.setItem(KEY, JSON.stringify({ rev: REV, prologue: this.prologue, items: this.items, fields: this.fields, barn: this.barn, house: this.house, arsenal: this.arsenal, ufo: this.ufo, home: this.home, merchant: this.merchant, lands: this.lands, story: this.story }));
+            localStorage.setItem(KEY, JSON.stringify({ rev: REV, prologue: this.prologue, items: this.items, fields: this.fields, barn: this.barn, house: this.house, arsenal: this.arsenal, ufo: this.ufo, home: this.home, merchants: this.merchants, village: this.village, lands: this.lands, story: this.story }));
         } catch {
             /* ignorar */
         }
@@ -371,16 +376,29 @@ export class FarmState {
         return this.fields[id].unlocked && !this.maxed(id) && this.affordable(id);
     }
 
-    // ---------- Comerciante ----------
+    // ---------- Los mercaderes ----------
+    // (el primero, el de siempre: state.merchant)
+    get merchant() {
+        return this.merchants.m0;
+    }
+
+    set merchant(M) {
+        this.merchants.m0 = M;
+    }
+
+    trustOf(id = 'm0') {
+        return trustLevel(this.merchants[id].trust);
+    }
+
     get trustLv() {
-        return trustLevel(this.merchant.trust);
+        return this.trustOf('m0');
     }
 
     // Los encargos de la visita (se piden al llegar). Antes de pedir los nuevos, cuenta cómo fue la
     // anterior que viste: todo cumplido sube la racha (cada GIFT_EVERY, un regalo) y lo pone
     // contento; nada entregado dos veces seguidas lo pone serio
-    ordersFor(visit) {
-        const M = this.merchant;
+    ordersFor(visit, id = 'm0') {
+        const M = this.merchants[id];
         if (M.visit === visit) return M.orders;
         if (M.visit >= 0 && M.orders.length) {
             const done = M.orders.filter((o) => o.done).length;
@@ -388,32 +406,34 @@ export class FarmState {
                 M.streak++;
                 M.missed = 0;
                 M.mood = 'happy';
-                if (M.streak % GIFT_EVERY === 0) M.gift = this.giftItem();
+                if (M.streak % GIFT_EVERY === 0) M.gift = this.giftItem(id);
             } else {
                 M.streak = 0;
                 M.missed = done ? 0 : M.missed + 1;
                 M.mood = M.missed >= 2 ? 'serious' : 'neutral';
             }
         }
-        this.newOrders(visit);
+        this.newOrders(visit, id);
         return M.orders;
     }
 
-    // Los encargos nuevos: cultivos de los campos que hay, en cantidad según su nivel; con más
-    // confianza paga más y pide más variado (combinado, urgente, especial); su primo, uno más
-    newOrders(visit) {
-        const M = this.merchant, lv = this.trustLv;
+    // Los encargos nuevos: el primero, de su cultivo favorito (si tienes ese campo; lo paga mejor);
+    // los demás, de los campos que hay, en cantidad según su nivel. Con más confianza paga más y
+    // pide más variado (combinado, urgente, especial). La nave madre, más grande y paga más
+    newOrders(visit, id = 'm0') {
+        const M = this.merchants[id], def = MERCHANT_BY_ID[id], lv = this.trustOf(id);
         const fields = FARM.fields.filter((f) => this.fields[f.id].unlocked);
         if (!fields.length) fields.push(FARM.fields[0]);
-        const pay = (1 + TRUST_PAY * (lv - 1)) * MOOD_PAY[M.mood] * (rareVisit(visit) ? RARE.pay : 1);
-        const [a, b] = MERCHANT.size;
-        const size = (f, k = 1) => Math.max(MERCHANT.min, Math.round((this.sheaves(f.id) * (a + Math.random() * (b - a)) * k) / MERCHANT.step) * MERCHANT.step);
-        const gold = (want) => Math.ceil(Object.entries(want).reduce((g, [c, n]) => g + n * MERCHANT.rate[c], 0) * pay);
+        const fav = fields.find((f) => f.crop === def.fav);
+        const pay = (1 + TRUST_PAY * (lv - 1)) * MOOD_PAY[M.mood] * (rareVisit(visit) ? RARE.pay : 1) * def.pay;
+        const [a, b] = MERCHANT.size, big = def.mother ? 1.6 : 1;
+        const size = (f, k = 1) => Math.max(MERCHANT.min, Math.round((this.sheaves(f.id) * (a + Math.random() * (b - a)) * k * big) / MERCHANT.step) * MERCHANT.step);
+        const gold = (want) => Math.ceil(Object.entries(want).reduce((g, [c, n]) => g + n * MERCHANT.rate[c] * (c === def.fav ? FAV_PAY : 1), 0) * pay);
         const orders = [];
         const count = MERCHANT.orders - (M.mood === 'serious' ? 1 : 0);
         for (let k = 0; k < count; k++) {
-            // Cada encargo de un campo (repartidos entre los que haya)
-            const f = fields[(k + visit) % fields.length], n = size(f);
+            // El primero, de su favorito; los demás, repartidos entre los campos que haya
+            const f = k === 0 && fav ? fav : fields[(k + visit) % fields.length], n = size(f);
             orders.push({ crop: f.crop, n, gold: gold({ [f.crop]: n }), done: false });
         }
         // Combinado (desde el nivel 2, con dos campos o más): varios cultivos a la vez, paga más
@@ -424,21 +444,15 @@ export class FarmState {
                 items[f.crop] = size(f, 0.6);
             }
             const c0 = Object.keys(items)[0];
-            orders[0] = { kind: 'basket', crop: c0, n: items[c0], items, gold: Math.ceil(gold(items) * BASKET_PAY), done: false };
+            orders[orders.length - 1] = { kind: 'basket', crop: c0, n: items[c0], items, gold: Math.ceil(gold(items) * BASKET_PAY), done: false };
         }
         // Urgente (desde el nivel 3): con cuenta atrás; a tiempo, paga URGENT.pay veces
         if (lv >= 3 && orders.length > 1) Object.assign(orders[1], { kind: 'urgent', until: Date.now() + URGENT.secs * 1000 });
         // Especial (desde el nivel 2, una visita sí y otra no; desde el 4, siempre): mucho de su
-        // cultivo favorito a cambio de una pieza de su colección (si ya las tienes todas, oro)
+        // favorito a cambio de uno de sus objetos raros (si ya los tienes todos, oro)
         if (lv >= 2 && (lv >= 4 || visit % 2 === 0)) {
-            const f = fields[fields.length - 1], n = size(f, SPECIAL.size), reward = COLLECTION.find((id) => !M.owned.includes(id) && id !== M.gift && !stockFor(visit, rareVisit(visit)).includes(id)) || null; // (ni lo de la tienda de hoy ni el regalo de la racha)
+            const f = fav || fields[fields.length - 1], n = size(f, SPECIAL.size), reward = decorOf(id).map((d) => d.id).find((d) => !this.village.includes(d) && d !== M.gift) || null;
             orders.push({ kind: 'special', crop: f.crop, n, gold: reward ? gold({ [f.crop]: n }) : Math.ceil(gold({ [f.crop]: n }) * SPECIAL.gold), reward, done: false });
-        }
-        // Su primo: pide el cultivo que menos se pide hoy y paga más
-        if (cousinVisit(visit)) {
-            const used = (c) => orders.filter((o) => orderWants(o)[c]).length;
-            const f = [...fields].sort((p, q) => used(p.crop) - used(q.crop))[0], n = size(f);
-            orders.push({ kind: 'cousin', crop: f.crop, n, gold: Math.ceil(gold({ [f.crop]: n }) * COUSIN.pay), done: false });
         }
         M.visit = visit;
         M.orders = orders;
@@ -455,53 +469,54 @@ export class FarmState {
         return !o.done && Object.entries(orderWants(o)).every(([c, n]) => this.items[c] >= n);
     }
 
-    // Entregar un encargo: se da lo que pide y se cobra en oro (y la pieza, el especial). Sube la
+    // Entregar un encargo: se da lo que pide y se cobra en oro (y el objeto, el especial). Sube la
     // confianza (más los especiales y combinados; y uno más al cumplirlo todo). Devuelve qué pasó
-    deliver(visit, i) {
-        const M = this.merchant, o = this.ordersFor(visit)[i];
+    deliver(visit, i, id = 'm0') {
+        const M = this.merchants[id], o = this.ordersFor(visit, id)[i];
         if (!o || !this.canDeliver(o)) return false;
-        const lv = this.trustLv, paid = this.payOf(o);
+        const lv = this.trustOf(id), paid = this.payOf(o);
         for (const [c, n] of Object.entries(orderWants(o))) this.items[c] -= n;
         this.items.gold += paid;
         o.done = true;
         o.paid = paid;
-        if (o.reward && !M.owned.includes(o.reward)) M.owned.push(o.reward);
+        if (o.reward && !this.village.includes(o.reward)) this.village.push(o.reward);
         M.trust += o.kind === 'special' || o.kind === 'basket' ? 2 : 1;
         const all = M.orders.every((q) => q.done);
         if (all) M.trust++;
         this.story.sold = true; // (la primera venta: el trigo mágico tiene una idea)
         this.save();
-        return { paid, reward: o.reward || null, all, levelUp: this.trustLv > lv ? this.trustLv : 0 };
+        return { paid, reward: o.reward || null, all, levelUp: this.trustOf(id) > lv ? this.trustOf(id) : 0 };
     }
 
-    // ---------- Su tienda, sus regalos y su colección ----------
-    stock(visit) {
-        return stockFor(visit, rareVisit(visit));
+    // ---------- Sus tiendas, sus regalos y el pueblo ----------
+    // Lo que vende cada uno: sus objetos raros
+    stock(visit, id = 'm0') {
+        return decorOf(id).map((d) => d.id);
     }
 
-    collects(id) {
-        return this.merchant.owned.includes(id);
+    collects(item) {
+        return this.village.includes(item);
     }
 
-    buy(visit, id) {
-        const it = ITEM[id];
-        if (!it || this.collects(id) || !this.stock(visit).includes(id) || this.items.gold < it.gold) return false;
+    buy(visit, item, id = 'm0') {
+        const it = DECOR_BY_ID[item];
+        if (!it || it.by !== id || this.collects(item) || this.items.gold < it.gold) return false;
         this.items.gold -= it.gold;
-        this.merchant.owned.push(id);
+        this.village.push(item);
         this.save();
         return true;
     }
 
-    // El regalo de la racha: una pieza que no tengas (o, si las tienes todas, oro)
-    giftItem() {
-        return COLLECTION.find((id) => !this.merchant.owned.includes(id)) || 30;
+    // El regalo de la racha: uno de sus objetos que no tengas (o, si los tienes todos, oro)
+    giftItem(id = 'm0') {
+        return decorOf(id).map((d) => d.id).find((d) => !this.village.includes(d)) || 30;
     }
 
-    claimGift() {
-        const M = this.merchant, g = M.gift;
+    claimGift(id = 'm0') {
+        const M = this.merchants[id], g = M.gift;
         if (g === null) return null;
         if (typeof g === 'number') this.items.gold += g;
-        else if (!M.owned.includes(g)) M.owned.push(g);
+        else if (!this.village.includes(g)) this.village.push(g);
         M.gift = null;
         this.save();
         return g;

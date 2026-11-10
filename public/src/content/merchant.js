@@ -1,21 +1,12 @@
 import { L } from '../core/I18n.js';
 import { FORCE } from './merchantLife.js';
 
-// El comerciante: un alienígena disfrazado de humano (muy mal: una careta plana con su goma).
-// Llega en su ovni, también "disfrazado" de coche con una careta gigante, al claro del bosque donde
-// una vez se estrelló una nave y dejó un surco largo. El ovni entra volando desde fuera de cámara,
-// baja al principio del surco, lo recorre pegado al suelo como si fuera un coche y se para al
-// final; baja la rampa, sale él y se pone a comerciar: pide cultivos a cambio de monedas de oro.
-// Con el reloj de verdad: cada cycle s llega y se queda stay s; luego se vuelve por donde vino.
+// Lo común a todos los mercaderes (cada uno, en content/merchants.js):
 //   orders   encargos por visita
 //   size     cuánto pide de un cultivo: de [min, max] veces los blancos del campo a su nivel,
 //            redondeado a step y nunca menos de min
 //   rate     monedas de oro por cada unidad entregada de cada cultivo (se redondea hacia arriba)
-//   site     el bosque (zone) y lo despejado (clear) en casillas [x0, z0, x1, z1)
-//   furrow   el surco: de dónde empieza (from, x) a dónde acaba (to, x), a lo largo de z, y su
-//            ancho al final (w)
-//   ufo      dónde se para el ovni; from: de dónde viene volando (fuera de cámara)
-//   stall    dónde está él comerciando (el cartel y la cámara van ahí)
+//   site     su parcela [x0, z0, x1, z1)
 // Visita rara: una de cada cuatro (siempre las mismas: depende del número de visita), viene de
 // fiesta (gorro de cumpleaños y bufanda dorada) y paga más (rare: lo que multiplica el oro). En las
 // pruebas, nunca
@@ -30,16 +21,7 @@ export const MERCHANT = {
     step: 5,
     min: 5,
     rate: { wheat: 0.12, tomato: 0.35, pumpkin: 0.9, corn: 0.2, milk: 0.7, wool: 0.8, egg: 0.75, truffle: 1.1, fish: 0.6 },
-    site: { zone: [30, -30, 60, 0], clear: [30, -24, 60, -13] }, // (el bosque, toda su parcela: en el mapa llena su zona)
-    // El accidente, en el centro de su zona: el surco llega desde el borde, ancho, hasta el ovni,
-    // que se paró en un cráter (crater: radio); a los lados, el bosque tumbado en abanico (fan:
-    // ancho al empezar y lo que se abre por casilla). El puesto, al borde del cráter
-    furrow: { from: 59.6, to: 46.6, z: -15, w: 6.2 },
-    ufo: { x: 45, z: -15, from: { x: 80, y: 16, z: -30 } },
-    stall: { x: 41.6, z: -12.4 },
-    fire: { x: 45.8, z: -19.9 }, // su hoguera: al fondo del cráter, sin nada detrás que el humo pueda tapar
-    crater: 6.4,
-    fan: { w: 3.4, open: 0.6 },
+    site: { zone: [30, -30, 60, 0] }, // (su parcela: en el mapa llena su zona; el pueblo, en content/merchants.js)
     name: L('MERCHANT', 'MERCADER'),
     lines: {
         thanks: L('A PLEASURE DOING HUMAN BUSINESS!', '¡UN PLACER HACER NEGOCIOS HUMANOS!'),
@@ -48,44 +30,3 @@ export const MERCHANT = {
         away: L('THE MERCHANT IS ON THE ROAD. BY CAR.', 'EL MERCADER ESTÁ DE CAMINO. EN COCHE.'),
     },
 };
-
-// Su reloj: ¿está ahora?, cuánto falta para que cambie y qué visita es (cada visita trae sus
-// encargos). force: 'here' o 'away' para fijarlo (DEBUG y las pruebas); null, el del reloj.
-export class MerchantClock {
-    constructor(force = null) {
-        this.force = force;
-    }
-
-    t(now = Date.now()) {
-        return (now / 1000) % MERCHANT.cycle;
-    }
-
-    // locked: aún no ha llegado a la granja (la progresión no lo ha abierto)
-    get here() {
-        if (this.locked) return false;
-        if (this.until > Date.now()) return true; // (su primera visita, aunque esté fijado fuera)
-        if (this.force) return this.force === 'here';
-        return this.t() < MERCHANT.stay;
-    }
-
-    // Que venga ya (la primera vez, tras su llamada): se queda una visita entera
-    arriveNow() {
-        this.until = Date.now() + MERCHANT.stay * 1000;
-        this.pinned = this.visit; // (toda esa visita es la misma, aunque el reloj cambie de ciclo)
-    }
-
-    // Segundos para que se vaya (si está) o vuelva (si no); null si está fijado
-    get left() {
-        if (this.locked) return null;
-        if (this.until > Date.now()) return (this.until - Date.now()) / 1000;
-        if (this.force) return null;
-        const t = this.t();
-        return t < MERCHANT.stay ? MERCHANT.stay - t : MERCHANT.cycle - t;
-    }
-
-    // Número de la visita (fijado en DEBUG, cuenta como la del reloj)
-    get visit() {
-        if (this.until > Date.now() && this.pinned !== undefined) return this.pinned;
-        return Math.floor(Date.now() / 1000 / MERCHANT.cycle) + (this.shift | 0); // (shift: DEBUG, visitas adelantadas)
-    }
-}

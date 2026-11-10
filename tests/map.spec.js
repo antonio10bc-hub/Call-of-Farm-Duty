@@ -266,28 +266,30 @@ test('torreta: con el campo al máximo, la mejora extra pone una torreta que va 
     expect(errors).toEqual([]);
 });
 
-test('comerciante: su ovni disfrazado de coche recorre el surco, sale él, pide cosecha y paga en oro; luego se va', { tag: '@full' }, async ({ page }) => {
+test('mercader: su ovni disfrazado de coche recorre su surco hasta el pueblo, sale él, pide cosecha y paga en oro; luego se va', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await openFarm(page);
     await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
     await expect.poll(() => page.evaluate(() => game.farm.introT > 2.5)).toBe(true);
     // Sin él (en las pruebas empieza fuera): su zona vacía y el cartel dice que está fuera
-    expect(await page.evaluate(() => [game.farm.camp.present, game.farm.camp.ufo.visible, game.farm.camp.man.visible])).toEqual([false, false, false]);
+    expect(await page.evaluate(() => { const v = game.farm.village.byId.m0; return [v.present, v.ship.visible, v.man.visible]; })).toEqual([false, false, false]);
     await expect(page.locator('#sign-merchant')).toContainText('FUERA');
     // Llega: el ovni entra volando, recorre el surco pegado al suelo y sale él (con su aviso)
     await page.evaluate(() => { game.merchantClock.force = 'here'; });
     await expect(page.locator('#stage')).toContainText('MERCADER');
-    await expect.poll(() => page.evaluate(() => game.farm.camp.gliding), { timeout: 60_000 }).toBe(true);
-    await expect.poll(() => page.evaluate(() => game.farm.camp.open), { timeout: 60_000 }).toBe(true);
-    // Parado al final del surco, con él en su sitio junto a la mesa
+    await expect.poll(() => page.evaluate(() => game.farm.village.byId.m0.gliding), { timeout: 60_000 }).toBe(true);
+    await expect.poll(() => page.evaluate(() => game.farm.village.byId.m0.open), { timeout: 60_000 }).toBe(true);
+    // Parado al final de su surco (junto al cráter), con él en su puesto
     expect(await page.evaluate(() => {
-        const c = game.farm.camp, u = c.ufo.position, m = c.man.position;
-        return [c.ufo.visible, c.man.visible, c.goods.visible, Math.round(u.x * 10) / 10, Math.round(m.x * 10) / 10];
-    })).toEqual([true, true, true, 45, 41.6]);
+        const v = game.farm.village.byId.m0, u = v.ship.position, m = v.man.position, G = v.geo, r = (a) => Math.round(a * 10) / 10;
+        return [v.ship.visible, v.man.visible, v.stall.goods.visible, r(u.x - G.park.x), r(u.z - G.park.z), r(m.x - G.stall.x), r(m.z - G.stall.z)];
+    })).toEqual([true, true, true, 0, 0, 0, 0]);
+    // Los demás no han venido (cada uno tiene su reloj)
+    expect(await page.evaluate(() => game.farm.village.visitors.filter((v) => v.present).map((v) => v.def.id))).toEqual(['m0']);
     await expect(page.locator('#sign-merchant')).toContainText('MERCADER');
     // Sus encargos: 3, de lo que da la granja; sin cosecha no se entregan (la cámara va a su zona:
     // desde el principio queda fuera de la pantalla del móvil)
-    await page.evaluate(() => { game.rig.focus(37, -15); game.rig.zoomTarget = 0.8; });
+    await page.evaluate(() => { const v = game.farm.village.byId.m0, p = game.farm.places.merchant.position; game.rig.fx = v.spot.x + p.x; game.rig.fz = v.spot.z + p.z; game.rig.zoomTarget = 0.8; });
     await page.locator('#sign-merchant').click();
     await expect(page.locator('#merchant')).toBeVisible();
     await expect(page.locator('#merchant-orders [id^=order-]')).toHaveCount(3);
@@ -306,7 +308,7 @@ test('comerciante: su ovni disfrazado de coche recorre el surco, sale él, pide 
     await expect.poll(() => page.evaluate(() => window.game && [game.state.items.gold, game.state.merchant.orders[0].done])).toEqual([o.gold, true]);
     // Se va: vuelve a entrar en el ovni, que sale por el surco y despega
     await page.evaluate(() => { game.merchantClock.force = 'away'; });
-    await expect.poll(() => page.evaluate(() => game.farm.camp.ufo.visible), { timeout: 15_000 }).toBe(false);
+    await expect.poll(() => page.evaluate(() => game.farm.village.byId.m0.ship.visible), { timeout: 15_000 }).toBe(false);
     expect(errors).toEqual([]);
 });
 
@@ -330,12 +332,16 @@ test('parcelas repartidas por el valle: las de PRONTO, abandonadas y en sombra; 
     expect(errors).toEqual([]);
 });
 
-test('claro del comerciante: un bosque con el surco del ovni, sin niveles ni mejoras', { tag: '@full' }, async ({ page }) => {
+test('pueblo de los mercaderes: el cráter y los surcos limpios, el resto bosque; 8 mercaderes con su surco y su puesto', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await openFarm(page);
     await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
-    // El claro (con el surco) está limpio; el resto de su parcela es bosque. Siempre 3 encargos
-    expect(await page.evaluate(() => [game.farm.kindAt(45, -19).yard, game.farm.kindAt(50, -26).wild, game.state.ordersFor(1).length, 'village' in game.state])).toEqual([true, true, 3, false]);
+    // El cráter (en el centro de su zona) está limpio y es de tierra; el resto de su parcela tiene
+    // bosque. Siempre 3 encargos (de cada uno)
+    expect(await page.evaluate(() => [game.farm.kindAt(45, -15).yard, game.farm.inCrater(45.5, -15.5), game.state.ordersFor(1).length, game.state.ordersFor(1, 'm3').length])).toEqual([true, true, 3, 3]);
+    expect(await page.evaluate(() => { let n = 0; for (let x = 30; x < 60; x++) for (let z = -30; z < 0; z++) if (game.farm.kindAt(x, z)?.wild) n++; return n > 50; })).toBe(true);
+    // Siete con su surco (que llega hasta el borde de la zona) y la nave madre, con su claro
+    expect(await page.evaluate(() => { const v = game.farm.village.visitors; return [v.length, v.filter((x) => x.geo.endR > x.geo.parkR + 8).length, !!game.farm.village.byId.mother.geo.pad]; })).toEqual([8, 7, true]);
     // Su hoja no tiene mejora
     await page.evaluate(() => game.openMerchant());
     await expect(page.locator('#merchant')).toBeVisible();
@@ -343,53 +349,51 @@ test('claro del comerciante: un bosque con el surco del ovni, sin niveles ni mej
     expect(errors).toEqual([]);
 });
 
-test('vida del mercader (con DEBUG): confianza por niveles, racha con regalo, ánimo, primo, tienda y colección en el mapa', { tag: '@full' }, async ({ page }) => {
+test('vida de los mercaderes (con DEBUG): confianza por niveles, racha con regalo, ánimo, su favorito, su tienda y el pueblo que crece', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await openFarm(page);
-    await page.evaluate(() => { game.state.story.merchant = true; game.merchantClock.force = 'here'; });
-    await expect.poll(() => page.evaluate(() => game.farm.camp.open), { timeout: 60_000 }).toBe(true);
+    await page.evaluate(() => { game.state.unlock('tomato', Date.now(), true); while (game.revealUnlocked()); game.state.story.merchant = true; game.clocks.m0.force = 'here'; });
+    await expect.poll(() => page.evaluate(() => game.farm.village.byId.m0.open), { timeout: 60_000 }).toBe(true);
     const tap = (id) => page.evaluate((id) => document.getElementById(id).click(), id);
-    const camp = () => page.evaluate(() => { const c = game.farm.camp, M = game.state.merchant; return { lv: game.state.trustLv, shown: c.levels.map((g) => g.visible), mood: M.mood, streak: M.streak, kinds: M.orders.map((o) => o.kind || '') }; });
-    // Nivel 1: solo la mesa; encargos sencillos
+    const camp = () => page.evaluate(() => { const v = game.farm.village.byId.m0, M = game.state.merchants.m0; return { lv: game.state.trustOf('m0'), shown: v.stall.levels.map((g) => g.visible), mood: M.mood, streak: M.streak, kinds: M.orders.map((o) => o.kind || ''), crops: M.orders.map((o) => o.crop) }; });
+    // Nivel 1: solo la mesa; encargos sencillos, el primero de su favorito (tomates)
     expect(await camp()).toMatchObject({ lv: 1, shown: [false, false, false, false], kinds: ['', '', ''] });
-    // Paso a paso hasta el 5: el campamento crece y aparecen combinado, urgente y especial
+    expect((await camp()).crops[0]).toBe('tomato');
+    // Paso a paso hasta el 5: el puesto crece y aparecen urgente, combinado y especial
     for (let k = 0; k < 4; k++) await page.evaluate(() => document.querySelector('#dbg-trust-row .ks-step[data-d="1"]').click());
     const top = await camp();
     expect(top.lv).toBe(5);
     expect(top.shown).toEqual([true, true, true, true]);
-    // (con un solo campo no hay combinado)
-    expect(top.kinds).toEqual(['', 'urgent', '', 'special']);
+    expect(top.kinds).toEqual(['', 'urgent', 'basket', 'special']);
     // Cumplir la visita y pasar a la siguiente: sube la racha y viene contento; a la tercera, regalo
     for (let k = 0; k < 3; k++) {
         await tap('dbg-visit-done');
         await tap('dbg-visit-next');
     }
     expect(await camp()).toMatchObject({ streak: 3, mood: 'happy' });
-    const gift = await page.evaluate(() => game.state.merchant.gift);
-    expect(gift).toBeTruthy();
-    // El primo: un encargo más y él en el claro
-    await tap('dbg-cousin');
-    expect((await camp()).kinds).toContain('cousin');
-    await expect.poll(() => page.evaluate(() => game.farm.camp.cousin.visible)).toBe(true);
-    // La hoja: abrir el regalo y comprar en su tienda; lo que tienes se ve en el mapa (la chistera, en el pato)
-    // (sin las piezas de los especiales: la tienda de hoy, que depende de la hora, siempre tiene algo que comprar)
-    await page.evaluate(() => { game.state.merchant.owned = []; game.state.items.gold = 999; game.openMerchant(); });
+    // Su hoja: pestañas de los 8, abrir el regalo y comprar en su tienda; lo que tienes, en el pueblo
+    await page.evaluate(() => { game.state.village = []; game.state.merchants.m0.gift = 'gnome'; game.state.items.gold = 999; game.openMerchant('m0'); });
     await expect(page.locator('#merchant-trust')).toContainText('AMIGO DEL ALMA');
+    await expect(page.locator('#merchant-tabs .m-tab')).toHaveCount(8);
     await page.locator('button[data-gift]').click();
-    const buy = page.locator('button[data-buy]:not([disabled])').first();
-    const id = await buy.getAttribute('data-buy');
-    await buy.click();
-    const owned = await page.evaluate(() => game.state.merchant.owned);
-    // (más las piezas de los encargos especiales cumplidos)
-    expect(owned).toEqual(expect.arrayContaining([gift, id]));
-    expect(await page.evaluate((ids) => ids.map((i) => (i === 'duckhat' ? game.farm.life.ducks[0].g.hat.visible : game.farm.camp.items[i].visible)), owned)).toEqual(owned.map(() => true));
+    await page.locator('button[data-buy="trophy"]').click();
+    expect(await page.evaluate(() => game.state.village)).toEqual(['gnome', 'trophy']);
+    await expect.poll(() => page.evaluate(() => ['gnome', 'trophy', 'flamingo'].map((i) => game.farm.village.decor[i].g.visible))).toEqual([true, true, false]);
+    // Lo de otro mercader solo se compra a ese (y si no está, no se compra)
+    expect(await page.evaluate(() => [game.state.buy(0, 'fountain', 'm0'), game.state.buy(0, 'flamingo', 'm0')])).toEqual([false, true]);
+    await page.locator('button[data-tab="m1"]').click();
+    await expect(page.locator('#merchant-name')).toHaveText('EL DEL AUTOBÚS');
+    await expect(page.locator('button[data-buy="banner"]')).toBeDisabled();
+    // El pueblo entero (DEBUG): toda la decoración a la vista
+    await tap('dbg-village-all');
+    expect(await page.evaluate(() => Object.values(game.farm.village.decor).every((d) => d.g.visible))).toBe(true);
     // Dejarlo plantado dos veces: serio y pide uno menos
-    await tap('dbg-cousin');
-    await tap('dbg-cousin');
+    await page.evaluate(() => { game.state.merchants.m0.trust = 0; });
+    await page.evaluate(() => { document.getElementById('dbg-m-pick').click(); while (document.getElementById('dbg-m-pick').textContent !== 'EL MERCADER') document.getElementById('dbg-m-pick').click(); });
     await tap('dbg-visit-next');
     await tap('dbg-visit-next');
     await tap('dbg-visit-next');
-    expect((await camp()).mood).toBe('serious');
+    expect(await camp()).toMatchObject({ mood: 'serious', kinds: ['', ''] });
     // Reiniciar: vuelve a desconocido
     await tap('dbg-merchant-reset');
     expect(await camp()).toMatchObject({ lv: 1, streak: 0, mood: 'neutral' });

@@ -61,7 +61,7 @@ test('progresión: granero, trigo, regalos del trigo mágico, mercader, casa y p
     for (let i = 0; i < 5; i++) await page.locator('#call-btn').click();
     await expect(page.locator('#call')).toBeHidden();
     expect(await gates()).toEqual([true, true, true, true, true, false, false]);
-    await expect.poll(() => page.evaluate(() => game.farm.camp.open), { timeout: 20_000 }).toBe(true);
+    await expect.poll(() => page.evaluate(() => game.farm.village.byId.m0.open), { timeout: 20_000 }).toBe(true);
     // La primera venta: el trigo mágico abre la casa y las parcelas, a la venta (con su precio)
     await page.evaluate(() => { const S = game.state; S.items.wheat = S.items.tomato = 9999; S.deliver(game.merchantClock.visit, 0); game.updateCounts(); });
     await listen(page);

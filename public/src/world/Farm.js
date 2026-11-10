@@ -5,7 +5,8 @@ import { G, GN, cellX, cellZ, hash } from './valley.js';
 import { easeOutBack } from '../core/math.js';
 import { STRUCTURES, Turret, Sandbags, LandPost } from '../render/structures.js';
 import { Plot } from '../render/props.js';
-import { MerchantCamp } from '../render/merchant.js';
+import { Village, villageGeometry, furrowHalf } from '../render/merchants.js';
+import { VILLAGE } from '../content/merchants.js';
 import { Compound } from '../render/compound.js';
 import { Life } from './Life.js';
 import { Extras } from './Extras.js';
@@ -18,7 +19,7 @@ import { buildPig, animatePig } from '../render/pig.js';
 import { buildFish, animateFish } from '../render/fish.js';
 import { buildChicken, animateChicken } from '../render/chicken.js';
 import { BARNYARD, SLOTS, BarnPiece } from '../render/barnyard.js';
-import { FARM, TURRETS, PLACES, toWorld, worldToPlace, inShapeOf, inFieldShape, stretchLocal, floorPlace } from '../content/farm.js';
+import { reachAt, FARM, TURRETS, PLACES, toWorld, worldToPlace, inShapeOf, inFieldShape, stretchLocal, floorPlace } from '../content/farm.js';
 
 const _d = new THREE.Object3D();
 const _c = new THREE.Color();
@@ -111,7 +112,10 @@ export class Farm {
         this.houseYard = FARM.house.hidden ? rectOf([0, 0, 0, 0]) : houseClear(houseLevel);
         // El bosque del comerciante y su claro (el del surco del ovni)
         this.villageZone = rectOf(MERCHANT.site.zone);
-        this.villageYard = rectOf(MERCHANT.site.clear);
+        // (el pueblo de los mercaderes: el cráter, sus surcos y el claro de la nave madre)
+        const PM = PLACES.find((P) => P.id === 'merchant');
+        this.villageReach = (deg) => reachAt(PM, (deg * Math.PI) / 180);
+        this.vgeo = Object.values(villageGeometry(this.villageReach));
         this.wild = []; // entradas animadas de la zona abandonada del granero (se apartan al crecer el recinto)
         this.shots = []; // trazadas de las balas de la torreta automática
         this.landOwned = Object.fromEntries(FARM.lands.map((l) => [l.id, !!lands[l.id]]));
@@ -206,10 +210,9 @@ export class Farm {
             this.plot = new Plot(theme.outline);
             this.places.house.add(this.plot.root);
         }
-        // El claro del comerciante: el surco del aterrizaje y su ovni disfrazado de coche
-        this.camp = new MerchantCamp(theme.outline);
-        this.camp.root.traverse((o) => (o.userData.merchant = true));
-        this.places.merchant.add(this.camp.root);
+        // El pueblo de los mercaderes: el cráter, sus surcos, sus naves y lo que les compras
+        this.village = new Village(theme.outline, this.villageReach);
+        this.places.merchant.add(this.village.root);
         // El recinto del granero: cada pieza en su sitio, repartidas por toda su zona (tocar
         // cualquiera abre el armamento, como el granero)
         // (compoundOn: sin el granero abierto no se ve; pieces: cada pieza, para que aparezcan
@@ -524,28 +527,52 @@ export class Farm {
         for (const e of [...this.decor, ...this.wild, ...(this.hints || [])]) this.layout(e, this.introT);
     }
 
-    // El claro del mercader: lo que el ovni arrasó al aterrizar (a lo largo del surco, más ancho
-    // hacia el final) y el sitio de su puesto, con el borde ondulado (m: margen)
+    // El pueblo de los mercaderes, visto desde un punto de su parcela: dónde cae en su grupo (sin
+    // estirar) respecto al centro del cráter
+    villageAt(x, z) {
+        const l = stretchLocal(x, z);
+        return [l.x - VILLAGE.cx, l.z - VILLAGE.cz];
+    }
+
+    // El claro de los mercaderes: lo que arrasaron las naves (el cráter, cada surco, más ancho donde
+    // se paró, y el claro de la nave madre con su camino al cráter), con el borde ondulado (m: margen)
     inClearing(x, z, m = 0) {
         if (!inRect(this.villageZone, x, z)) return false;
-        // (pequeño: el surco, el cráter y un corro junto al puesto; todo lo demás, bosque)
-        const F = MERCHANT.furrow, S = MERCHANT.stall, U = MERCHANT.ufo;
+        const [dx, dz] = this.villageAt(x, z), r = Math.hypot(dx, dz);
         const wob = Math.sin(x * 0.9 + z * 0.4) * 0.5 + Math.sin(z * 1.3 - x * 0.5) * 0.4;
-        const along = x >= F.to - 2 ? Math.abs(z - F.z) - (F.w / 2 + 1.2) - wob : 9;
-        const camp = Math.hypot(x - (S.x - 0.6), (z - (S.z + 0.6)) * 1.2) - 3.2 - wob;
-        const crater = Math.hypot(x - U.x, z - U.z) - MERCHANT.crater - 0.4 - wob * 0.5;
-        return Math.min(along, camp, crater) < m;
+        let d = r - VILLAGE.R - 1.8 - wob * 0.5;
+        for (const g of this.vgeo) {
+            const c = Math.cos(g.a), s = Math.sin(g.a);
+            if (g.def.mother) {
+                const px = g.pad.x - VILLAGE.cx, pz = g.pad.z - VILLAGE.cz;
+                d = Math.min(d, Math.hypot(dx - px, dz - pz) - 7 - wob);
+                const t = Math.max(0, Math.min(g.padR, dx * c + dz * s));
+                d = Math.min(d, Math.hypot(dx - c * t, dz - s * t) - 1.8 - wob * 0.4);
+                continue;
+            }
+            const t = dx * c + dz * s;
+            if (t < VILLAGE.R - 1 || t > g.endR + 1.5) continue;
+            d = Math.min(d, Math.abs(-dx * s + dz * c) - furrowHalf(g, t) - 1.4 - wob);
+        }
+        return d < m;
     }
 
-    // ¿En el cráter del ovni? (su fondo, de tierra removida)
+    // ¿En el cráter? (su fondo, de tierra removida)
     inCrater(x, z) {
-        return inRect(this.villageZone, x, z) && Math.hypot(x - MERCHANT.ufo.x, z - MERCHANT.ufo.z) < MERCHANT.crater;
+        if (!inRect(this.villageZone, x, z)) return false;
+        const [dx, dz] = this.villageAt(x, z);
+        return Math.hypot(dx, dz) < VILLAGE.R;
     }
 
-    // ¿En el abanico de árboles tumbados? (ahí no queda ninguno en pie)
+    // ¿En el abanico de árboles tumbados a los lados de un surco? (ahí no queda ninguno en pie)
     inFan(x, z) {
-        const F = MERCHANT.furrow, U = MERCHANT.ufo, dx = x - U.x;
-        return inRect(this.villageZone, x, z) && dx > -2 && Math.abs(z - F.z) < MERCHANT.fan.w + Math.max(0, dx) * MERCHANT.fan.open + 0.8;
+        if (!inRect(this.villageZone, x, z)) return false;
+        const [dx, dz] = this.villageAt(x, z);
+        return this.vgeo.some((g) => {
+            if (g.def.mother) return false;
+            const c = Math.cos(g.a), s = Math.sin(g.a), t = dx * c + dz * s;
+            return t > g.parkR && t < g.endR + 2 && Math.abs(-dx * s + dz * c) < furrowHalf(g, t) + 3.4 + (t - g.parkR) * 0.1;
+        });
     }
 
     // ¿Ya está limpio este punto? (dentro del recinto del granero o de un campo)
@@ -581,7 +608,7 @@ export class Farm {
             }
             return false;
         };
-        const zones = [{ Z: this.zone, k: 1 }, { Z: this.houseZone, k: 0.8 }, { Z: this.villageZone, k: 1.3, forest: true }, ...this.views.filter((v) => !FARM.lands.some((l) => l.field === v.id)).map((v) => ({ Z: v.zone, k: 0.55 })), ...FARM.lands.map((l) => ({ Z: rectOf(l.rect), k: l.soon ? 0.22 : 0.5 }))]; // (las de un campo en venta, ya con su parcela)
+        const zones = [{ Z: this.zone, k: 1 }, { Z: this.houseZone, k: 0.8 }, { Z: this.villageZone, k: 0.35, forest: true }, ...this.views.filter((v) => !FARM.lands.some((l) => l.field === v.id)).map((v) => ({ Z: v.zone, k: 0.55 })), ...FARM.lands.map((l) => ({ Z: rectOf(l.rect), k: l.soon ? 0.22 : 0.5 }))]; // (las de un campo en venta, ya con su parcela)
         for (const { Z, k, forest } of zones) {
             // (de lo más barato a lo más caro de comprobar)
             const free = (x, z, m) => inRect(Z, x, z) && !(forest && this.inFan(x, z)) && !inRect(this.yard, x, z, m) && !inRect(this.houseYard, x, z, m) && !this.inClearing(x, z, m) && !this.views.some((v) => inRect(v.rect, x, z, m))
@@ -1248,7 +1275,9 @@ export class Farm {
 
     // Lo que hay bajo un rayo de la cámara: un edificio, un campo o nada
     pick(ray) {
-        if (ray.intersectObject(this.camp.root, true).length) return { merchant: true };
+        const shown = (o) => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
+        const vh = ray.intersectObject(this.village.root, true).find((h) => shown(h.object));
+        if (vh) return { merchant: vh.object.userData.merchant || 'village' };
         const hits = ray.intersectObjects([...this.structures.filter((m) => m.root.visible).map((m) => m.root), this.compound.root], true);
         if (hits.length) return { structure: hits[0].object.userData.structure };
         // El suelo de cada parcela, a su altura: el más cercano en el que caiga el rayo
@@ -1319,7 +1348,7 @@ export class Farm {
         });
         if (this.plot) this.plot.update(dt, time);
         updateScenery(this, dt);
-        this.camp.update(dt, time, this.nightK || 0);
+        this.village.update(dt, time, this.nightK || 0);
         this.compound.root.visible = this.introT > 1.1 && this.compoundOn; // (aparece con los edificios)
         this.compound.update(dt, time);
         this.life.update(dt, time);
