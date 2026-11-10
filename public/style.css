@@ -491,6 +491,14 @@ body.cine .farm-ui, body.cine .bubbles { visibility: hidden; }
 .ufo-talk.merchant-talk b { color: #8a5a2a; }
 /* Pestañas de los mercaderes: un botón por cada uno (su color; los que están, encendidos y con su
    favorito; los demás, apagados y con lo que les falta); la flecha verde, si se le puede entregar algo */
+/* Lo que piden entre todos: cada cultivo con lo que tienes / lo que piden (en verde si llega) */
+.merchant-wants { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 8px; padding: 4px; font-size: 7px; color: #e8d4b0; }
+.merchant-wants i { display: flex; align-items: center; gap: 2px; font-style: normal; font-size: 8px; color: #ff9a8a; }
+.merchant-wants i.ok { color: #8fd14f; }
+.merchant-wants .ico { width: 14px; height: 14px; }
+/* Cuántos mercaderes hay ahora (en el botón del dock) */
+.dock-count { position: absolute; right: -6px; bottom: -6px; min-width: 14px; padding: 2px 3px; font-size: 8px; font-style: normal; color: var(--ink); background: #ffd23f; border: 2px solid var(--ink); text-align: center; }
+.dock-count.hidden { display: none; }
 .merchant-tabs { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; }
 .m-tab { position: relative; display: flex; align-items: center; gap: 3px; padding: 3px 5px; font-family: var(--font); font-size: 7px; color: #8a7060; background: #3a2418; border: 2px solid var(--ink); cursor: pointer; opacity: .75; }
 .m-tab.here { color: var(--ink); background: var(--cream); opacity: 1; }

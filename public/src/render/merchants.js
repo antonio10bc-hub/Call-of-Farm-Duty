@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { VoxelModel } from './VoxelModel.js';
-import { MERCHANTS, VILLAGE, DECOR, decorAt, polar } from '../content/merchants.js';
+import { box } from './materials.js';
+import { MERCHANTS, VILLAGE, ALL_DECOR, decorAt, polar } from '../content/merchants.js';
 import { CROPS } from '../content/crops.js';
 
 // El pueblo de los mercaderes: el cráter grande del centro de su zona (donde montan sus puestos y
@@ -105,7 +106,9 @@ function vehicleMask(m, b, kind, side) {
     g.position.set(0, 0, 2.08 * side);
     if (side < 0) g.rotation.y = Math.PI;
     b.add(g);
-    const P = (w, h, x, y, c, z = 0, out = true) => m.part(g, w, h, 0.06, c, side < 0 ? -x : x, y, z, out);
+    // (cada pieza un pelo por delante de la anterior: en la careta todo está en el mismo plano)
+    let n = 0;
+    const P = (w, h, x, y, c, z = 0, out = true) => m.part(g, w, h, 0.06, c, side < 0 ? -x : x, y, z + n++ * 0.004, out);
     const wheel = (x, r = 0.95, y = 0.42) => {
         P(r, r, x, y, 0x2a2624, 0.06);
         const w2 = P(r, r, x, y, 0x2a2624, 0.06);
@@ -124,9 +127,9 @@ function vehicleMask(m, b, kind, side) {
         }
         case 'bus': {
             P(4.95, 2.0, 0, 1.3, CARD, -0.03);
-            P(4.85, 1.9, 0, 1.3, 0xf0c030); P(4.85, 0.18, 0, 0.62, 0x2a3a5a, 0.02, false);
+            P(4.85, 1.9, 0, 1.3, 0xf0c030); P(4.78, 0.18, 0, 0.62, 0x2a3a5a, 0.02, false);
             for (let k = 0; k < 5; k++) win(0.66, 0.6, -1.6 + k * 0.85, 1.72);
-            win(0.5, 1.2, -2.15, 1.3); P(0.9, 0.3, -1.9, 2.1, 0x2a2624, 0.04, false); // la puerta y el cartel de la línea
+            win(0.5, 1.2, -2.15, 1.3); P(0.9, 0.3, -1.9, 2.08, 0x2a2624, 0.04, false); // la puerta y el cartel de la línea
             P(0.5, 0.16, -1.9, 2.1, 0xffe03a, 0.06, false);
             wheel(-1.6); wheel(1.6);
             break;
@@ -141,7 +144,7 @@ function vehicleMask(m, b, kind, side) {
         }
         case 'icecream': {
             P(4.95, 1.95, 0, 1.25, CARD, -0.03);
-            P(4.85, 1.85, 0, 1.25, 0xf6f3ea); P(4.85, 0.3, 0, 0.55, 0xff8ab8, 0.02, false);
+            P(4.85, 1.85, 0, 1.25, 0xf6f3ea); P(4.78, 0.3, 0, 0.55, 0xff8ab8, 0.02, false);
             win(0.9, 0.6, -1.85, 1.55); P(2.0, 0.8, 0.6, 1.45, 0x3a2a2a, 0.03, false); P(2.1, 0.18, 0.6, 1.9, 0xff8ab8, 0.05, false); // la ventanilla de los helados
             for (let k = 0; k < 4; k++) P(0.5, 0.12, -0.1 + k * 0.5, 1.95, k % 2 ? 0xff8ab8 : 0xffffff, 0.06, false);
             P(0.5, 0.7, 1.4, 2.6, 0xd8a04a); P(0.7, 0.45, 1.4, 3.1, 0xffb8d8); // el cucurucho del techo
@@ -159,16 +162,16 @@ function vehicleMask(m, b, kind, side) {
         case 'camper': {
             P(4.95, 1.9, 0.1, 1.25, CARD, -0.03); P(1.5, 0.6, -1.4, 2.3, CARD, -0.03);
             P(4.85, 1.8, 0.1, 1.25, 0xe8dcc0); P(1.4, 0.55, -1.4, 2.28, 0xe8dcc0);
-            P(4.85, 0.22, 0.1, 0.95, 0x6a4a2a, 0.03, false);
+            P(4.78, 0.22, 0.1, 0.95, 0x6a4a2a, 0.03, false);
             win(0.8, 0.55, -1.85, 1.5); win(0.9, 0.5, 0.4, 1.55); win(0.9, 0.5, 1.6, 1.55);
-            P(0.5, 1.0, -0.6, 1.0, 0x8a6a4a, 0.03, false);
+            P(0.5, 1.0, -0.6, 1.0, 0x8a6a4a, 0.045, false); // (la puerta, delante de la franja)
             wheel(-1.5); wheel(1.6);
             break;
         }
         case 'tractor': {
             P(3.6, 1.2, -0.4, 1.0, CARD, -0.03);
             P(2.4, 0.9, -0.9, 1.0, 0x4a9a3a); P(1.4, 1.5, 0.9, 1.6, 0x4a9a3a); win(0.9, 0.9, 0.9, 1.75);
-            P(0.16, 0.9, -1.4, 1.85, 0x3a3a3a); // el tubo de escape
+            P(0.16, 0.9, -1.4, 1.85, 0x3a3a3a, 0.03); // el tubo de escape (por delante de la carrocería)
             wheel(-1.6, 0.9); wheel(1.3, 1.8, 0.9);
             break;
         }
@@ -272,6 +275,61 @@ function dealDance(v, dt) {
     return true;
 }
 
+// Lo común de los dos tipos de mercader: la sombra que anuncia su llegada (herald), el bocadillo
+// de cuando charla con otro (bubble) y sus visitas a otros puestos (trip)
+function addExtras(v, size) {
+    const mat = v.own(new THREE.MeshBasicMaterial({ color: 0x1a120a, transparent: true, opacity: 0.3, depthWrite: false }));
+    v.herald = new THREE.Mesh(new THREE.BoxGeometry(size, 0.02, size * 0.8), mat);
+    v.herald.position.y = 0.06;
+    v.herald.visible = false;
+    v.root.add(v.herald);
+    v.soon = 0;
+    const b = new THREE.Group();
+    b.position.set(0, 2.75, 0);
+    v.part(b, 0.62, 0.36, 0.06, 0xffffff, 0, 0, 0);
+    v.part(b, 0.12, 0.12, 0.06, 0xffffff, -0.14, -0.22, 0, false);
+    for (const x of [-0.16, 0, 0.16]) v.part(b, 0.08, 0.08, 0.04, 0x2a1a0e, x, 0, 0.04, false);
+    b.visible = false;
+    v.man.add(b);
+    v.bubble = b;
+    v.trip = null;
+}
+// La sombra que anuncia la llegada: va y viene por su camino, cada vez más oscura
+function updateHerald(v, time) {
+    const on = v.soon > 0 && !v.present && v.step === 0;
+    v.herald.visible = on;
+    if (!on) return;
+    const k = (time * 0.22) % 1, p = v.heraldAt(k);
+    v.herald.position.set(p.x, 0.06, p.z);
+    v.herald.rotation.y = -v.geo.a;
+    v.herald.material.opacity = (0.12 + 0.3 * v.soon) * Math.sin(k * Math.PI);
+    v.herald.scale.setScalar(v.def.mother ? 1 + k * 2 : 1);
+}
+// Visitas a otro puesto: va andando hasta él, charla un rato (con su bocadillo) y vuelve al suyo
+function updateTrip(v, dt, time) {
+    const T0 = v.trip, m = v.man;
+    if (!T0) return false;
+    T0.t += dt;
+    const home = v.geo.stall, walk = Math.hypot(T0.to.x - home.x, T0.to.z - home.z) / 1.6, stay = 4.5;
+    let k, face;
+    if (T0.t < walk) { k = T0.t / walk; face = Math.atan2(T0.to.x - home.x, T0.to.z - home.z); }
+    else if (T0.t < walk + stay) { k = 1; face = Math.atan2(T0.look.x - T0.to.x, T0.look.z - T0.to.z); }
+    else if (T0.t < walk * 2 + stay) { k = 1 - (T0.t - walk - stay) / walk; face = Math.atan2(home.x - T0.to.x, home.z - T0.to.z); }
+    else {
+        v.trip = null;
+        v.bubble.visible = false;
+        m.position.set(home.x, 0, home.z);
+        m.rotation.y = v.stall.rotation.y;
+        return false;
+    }
+    const e = ease(k), moving = T0.t < walk || T0.t > walk + stay;
+    m.position.set(lerp(home.x, T0.to.x, e), moving ? Math.abs(Math.sin(T0.t * 9)) * 0.06 : 0, lerp(home.z, T0.to.z, e));
+    m.rotation.y = face;
+    v.bubble.visible = !moving && Math.sin(time * 3) > -0.3;
+    m.arm.rotation.z = !moving ? 0.6 + Math.sin(time * 6) * 0.4 : 0.1;
+    return true;
+}
+
 // ---------- Un mercader: su ovni, él y su puesto ----------
 export class Visitor extends VoxelModel {
     constructor(outline, geo) {
@@ -296,6 +354,7 @@ export class Visitor extends VoxelModel {
         this.step = 0;
         this.want = 0;
         this.dust = new THREE.Vector3();
+        addExtras(this, Math.max(2.4, 3.4 * geo.sc));
         this.setLevel(1);
         this.pose(0);
     }
@@ -306,6 +365,12 @@ export class Visitor extends VoxelModel {
 
     get open() {
         return this.step >= T.open;
+    }
+
+    // Antes de llegar: su sombra recorre el surco (soon: 0..1, lo cerca que está)
+    heraldAt(k) {
+        const G = this.geo;
+        return { x: lerp(G.start.x, G.park.x, k), z: lerp(G.start.z, G.park.z, k) };
     }
 
     get gliding() {
@@ -398,8 +463,12 @@ export class Visitor extends VoxelModel {
             u.lights.forEach((l, i) => (l.visible = nightK > 0.5 ? Math.sin(time * 3) > -0.6 : Math.sin(time * 8 + i * 0.8) > -0.2));
             if (this.step === this.want && this.open) u.body.position.y = Math.sin(time * 1.6 + this.geo.a) * 0.04;
         }
+        updateHerald(this, time);
+        if (this.trip && (!this.open || this.deal >= 0)) this.trip.t = 1e9; // (se acaba: vuelve a su sitio)
         if (dealDance(this, dt)) {
             // (bailando)
+        } else if (updateTrip(this, dt, time)) {
+            // (de visita)
         } else if (this.man.visible && this.open) {
             // Respira y saluda de vez en cuando; contento, además baila; serio, ni saluda
             const m = this.man, ph = this.geo.a * 3, dance = this.mood === 'happy' && Math.sin(time * 0.5 + ph) > 0.6;
@@ -448,8 +517,18 @@ export class Mother extends VoxelModel {
         this.step = 0;
         this.want = 0;
         this.dust = new THREE.Vector3(geo.pad.x, 0.1, geo.pad.z);
+        addExtras(this, 7);
+        // De noche, un haz de luz verde hacia el cielo
+        this.skyBeam = new THREE.Mesh(new THREE.BoxGeometry(2.2, 140, 2.2), this.own(new THREE.MeshBasicMaterial({ color: 0x7dff9a, transparent: true, opacity: 0.18, depthWrite: false })));
+        this.skyBeam.position.set(0, 20 + 70, 0);
+        this.skyBeam.visible = false;
+        this.ship.add(this.skyBeam);
         this.setLevel(1);
         this.pose(0);
+    }
+
+    heraldAt() {
+        return this.geo.pad;
     }
 
     buildCity(b) {
@@ -626,8 +705,14 @@ export class Mother extends VoxelModel {
             this.body.position.y = Math.sin(time * 0.9) * 0.15;
         }
         this.stall.lamp.material.color.setHex(this.present && nightK > 0.35 ? 0xffe9a0 : 0x8a7a5a);
+        this.skyBeam.visible = this.open && nightK > 0.45;
+        if (this.skyBeam.visible) this.skyBeam.material.opacity = 0.12 + Math.sin(time * 2) * 0.05;
+        updateHerald(this, time);
+        if (this.trip && (!this.open || this.deal >= 0)) this.trip.t = 1e9;
         if (dealDance(this, dt)) {
             // (bailando)
+        } else if (updateTrip(this, dt, time)) {
+            // (de visita)
         } else if (this.man.visible && this.open) this.man.position.y = Math.abs(Math.sin(time * 2)) * 0.02;
         this.updateFx(dt);
     }
@@ -676,7 +761,7 @@ const DECO = {
     lamps(m, g) {
         for (const x of [-0.8, 0.8]) {
             m.part(g, 0.12, 2.2, 0.12, 0x3a3a4a, x, 1.1, 0);
-            m.part(g, 0.34, 0.36, 0.34, 0xffe9a0, x, 2.35, 0);
+            m.lit(g, 0.34, 0.36, 0.34, 0xffe9a0, x, 2.35, 0);
             m.part(g, 0.44, 0.08, 0.44, 0x3a3a4a, x, 2.57, 0);
         }
     },
@@ -710,7 +795,7 @@ const DECO = {
         for (const x of [-1.4, 1.4]) m.part(g, 0.1, 2.2, 0.1, WOOD2, x, 1.1, 0);
         for (let i = 0; i < 9; i++) {
             const k = i / 8, x = lerp(-1.4, 1.4, k), y = 2.1 - Math.sin(k * Math.PI) * 0.45;
-            m.part(g, 0.14, 0.16, 0.14, [0xffe03a, 0xff6a5a, 0x7dff4a, 0x6ac8ff][i % 4], x, y, 0, false);
+            m.lit(g, 0.14, 0.16, 0.14, [0xffe03a, 0xff6a5a, 0x7dff4a, 0x6ac8ff][i % 4], x, y, 0);
         }
     },
     well(m, g) {
@@ -802,7 +887,7 @@ const DECO = {
         m.part(g, 0.5, 1.2, 0.5, 0xe8c050, 0, 0.8, 0);
         m.part(g, 1.2, 0.2, 1.2, 0xffd23f, 0, 1.45, 0);
         m.part(g, 0.3, 0.6, 0.3, 0xe8c050, 0, 1.85, 0);
-        m.part(g, 0.4, 0.4, 0.4, 0x7dff4a, 0, 2.35, 0);
+        m.lit(g, 0.4, 0.4, 0.4, 0x7dff4a, 0, 2.35, 0);
         g.water = [];
         for (let k = 0; k < 6; k++) {
             const a = (k / 6) * Math.PI * 2, w = m.part(g, 0.12, 0.12, 0.12, 0xb8ecff, Math.cos(a) * 0.6, 1.6, Math.sin(a) * 0.6, false);
@@ -834,8 +919,60 @@ const DECO = {
         for (const [y, w, c] of [[2.8, 2.4, 0x8a5ad8], [3.4, 1.8, 0x9a6ae8], [3.9, 1.0, 0xb87dff]]) m.part(g, w, 0.5, w, c, 0, y, 0);
         for (let i = 0; i < 6; i++) {
             const a = (i / 6) * Math.PI * 2;
-            m.part(g, 0.2, 0.2, 0.2, [0xff7ae0, 0x5af0ff, 0xffe03a][i % 3], Math.cos(a) * 1.1, 2.5, Math.sin(a) * 1.1, false);
+            m.lit(g, 0.2, 0.2, 0.2, [0xff7ae0, 0x5af0ff, 0xffe03a][i % 3], Math.cos(a) * 1.1, 2.5, Math.sin(a) * 1.1);
         }
+    },
+    // Los exclusivos de la nave madre
+    arch(m, g) {
+        for (const x of [-1.2, 1.2]) for (let k = 0; k < 4; k++) m.part(g, 0.4, 0.6, 0.4, 0x9fdcff, x - Math.sign(x) * k * 0.12, 0.3 + k * 0.6, 0);
+        for (let k = 0; k < 5; k++) m.part(g, 0.5, 0.36, 0.4, 0x9fdcff, -0.9 + k * 0.45, 2.6 + Math.sin((k / 4) * Math.PI) * 0.35, 0);
+        m.lit(g, 0.3, 0.3, 0.3, 0xff7ae0, 0, 3.15, 0);
+    },
+    totem(m, g) {
+        [[0x8a5ad8, 0.9], [0x3ac8b0, 0.8], [0xff7ae0, 0.85], [0x7dff4a, 0.7]].forEach(([c, w], k) => {
+            m.part(g, w, 0.7, w, c, 0, 0.35 + k * 0.7, 0);
+            for (const x of [-0.16, 0.16]) m.lit(g, 0.14, 0.14, 0.04, 0xffe03a, x, 0.45 + k * 0.7, w / 2 + 0.03);
+        });
+        for (const s of [-1, 1]) m.part(g, 0.7, 0.14, 0.2, 0x8a5ad8, s * 0.6, 2.4, 0);
+    },
+    holo(m, g) {
+        m.part(g, 1.0, 0.4, 1.0, 0x4a5868, 0, 0.2, 0);
+        m.lit(g, 0.6, 0.06, 0.6, 0x5af0ff, 0, 0.43, 0);
+        const p = new THREE.Group();
+        p.position.y = 1.6;
+        g.add(p);
+        const mat = m.own(new THREE.MeshBasicMaterial({ color: 0x5af0ff, transparent: true, opacity: 0.55, depthWrite: false }));
+        for (const [w, y] of [[0.6, 0.45], [1.0, 0.15], [1.0, -0.15], [0.6, -0.45]]) {
+            const b = new THREE.Mesh(new THREE.BoxGeometry(w, 0.3, w), mat);
+            b.position.y = y;
+            p.add(b);
+        }
+        g.spin = p;
+    },
+    rocket(m, g) {
+        for (const s of [-1, 1]) m.part(g, 0.2, 0.9, 0.6, 0xc8402e, s * 0.45, 0.45, 0);
+        for (let k = 0; k < 4; k++) m.part(g, 0.7 - k * 0.12, 0.8, 0.7 - k * 0.12, k % 2 ? 0xf3ead2 : 0xd8e0e8, 0, 0.6 + k * 0.8, 0);
+        m.part(g, 0.3, 0.5, 0.3, 0xc8402e, 0, 3.6, 0);
+        m.lit(g, 0.3, 0.3, 0.04, 0x9fdcff, 0, 2.1, 0.33);
+    },
+    pond(m, g) {
+        for (let i = 0; i < 10; i++) {
+            const a = (i / 10) * Math.PI * 2;
+            m.part(g, 0.5, 0.24, 0.4, STONE, Math.cos(a) * 1.15, 0.12, Math.sin(a) * 1.15).rotation.y = -a;
+        }
+        m.lit(g, 1.9, 0.06, 1.9, 0x7dff9a, 0, 0.1, 0);
+        for (const [x, z] of [[-0.4, 0.2], [0.35, -0.3]]) m.part(g, 0.36, 0.06, 0.3, 0x3a8a6a, x, 0.16, z, false);
+    },
+    saucer(m, g) {
+        m.part(g, 0.14, 1.0, 0.14, 0x3a3a4a, 0, 0.5, 0);
+        const p = new THREE.Group();
+        p.position.y = 1.3;
+        p.rotation.z = 0.25;
+        g.add(p);
+        m.part(p, 1.6, 0.16, 1.6, METAL, 0, 0, 0);
+        m.part(p, 1.1, 0.2, 1.1, METAL2, 0, -0.14, 0);
+        m.part(p, 0.6, 0.4, 0.6, GLASS, 0, 0.26, 0);
+        for (let k = 0; k < 6; k++) m.lit(p, 0.12, 0.08, 0.12, k % 2 ? 0xffe03a : 0xff3e5e, Math.cos(k) * 0.72, 0, Math.sin(k) * 0.72);
     },
 };
 
@@ -851,7 +988,7 @@ export class Village extends VoxelModel {
         // La decoración (escondida hasta que la compras)
         this.decor = {};
         const keep = [];
-        for (const d of DECOR) {
+        for (const d of ALL_DECOR) {
             const g = new THREE.Group(), at = decorAt(d);
             g.position.set(at.x, 0, at.z);
             g.rotation.y = Math.atan2(VILLAGE.cx - at.x, VILLAGE.cz - at.z) || 0; // (de cara al centro)
@@ -863,6 +1000,17 @@ export class Village extends VoxelModel {
         }
         this.bake([r], [...keep, this.flames, this.fireGlow]);
         for (const { g } of Object.values(this.decor)) this.bake([g], [g.spin, ...(g.water || [])].filter(Boolean));
+        // Los habitantes (se quedan a vivir con el pueblo crecido): alienígenas pequeños, también
+        // disfrazados, que pasean por el cráter
+        this.residents = [[0xffb07a, 0x5a8ac8, 0xd84a3a], [0x7ad8ff, 0xd8a03a, 0x3a3a4a], [0xff7ae0, 0x4a8a6a, 0xe8c050]].map(([sk, co, ha], i) => {
+            const a = buildAlien(this, sk, co, ha);
+            a.scale.setScalar(0.72);
+            a.visible = false;
+            r.add(a);
+            return { g: a, x: VILLAGE.cx + 3 + i, z: VILLAGE.cz + 2, goal: null, wait: i, step: i };
+        });
+        this.visitT = 8;
+        this.buildMarket();
         // Los mercaderes
         this.visitors = MERCHANTS.map((def) => {
             const v = def.mother ? new Mother(outline, this.geo[def.id]) : new Visitor(outline, this.geo[def.id]);
@@ -895,7 +1043,7 @@ export class Village extends VoxelModel {
         // Quemaduras por el fondo del cráter
         for (let k = 0; k < 9; k++) {
             const a = k * 2.4, d = 2 + (k % 4) * 1.7, s = 0.8 + (k % 3) * 0.3;
-            this.part(r, s, 0.03, s * 0.8, 0x3a3028, VILLAGE.cx + Math.cos(a) * d, 0.015, VILLAGE.cz + Math.sin(a) * d, false);
+            this.part(r, s, 0.02, s * 0.8, 0x3a3028, VILLAGE.cx + Math.cos(a) * d, 0.012 + k * 0.004, VILLAGE.cz + Math.sin(a) * d, false); // (cada una a su altura: se solapan)
         }
         for (const g of geos) {
             if (g.def.mother) continue;
@@ -904,8 +1052,10 @@ export class Village extends VoxelModel {
             // El fondo del surco: tierra oscura y removida
             for (let rr = R + 0.4; rr < g.endR; rr += 0.8, n++) {
                 const w = furrowHalf(g, rr) * 2, p = P(rr, 0, 0);
-                this.part(r, 0.84, 0.05, w, TRENCH[n % 2], p.x, 0.025, p.z, false).rotation.y = -g.a;
-                this.part(r, 0.84, 0.06, w * 0.35, 0x3a2414, p.x, 0.04, p.z, false).rotation.y = -g.a;
+                // (sin solaparse con el de al lado, y de altura alterna: sin caras en el mismo plano)
+                const th = n % 2 ? 0.05 : 0.056;
+                this.part(r, 0.8, th, w, TRENCH[n % 2], p.x, th / 2, p.z, false).rotation.y = -g.a;
+                this.part(r, 0.76, 0.07, w * 0.35, 0x3a2414, p.x, 0.035 + (n % 2) * 0.004, p.z, false).rotation.y = -g.a; // (más corta: sin extremos pegados a los de la tierra)
             }
             // Tierra levantada a los dos lados (más alta donde se paró), con matas y piedras
             n = 0;
@@ -949,13 +1099,13 @@ export class Village extends VoxelModel {
             const at = (d, a) => ({ x: M.pad.x + Math.cos(a) * d, z: M.pad.z + Math.sin(a) * d });
             for (let k = 0; k < 14; k++) {
                 const a = k * 2.39, d = 1 + (k % 5) * 1.5, s = 1.1 + (k % 3) * 0.5, p = at(d, a);
-                this.part(r, s, 0.03, s * 0.8, k % 2 ? 0x3a3028 : 0x4a3a2a, p.x, 0.015, p.z, false).rotation.y = a;
+                this.part(r, s, 0.02, s * 0.8, k % 2 ? 0x3a3028 : 0x4a3a2a, p.x, 0.012 + k * 0.0035, p.z, false).rotation.y = a; // (cada una a su altura)
             }
             for (let k = 0; k < 9; k++) {
                 const a = (k / 9) * Math.PI * 2 + 0.3;
                 for (let d = 2.5; d < 7.5; d += 0.9) {
                     const p = at(d, a + Math.sin(d * 1.7 + k) * 0.08);
-                    this.part(r, 0.9, 0.04, 0.22, 0x2a1e14, p.x, 0.03, p.z, false).rotation.y = -a;
+                    this.part(r, 0.9, 0.04, 0.22, 0x2a1e14, p.x, 0.09 + k * 0.003, p.z, false).rotation.y = -a; // (por encima de las quemaduras)
                 }
             }
             const ring = 40;
@@ -997,7 +1147,7 @@ export class Village extends VoxelModel {
             const a = (i / 7) * Math.PI * 2;
             this.part(r, 0.32, 0.22, 0.32, i % 2 ? STONE : 0x7a746a, F.x + Math.cos(a) * 0.62, 0.11, F.z + Math.sin(a) * 0.62);
         }
-        for (const ry of [0.5, -0.6]) this.part(r, 1.0, 0.16, 0.16, DARK, F.x, 0.14, F.z).rotation.y = ry;
+        for (const ry of [0.5, -0.6]) this.part(r, 1.0, 0.16, 0.16, DARK, F.x, 0.16 + ry * 0.02, F.z).rotation.y = ry; // (por encima de las piedras)
         this.flames = new THREE.Group();
         this.flames.position.set(F.x, 0.2, F.z);
         for (const [w, h, c, x, z] of [[0.56, 0.7, 0xff6a1a, 0, 0], [0.36, 0.95, 0xffb020, 0.1, 0.05], [0.2, 0.6, 0xfff0a0, -0.08, -0.03]]) {
@@ -1020,6 +1170,57 @@ export class Village extends VoxelModel {
         }
     }
 
+    // Una pieza que se enciende de noche (farolas, bombillas, cristales...): MeshBasic de su color,
+    // que de día se ve apagada
+    lit(g, w, h, d, color, x, y, z) {
+        this.litMats = this.litMats || new Map();
+        let L0 = this.litMats.get(color);
+        if (!L0) {
+            L0 = { on: new THREE.Color(color), off: new THREE.Color(color).multiplyScalar(0.62), mat: this.own(new THREE.MeshBasicMaterial({ color })) };
+            L0.mat.color.copy(L0.off);
+            this.litMats.set(color, L0);
+        }
+        const m = new THREE.Mesh(box(w, h, d), L0.mat);
+        m.position.set(x, y, z);
+        g.add(m);
+        return m;
+    }
+
+    // Los farolillos del día de mercado: postes alrededor del cráter (entre los surcos) con
+    // guirnaldas de bombillas y banderines de un poste al siguiente
+    buildMarket() {
+        const g = new THREE.Group(), R = VILLAGE.R + 1.9, geos = Object.values(this.geo), pts = [];
+        for (let k = 0; k < 24; k++) {
+            const a = (k / 24) * Math.PI * 2;
+            if (geos.some((q) => Math.abs(Math.atan2(Math.sin(a - q.a), Math.cos(a - q.a))) < (q.def.mother ? 0.3 : 0.26))) continue;
+            const x = VILLAGE.cx + Math.cos(a) * R, z = VILLAGE.cz + Math.sin(a) * R;
+            this.part(g, 0.12, 2.6, 0.12, WOOD2, x, 1.3, z);
+            this.lit(g, 0.3, 0.34, 0.3, [0xff5ab8, 0xffe03a, 0x5af0ff, 0x7dff4a][k % 4], x, 2.75, z);
+            pts.push({ x, z, k });
+        }
+        for (let i = 0; i < pts.length; i++) {
+            const A = pts[i], B = pts[(i + 1) % pts.length];
+            if (Math.hypot(B.x - A.x, B.z - A.z) > 5) continue; // (no cruzan los surcos)
+            for (let j = 1; j < 5; j++) {
+                const k = j / 5;
+                this.lit(g, 0.14, 0.18, 0.14, [0xffe03a, 0xff6a5a, 0x7dff4a, 0x6ac8ff][(i + j) % 4], lerp(A.x, B.x, k), 2.45 - Math.sin(k * Math.PI) * 0.45, lerp(A.z, B.z, k));
+            }
+        }
+        g.visible = false;
+        this.root.add(g);
+        this.marketG = g;
+    }
+
+    setMarket(on) {
+        if (on && !this.marketG.visible) this.marketPop = 1;
+        this.marketG.visible = !!on;
+    }
+
+    // Cuántos se han quedado a vivir
+    setResidents(n) {
+        this.residents.forEach((R, i) => (R.g.visible = i < n));
+    }
+
     // ¿Hay alguien? (la hoguera, encendida)
     get anyone() {
         return this.visitors.some((v) => v.open);
@@ -1027,6 +1228,55 @@ export class Village extends VoxelModel {
 
     update(dt, time, nightK = 0) {
         for (const v of this.visitors) v.update(dt, time, nightK);
+        if (this.marketPop > 0) {
+            this.marketPop = Math.max(0, this.marketPop - dt * 1.5);
+            this.marketG.scale.set(1, Math.max(0.0001, back(Math.min(1, (1 - this.marketPop) * 1.2))), 1);
+        }
+        // De noche se encienden las farolas, las bombillas y los cristales
+        const night = nightK > 0.4;
+        if (this.litMats && night !== this.litNight) {
+            this.litNight = night;
+            for (const L0 of this.litMats.values()) L0.mat.color.copy(night ? L0.on : L0.off);
+        }
+        // Se visitan: de vez en cuando uno va al puesto de otro a charlar
+        if ((this.visitT -= dt) <= 0) {
+            this.visitT = 10 + Math.random() * 14;
+            const free = this.visitors.filter((v) => v.open && !v.trip && v.deal < 0);
+            if (free.length >= 2) {
+                const a = free[(Math.random() * free.length) | 0], b = free.filter((v) => v !== a)[(Math.random() * (free.length - 1)) | 0];
+                const S = b.spot, dx = VILLAGE.cx - S.x, dz = VILLAGE.cz - S.z, d = Math.hypot(dx, dz) || 1;
+                a.trip = { t: 0, to: { x: S.x + (dx / d) * 1.1 - (dz / d) * 0.8, z: S.z + (dz / d) * 1.1 + (dx / d) * 0.8 }, look: S };
+                b.bubbleT = 6;
+            }
+        }
+        for (const v of this.visitors) if (v.bubbleT > 0 && !v.trip && v.deal < 0) {
+            v.bubbleT -= dt;
+            v.bubble.visible = v.bubbleT > 0 && Math.sin(time * 3 + 1.5) > -0.3;
+        }
+        // Los habitantes pasean por el cráter (sin pisar la fuente) y se paran a mirar
+        for (const R of this.residents) {
+            if (!R.g.visible) continue;
+            if (!R.goal && (R.wait -= dt) <= 0) {
+                const a = Math.random() * Math.PI * 2, d = 2.2 + Math.random() * 4.6;
+                R.goal = { x: VILLAGE.cx + Math.cos(a) * d, z: VILLAGE.cz + Math.sin(a) * d };
+            }
+            let moving = false;
+            if (R.goal) {
+                const dx = R.goal.x - R.x, dz = R.goal.z - R.z, d = Math.hypot(dx, dz);
+                if (d < 0.1) {
+                    R.goal = null;
+                    R.wait = 1.5 + Math.random() * 4;
+                } else {
+                    R.x += (dx / d) * dt * 1.1;
+                    R.z += (dz / d) * dt * 1.1;
+                    R.g.rotation.y = Math.atan2(dx, dz);
+                    moving = true;
+                }
+            }
+            R.step += dt * 10;
+            R.g.position.set(R.x, moving ? Math.abs(Math.sin(R.step)) * 0.05 : 0, R.z);
+            R.g.arm.rotation.z = moving ? Math.sin(R.step) * 0.3 : Math.sin(time * 0.7 + R.step) > 0.8 ? 2.4 : 0.1;
+        }
         const lit = this.anyone;
         this.flames.visible = lit;
         if (lit) this.flames.children.forEach((f, i) => f.scale.set(1, 0.75 + Math.abs(Math.sin(time * (7 + i * 3) + i)) * 0.5, 1));

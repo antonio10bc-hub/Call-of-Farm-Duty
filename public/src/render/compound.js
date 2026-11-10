@@ -27,7 +27,9 @@ export class Compound extends VoxelModel {
     sandbags(g, x, z, n, rows = 2, along = 'x') {
         for (let row = 0; row < rows; row++) for (let k = 0; k < n - row; k++) {
             const o = (k - (n - row - 1) / 2) * 0.48, ax = along === 'x';
-            this.part(g, ax ? 0.5 : 0.34, 0.26, ax ? 0.34 : 0.5, (k + row) % 2 ? SAND : SAND2, x + (ax ? o : 0), 0.13 + row * 0.26, z + (ax ? 0 : o));
+            const h = (k + row) % 2 ? 0.26 : 0.275; // (los de un tono, un pelo más altos: sin caras en el mismo plano)
+            const dd = (k + row) % 2 ? 0.34 : 0.36; // (y de fondo distinto)
+            this.part(g, ax ? 0.5 : dd, h, ax ? dd : 0.5, (k + row) % 2 ? SAND : SAND2, x + (ax ? o : 0), h / 2 + row * 0.26, z + (ax ? 0 : o));
         }
     }
 
@@ -190,7 +192,7 @@ export class Compound extends VoxelModel {
     // Hangar en arco, abierto hacia la pista (+x), con su foco y bidones
     hangar(g) {
         [[4.4, 0.9, 0x7a8a6a], [3.8, 1.7, 0x6a7a5a], [3.0, 2.4, 0x7a8a6a], [1.8, 2.9, 0x6a7a5a]].forEach(([d, y, c], i) => {
-            this.part(g, 6.4, i ? 0.6 : 1.8, d, c, 0, i ? y : 0.9, 0).rotation.y = Math.PI / 2;
+            this.part(g, 6.4 - (i % 2) * 0.06, i ? 0.6 : 1.8, d, c, 0, i ? y : 0.9, 0).rotation.y = Math.PI / 2; // (de largo alterno: sin caras en el mismo plano)
         });
         this.part(g, 0.08, 2.0, 3.2, 0x2a2a1e, 2.2, 1.0, 0, false);
         this.part(g, 0.5, 0.4, 0.5, 0x3a3a3a, 2.3, 3.0, -1.6);

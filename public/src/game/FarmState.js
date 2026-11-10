@@ -5,7 +5,7 @@ import { ARSENAL, ARSENAL_KINDS, DEFAULT_LOADOUT, CLASSES, arsenalItem } from '.
 import { KILLSTREAKS } from '../content/killstreaks.js';
 import { MERCHANT, RARE, rareVisit } from '../content/merchant.js';
 import { trustLevel, TRUST_PAY, MOOD_PAY, GIFT_EVERY, URGENT, BASKET_PAY, SPECIAL } from '../content/merchantLife.js';
-import { MERCHANTS, MERCHANT_BY_ID, DECOR_BY_ID, decorOf, FAV_PAY } from '../content/merchants.js';
+import { MERCHANTS, MERCHANT_BY_ID, DECOR_BY_ID, decorOf, FAV_PAY, exclusiveFor, JEALOUS, MARKET, marketNow, MEDALS, ALL_DECOR, VILLAGE_LEVELS, villageLevel } from '../content/merchants.js';
 
 // Lo que pide un encargo: { cultivo: cuánto } (el combinado, varios)
 export const orderWants = (o) => o.items || { [o.crop]: o.n };
@@ -57,6 +57,11 @@ export class FarmState {
         this.merchants = Object.fromEntries(MERCHANTS.map((m) => [m.id, MERCHANT_FRESH()]));
         // Lo que les has comprado (o te han regalado): la decoración del cráter (ver DECOR)
         this.village = [];
+        // Lo que va pasando con ellos (para los logros), los logros conseguidos y el nivel del pueblo
+        // que ya se ha celebrado
+        this.flags = { gift: false, market: false };
+        this.medals = [];
+        this.villageLv = 0;
         // La historia: lo que ya ha pasado, una vez cada cosa (y lo que abre):
         //   crop      el trigo a nivel 2: el trigo mágico regala las rachas de cultivos
         //   alien     el trigo a nivel 3: regala las rachas alienígenas (y empiezan los alienígenas)
@@ -131,6 +136,9 @@ export class FarmState {
                 else if (d.merchant && Array.isArray(d.merchant.orders)) loadM(d.merchant, this.merchants.m0);
                 const own = Array.isArray(d.village) ? d.village : d.merchant && Array.isArray(d.merchant.owned) ? d.merchant.owned : [];
                 this.village = [...new Set(own.filter((id) => DECOR_BY_ID[id]))];
+                this.flags = { gift: !!(d.flags && d.flags.gift), market: !!(d.flags && d.flags.market) };
+                this.medals = Array.isArray(d.medals) ? d.medals.filter((id) => MEDALS.some((m) => m.id === id)) : [];
+                this.villageLv = d.villageLv | 0;
                 this.ufo.met = !!(d.ufo && d.ufo.met);
                 if (d.home) {
                     if (Array.isArray(d.home.owned)) this.home.owned = d.home.owned.filter((id) => SHOP_ITEMS[id]);
@@ -190,7 +198,7 @@ export class FarmState {
 
     save() {
         try {
-            localStorage.setItem(KEY, JSON.stringify({ rev: REV, prologue: this.prologue, items: this.items, fields: this.fields, barn: this.barn, house: this.house, arsenal: this.arsenal, ufo: this.ufo, home: this.home, merchants: this.merchants, village: this.village, lands: this.lands, story: this.story }));
+            localStorage.setItem(KEY, JSON.stringify({ rev: REV, prologue: this.prologue, items: this.items, fields: this.fields, barn: this.barn, house: this.house, arsenal: this.arsenal, ufo: this.ufo, home: this.home, merchants: this.merchants, village: this.village, flags: this.flags, medals: this.medals, villageLv: this.villageLv, lands: this.lands, story: this.story }));
         } catch {
             /* ignorar */
         }
@@ -425,7 +433,11 @@ export class FarmState {
         const fields = FARM.fields.filter((f) => this.fields[f.id].unlocked);
         if (!fields.length) fields.push(FARM.fields[0]);
         const fav = fields.find((f) => f.crop === def.fav);
-        const pay = (1 + TRUST_PAY * (lv - 1)) * MOOD_PAY[M.mood] * (rareVisit(visit) ? RARE.pay : 1) * def.pay;
+        // (celoso: si a otro le tienes bastante más confianza, paga más para recuperarte; en día de
+        // mercado, todos pagan más)
+        M.jealous = MERCHANTS.some((d) => d.id !== id && this.trustOf(d.id) >= lv + JEALOUS.gap);
+        M.market = marketNow();
+        const pay = (1 + TRUST_PAY * (lv - 1)) * MOOD_PAY[M.mood] * (rareVisit(visit) ? RARE.pay : 1) * def.pay * (M.jealous ? JEALOUS.pay : 1) * (M.market ? MARKET.pay : 1);
         const [a, b] = MERCHANT.size, big = def.mother ? 1.6 : 1;
         const size = (f, k = 1) => Math.max(MERCHANT.min, Math.round((this.sheaves(f.id) * (a + Math.random() * (b - a)) * k * big) / MERCHANT.step) * MERCHANT.step);
         const gold = (want) => Math.ceil(Object.entries(want).reduce((g, [c, n]) => g + n * MERCHANT.rate[c] * (c === def.fav ? FAV_PAY : 1), 0) * pay);
@@ -483,6 +495,7 @@ export class FarmState {
         M.trust += o.kind === 'special' || o.kind === 'basket' ? 2 : 1;
         const all = M.orders.every((q) => q.done);
         if (all) M.trust++;
+        if (marketNow()) this.flags.market = true;
         this.story.sold = true; // (la primera venta: el trigo mágico tiene una idea)
         this.save();
         return { paid, reward: o.reward || null, all, levelUp: this.trustOf(id) > lv ? this.trustOf(id) : 0 };
@@ -491,7 +504,10 @@ export class FarmState {
     // ---------- Sus tiendas, sus regalos y el pueblo ----------
     // Lo que vende cada uno: sus objetos raros
     stock(visit, id = 'm0') {
-        return decorOf(id).map((d) => d.id);
+        const out = decorOf(id).map((d) => d.id);
+        // (la nave madre, además, el exclusivo de esta visita)
+        const ex = MERCHANT_BY_ID[id].mother ? exclusiveFor(visit, this.village) : null;
+        return ex ? [...out, ex] : out;
     }
 
     collects(item) {
@@ -500,7 +516,7 @@ export class FarmState {
 
     buy(visit, item, id = 'm0') {
         const it = DECOR_BY_ID[item];
-        if (!it || it.by !== id || this.collects(item) || this.items.gold < it.gold) return false;
+        if (!it || it.by !== id || this.collects(item) || this.items.gold < it.gold || !this.stock(visit, id).includes(item)) return false;
         this.items.gold -= it.gold;
         this.village.push(item);
         this.save();
@@ -518,8 +534,36 @@ export class FarmState {
         if (typeof g === 'number') this.items.gold += g;
         else if (!this.village.includes(g)) this.village.push(g);
         M.gift = null;
+        this.flags.gift = true;
         this.save();
         return g;
+    }
+
+    // Los logros que se acaban de conseguir (dan su oro una vez)
+    checkMedals() {
+        const got = MEDALS.filter((m) => !this.medals.includes(m.id) && m.test(this));
+        for (const m of got) {
+            this.medals.push(m.id);
+            this.items.gold += m.gold;
+        }
+        if (got.length) this.save();
+        return got;
+    }
+
+    // El nivel del pueblo (según cuántas cosas tiene); si acaba de subir, lo devuelve (y da su oro)
+    get villageLevel() {
+        return villageLevel(this.village.length);
+    }
+
+    checkVillage() {
+        const lv = this.villageLevel;
+        if (lv <= this.villageLv) return null;
+        let gold = 0;
+        for (let k = this.villageLv + 1; k <= lv; k++) gold += VILLAGE_LEVELS[k].gold;
+        this.villageLv = lv;
+        this.items.gold += gold;
+        this.save();
+        return { lv, gold };
     }
 
     // ---------- Torretas automáticas (la mejora extra con el campo al máximo) ----------

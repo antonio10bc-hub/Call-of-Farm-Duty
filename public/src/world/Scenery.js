@@ -154,7 +154,7 @@ export function buildScenery(farm) {
             for (const [dx, dz] of [[s, 0], [-s, 0], [0, s], [0, -s]]) {
                 const r = regionAt(x + dx, z + dz);
                 if (r >= 0 || r === -3 || onPath(x + dx * 0.25, z + dz * 0.25, 0)) continue;
-                if (hash(k, dx + 3, dz + 5) < 0.75) hedge.push({ x: x + dx * 0.25, y: top + 0.35, z: z + dz * 0.25, sx: 0.95, sy: 0.7, sz: 0.95, ry: hash(k, dx, dz) * 0.6 });
+                if (hash(k, dx + 3, dz + 5) < 0.75) { const hh = 0.7 + (hedge.length % 3) * 0.035; hedge.push({ x: x + dx * 0.25, y: top + hh / 2, z: z + dz * 0.25, sx: 0.95, sy: hh, sz: 0.95, ry: hash(k, dx, dz) * 0.6 }); } // (cada tono a su altura: se solapan)
             }
             continue;
         }
@@ -192,7 +192,7 @@ export function buildScenery(farm) {
             if (!(pk !== pj || (pk && pj && G.reg[k] !== G.reg[j]))) continue;
             const xm = right ? cellX(k) + CELL / 2 : cellX(k), zm = right ? cellZ(k) : cellZ(k) + CELL / 2;
             const y = pk && pj ? Math.max(G.h[k], G.h[j]) : pk ? G.h[k] : G.h[j];
-            for (const h of [0.38, 0.78]) fRails.push(right ? { x: xm, y: y + h, z: zm, sx: 0.08, sy: 0.1, sz: CELL } : { x: xm, y: y + h, z: zm, sx: CELL, sy: 0.1, sz: 0.08 });
+            for (const h of [0.38, 0.78]) fRails.push(right ? { x: xm, y: y + h, z: zm, sx: 0.08, sy: 0.1, sz: CELL - 0.04 } : { x: xm, y: y + h, z: zm, sx: CELL - 0.04, sy: 0.1, sz: 0.08 }); // (un pelo más cortas: sus puntas no se pisan con la ladera)
             if (right) {
                 post(xm, zm - CELL / 2, y);
                 post(xm, zm + CELL / 2, y);
@@ -209,7 +209,7 @@ export function buildScenery(farm) {
     const road = [], deck = [], rails = [];
     for (const [key, y] of pathTiles) {
         const [x, z] = key.split(',').map(Number);
-        road.push({ x: x + 0.5, y: y - 0.09, z: z + 0.5, sx: 1, sy: 0.3, sz: 1, c: theme.path[(x + z) & 1] });
+        road.push({ x: x + 0.5, y: y - 0.09, z: z + 0.5, sx: 1.01, sy: 0.3, sz: 1.01, c: theme.path[(x + z) & 1] }); // (un pelo más ancho que la casilla: sus lados no se pisan con los del suelo)
     }
     for (const b of bridges) {
         const cx = Math.cos(b.ry), sx = Math.sin(b.ry);

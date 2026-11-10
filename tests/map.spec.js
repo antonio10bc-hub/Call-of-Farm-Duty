@@ -400,6 +400,36 @@ test('vida de los mercaderes (con DEBUG): confianza por niveles, racha con regal
     expect(errors).toEqual([]);
 });
 
+test('pueblo de los mercaderes: día de mercado, exclusivo de la nave madre, nivel del pueblo, logros, habitantes, celos y lo que piden', { tag: '@full' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await openFarm(page);
+    await page.evaluate(() => { game.state.unlock('tomato', Date.now(), true); while (game.revealUnlocked()); game.state.story.merchant = true; game.updateCounts(); });
+    const tap = (id) => page.evaluate((id) => document.getElementById(id).click(), id);
+    // Día de mercado (DEBUG): vienen todos, con farolillos, y sus encargos pagan más
+    await page.evaluate(() => { for (const c of Object.values(game.clocks)) c.force = null; });
+    await tap('dbg-market');
+    await expect.poll(() => page.evaluate(() => game.farm.village.visitors.every((v) => v.open)), { timeout: 90_000 }).toBe(true);
+    expect(await page.evaluate(() => [game.farm.village.marketG.visible, game.state.ordersFor(game.clocks.m1.visit, 'm1') && game.state.merchants.m1.market])).toEqual([true, true]);
+    // Su cartel lleva el icono de su cultivo favorito y el dock dice cuántos hay
+    await expect(page.locator('#sign-merchant .tomato-ico')).toHaveCount(1);
+    await expect(page.locator('#dock-merchant .dock-count')).toHaveText('8');
+    // La nave madre vende, además, un exclusivo de esa visita (solo a ella)
+    const ex = await page.evaluate(() => game.state.stock(game.clocks.mother.visit, 'mother').find((id) => !['fountain', 'statue', 'discoball', 'tree'].includes(id)));
+    expect(ex).toBeTruthy();
+    expect(await page.evaluate((ex) => { game.state.items.gold = 999; return [game.state.buy(game.clocks.mother.visit, ex, 'm0'), game.state.buy(game.clocks.mother.visit, ex, 'mother')]; }, ex)).toEqual([false, true]);
+    // Lo que piden entre todos, en la hoja
+    await page.evaluate(() => game.openMerchant('m0'));
+    await expect(page.locator('.merchant-wants')).toBeVisible();
+    // Nivel del pueblo y logros: al llenarlo, sube de nivel (con su oro), se quedan a vivir 3 y salta el logro
+    await page.evaluate(() => { game.state.village = Object.keys(game.farm.village.decor); });
+    await tap('dbg-medals');
+    expect(await page.evaluate(() => [game.state.villageLevel, game.state.villageLv, game.state.medals.includes('full'), game.state.medals.includes('exclusive'), game.farm.village.residents.filter((r) => r.g.visible).length])).toEqual([4, 4, true, true, 3]);
+    // Celos: si a otro le tienes mucha más confianza, este paga más
+    await page.evaluate(() => { game.state.merchants.m0.trust = 35; game.state.newOrders(game.clocks.m2.visit, 'm2'); });
+    expect(await page.evaluate(() => game.state.merchants.m2.jealous)).toBe(true);
+    expect(errors).toEqual([]);
+});
+
 test('prados de animales: cada nivel añade edificios típicos (vacas, ovejas y gallinas) y los animales no se meten en ellos', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await openFarm(page);

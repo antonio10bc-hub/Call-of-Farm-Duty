@@ -255,7 +255,10 @@ export const G = {
         for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
             if (i + di < 0 || i + di >= GN) continue;
             const q = k + dj * GN + di;
-            if (q >= 0 && q < N && inside[q] && !water[q] && h[q] < top) h[q] = top;
+            if (q >= 0 && q < N && inside[q] && !water[q] && h[q] < top) {
+                h[q] = top;
+                if (reg[q] >= 0) reg[q] = SLOPE; // (ya no es suelo de su parcela: la orilla, de tierra con su hierba)
+            }
         }
     }
     // La montaña, en bloques de 4×4 (dos por dos celdas a la misma altura): menos cubos

@@ -73,7 +73,68 @@ export const DECOR = [
     { id: 'discoball', by: 'mother', name: L('DISCO BALL', 'BOLA DE DISCOTECA'), gold: 30, r: 2.6, a: 40 },
     { id: 'tree', by: 'mother', name: L('GIANT ALIEN TREE', 'ÁRBOL ALIENÍGENA GIGANTE'), gold: 45, r: 2.6, a: 160 },
 ];
-export const DECOR_BY_ID = Object.fromEntries(DECOR.map((d) => [d.id, d]));
+// Lo exclusivo de la nave madre: cada visita trae uno distinto (solo se vende esa visita); va en su
+// zona de impacto, junto al camino al cráter (a: fijo, r desde el centro del cráter)
+export const EXCLUSIVE = [
+    { id: 'arch', by: 'mother', exclusive: true, name: L('CRYSTAL ARCH', 'ARCO DE CRISTAL'), gold: 70, r: 13, a: -97 },
+    { id: 'totem', by: 'mother', exclusive: true, name: L('ALIEN TOTEM', 'TÓTEM ALIENÍGENA'), gold: 55, r: 13, a: -133 },
+    { id: 'holo', by: 'mother', exclusive: true, name: L('HOLOGRAM OF HOME', 'HOLOGRAMA DE CASA'), gold: 80, r: 15.5, a: -87 },
+    { id: 'rocket', by: 'mother', exclusive: true, name: L('FAIRGROUND ROCKET', 'COHETE DE FERIA'), gold: 65, r: 15.5, a: -143 },
+    { id: 'pond', by: 'mother', exclusive: true, name: L('GLOWING POND', 'CHARCA QUE BRILLA'), gold: 50, r: 11.6, a: -84 },
+    { id: 'saucer', by: 'mother', exclusive: true, name: L('SOUVENIR SAUCER', 'PLATILLO DE RECUERDO'), gold: 60, r: 11.6, a: -146 },
+];
+// El exclusivo de una visita de la nave madre (si ya lo tienes, el siguiente que no tengas)
+export function exclusiveFor(visit, owned) {
+    for (let k = 0; k < EXCLUSIVE.length; k++) {
+        const it = EXCLUSIVE[(((visit | 0) % EXCLUSIVE.length) + k) % EXCLUSIVE.length];
+        if (!owned.includes(it.id)) return it.id;
+    }
+    return null;
+}
+export const ALL_DECOR = [...DECOR, ...EXCLUSIVE];
+export const DECOR_BY_ID = Object.fromEntries(ALL_DECOR.map((d) => [d.id, d]));
+
+// El nivel del pueblo, según cuántas cosas tiene (y el oro que te dan al llegar a cada uno)
+export const VILLAGE_LEVELS = [
+    { n: 0, name: L('CAMP', 'CAMPAMENTO'), gold: 0 },
+    { n: 4, name: L('HAMLET', 'ALDEA'), gold: 20 },
+    { n: 9, name: L('VILLAGE', 'PUEBLO'), gold: 40 },
+    { n: 16, name: L('TOWN', 'VILLA'), gold: 60 },
+    { n: 24, name: L('CITY', 'CIUDAD'), gold: 100 },
+];
+export const villageLevel = (n) => VILLAGE_LEVELS.reduce((lv, L0, i) => (n >= L0.n ? i : lv), 0);
+// Los habitantes: con cuántas cosas se queda a vivir cada uno en el pueblo
+export const RESIDENTS = [8, 15, 22];
+
+// Los celos: si a otro le tienes más confianza (jealous niveles más), te paga más para recuperarte
+export const JEALOUS = { gap: 2, pay: 1.15 };
+
+// Día de mercado: de vez en cuando vienen todos a la vez un rato (cada slot s, con probabilidad p,
+// stay s); sus encargos pagan más
+export const MARKET = { slot: 1800, p: 0.4, stay: 180, pay: 1.25 };
+export const MARKET_FORCE = { on: null }; // (DEBUG: null, true o false)
+const TEST_ = typeof location !== 'undefined' && /[?&]test/.test(location.search);
+// Lo que le queda al día de mercado de ahora (s), o null si no hay
+export function marketLeft(t = Date.now() / 1000) {
+    if (MARKET_FORCE.on !== null) return MARKET_FORCE.on ? Infinity : null;
+    if (TEST_) return null;
+    const n = Math.floor(t / MARKET.slot), h = (k) => ((Math.imul(n * 7919 + k, 2654435761) >>> 0) % 10000) / 10000;
+    if (h(1) >= MARKET.p) return null;
+    const from = n * MARKET.slot + h(2) * (MARKET.slot - MARKET.stay);
+    return t >= from && t < from + MARKET.stay ? from + MARKET.stay - t : null;
+}
+export const marketNow = (t) => marketLeft(t) !== null;
+
+// Logros de los mercaderes (dan algo de oro la primera vez). test(state): ¿conseguido?
+export const MEDALS = [
+    { id: 'first', name: L('FIRST DEAL', 'PRIMER TRATO'), desc: L('DELIVER AN ORDER', 'ENTREGA UN ENCARGO'), gold: 5, test: (S) => !!S.story.sold },
+    { id: 'partner', name: L('SOMEONE\'S PARTNER', 'SOCIO DE ALGUIEN'), desc: L('ONE MERCHANT AT TRUST 4', 'UN MERCADER EN CONFIANZA 4'), gold: 15, test: (S) => MERCHANTS.some((d) => S.trustOf(d.id) >= 4) },
+    { id: 'friends', name: L('FRIEND OF ALL', 'AMIGO DE TODOS'), desc: L('ALL MERCHANTS AT TRUST 5', 'TODOS EN CONFIANZA 5'), gold: 100, test: (S) => MERCHANTS.every((d) => S.trustOf(d.id) >= 5) },
+    { id: 'gift', name: L('RELIABLE', 'FORMAL'), desc: L('GET A STREAK GIFT', 'CONSIGUE UN REGALO DE RACHA'), gold: 10, test: (S) => !!S.flags.gift },
+    { id: 'market', name: L('MARKET DAY', 'DÍA DE MERCADO'), desc: L('DELIVER ON A MARKET DAY', 'ENTREGA EN UN DÍA DE MERCADO'), gold: 15, test: (S) => !!S.flags.market },
+    { id: 'exclusive', name: L('SPACE COLLECTOR', 'COLECCIONISTA ESPACIAL'), desc: L('BUY A MOTHERSHIP EXCLUSIVE', 'COMPRA UN EXCLUSIVO DE LA NAVE MADRE'), gold: 20, test: (S) => EXCLUSIVE.some((d) => S.village.includes(d.id)) },
+    { id: 'full', name: L('COMPLETE VILLAGE', 'PUEBLO COMPLETO'), desc: L('EVERYTHING IN THE VILLAGE', 'TODO EN EL PUEBLO'), gold: 150, test: (S) => ALL_DECOR.every((d) => S.village.includes(d.id)) },
+];
 export const decorOf = (id) => DECOR.filter((d) => d.by === id);
 // Dónde va cada objeto (en el grupo de la parcela)
 export function decorAt(d) {
@@ -112,6 +173,7 @@ export class VisitClock {
         if (this.locked) return false;
         if (this.until > Date.now()) return true; // (su primera visita, aunque esté fijado fuera)
         if (this.force) return this.force === 'here';
+        if (marketNow()) return true; // (día de mercado: todos)
         const t = this.now(), s = this.slot(Math.floor(t / this.def.slot));
         return !!s && t >= s.from && t < s.to;
     }
@@ -127,7 +189,8 @@ export class VisitClock {
         if (this.locked) return null;
         if (this.until > Date.now()) return (this.until - Date.now()) / 1000;
         if (this.force) return null;
-        const t = this.now(), n0 = Math.floor(t / this.def.slot);
+        const t = this.now(), n0 = Math.floor(t / this.def.slot), mk = marketLeft(t);
+        if (mk !== null) return mk;
         for (let n = n0; n < n0 + 60; n++) {
             const s = this.slot(n);
             if (!s) continue;

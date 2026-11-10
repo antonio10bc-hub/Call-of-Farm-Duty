@@ -446,12 +446,12 @@ export class LandPost extends VoxelModel {
         this.post = new THREE.Group();
         this.part(this.post, 0.16, 1.6, 0.16, WOOD2, 0, 0.8, 0);
         this.part(this.post, 1.3, 0.8, 0.1, soon ? 0xb8b0a0 : 0xf3ead2, 0, 1.45, 0);
-        this.part(this.post, 1.3, 0.2, 0.12, soon ? 0x6a6a6a : 0xc8402e, 0, 1.75, 0, false);
+        this.part(this.post, 1.34, 0.22, 0.12, soon ? 0x6a6a6a : 0xc8402e, 0, 1.76, 0, false); // (asoma por encima y por los lados del cartel)
         if (soon) {
             // Candado: cuerpo dorado y su arco
             this.part(this.post, 0.34, 0.28, 0.06, 0xffd23f, 0, 1.32, 0.07, false);
-            this.part(this.post, 0.06, 0.2, 0.06, 0x8a8a8a, -0.11, 1.52, 0.07, false);
-            this.part(this.post, 0.06, 0.2, 0.06, 0x8a8a8a, 0.11, 1.52, 0.07, false);
+            this.part(this.post, 0.06, 0.2, 0.05, 0x8a8a8a, -0.11, 1.52, 0.07, false);
+            this.part(this.post, 0.06, 0.2, 0.05, 0x8a8a8a, 0.11, 1.52, 0.07, false); // (algo más finos que el candado)
             this.part(this.post, 0.28, 0.06, 0.06, 0x8a8a8a, 0, 1.62, 0.07, false);
         } else {
             // Una moneda de oro de cartón: el cartón, la pintura amarilla a medias y su $ de rotulador

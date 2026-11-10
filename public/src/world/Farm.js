@@ -657,7 +657,7 @@ export class Farm {
             // (en el bosque del mercader, la mitad son pinos)
             if (forest) tr.forEach((p, i) => (i % 2 ? pines : trees).push(p));
             else trees.push(...tr);
-            bush.push(...spots(cap(area * 0.1, 160), 0.45).map(([x, z]) => ({ x, y: 0.22, z, sx: 0.7 + Math.random() * 0.5, sy: 0.44, sz: 0.6 + Math.random() * 0.4, ry: Math.random() * 3 })));
+            bush.push(...spots(cap(area * 0.1, 160), 0.45).map(([x, z]) => { const h = 0.4 + Math.random() * 0.1; return { x, y: h / 2, z, sx: 0.7 + Math.random() * 0.5, sy: h, sz: 0.6 + Math.random() * 0.4, ry: Math.random() * 3 }; })); // (de alto distinto: se solapan)
             // El bosque del comerciante: solo árboles, matorral y piedras (sin chatarra)
             if (!forest) pieces.push(...junkyard({ x0: Z.x, z0: Z.z, x1: Z.x + Z.w, z1: Z.z + Z.d, px: 9999, pz: 9999, count: cap(area * 0.09, 120), s: 0.42, layers: [], inside: (x, z) => free(x, z, 0.4) && !onPathWorld(toWorld(x, z), 0.4) }).pieces);
             rocks.push(...spots(cap(area * 0.03, 50), 0.3).map(([x, z]) => ({ x, y: 0.1, z, sx: 0.45, sy: 0.24, sz: 0.35, ry: Math.random() })));
@@ -1580,9 +1580,11 @@ export class Farm {
         for (const s of v.plants) {
             if ((s.wait -= dt) <= 0 && !s.goal) {
                 // (un sitio libre del prado: no dentro de un edificio)
-                for (let k = 0; k < 6; k++) {
+                for (let k = 0; k < 12; k++) {
                     s.goal = { x: f.x + 1 + Math.random() * (f.w - 2), z: f.z + 1 + Math.random() * (f.d - 2) };
                     if (!(v.spots || []).some((p) => Math.hypot(p.x - s.goal.x, p.z - s.goal.z) < p.r + 0.6)) break;
+                    s.goal = null; // (todos dentro de algún edificio: espera y lo vuelve a intentar)
+                    s.wait = 0.5;
                 }
             }
             let speed = 0;
