@@ -544,3 +544,19 @@ test('regresiones: los tomates se ven en el mapa, la rueda sobre el menú no mue
     expect(await page.evaluate(() => window.__tab.isConnected || window.__tab === document.querySelector('#merchant-tabs [data-tab="m1"]'))).toBe(true);
     expect(errors).toEqual([]);
 });
+
+test('recargar todas las torretas desde la fila de cultivos: las que dé el oro, las vacías primero', { tag: '@full' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await openFarm(page);
+    await page.evaluate(() => {
+        const S = game.state;
+        for (const id of ['wheat', 'tomato']) { S.unlock(id, Date.now(), true); S.fields[id].turrets = true; S.fields[id].ammo = 0; }
+        while (game.revealUnlocked());
+        S.items.gold = 8; // (da para una entera, no para las dos)
+        game.updateCounts();
+    });
+    await page.locator('#dock-fields').click();
+    await page.locator('#pop-reload-all').click();
+    expect(await page.evaluate(() => [game.state.fields.wheat.ammo > 0 || game.state.fields.tomato.ammo > 0, game.state.fields.wheat.ammo > 0 && game.state.fields.tomato.ammo > 0, game.state.items.gold])).toEqual([true, false, 2]);
+    expect(errors).toEqual([]);
+});

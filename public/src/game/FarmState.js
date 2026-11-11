@@ -660,6 +660,20 @@ export class FarmState {
         return true;
     }
 
+    // Recargar todas las torretas a la vez (las vacías primero, luego las más gastadas); sin oro
+    // para todas, las que se pueda. Devuelve cuántas
+    reloadAllTurrets() {
+        const ids = Object.keys(this.fields).filter((id) => this.fields[id].turrets && this.fields[id].ammo < TURRETS.ammo).sort((a, b) => this.fields[a].ammo - this.fields[b].ammo);
+        let n = 0;
+        for (const id of ids) if (this.reloadTurret(id)) n++;
+        return n;
+    }
+
+    // Lo que costaría recargarlas todas
+    reloadAllCost() {
+        return Object.keys(this.fields).filter((id) => this.fields[id].turrets && this.fields[id].ammo < TURRETS.ammo).reduce((g, id) => g + this.reloadCost(id), 0);
+    }
+
     // Un terreno bloqueado se puede desbloquear ya, cuando el campo del que depende (after) está al
     // máximo, cuando se ha comprado su parcela (land) o, el trigo, con el granero abierto (barn)
     canUnlock(id) {

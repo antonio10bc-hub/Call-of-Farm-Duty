@@ -1725,3 +1725,8 @@ body.practice .left-badge { display: none; }
     .merchant-dock .m-tab { padding: 4px 8px; gap: 6px; }
     .merchant-dock .m-tab .m-when { min-width: 92px; text-align: right; }
 }
+/* Recargar todas las torretas: aparte, tras una rayita, con lo que cuesta */
+.dock-pop-sep { align-self: stretch; width: 3px; margin: 4px 4px; background: rgba(255, 243, 214, .35); }
+.dock-pop-btn.reload-all .reload-cost { position: absolute; bottom: 2px; left: 0; right: 0; display: flex; align-items: center; justify-content: center; gap: 2px; font-size: 7px; font-weight: normal; color: var(--ink); }
+.dock-pop-btn.reload-all .reload-cost .ico { width: 10px; height: 10px; }
+.dock-pop-btn.reload-all:disabled { opacity: .5; }

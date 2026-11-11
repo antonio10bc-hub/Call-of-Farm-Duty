@@ -781,6 +781,28 @@ function toggleFieldsPop(open = fieldsPop.classList.contains('hidden')) {
         b.innerHTML = `${ico(CROPS[def.crop].icon)}<span class="sr">${CROPS[def.crop].name}</span><i class="dock-dot"></i>${empty ? `<i class="pop-turret ico turret-ico" title="${L('TURRET OUT OF AMMO', 'TORRETA SIN MUNICIÓN')}"></i>` : ''}<span class="pips">${def.levels.map((_, i) => `<i class="pip${i <= f.level ? ' on' : ''}"></i>`).join('')}</span>`;
         fieldsPop.appendChild(b);
     }
+    // Aparte, recargar todas las torretas a la vez (las que dé el oro), con lo que cuesta
+    const cost = state.reloadAllCost();
+    if (ids.some((id) => state.fields[id].turrets)) {
+        fieldsPop.insertAdjacentHTML('beforeend', '<i class="dock-pop-sep"></i>');
+        const r = uiButton(`dock-btn dock-pop-btn reload-all${cost ? ' alert' : ''}`, () => {
+            const n = state.reloadAllTurrets();
+            if (!n) return sfx.play('miss'), medal(cost ? L('NOT ENOUGH GOLD', 'NO HAY ORO SUFICIENTE') : L('ALL TURRETS ARE FULL', 'TODAS LAS TORRETAS ESTÁN LLENAS'));
+            sfx.play('coin');
+            setTimeout(() => sfx.play('reloaded'), 160);
+            vibrate('pickup');
+            medal(`${L('TURRETS RELOADED', 'TORRETAS RECARGADAS')}: ${n}`, 'reward');
+            updateCounts();
+            refreshSigns();
+            refreshPanel();
+            toggleFieldsPop(true);
+        });
+        r.id = 'pop-reload-all';
+        r.title = L('RELOAD ALL TURRETS', 'RECARGAR TODAS LAS TORRETAS');
+        r.innerHTML = `${ico('turret')}<span class="sr">${r.title}</span>${cost ? `<b class="reload-cost">${ico('gold')}${cost}</b>` : ''}`;
+        r.disabled = !cost;
+        fieldsPop.appendChild(r);
+    }
 }
 // Tocar fuera lo cierra
 addEventListener('pointerdown', (e) => {
