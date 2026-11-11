@@ -538,16 +538,16 @@ body.cine .farm-ui, body.cine .bubbles { visibility: hidden; }
 /* La pieza en grande en el centro, con rayos de su color (en la cinemática del pozo) */
 .well-reveal { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; pointer-events: none; }
 .well-reveal.hidden { display: none; }
-.well-reveal .rays { position: absolute; left: 50%; top: 50%; width: 140vmax; height: 140vmax; margin: -70vmax 0 0 -70vmax; background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--tier) 55%, transparent) 0 10deg, transparent 10deg 20deg); -webkit-mask: radial-gradient(circle, #000 0 8%, transparent 45%); mask: radial-gradient(circle, #000 0 8%, transparent 45%); animation: raysTurn 6s steps(36) infinite; }
+.well-reveal .rays { position: absolute; left: 50%; top: 50%; width: 140vmax; height: 140vmax; margin: -70vmax 0 0 -70vmax; background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--tier) 55%, transparent) 0 10deg, transparent 10deg 20deg); -webkit-mask: radial-gradient(circle, #000 0 8%, transparent 45%); mask: radial-gradient(circle, #000 0 8%, transparent 45%); animation: raysTurn 5s steps(60) infinite; } /* (los rayos giran sin parar) */
 .well-reveal img { position: relative; width: min(46vmin, 260px); image-rendering: pixelated; filter: drop-shadow(0 0 0 var(--ink)) drop-shadow(4px 4px 0 rgba(42, 26, 14, .6)); }
 .well-reveal b, .well-reveal em { position: relative; padding: 6px 10px; font-size: 14px; font-style: normal; color: var(--ink); background: var(--cream); border: 3px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); }
 .well-reveal em { font-size: 9px; color: #fff; background: var(--tier); }
-.well-reveal.in > * { animation: revealIn .5s steps(5) both; }
+.well-reveal.in > :not(.rays) { animation: revealIn .5s steps(5) both; }
 .well-reveal.in b { animation-delay: .15s; }
 .well-reveal.in em { animation-delay: .3s; }
-.well-reveal.out { animation: revealOut .4s steps(4) forwards; }
+.well-reveal.out { animation: revealOut .3s steps(4) forwards; }
 @keyframes revealIn { from { opacity: 0; transform: scale(0.2) rotate(-12deg); } 70% { opacity: 1; transform: scale(1.15); } to { opacity: 1; transform: none; } }
-@keyframes revealOut { to { opacity: 0; transform: translateX(-30vw) scale(0.4); } }
+@keyframes revealOut { to { opacity: 0; } } /* (se desvanece rápido, sin moverse) */
 @keyframes raysTurn { to { transform: rotate(360deg); } }
 body.well-cine .letterbox i { height: 7vh; }
 /* En la armería, lo que aún no es tuyo: con el color de su rareza (sale del pozo) */
