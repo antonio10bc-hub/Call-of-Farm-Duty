@@ -3085,8 +3085,9 @@ function refreshSnipeDbg() {
     $('dbg-box-pick').textContent = wonderName(Settings.boxPick) || L('RANDOM', 'AL AZAR');
     $('dbg-start-wonder').textContent = wonderName(Settings.startWonder) || L('RIFLE', 'FUSIL');
     $('dbg-cows').textContent = Settings.cowsFull ? L('FULL UDDERS', 'UBRES LLENAS') : L('NORMAL', 'NORMAL');
+    $('dbg-fxplus').textContent = Settings.fxPlus ? L('ON', 'SÍ') : L('OFF', 'NO');
     $('dbg-aliens').textContent = Settings.noAliens ? L('NO', 'NO') : L('YES', 'SÍ');
-    for (const [id, on] of [['dbg-box-rate', Settings.boxFast], ['dbg-box-pick', Settings.boxPick], ['dbg-start-wonder', Settings.startWonder], ['dbg-cows', Settings.cowsFull], ['dbg-aliens', Settings.noAliens]]) $(id).classList.toggle('set', !!on);
+    for (const [id, on] of [['dbg-box-rate', Settings.boxFast], ['dbg-box-pick', Settings.boxPick], ['dbg-start-wonder', Settings.startWonder], ['dbg-cows', Settings.cowsFull], ['dbg-aliens', Settings.noAliens], ['dbg-fxplus', !Settings.fxPlus]]) $(id).classList.toggle('set', !!on);
 }
 const WONDER_IDS = [null, ...WONDER.map((w) => w.id)];
 for (const [id, step] of [
@@ -3094,6 +3095,7 @@ for (const [id, step] of [
     ['dbg-box-pick', () => Settings.set('boxPick', cycle(WONDER_IDS, Settings.boxPick))],
     ['dbg-start-wonder', () => Settings.set('startWonder', cycle(WONDER_IDS, Settings.startWonder))],
     ['dbg-cows', () => Settings.set('cowsFull', !Settings.cowsFull)],
+    ['dbg-fxplus', () => Settings.set('fxPlus', !Settings.fxPlus)],
     ['dbg-aliens', () => Settings.set('noAliens', !Settings.noAliens)],
 ]) {
     tapBtn(id, () => {

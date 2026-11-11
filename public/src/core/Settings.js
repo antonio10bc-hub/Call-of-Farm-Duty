@@ -11,7 +11,7 @@ const KEY = 'cofd.settings';
 // startWonder: depuración, se empieza el campo de tiro con esa arma de la caja (null = el fusil)
 // cowsFull: depuración, las vacas salen con la ubre llena (gigantes y botando)
 // noAliens: depuración, sin alienígenas a pie ni ovnis en el campo de tiro
-const DEFAULTS = { music: true, sfx: true, vibration: true, freeCosts: false, freeHome: false, streaks: null, daytime: null, merchant: null, boxFast: false, boxPick: null, startWonder: null, cowsFull: false, noAliens: false };
+const DEFAULTS = { music: true, sfx: true, vibration: true, freeCosts: false, freeHome: false, streaks: null, daytime: null, merchant: null, boxFast: false, boxPick: null, startWonder: null, cowsFull: false, noAliens: false, fxPlus: true }; // fxPlus: los efectos extra del disparo (fogonazo, casquillo, impactos, cámara lenta)
 
 export const Settings = {
     ...DEFAULTS,

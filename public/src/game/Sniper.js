@@ -7,6 +7,7 @@ import { Shockwaves } from '../render/Shockwaves.js';
 import { RifleModel } from '../render/RifleModel.js';
 import { SniperField } from '../world/SniperField.js';
 import { vibrate } from '../core/Haptics.js';
+import { Settings } from '../core/Settings.js';
 import { CROPS } from '../content/crops.js';
 import { KS, streakOf } from '../content/killstreaks.js';
 import { Killstreaks } from './Killstreaks.js';
@@ -492,7 +493,12 @@ export class Sniper {
         // (el cerrojo se mueve y suena al ritmo de su mejora)
         this.rifle.fire(this.special ? 1 : S.boltTime / this.stats.bolt);
         sfx.play(this.special ? this.special.sfx : 'snipe');
-        if (!this.special) setTimeout(() => sfx.play('bolt'), 320 * (this.stats.bolt / S.boltTime));
+        // (con los efectos extra, el cerrojo suena en tiempo de juego: va a la par con la pausa del
+        // acierto y la cámara lenta; si no, como antes)
+        if (!this.special) {
+            if (Settings.fxPlus) this.boltSfxT = 0.32 * (this.stats.bolt / S.boltTime);
+            else setTimeout(() => sfx.play('bolt'), 320 * (this.stats.bolt / S.boltTime));
+        }
         vibrate(heavy ? 'shotHeavy' : 'shot');
 
         // El disparo sale justo por la mirilla: el centro de lo que se ve ahora
@@ -510,6 +516,7 @@ export class Sniper {
         this.rifle.muzzle.getWorldPosition(_o);
         const muzzle = _o.clone();
         this.particles.burst(_o.x, _o.y, _o.z, 10, [0xffffff, 0xffe03a, 0xff9a1f], { speed: 1.4, up: 0.6, size: 0.04, ttl: 0.16, grav: 0 });
+        if (Settings.fxPlus) this.fxFire(_o);
 
         // La caja sorpresa: desde su torre, el disparo la abre (desde otra, solo rebota)
         const box = this.box.hit(origin, dir);
@@ -601,6 +608,47 @@ export class Sniper {
         return hits.length > 0 || solid >= 0;
     }
 
+    // ---------- Efectos extra del disparo (Settings.fxPlus) ----------
+    // Fogonazo con forma (una cruz de luz en la boca, dos fotogramas), humo y, al abrir el cerrojo,
+    // el casquillo de latón que sale despedido a la derecha (y su «tin» al caer)
+    fxFire(m) {
+        if (!this.flash) {
+            const mat = new THREE.MeshBasicMaterial({ color: 0xfff0a0, transparent: true, opacity: 0.95, depthWrite: false });
+            this.flash = new THREE.Group();
+            for (const [w, h] of [[0.16, 0.04], [0.04, 0.16], [0.09, 0.09]]) this.flash.add(new THREE.Mesh(box(w, h, 0.05), mat));
+            this.flash.children[2].rotation.z = Math.PI / 4;
+            this.rifle.muzzle.add(this.flash);
+        }
+        this.flash.visible = true;
+        this.flash.scale.setScalar(0.8 + Math.random() * 0.5);
+        this.flash.rotation.z = Math.random() * Math.PI;
+        this.flashT = 0.045;
+        for (let k = 0; k < 4; k++) this.particles.spawn(m.x, m.y, m.z, (Math.random() - 0.5) * 0.4, 0.4 + Math.random() * 0.4, (Math.random() - 0.5) * 0.4, 0.06, 0.5, [0x9a9a96, 0xc8c8c4][k % 2], -1);
+        if (!this.special) this.casingT = 0.35 * (this.stats.bolt / S.boltTime);
+    }
+
+    // Lo de los efectos extra que corre con el tiempo (el fogonazo, el cerrojo y el casquillo)
+    updateFx(dt) {
+        if (this.flash && this.flash.visible && (this.flashT -= dt) <= 0) this.flash.visible = false;
+        if (this.boltSfxT > 0 && (this.boltSfxT -= dt) <= 0) this.hooks.sfx.play('bolt');
+        if (this.casingT > 0 && (this.casingT -= dt) <= 0) {
+            this.rifle.muzzle.getWorldPosition(_o);
+            _v.set(1, 0, 0).applyQuaternion(this.camera.quaternion);
+            this.particles.spawn(_o.x - _v.x * 0.1, _o.y - 0.05, _o.z - _v.z * 0.1, _v.x * 1.6, 1.8, _v.z * 1.6, 0.03, 0.7, 0xd8a83a, 9);
+            setTimeout(() => this.hooks.sfx.play('tink', 0.4), 350);
+        }
+        if (this.slowCool > 0) this.slowCool -= dt;
+    }
+
+    // Un momento clave (colateral de 4 o más, o el último blanco): cámara lenta corta y un poco de
+    // zoom (como mucho una vez cada 6 s)
+    keyMoment() {
+        if (!Settings.fxPlus || this.slowCool > 0 || this.ending >= 0) return;
+        this.slowmo = Math.max(this.slowmo, 0.35);
+        this.fovPunch -= 3;
+        this.slowCool = 6;
+    }
+
     // Un tiro a algo que aguanta más (calabaza): se resquebraja, salta un trozo y el hitmarker
     damage(s) {
         const C = fxOf(this.crop);
@@ -622,7 +670,8 @@ export class Sniper {
             s.dying = 0.14 + Math.min(k, 6) * 0.05;
             s.flash = 1;
             // Grano y paja (o zumo y pepitas de tomate) que saltan, polvo de tierra y una onda
-            this.particles.burst(s.x, s.y, s.z, 50, C.burst, { speed: 3.6, up: 4.2, size: 0.09, ttl: 1.0 });
+            this.particles.burst(s.x, s.y, s.z, Settings.fxPlus ? 40 : 50, C.burst, { speed: 3.6, up: 4.2, size: 0.09, ttl: 1.0 });
+            if (Settings.fxPlus) this.particles.burst(s.x, s.y, s.z, 7, C.burst, { speed: 2.6, up: 3.4, size: 0.22, ttl: 1.3, grav: 16 }); // (trozos grandes)
             this.particles.burst(s.x, s.y - 0.3, s.z, 30, C.chaff, { speed: 2.4, up: 3, size: 0.06, ttl: 1.2, grav: 4 });
             this.particles.burst(s.x, 0.1, s.z, 12, [this.theme.dust, 0x8a5a34], { speed: 1.8, up: 1, size: 0.12, ttl: 0.5 });
             this.waves.spawn(s.x, s.z, 0xffe9a0, 1.8, 0.35);
@@ -634,6 +683,7 @@ export class Sniper {
         if (!auto) {
             vibrate('pickup');
             this.addStreak(list.length);
+            if (list.length >= 4 || (this.field.remaining === 0 && !this.practice)) this.keyMoment();
         }
         this.checkEnd();
     }
@@ -791,6 +841,7 @@ export class Sniper {
         const time = this.time;
         // La barra de la racha se vacía (no mientras se guía el misil o cuenta la nuclear)
         if (this.streak > 0 && !this.ks.paused && this.ending < 0 && (this.streakT -= dt) <= 0) this.streak = this.streakT = 0;
+        this.updateFx(dt);
         this.ks.update(dt, rawDt);
         this.flyers.update(dt, time);
         this.walkers.update(dt, time);

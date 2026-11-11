@@ -1,6 +1,6 @@
 // Efectos chiptune sintetizados al vuelo con WebAudio: cero archivos que cargar.
 // Cuánto varía cada sonido al azar (±): los que se repiten mucho
-const VARY = { snipe: 0.06, harvest: 0.05, hitmark: 0.06, bolt: 0.04, pop: 0.08, splat: 0.08, wall: 0.06 };
+const VARY = { tink: 0.12, snipe: 0.06, harvest: 0.05, hitmark: 0.06, bolt: 0.04, pop: 0.08, splat: 0.08, wall: 0.06 };
 
 export class Sfx {
     constructor(volume = 0.32) {
@@ -139,6 +139,7 @@ export class Sfx {
             case 'miss': this.noise(0.12, 0.2, 1200, pan); this.tone('triangle', 300, 120, 0.12, 0.08, pan); break;
             case 'corner': this.tone('triangle', 400, 700, 0.12, 0.1); this.noise(0.3, 0.12, 1500); break;
             case 'pop': this.tone('square', 600, 1200, 0.06, 0.12, pan); break;
+            case 'tink': this.tone('square', 2400, 1800, 0.03, 0.05, pan); this.tone('square', 2900, 2200, 0.025, 0.035, pan, 0.07); break; // (el casquillo al caer)
             // Mugido: grave, que sube y baja
             case 'moo': this.tone('sawtooth', 150, 115, 0.55, 0.09, pan); this.tone('triangle', 300, 230, 0.55, 0.05, pan); break;
             // Cacareo (dos picos cortos) y huevo cascado contra el suelo
