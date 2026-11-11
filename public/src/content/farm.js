@@ -319,6 +319,7 @@ export const PLACES = [
     { id: 'nw2', from: [60, -30], gates: [] },
     { id: 'west2', from: [60, 0], gates: [] },
     { id: 'east2', from: [60, 30], gates: [] },
+    { id: 'well', from: [120, 0], gates: [] }, // (el pozo de los deseos: su cuadrado, fuera de los demás)
 ];
 const NA = 96; // direcciones en las que se mide la zona desde su centro
 {

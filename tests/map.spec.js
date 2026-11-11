@@ -119,7 +119,7 @@ test.skip('casa: empieza en ruinas con la parcela sucia; 3 niveles la arreglan y
     expect(errors).toEqual([]);
 });
 
-test('armería: en el granero se compran con oro y se montan mirillas, rifles y cargadores, cada uno con sus pegas', { tag: '@full' }, async ({ page }) => {
+test('armería: en el granero se montan las mirillas, rifles y cargadores, cada uno con sus pegas', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await openFarm(page);
     await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
@@ -133,21 +133,22 @@ test('armería: en el granero se compran con oro y se montan mirillas, rifles y 
     await expect(page.locator('.gear-row')).toHaveCount(3);
     await expect(page.locator('.gear')).toHaveCount(15);
     for (const id of ['scope-std', 'rifle-bolt', 'mag-std']) await expect(page.locator(`#gear-${id}`)).toHaveClass(/on/);
-    // Sin oro no se compra; con oro se compra y se monta (y la lista se cierra)
+    // Lo que no es tuyo no se compra (ni con oro: sale del pozo de los deseos); lo que ya tienes
+    // se monta (y la lista se cierra)
+    await page.evaluate(() => { game.state.items.gold = 40; });
     await page.locator('#gear-rifle-semi').click();
-    expect(await page.evaluate(() => game.state.arsenal.loadout.rifle)).toBe('bolt');
-    await page.evaluate(() => { game.state.items.gold = 40; game.select({ structure: 'barn' }); });
+    expect(await page.evaluate(() => [game.state.arsenal.loadout.rifle, game.state.items.gold])).toEqual(['bolt', 40]);
+    await expect(page.locator('#gear-rifle-semi em')).toContainText('POZO');
+    await page.evaluate(() => { game.state.arsenal.owned.push('rifle:semi', 'scope:dot', 'mag:ext'); game.select({ structure: 'barn' }); });
     const pick = async (kind, id) => { await page.locator(`#slot-${kind}`).click(); await page.locator(`#gear-${kind}-${id}`).click(); await expect(page.locator('#gear-picker')).toBeHidden(); };
     await pick('rifle', 'semi');
     await expect(page.locator('#slot-rifle')).toContainText('SEMIAUTOM');
     await pick('scope', 'dot');
     await pick('mag', 'ext');
     const lo = () => page.evaluate(() => { const l = game.state.arsenal.loadout; return { scope: l.scope, rifle: l.rifle, mag: l.mag }; });
-    expect([await lo(), await page.evaluate(() => game.state.items.gold)]).toEqual([{ scope: 'dot', rifle: 'semi', mag: 'ext' }, 40 - 10 - 8 - 12]);
-    // Volver a lo de serie no cuesta nada (ya es tuyo)
+    expect([await lo(), await page.evaluate(() => game.state.items.gold)]).toEqual([{ scope: 'dot', rifle: 'semi', mag: 'ext' }, 40]);
     await pick('rifle', 'bolt');
     await pick('rifle', 'semi');
-    expect(await page.evaluate(() => game.state.items.gold)).toBe(10);
     // Otra clase: se edita aparte y se equipa con su botón
     await page.locator('#class-1').click();
     await expect(page.locator('#slot-rifle')).toContainText('DE CERROJO');
@@ -427,6 +428,30 @@ test('pueblo de los mercaderes: día de mercado, exclusivo de la nave madre, niv
     // Celos: si a otro le tienes mucha más confianza, este paga más
     await page.evaluate(() => { game.state.merchants.m0.trust = 35; game.state.newOrders(game.clocks.m2.visit, 'm2'); });
     expect(await page.evaluate(() => game.state.merchants.m2.jealous)).toBe(true);
+    expect(errors).toEqual([]);
+});
+
+test('pozo de los deseos: se echa una moneda de oro y sale una pieza de la armería que no tenías; sin oro o sin nada que pedir, no', { tag: '@full' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await openFarm(page);
+    await page.evaluate(() => { game.state.barn.open = true; game.updateCounts(); });
+    // Su zona (la esquina de las vacas) con el pozo en medio, su cartel y su botón en el dock
+    expect(await page.evaluate(() => game.farm.kindAt(135, 15).yard)).toBe(true);
+    await expect(page.locator('#dock-well')).toBeVisible();
+    // Sin oro no se tira
+    await page.evaluate(() => { game.state.items.gold = 0; });
+    await page.locator('#dock-well').click();
+    await page.locator('#dock-well').click();
+    await expect(page.locator('#well')).toBeVisible();
+    await expect(page.locator('#well-wish')).toBeDisabled();
+    // Con oro: cuesta 15 y sale una pieza nueva (con su carta y ya en la armería)
+    await page.evaluate(() => { game.state.items.gold = 15 * 12 + 5; game.openWell(); });
+    await page.locator('#well-wish').click();
+    await expect(page.locator('.well-card')).toBeVisible({ timeout: 15_000 });
+    expect(await page.evaluate(() => [game.state.items.gold, game.state.arsenal.owned.length])).toEqual([15 * 11 + 5, 1]);
+    // Nunca repite: con todo lo que queda, acaba saliendo toda la armería y ya no se tira
+    const got = await page.evaluate(() => { for (let k = 0; k < 11; k++) game.state.wish(); return [game.state.wishPool().length, new Set(game.state.arsenal.owned).size, game.state.items.gold, game.state.wish()]; });
+    expect(got).toEqual([0, 12, 5, false]);
     expect(errors).toEqual([]);
 });
 

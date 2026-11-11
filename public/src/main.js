@@ -5,8 +5,9 @@ import { CROPS } from './content/crops.js';
 import { FARM, FIELD_BY_ID, INFO, TURRETS, toWorld, worldToPlace, PLACES } from './content/farm.js';
 import { KILLSTREAKS, setStreakCounts } from './content/killstreaks.js';
 import { SHOP, SHOP_ITEMS } from './content/ufo.js';
-import { ARSENAL, ARSENAL_KINDS, CLASSES } from './content/arsenal.js';
+import { ARSENAL, ARSENAL_KINDS, CLASSES, DEFAULT_LOADOUT } from './content/arsenal.js';
 import { gearArt } from './ui/GearArt.js';
+import { TIERS, tierOf } from './content/well.js';
 import { MERCHANT, rareVisit } from './content/merchant.js';
 import { MERCHANTS, MERCHANT_BY_ID, VisitClock, ALL_DECOR, DECOR_BY_ID, VILLAGE, VILLAGE_LEVELS, RESIDENTS, MEDALS, MARKET, MARKET_FORCE, marketNow } from './content/merchants.js';
 import { regionAt, isWater, groundAt } from './world/valley.js';
@@ -579,10 +580,12 @@ function medal(text, cls = '') {
     sfx.play(cls === 'multi' ? 'power' : 'spot');
 }
 
-function stage(name, sub) {
+// small: el aviso pequeño (para lo que pasa a menudo: las idas y venidas de los mercaderes)
+function stage(name, sub, small = false) {
     $('stage-name').textContent = name;
     $('stage-sub').textContent = sub;
     const el = $('stage');
+    el.classList.toggle('small', small);
     el.classList.remove('show');
     void el.offsetWidth;
     el.classList.add('show');
@@ -731,6 +734,8 @@ const DOCK = [
         go: () => toggleFieldsPop() },
     { id: 'house', icon: 'home', label: L('FARMHOUSE', 'CASA'), show: () => !FARM.house.hidden && state.open('house'), alert: () => state.canUpgradeHouse,
         go: () => { const h = farm.byId.house.def; dockGo(h.x, h.z, () => select({ structure: 'house' })); } },
+    { id: 'well', icon: 'well', label: L('WISHING WELL', 'POZO DE LOS DESEOS'), show: () => state.open('barn'), alert: () => state.wishPool().length > 0 && state.items.gold >= state.wishCost(),
+        go: () => dockGo(135, 15, () => openWell()) },
     { id: 'merchant', icon: 'merchant', label: L('MERCHANTS', 'MERCADERES'), show: () => !merchantClock.locked, alert: () => MERCHANTS.some((d) => merchantCan(d.id)),
         go: () => { const c = vParcel(VILLAGE.cx, VILLAGE.cz); dockGo(c.x, c.z, () => openMerchant(MERCHANTS.find((d) => merchantCan(d.id))?.id || MERCHANTS.find((d) => farm.village.byId[d.id].open)?.id || curM)); } },
 ];
@@ -802,10 +807,14 @@ function refreshUfoSign() {
 }
 refreshUfoSign();
 houseSign.id = 'sign-house';
+// Cartel del pozo de los deseos (con la flecha si llega el oro para una moneda)
+const wellSign = uiButton('field-sign well-sign hidden', () => openWell());
+wellSign.id = 'sign-well';
 
 // ¿Hay algo de la armería que ya se puede comprar? (flecha verde en su cartel y aviso en el dock)
+// (ya no se compra nada con oro: lo nuevo sale del pozo de los deseos)
 function armoryNews() {
-    return ARSENAL_KINDS.some((k) => ARSENAL[k].some((x) => !state.ownsGear(k, x.id) && state.items.gold >= state.gearPrice(k, x.id)));
+    return false;
 }
 // Los carteles del granero (armamento) y de la casa
 function refreshArmory() {
@@ -858,6 +867,16 @@ function placeBubbles() {
     const show = mode === 'farm' && farm.introT > 1.6;
     armory.classList.toggle('hidden', !show);
     houseSign.classList.toggle('hidden', !show || FARM.house.hidden); // (la casa, aparcada)
+    const wellOn = show && state.open('barn');
+    wellSign.classList.toggle('hidden', !wellOn);
+    if (wellOn) {
+        farm.world(135, 4.2, 15, _b).project(rig.camera);
+        wellSign.style.left = `${Math.round((_b.x * 0.5 + 0.5) * innerWidth)}px`;
+        wellSign.style.top = `${Math.round((-_b.y * 0.5 + 0.5) * innerHeight)}px`;
+        const can = state.wishPool().length > 0 && state.items.gold >= state.wishCost(), html = `${ico('well')}<span>${L('WISHING WELL', 'POZO DE LOS DESEOS')}</span><i class="sign-up"></i>`;
+        if (wellSign.innerHTML !== html) wellSign.innerHTML = html;
+        wellSign.classList.toggle('can-up', can);
+    }
     for (const d of MERCHANTS) {
         // (sin él, solo el del primero: lo que le falta para volver)
         const el = merchantSigns[d.id], v = farm.village.byId[d.id], on = show && !merchantClock.locked && (v.open || d.id === 'm0');
@@ -1619,12 +1638,13 @@ function tapMap(x, y) {
     const hit = farm.pick(ray);
     if (!hit) return select(null);
     if (hit.merchant) return openMerchant(MERCHANT_BY_ID[hit.merchant] ? hit.merchant : undefined);
+    if (hit.well) return openWell();
     if (hit.field && state.isReady(hit.field) && selected && selected.field === hit.field) return harvest(hit.field);
     select(hit);
 }
 
 // El menú de más arriba, cerrado como con su botón (true si había alguno)
-const MENUS = [['gear-picker', 'picker-close'], ['streaks', 'btn-streaks-close'], ['debug', 'btn-debug-close'], ['settings', 'btn-settings-close'], ['ufo-shop', 'ufo-close'], ['merchant', 'merchant-close']];
+const MENUS = [['gear-picker', 'picker-close'], ['streaks', 'btn-streaks-close'], ['debug', 'btn-debug-close'], ['settings', 'btn-settings-close'], ['ufo-shop', 'ufo-close'], ['merchant', 'merchant-close'], ['well', 'well-close']];
 function closeTopMenu() {
     const m = MENUS.find(([id]) => !$(id).classList.contains('hidden'));
     if (!m) return false;
@@ -1904,7 +1924,7 @@ function updateMerchant(dt) {
         if (here && mode !== 'farm') merchantNews = d.id; // (se avisa al volver a la granja)
         if (mode === 'farm' && farm.introT > 2) {
             stage(here ? `${d.name}: ${L('HERE!', '¡HA LLEGADO!')}` : `${d.name}: ${L('LEFT', 'SE HA IDO')}`,
-                rare ? L('PARTYING: PAYS MORE GOLD!', 'VIENE DE FIESTA: ¡PAGA MÁS ORO!') : here && state.merchants[d.id].gift !== null ? L('BROUGHT YOU A GIFT', 'TE HA TRAÍDO UN REGALO') : here ? `${L('WANTS', 'QUIERE')} ${CROPS[d.fav].name}` : L('WILL BE BACK', 'VOLVERÁ'));
+                rare ? L('PARTYING: PAYS MORE GOLD!', 'VIENE DE FIESTA: ¡PAGA MÁS ORO!') : here && state.merchants[d.id].gift !== null ? L('BROUGHT YOU A GIFT', 'TE HA TRAÍDO UN REGALO') : here ? `${L('WANTS', 'QUIERE')} ${CROPS[d.fav].name}` : L('WILL BE BACK', 'VOLVERÁ'), true);
             sfx.play(here ? 'bounceGet' : 'ui');
         }
         if (!here && curM === d.id && !$('merchant').classList.contains('hidden')) renderMerchant();
@@ -1930,7 +1950,7 @@ function updateMerchant(dt) {
     if (merchantNews && mode === 'farm') {
         const d = MERCHANT_BY_ID[merchantNews];
         merchantNews = null;
-        stage(`${d.name}: ${L('HERE!', '¡HA LLEGADO!')}`, `${L('WANTS', 'QUIERE')} ${CROPS[d.fav].name}`);
+        stage(`${d.name}: ${L('HERE!', '¡HA LLEGADO!')}`, `${L('WANTS', 'QUIERE')} ${CROPS[d.fav].name}`, true);
     }
     // Con alguien en el pueblo: una columna de humo alta sale de la hoguera (se ve desde todo el valle)
     const F = farm.village.fire;
@@ -2125,6 +2145,82 @@ $('merchant').addEventListener('click', (e) => {
     renderMerchant();
 });
 $('merchant').addEventListener('pointerdown', (e) => e.stopPropagation());
+
+// ---------- El pozo de los deseos ----------
+// Su hoja: lo que cuesta una moneda, la tirada (la moneda cae al pozo, sube la luz del color de la
+// rareza y sale la pieza nueva) y todo lo que aún puede salir, por rarezas
+const WELL_LINES = [
+    L('THROW A COIN AND MAKE A WISH. A WEAPON WISH.', 'ECHA UNA MONEDA Y PIDE UN DESEO. UN DESEO CON ARMAS.'),
+    L('THE WELL KNOWS WHAT YOU NEED. MORE OR LESS.', 'EL POZO SABE LO QUE NECESITAS. MÁS O MENOS.'),
+    L('SPLASH! SOMETHING SHINY IS DOWN THERE.', '¡CHOF! AHÍ ABAJO HAY ALGO QUE BRILLA.'),
+];
+let wellResult = null;
+function openWell() {
+    if (mode !== 'farm' || inCine()) return;
+    select(null);
+    sfx.play('ui');
+    rig.focus(135, 17);
+    rig.zoomTarget = 0.8;
+    $('well-line').textContent = WELL_LINES[(Math.random() * WELL_LINES.length) | 0];
+    wellResult = null;
+    renderWell();
+    const el = $('well');
+    el.classList.remove('hidden', 'in');
+    void el.offsetWidth;
+    el.classList.add('in');
+}
+
+function renderWell() {
+    const pool = state.wishPool(), cost = state.wishCost(), busy = farm.well.busy;
+    $('well-gold').textContent = state.items.gold;
+    const b = $('well-wish');
+    b.disabled = busy || !pool.length || state.items.gold < cost;
+    b.innerHTML = pool.length ? `${L('THROW A COIN', 'ECHAR UNA MONEDA')} ${ico('gold')}${cost}` : L('NOTHING LEFT TO WISH FOR', 'YA NO QUEDA NADA QUE PEDIR');
+    const r = wellResult;
+    $('well-result').innerHTML = r ? `<div class="well-card" data-tier="${r.tier.id}"><img alt="" src="${gearArt(r.kind, r.it)}"><b>${r.it.name}</b><em>${r.tier.name}</em><small>${r.it.desc}</small></div>` : '';
+    // Lo que queda, por rarezas (con lo que pesa cada una)
+    $('well-list').innerHTML = TIERS.map((t) => {
+        const all = ARSENAL_KINDS.flatMap((k) => ARSENAL[k].filter((it) => it.price && tierOf(it) === t).map((it) => ({ k, it })));
+        return `<div class="merchant-sub">${t.name} · ${all.filter(({ k, it }) => state.ownsGear(k, it.id)).length}/${all.length}</div><div class="well-grid">${all.map(({ k, it }) => {
+            const have = state.ownsGear(k, it.id);
+            return `<span class="well-item${have ? ' on' : ''}" data-tier="${t.id}" title="${it.desc}"><img alt="" src="${gearArt(k, it)}"><i>${have ? it.name : '?'}</i></span>`;
+        }).join('')}</div>`;
+    }).join('');
+}
+
+tapBtn('well-wish', () => {
+    if (farm.well.busy) return;
+    const p = state.wish();
+    if (!p) return sfx.play('miss');
+    sfx.play('coin');
+    updateCounts(true);
+    wellResult = null;
+    $('well-line').textContent = L('...', '...');
+    renderWell();
+    // La moneda cae; al tocar el agua, salpica y sube la luz; luego sale la pieza
+    farm.well.wish(p.tier.color, () => {
+        const w = toWorld(135, 15, 0.7);
+        farmParticles.burst(w.x, w.y, w.z, 24, [0xb8ecff, 0xffffff, 0x3ab8e8], { speed: 2, up: 3.4, size: 0.1, ttl: 0.7 });
+        sfx.play('pop');
+    });
+    setTimeout(() => {
+        wellResult = p;
+        $('well-line').textContent = p.tier.id === 'epic' ? L('WOW! THE WELL IS IN A GOOD MOOD TODAY.', '¡HALA! EL POZO ESTÁ DE BUEN HUMOR HOY.') : L('A NEW PIECE FOR YOUR ARMORY!', '¡UNA PIEZA NUEVA PARA TU ARMERÍA!');
+        stage(`${L('FROM THE WELL', 'DEL POZO')}: ${p.it.name}`, `${p.tier.name} · ${L('NOW IN THE ARMORY', 'YA EN LA ARMERÍA')}`);
+        sfx.play(p.tier.id === 'epic' ? 'achievement' : 'bounceGet');
+        vibrate('pickup');
+        const w = toWorld(135, 15, 2);
+        farmParticles.burst(w.x, w.y, w.z, 40, [p.tier.color, 0xffffff, 0xffd23f], { speed: 3, up: 5, size: 0.12, ttl: 1.1, grav: 5 });
+        renderWell();
+    }, 1700);
+});
+$('well').addEventListener('click', (e) => e.stopPropagation());
+$('well').addEventListener('pointerdown', (e) => e.stopPropagation());
+tapBtn('well-close', () => {
+    sfx.play('ui');
+    $('well').classList.add('hidden');
+    rig.zoomTarget = 1;
+});
 tapBtn('merchant-close', () => {
     sfx.play('ui');
     $('merchant').classList.add('hidden');
@@ -2383,9 +2479,10 @@ function refreshRifle() {
             const card = gearCards[`${kind}:${it.id}`], on = c[kind] === it.id, owned = state.ownsGear(kind, it.id), price = state.gearPrice(kind, it.id);
             card.classList.toggle('on', on);
             card.classList.toggle('owned', owned && !on);
-            card.classList.toggle('short', !owned && state.items.gold < price);
+            card.classList.toggle('short', false);
+            card.dataset.tier = owned || !price ? '' : tierOf(it).id;
             card.classList.toggle('empty', !owned);
-            const em = on ? L('EQUIPPED', 'MONTADO') : owned ? L('USE', 'USAR') : `${ico('lock')}${ico('gold')}${price}`; // (bloqueada: su candado y su precio)
+            const em = on ? L('EQUIPPED', 'MONTADO') : owned ? L('USE', 'USAR') : `${ico('lock')}${L('WELL', 'POZO')}`; // (bloqueada: sale del pozo de los deseos)
             if (card.querySelector('em').innerHTML !== em) card.querySelector('em').innerHTML = em;
         }
     }
@@ -2577,6 +2674,19 @@ tapBtn('dbg-merchant-reset', () => dbgMerchant((M, id, clock) => {
     if (clock.here) state.ordersFor(clock.visit, id);
 }));
 // El pueblo entero de golpe (todo comprado) o vacío
+// Depuración: el pozo (una tirada gratis; o vaciar la armería para volver a probarlo)
+tapBtn('dbg-wish', () => {
+    state.items.gold += state.wishCost();
+    $('well').classList.contains('hidden') ? openWell() : null;
+    $('well-wish').click();
+});
+tapBtn('dbg-well-reset', () => {
+    state.arsenal.owned = [];
+    for (const c of state.arsenal.classes) for (const k of ARSENAL_KINDS) c[k] = DEFAULT_LOADOUT[k];
+    state.save();
+    sfx.play('ui');
+    if (!$('well').classList.contains('hidden')) renderWell();
+});
 tapBtn('dbg-village-all', () => dbgMerchant(() => (state.village = ALL_DECOR.map((d) => d.id))));
 // Día de mercado (AUTO, SÍ o NO), la sombra que anuncia al elegido y comprobar los logros y el nivel del pueblo
 tapBtn('dbg-market', () => dbgMerchant(() => (MARKET_FORCE.on = TRI[(TRI.indexOf(MARKET_FORCE.on) + 1) % 3])));
@@ -2980,7 +3090,7 @@ const STORY = {
     },
 };
 let storyBusy = false;
-const menuOpen = () => ['streaks', 'debug', 'settings', 'ufo-shop', 'merchant', 'call'].some((id) => !$(id).classList.contains('hidden'));
+const menuOpen = () => ['streaks', 'debug', 'settings', 'ufo-shop', 'merchant', 'well', 'call'].some((id) => !$(id).classList.contains('hidden'));
 function checkStory() {
     if (state.gatesOff || storyBusy || mode !== 'farm' || inCine() || prologue.active || farm.introT < 2.5 || reveals.length || menuOpen()) return;
     const step = ['crop', 'alien', 'box'].find((k) => !state.story[k] && STORY[k].when());
@@ -3295,4 +3405,4 @@ if ('serviceWorker' in navigator && !/^(localhost|127\.)/.test(location.hostname
 }
 
 // Para las pruebas (Playwright)
-window.game = { state, sniper, farm, rig, prologue, dayNight, merchantClock, clocks, openMerchant, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, upgradeHouse, openShop, get cine() { return inCine(); }, goFarm, select, updateCounts, pause: () => (paused = true) };
+window.game = { state, sniper, farm, rig, prologue, dayNight, merchantClock, clocks, openMerchant, openWell, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, upgradeHouse, openShop, get cine() { return inCine(); }, goFarm, select, updateCounts, pause: () => (paused = true) };

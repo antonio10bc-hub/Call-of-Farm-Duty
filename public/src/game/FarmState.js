@@ -4,6 +4,7 @@ import { SHOP_ITEMS, DEFAULT_LOOK } from '../content/ufo.js';
 import { ARSENAL, ARSENAL_KINDS, DEFAULT_LOADOUT, CLASSES, arsenalItem } from '../content/arsenal.js';
 import { KILLSTREAKS } from '../content/killstreaks.js';
 import { MERCHANT, RARE, rareVisit } from '../content/merchant.js';
+import { WELL, wellPool, wishPick } from '../content/well.js';
 import { trustLevel, TRUST_PAY, MOOD_PAY, GIFT_EVERY, URGENT, BASKET_PAY, SPECIAL } from '../content/merchantLife.js';
 import { MERCHANTS, MERCHANT_BY_ID, DECOR_BY_ID, decorOf, FAV_PAY, exclusiveFor, JEALOUS, MARKET, marketNow, MEDALS, ALL_DECOR, VILLAGE_LEVELS, villageLevel } from '../content/merchants.js';
 
@@ -106,6 +107,7 @@ export class FarmState {
                     if (Array.isArray(d.arsenal.classOwned)) this.arsenal.classOwned = [0, ...d.arsenal.classOwned.filter((i) => i > 0 && i < CLASSES.length)];
                     else this.arsenal.classOwned = [0, 1, 2, ...(d.fields && d.fields.tomato && d.fields.tomato.unlocked ? [3] : []), ...((d.items && d.items.gold) || (d.lands && Object.values(d.lands).some(Boolean)) ? [4] : [])];
                     if (Array.isArray(d.arsenal.owned)) this.arsenal.owned = d.arsenal.owned.filter((k) => { const [kind, id] = k.split(':'); return ARSENAL[kind] && ARSENAL[kind].some((x) => x.id === id); });
+                    this.arsenal.wishes = d.arsenal.wishes | 0; // (las monedas echadas al pozo)
                     // Las clases (las partidas de antes: su fusil pasa a la clase 1)
                     const saved = Array.isArray(d.arsenal.classes) ? d.arsenal.classes : [d.arsenal.loadout];
                     saved.forEach((c, i) => {
@@ -329,18 +331,36 @@ export class FarmState {
         this.save();
     }
 
-    // Comprarlo (si no se tenía, con oro) y montarlo en la clase ci (la equipada si no se dice);
-    // false si no llega el oro
+    // Montarlo en la clase ci (la equipada si no se dice); false si aún no es tuyo (las piezas de
+    // la armería ya no se compran: salen del pozo de los deseos)
     equipGear(kind, id, ci = this.arsenal.active) {
-        if (!this.ownsGear(kind, id)) {
-            const price = this.gearPrice(kind, id);
-            if (this.items.gold < price) return false;
-            this.items.gold -= price;
-            this.arsenal.owned.push(`${kind}:${id}`);
-        }
+        if (!this.ownsGear(kind, id)) return false;
         this.arsenal.classes[ci][kind] = id;
         this.save();
         return true;
+    }
+
+    // ---------- El pozo de los deseos ----------
+    wishCost() {
+        return this.freeCosts ? 0 : WELL.cost;
+    }
+
+    // Lo que aún puede salir
+    wishPool() {
+        return wellPool((k, id) => this.ownsGear(k, id));
+    }
+
+    // Echar una moneda: sale una pieza de la armería que no tenías (o false: sin oro o sin nada
+    // que pueda salir)
+    wish(rnd = Math.random) {
+        const pool = this.wishPool();
+        if (!pool.length || this.items.gold < this.wishCost()) return false;
+        const p = wishPick(pool, rnd);
+        this.items.gold -= this.wishCost();
+        this.arsenal.owned.push(`${p.kind}:${p.id}`);
+        this.arsenal.wishes = (this.arsenal.wishes | 0) + 1;
+        this.save();
+        return p;
     }
 
     // Depuración: toda la armería comprada

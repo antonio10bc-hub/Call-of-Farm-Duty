@@ -123,6 +123,7 @@ export const REGIONS = [
     { place: 'tomatoP', seeds: [[98, 114]] },  // los tomates, en la suya
     { place: 'house', seeds: [[60, 62]] },
     { place: 'merchant', seeds: [[118, 38], [124, 60], [138, 56]], h: 7.8 }, // los mercaderes: el bosque alto y la parte de arriba de la margen este, todo a la altura del bosque
+    { place: 'well', seeds: [[49, 73]], from: 'nw' },          // el pozo de los deseos: la esquina de las vacas junto al granero
     { place: 'nw', seeds: [[40, 50], [38, 70]] }, // la orilla alta: prado de vacas (a la derecha, junto al lago)
     { place: 'nw2', seeds: [[6, 42], [8, 66]] },  // ... y su otra mitad, a la izquierda: ovejas (las dos, de tamaño parecido)
     { place: 'west', seeds: [[34, 96]] },      // la cañada, debajo de las dos: gallinas (más pequeña)
@@ -229,13 +230,15 @@ export const G = {
         const u = U[k] + (fbm(U[k] * 0.035, V[k] * 0.035, 11) - 0.5) * 26 + (fbm(U[k] * 0.1, V[k] * 0.1, 31) - 0.5) * 10;
         const v = V[k] + (fbm(U[k] * 0.035, V[k] * 0.035, 23) - 0.5) * 26 + (fbm(U[k] * 0.1, V[k] * 0.1, 37) - 0.5) * 10;
         const big = size[comp[k]] > 60;
-        let bd = 1e9, br = SLOPE;
+        // (una zona con `from` solo se queda con lo que, sin ella, sería de esa otra: el pozo, de las vacas)
+        let bd = 1e9, br = SLOPE, bd2 = 1e9, br2 = SLOPE;
         for (const s of seeds) {
             if (big && s.comp !== comp[k]) continue;
             const d = (u - s.u) ** 2 + (v - s.v) ** 2;
+            if (REGIONS[s.ri].from) { if (d < bd2) { bd2 = d; br2 = s.ri; } continue; }
             if (d < bd) { bd = d; br = s.ri; }
         }
-        reg[k] = br;
+        reg[k] = br2 !== SLOPE && bd2 < bd && REGIONS[br].place === REGIONS[br2].from ? br2 : br;
     }
     // Cada parcela, plana a la altura media de su terreno (en escalones). Lo que sube mucho por
     // encima no se cultiva: queda como ladera de monte (con su relieve), sin muro contra la montaña

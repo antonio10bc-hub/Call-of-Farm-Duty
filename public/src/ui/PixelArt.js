@@ -115,6 +115,11 @@ const SPRITES = {
         rows: ['...KK...', '..KYYK..', '..KYYK..', '.KKKKKK.', '.KBBBBK.', '.KBWBBK.', '.KBWBBK.', '.KBBBBK.', '.KBBBBK.', '.KKKKKK.'],
         pal: { K: INK, Y: '#c87a3a', B: '#ffd23f', W: '#fff6b0' },
     },
+    // El pozo de los deseos: tejadillo rojo, postes, el corro de piedra gris y el agua que brilla
+    well: {
+        rows: ['..KKKKKK..', '.KRRRRRRK.', 'KRRRRRRRRK', '.KWK..KWK.', '.KW....WK.', 'KKKKKKKKKK', 'KSSBBBBSSK', 'KSLSSLSSLK', 'KSSLSSLSSK', '.KKKKKKKK.'],
+        pal: { K: INK, R: '#c8402e', W: '#8a5a2a', S: '#9a948a', L: '#b8b2a8', B: '#5af0ff' },
+    },
     // Botón AJUSTES: un engranaje de 8 dientes con su agujero
     gear: {
         rows: ['....KKKK....', '.KK.KLGK.KK.', '.KLKKLGKKGK.', '.KKLLGGGGKK.', 'KKLGKKKKGGKK', 'KLGGK..KGGGK', 'KLGGK..KGGGK', 'KKGGKKKKGGKK', '.KKGGGGGGKK.', '.KGKKGGKKGK.', '.KK.KGGK.KK.', '....KKKK....'],

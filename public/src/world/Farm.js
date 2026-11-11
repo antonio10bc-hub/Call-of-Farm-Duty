@@ -7,6 +7,7 @@ import { STRUCTURES, Turret, Sandbags, LandPost } from '../render/structures.js'
 import { Plot } from '../render/props.js';
 import { Village, villageGeometry, furrowHalf } from '../render/merchants.js';
 import { VILLAGE } from '../content/merchants.js';
+import { WishingWell } from '../render/well.js';
 import { Compound } from '../render/compound.js';
 import { Life } from './Life.js';
 import { Extras } from './Extras.js';
@@ -138,6 +139,8 @@ export class Farm {
     kindAt(c, r) {
         // (fuera de la forma de su parcela, nada: ahí está el borde de hierba)
         if (!inShapeOf(c + 0.5, r + 0.5)) return null;
+        // El pozo de los deseos: un corro de tierra pisada alrededor
+        if (c >= 120 && Math.hypot(c + 0.5 - 135, r + 0.5 - 15) < 3.6) return { yard: true };
         // Un campo: su forma, no su rectángulo (lo que sobra del rectángulo, hierba; sin limpiar, abandonado)
         for (const v of this.views) {
             if (!inRect(v.rect, c, r)) continue;
@@ -213,6 +216,11 @@ export class Farm {
         // El pueblo de los mercaderes: el cráter, sus surcos, sus naves y lo que les compras
         this.village = new Village(theme.outline, this.villageReach);
         this.places.merchant.add(this.village.root);
+        // El pozo de los deseos, en el centro de su zona
+        this.well = new WishingWell(theme.outline);
+        this.well.root.position.set(135, 0, 15);
+        this.well.root.traverse((o) => (o.userData.well = true));
+        this.places.well.add(this.well.root);
         // El recinto del granero: cada pieza en su sitio, repartidas por toda su zona (tocar
         // cualquiera abre el armamento, como el granero)
         // (compoundOn: sin el granero abierto no se ve; pieces: cada pieza, para que aparezcan
@@ -1278,6 +1286,7 @@ export class Farm {
 
     // Lo que hay bajo un rayo de la cámara: un edificio, un campo o nada
     pick(ray) {
+        if (ray.intersectObject(this.well.root, true).length) return { well: true };
         const shown = (o) => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
         const vh = ray.intersectObject(this.village.root, true).find((h) => shown(h.object));
         if (vh) return { merchant: vh.object.userData.merchant || 'village' };
@@ -1352,6 +1361,7 @@ export class Farm {
         if (this.plot) this.plot.update(dt, time);
         updateScenery(this, dt);
         this.village.update(dt, time, this.nightK || 0);
+        this.well.update(dt, time);
         this.compound.root.visible = this.introT > 1.1 && this.compoundOn; // (aparece con los edificios)
         this.compound.update(dt, time);
         this.life.update(dt, time);

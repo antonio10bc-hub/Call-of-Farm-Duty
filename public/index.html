@@ -182,6 +182,19 @@
         <div id="merchant-orders" class="merchant-orders"></div>
     </div>
 
+    <!-- El pozo de los deseos: se echa una moneda de oro y sale una pieza de la armería -->
+    <div id="well" class="ufo-shop merchant-sheet well-sheet hidden">
+        <div class="ufo-head">
+            <i class="merchant-portrait well-portrait"></i>
+            <div class="ufo-talk merchant-talk"><b data-es="POZO DE LOS DESEOS">WISHING WELL</b><span id="well-line"></span></div>
+            <div class="coins-badge static gold-badge"><span class="ico gold-ico"></span><span id="well-gold">0</span></div>
+            <button id="well-close" class="panel-x" aria-label="Close" data-es-aria="Cerrar">X</button>
+        </div>
+        <div id="well-result" class="well-result"></div>
+        <button id="well-wish" class="btn well-wish"></button>
+        <div id="well-list" class="merchant-orders"></div>
+    </div>
+
     <!-- Llamada entrante del mercader (la primera vez, con los tomates al máximo): suena y tiembla
          hasta que se contesta; luego él habla línea a línea y cuelga -->
     <div id="call" class="call hidden">
@@ -275,6 +288,7 @@
             <div class="ks-row unlock-row"><span data-es="REGALO">GIFT</span><button class="unlock-one" id="dbg-gift" data-es="DAR">GIVE</button></div>
             <div class="ks-row" id="dbg-coll-row"><span data-es="PUEBLO">VILLAGE</span><button class="ks-step" data-d="-1">-</button><b id="dbg-coll"></b><button class="ks-step" data-d="1">+</button></div>
             <div class="ks-row unlock-row"><span data-es="PUEBLO">VILLAGE</span><button class="unlock-one" id="dbg-village-all" data-es="TODO">ALL</button><button class="unlock-one" id="dbg-village-none" data-es="NADA">NONE</button></div>
+            <div class="ks-row unlock-row"><span data-es="POZO">WELL</span><button class="unlock-one" id="dbg-wish" data-es="TIRADA GRATIS">FREE WISH</button><button class="unlock-one" id="dbg-well-reset" data-es="VACIAR ARMERÍA">EMPTY ARMORY</button></div>
             <div class="ks-row unlock-row"><span data-es="DÍA DE MERCADO">MARKET DAY</span><button class="unlock-one" id="dbg-market"></button></div>
             <div class="ks-row unlock-row"><span data-es="ESTE: LLEGA">THIS ONE: COMING</span><button class="unlock-one" id="dbg-herald" data-es="SOMBRA">SHADOW</button><button class="unlock-one" id="dbg-medals" data-es="LOGROS Y NIVEL">ACHIEV. + LEVEL</button></div>
             <button id="dbg-merchant-reset" class="btn btn-danger set-btn" data-es="REINICIAR MERCADER">RESET MERCHANT</button>
