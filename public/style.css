@@ -1730,3 +1730,6 @@ body.practice .left-badge { display: none; }
 .dock-pop-btn.reload-all .reload-cost { position: absolute; bottom: 2px; left: 0; right: 0; display: flex; align-items: center; justify-content: center; gap: 2px; font-size: 7px; font-weight: normal; color: var(--ink); }
 .dock-pop-btn.reload-all .reload-cost .ico { width: 10px; height: 10px; }
 .dock-pop-btn.reload-all:disabled { opacity: .5; }
+/* En la fila de cultivos: listo para recoger = una línea verde abajo (sin el punto rojo) */
+.dock-pop-btn:not(.reload-all) .dock-dot { display: none !important; }
+.dock-pop-btn .ready-line { position: absolute; left: 6px; right: 6px; bottom: 4px; height: 4px; background: #17d65a; box-shadow: 0 0 0 1px var(--ink); }

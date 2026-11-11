@@ -778,7 +778,7 @@ function toggleFieldsPop(open = fieldsPop.classList.contains('hidden')) {
         });
         b.id = `pop-${id}`;
         b.title = CROPS[def.crop].name;
-        b.innerHTML = `${ico(CROPS[def.crop].icon)}<span class="sr">${CROPS[def.crop].name}</span><i class="dock-dot"></i>${empty ? `<i class="pop-turret ico turret-ico" title="${L('TURRET OUT OF AMMO', 'TORRETA SIN MUNICIÓN')}"></i>` : ''}<span class="pips">${def.levels.map((_, i) => `<i class="pip${i <= f.level ? ' on' : ''}"></i>`).join('')}</span>`;
+        b.innerHTML = `${ico(CROPS[def.crop].icon)}<span class="sr">${CROPS[def.crop].name}</span>${empty ? `<i class="pop-turret ico turret-ico" title="${L('TURRET OUT OF AMMO', 'TORRETA SIN MUNICIÓN')}"></i>` : ''}${ready ? '<i class="ready-line"></i>' : ''}`; // (listo para recoger: una línea verde, sin punto rojo)
         fieldsPop.appendChild(b);
     }
     // Aparte, recargar todas las torretas a la vez (las que dé el oro), con lo que cuesta
