@@ -1339,7 +1339,7 @@ export class Village extends VoxelModel {
             return D;
         };
         // Las rondas de los barrios: asfalto con su raya discontinua y aceras a los dos lados
-        const RINGS = [28.8, 36.6], ASPH = [0x54545a, 0x4e4e54], WALK = 0xc8c0b0;
+        const RINGS = [29.5], ASPH = [0x54545a, 0x4e4e54], WALK = 0xc8c0b0;
         // (las rondas no son círculos: se ondulan, cada una a su manera)
         const wobR = (R, a) => R + Math.sin(a * 3 + R) * 1.3 + Math.sin(a * 5 - R * 0.7) * 0.6;
         for (const R0 of RINGS) {
@@ -1356,25 +1356,72 @@ export class Village extends VoxelModel {
                 }
             }
         }
-        // Las casas: a los dos lados de cada ronda, de cara a ella, sueltas (a distancias, giros y
-        // tamaños distintos; con huecos para placitas), cada una con su camino de entrada
-        let k = 0;
-        for (const [R, road] of [[25.2, 28.8], [32.6, 28.8], [33.1, 36.6], [40.4, 36.6]]) {
-            if (Math.abs(R - road) < 3 || (R === 33.1)) continue; // (entre las dos rondas, una sola fila)
-            for (let a = rnd(R) * 0.2; a < Math.PI * 2; ) {
-                const kk = k++, dR = wobR(road, a) - road, rr = R + dR + (rnd(kk * 1.3) - 0.5) * 1.2, road2 = road + dR;
-                a += (3.4 + rnd(kk * 2.1) * 2.6) / R;
-                if (rnd(kk * 5.3) < 0.1 || nearStreet(a, rr, 3.0) || inPark(a) || rr > this.reach((a * 180) / Math.PI) - 3.5) continue;
-                const x = VILLAGE.cx + Math.cos(a) * rr, z = VILLAGE.cz + Math.sin(a) * rr;
-                const toRoad = Math.sign(road2 - rr), face = Math.atan2(Math.cos(a) * toRoad, Math.sin(a) * toRoad) + (rnd(kk * 7.7) - 0.5) * 0.35;
-                const D = house(x, z, face, kk);
-                // Camino de entrada, de la puerta a la acera
-                const len = Math.abs(road2 - rr) - D / 2 - 1.9;
-                if (len > 0.3) {
-                    const m = rr + toRoad * (D / 2 + 0.2 + len / 2);
-                    this.part(g, 0.6, 0.1, len, 0xd8c8a0, VILLAGE.cx + Math.cos(a) * m, 0.05, VILLAGE.cz + Math.sin(a) * m, false).rotation.y = -a + Math.PI / 2;
-                }
+        // Las casas: grupitos de 3 a 5 alrededor de su placita (con su callejón a la calle más
+        // cercana) y casas sueltas, cada una de cara a su calle con su camino de entrada. Sin
+        // pisarse, lejos de las calles, de la ronda, del parque y del borde
+        const RING = RINGS[0], placed = geos.filter((q) => !q.def.mother).map((q) => ({ ...houseLot(q), r: 3.2 }));
+        const local = (x, z) => [x - VILLAGE.cx, z - VILLAGE.cz];
+        const free = (x, z, rad) => {
+            const [dx, dz] = local(x, z), r = Math.hypot(dx, dz), a = Math.atan2(dz, dx);
+            if (r < 15 || r > this.reach((a * 180) / Math.PI) - 3.5 - rad || inPark(a) || Math.abs(r - wobR(RING, a)) < rad + 2.2) return false;
+            for (const q of geos) {
+                if (q.def.mother) continue;
+                const c = Math.cos(q.a), sn = Math.sin(q.a), along = dx * c + dz * sn;
+                if (along > VILLAGE.R - 2 && along < q.endR + 2 && Math.abs(-dx * sn + dz * c) < furrowHalf(q, Math.max(along, q.parkR)) + 1.2 + rad) return false;
             }
+            return placed.every((p) => Math.hypot(p.x - x, p.z - z) > p.r + rad + 0.5);
+        };
+        // La calle más cercana a un punto: hacia dónde (ux, uz) y a qué distancia de su acera
+        const nearestRoad = (x, z) => {
+            const [dx, dz] = local(x, z), r = Math.hypot(dx, dz), a = Math.atan2(dz, dx);
+            const sg = Math.sign(wobR(RING, a) - r) || 1;
+            let best = { ux: (Math.cos(a) * sg), uz: (Math.sin(a) * sg), d: Math.abs(wobR(RING, a) - r) - 1.65 };
+            for (const q of geos) {
+                if (q.def.mother) continue;
+                const c = Math.cos(q.a), sn = Math.sin(q.a), along = dx * c + dz * sn, side = -dx * sn + dz * c;
+                if (along < VILLAGE.R || along > q.endR) continue;
+                const d = Math.abs(side) - furrowHalf(q, along) - 0.6;
+                if (d < best.d) best = { ux: sn * Math.sign(side), uz: -c * Math.sign(side), d };
+            }
+            return best;
+        };
+        const lane = (x, z, ux, uz, from, len, w = 0.6, col = 0xd8c8a0) => {
+            if (len < 0.3) return;
+            this.part(g, w, 0.1, len, col, x + ux * (from + len / 2), 0.05, z + uz * (from + len / 2), false).rotation.y = Math.atan2(ux, uz);
+        };
+        let k = 0, tries = 0;
+        // Los grupitos
+        for (let n = 0; n < 14 && tries < 700; tries++) {
+            const a = rnd(tries * 3.7) * Math.PI * 2, r = 17 + rnd(tries * 5.1) * 26, x = VILLAGE.cx + Math.cos(a) * r, z = VILLAGE.cz + Math.sin(a) * r;
+            if (!free(x, z, 5)) continue;
+            n++;
+            // La placita: losas en corro, con un árbol o una fuentecilla en medio
+            for (let i = 0; i < 10; i++) { const b = (i / 10) * Math.PI * 2; this.part(g, 0.9, 0.08, 0.9, i % 2 ? 0xd4c8b0 : 0xc8bca4, x + Math.cos(b) * 1.1, 0.04, z + Math.sin(b) * 1.1, false).rotation.y = -b; }
+            if (rnd(tries) < 0.5) { this.part(g, 0.24, 1.2, 0.24, WOOD2, x, 0.6, z); this.part(g, 1.2, 0.9, 1.2, [0x4caf3c, 0xb87dff][n % 2], x, 1.6, z); }
+            else { this.part(g, 1.0, 0.4, 1.0, STONE, x, 0.2, z); this.lit(g, 0.6, 0.06, 0.6, 0x5af0ff, x, 0.42, z); }
+            const m = 3 + Math.floor(rnd(tries * 9.9) * 3), a0 = rnd(tries * 1.9) * 6.3;
+            for (let i = 0; i < m; i++) {
+                const b = a0 + (i / m) * Math.PI * 2 + (rnd(i + tries) - 0.5) * 0.4, d = 3.2 + rnd(i * 3 + tries) * 0.6, hx = x + Math.cos(b) * d, hz = z + Math.sin(b) * d;
+                if (!free(hx, hz, 1.5)) continue;
+                const D = house(hx, hz, Math.atan2(x - hx, z - hz) + (rnd(i * 7 + tries) - 0.5) * 0.3, k++);
+                placed.push({ x: hx, z: hz, r: 1.7 });
+                lane(hx, hz, (x - hx) / d, (z - hz) / d, D / 2, d - D / 2 - 1.5, 0.5);
+            }
+            placed.push({ x, z, r: 1.6 });
+            // Su callejón hasta la calle
+            const R0 = nearestRoad(x, z);
+            lane(x, z, R0.ux, R0.uz, 1.6, R0.d - 1.6, 1.2, 0x8a8a86);
+        }
+        // Las sueltas
+        for (let n = 0; n < 45 && tries < 2600; tries++) {
+            const a = rnd(tries * 3.7) * Math.PI * 2, r = 17 + rnd(tries * 5.1) * 26, x = VILLAGE.cx + Math.cos(a) * r, z = VILLAGE.cz + Math.sin(a) * r;
+            if (!free(x, z, 1.8)) continue;
+            n++;
+            const R0 = nearestRoad(x, z);
+            if (R0.d > 9) continue; // (no muy lejos de una calle)
+            const D = house(x, z, Math.atan2(R0.ux, R0.uz) + (rnd(tries * 2.2) - 0.5) * 0.2, k++);
+            placed.push({ x, z, r: 1.9 });
+            lane(x, z, R0.ux, R0.uz, D / 2, R0.d - D / 2);
         }
         // La calle del mercado: la del primero (toldos de rayas a los dos lados)
         const mk = geos.find((q) => q.def.id === 'm0'), c = Math.cos(mk.a), s = Math.sin(mk.a);
