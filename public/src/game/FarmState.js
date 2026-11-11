@@ -353,20 +353,20 @@ export class FarmState {
 
     // Lo que aún puede salir
     wishPool() {
-        return wellPool((k, id) => this.ownsGear(k, id));
+        return wellPool();
     }
 
-    // Echar una moneda: sale una pieza de la armería que no tenías (o false: sin oro o sin nada
-    // que pueda salir)
+    // Echar una moneda: sale una pieza de la armería (o false: sin oro). Si ya la tenías (dup),
+    // devuelve refund oro (el WELL.refund de lo que costó)
     wish(rnd = Math.random) {
-        const pool = this.wishPool();
-        if (!pool.length || this.items.gold < this.wishCost()) return false;
-        const p = wishPick(pool, rnd);
-        this.items.gold -= this.wishCost();
-        this.arsenal.owned.push(`${p.kind}:${p.id}`);
+        const pool = this.wishPool(), cost = this.wishCost();
+        if (!pool.length || this.items.gold < cost) return false;
+        const p = wishPick(pool, rnd), dup = this.ownsGear(p.kind, p.id), refund = dup ? Math.ceil(cost * WELL.refund) : 0;
+        this.items.gold -= cost - refund;
+        if (!dup) this.arsenal.owned.push(`${p.kind}:${p.id}`);
         this.arsenal.wishes = (this.arsenal.wishes | 0) + 1;
         this.save();
-        return p;
+        return { ...p, dup, refund };
     }
 
     // Depuración: toda la armería comprada

@@ -175,6 +175,55 @@ export class WishingWell extends VoxelModel {
         r.add(this.flies);
     }
 
+    // Lo desvencijado de la montañita: matojos de hierba seca, arbustos (alguno muerto), postes de
+    // valla rotos con su tabla caída y piedras sueltas; en los dos pisos (y = ground(x, z): la altura
+    // del suelo ahí, o null fuera de su zona). Sin pisar el corro de menhires ni el cartel
+    buildShabby(ground) {
+        const g = new THREE.Group(), rnd = (n) => { const v = Math.sin(n * 91.7 + 3.3) * 43758.5453; return v - Math.floor(v); };
+        this.root.add(g);
+        const spot = (n, r0, r1) => {
+            const a = rnd(n) * Math.PI * 2, r = r0 + rnd(n * 1.7) * (r1 - r0), x = Math.cos(a) * r, z = Math.sin(a) * r;
+            if (Math.abs(Math.atan2(Math.sin(a - 1.2), Math.cos(a - 1.2))) < 0.3 && r < 5) return null; // (el cartel)
+            const y = ground(x, z);
+            return y === null ? null : { x, y, z };
+        };
+        // Matojos: tres o cuatro briznas juntas, verdes oscuras y pajizas
+        for (let n = 0; n < 70; n++) {
+            const p = spot(n, 2.6, 10);
+            if (!p) continue;
+            for (let k = 0; k < 3 + (n % 2); k++) {
+                const h = 0.32 + rnd(n * 3 + k) * 0.36;
+                this.part(g, 0.11, h, 0.11, [0x5a7a32, 0x8a8a4a, 0x4a6a2a, 0xa89a5a][(n + k) % 4], p.x + (k - 1.5) * 0.12, p.y + h / 2, p.z + ((k * 7) % 3 - 1) * 0.1, false).rotation.z = (k - 1.5) * 0.25;
+            }
+        }
+        // Arbustos (de dos o tres cubos; alguno seco)
+        for (let n = 100; n < 130; n++) {
+            const p = spot(n, 4.4, 10);
+            if (!p) continue;
+            const dead = n % 5 === 0, s = 0.8 + rnd(n * 2) * 0.6;
+            this.part(g, 0.9 * s, 0.55 * s, 0.8 * s, dead ? 0x7a6a3a : 0x3d6a2c, p.x, p.y + 0.27 * s, p.z);
+            this.part(g, 0.6 * s, 0.4 * s, 0.6 * s, dead ? 0x8a7a4a : 0x4a7a34, p.x + 0.15 * s, p.y + 0.7 * s, p.z - 0.1 * s);
+        }
+        // Postes de valla rotos, con su tabla caída
+        for (let n = 200; n < 205; n++) {
+            const p = spot(n, 5.6, 9.5);
+            if (!p) continue;
+            const ry = rnd(n * 4) * 3;
+            for (const d of [-0.5, 0.5]) this.part(g, 0.14, 0.5 + rnd(n + d) * 0.4, 0.14, 0x6a4a2a, p.x + Math.cos(ry) * d, p.y + 0.3, p.z + Math.sin(ry) * d).rotation.z = (rnd(n * d) - 0.5) * 0.5;
+            const plank = this.part(g, 1.3, 0.08, 0.2, 0x7a5a32, p.x, p.y + 0.08, p.z + 0.25);
+            plank.rotation.y = -ry;
+            plank.rotation.z = 0.12;
+        }
+        // Piedras sueltas
+        for (let n = 300; n < 330; n++) {
+            const p = spot(n, 3, 10);
+            if (!p) continue;
+            const s = 0.12 + rnd(n) * 0.18;
+            this.part(g, s * 1.3, s * 0.7, s, [0x7a7a72, 0x8a847a, 0x6a6a64][n % 3], p.x, p.y + s * 0.3, p.z, false).rotation.y = rnd(n * 5) * 3;
+        }
+        this.bake([g], []);
+    }
+
     updateMystic(dt, time) {
         const pulse = 0.5 + 0.5 * Math.sin(time * 1.6);
         this.runeMats[0].color.setHSL(0.76, 0.9, 0.55 + pulse * 0.2);

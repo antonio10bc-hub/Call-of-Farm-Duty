@@ -458,8 +458,9 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
 .moon-ico { --ico: var(--px-moon); }
 /* Reloj del día: arriba a la derecha, bajo AJUSTES (o bajo QUEDAN en el campo de tiro). De
    noche, azul marino con la luna */
-.daytime { position: fixed; right: 14px; top: calc(var(--safe-top) + 58px); z-index: 8; display: flex; align-items: center; gap: 6px; padding: 4px 8px 4px 5px; font-size: 9px; color: var(--ink); background: #ffe9a0; border: 3px solid var(--ink); box-shadow: 0 3px 0 rgba(42, 26, 14, .45); pointer-events: none; }
-.daytime .ico { width: 16px; height: 16px; }
+.daytime { position: fixed; z-index: 8; display: flex; align-items: center; justify-content: center; padding: 6px; font-size: 9px; color: var(--ink); background: #ffe9a0; border: 3px solid var(--ink); box-shadow: 0 3px 0 rgba(42, 26, 14, .45); pointer-events: none; }
+.daytime .ico { width: 20px; height: 20px; }
+body.sniping .daytime { left: auto !important; top: calc(var(--safe-top) + 58px) !important; right: 14px; }
 .daytime.is-night { color: #fff6d8; background: #18204a; }
 body.cine .daytime, body.predator .daytime { visibility: hidden; }
 .ks-grenade-ico { --ico: var(--px-ks-grenade); }
@@ -695,7 +696,9 @@ body.well-cine .letterbox i { height: 7vh; }
 .snipe-ui .coin-counter { top: max(14px, env(safe-area-inset-top)); }
 .coin-counter .ico { margin: -2px 0; }
 /* Contadores de la granja: uno por recurso, en fila arriba a la izquierda */
-.farm-items { position: absolute; top: max(14px, env(safe-area-inset-top)); left: 14px; display: flex; gap: 8px; }
+.farm-items { position: absolute; top: max(14px, env(safe-area-inset-top)); left: 14px; display: flex; gap: 5px; }
+.farm-items .coins-badge { font-size: 10px; padding: 4px 8px 4px 5px; gap: 5px; border-width: 2px; box-shadow: 0 3px 0 var(--ink); }
+.farm-items .coins-badge .ico { width: 14px; height: 14px; }
 .farm-items .hidden { display: none; }
 
 .arrow-btn {
@@ -1669,3 +1672,44 @@ body.practice .left-badge { display: none; }
 .town-expand b { font-size: 8px; font-weight: normal; color: #2f8a2c; }
 .town-expand .perk-next { flex-basis: 100%; color: #8a5a10; }
 .town-expand .perks { flex-basis: 100%; color: #2f8a2c; }
+
+/* En los menús la rueda y el dedo desplazan el menú, sin pasar al mapa */
+.ufo-shop.merchant-dock, .well-sheet { overscroll-behavior: contain; touch-action: pan-y; }
+
+/* ---------- El menú del pueblo, compacto ---------- */
+.merchant-talk .merchant-trust { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 2px; padding: 0; background: none; border: 0; }
+.merchant-talk .trust-name { font-size: 7px; color: #2f6a1a; }
+.merchant-talk .trust-bar { flex: 1; min-width: 50px; }
+.merchant-talk .trust-meta { font-size: 6px; color: #6a4a2a; }
+.mood { display: inline-flex; gap: 1px; font-size: 12px; line-height: 1; }
+.mood i { font-style: normal; opacity: .28; filter: grayscale(1); }
+.mood i.on { opacity: 1; filter: none; transform: scale(1.25); }
+.m-tab .m-when { margin-left: auto; font-size: 7px; white-space: nowrap; }
+.m-tab .ico { width: 12px; height: 12px; }
+/* Encargos: filas bajas */
+#merchant .order { min-height: 0; height: auto; padding: 3px 6px; gap: 6px; border-width: 2px; box-shadow: 0 2px 0 var(--ink); font-size: 9px; }
+#merchant .order .ico { width: 16px; height: 16px; }
+#merchant .order button { padding: 4px 6px; min-width: 74px; font-size: 7px; }
+#merchant .order .order-tag { position: static; margin-right: 2px; }
+#merchant .merchant-orders { gap: 4px; }
+/* La vitrina de cosas raras */
+.rare-shop { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding: 8px 6px 6px; background: #2a1840; border: 3px dashed #ffd23f; box-shadow: inset 0 0 0 2px #4a2a6a; position: relative; overflow: hidden; }
+.rare-shop::before { content: ''; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255, 210, 63, .18) 45%, transparent 60%); background-size: 300% 100%; animation: rareShine 3.2s steps(16) infinite; pointer-events: none; }
+@keyframes rareShine { from { background-position: 150% 0; } to { background-position: -150% 0; } }
+.rare-head { text-align: center; font-size: 8px; color: #ffd23f; letter-spacing: 1px; text-shadow: 2px 2px 0 #000; }
+.rare-shop .order.shop { background: linear-gradient(90deg, #e8d8ff, var(--cream)); }
+.rare-shop .order.shop button:not(:disabled) { background: #ffd23f; color: var(--ink); }
+.rare-shop .order.shop.party { box-shadow: 0 0 0 2px #ff7ae0, 0 2px 0 var(--ink); }
+.rare-shop .order.shop.done { opacity: .55; }
+.rare-head { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.rare-star { width: 8px; height: 8px; background: #ffd23f; transform: rotate(45deg); box-shadow: 0 0 0 2px #000; animation: rareTwinkle 1.2s steps(2) infinite; }
+@keyframes rareTwinkle { 50% { background: #fff6b0; } }
+/* En la fila de cultivos del dock: la torreta sin munición manda (su aviso, encima del punto) */
+.dock-pop-btn.turret-empty .dock-dot { display: none; }
+.dock-pop-btn .pop-turret { position: absolute; top: -8px; right: -8px; width: 16px; height: 16px; background-color: #c8402e; border: 2px solid var(--ink); animation: turretEmpty .5s steps(2) infinite; }
+.dock-btn.turret-empty .dock-dot { display: none; }
+.dock-btn { position: relative; }
+#dock .dock-btn > .pop-turret { position: absolute; top: -8px; right: -8px; width: 16px; height: 16px; background-color: #c8402e; border: 2px solid var(--ink); animation: turretEmpty .5s steps(2) infinite; }
+.well-reveal .dup { position: relative; display: flex; align-items: center; gap: 6px; padding: 6px 10px; font-size: 10px; color: var(--ink); background: #ffd23f; border: 3px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); }
+.well-reveal .dup .ico { width: 16px; height: 16px; }
+.well-card.dup small { color: #b8860b; }

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { box, toon, outline, OUTLINE, bakeRigid } from '../render/materials.js';
 import { buildScenery, updateScenery, onPathWorld } from './Scenery.js';
-import { G, GN, cellX, cellZ, hash } from './valley.js';
+import { G, GN, cellX, cellZ, hash, regionAt, groundAt } from './valley.js';
 import { easeOutBack } from '../core/math.js';
 import { STRUCTURES, Turret, Sandbags, LandPost } from '../render/structures.js';
 import { Plot } from '../render/props.js';
@@ -23,7 +23,7 @@ import { BARNYARD, SLOTS, BarnPiece } from '../render/barnyard.js';
 import { reachAt, FARM, TURRETS, PLACES, toWorld, worldToPlace, inShapeOf, inFieldShape, stretchLocal, floorPlace, worldRect, worldToLocal } from '../content/farm.js';
 
 const _d = new THREE.Object3D();
-const _frustum = new THREE.Frustum(), _m4 = new THREE.Matrix4();
+const _frustum = new THREE.Frustum(), _m4 = new THREE.Matrix4(), _sph = new THREE.Sphere();
 const _c = new THREE.Color();
 const _c2 = new THREE.Color();
 const _p = new THREE.Vector3();
@@ -41,11 +41,13 @@ const inRect = (f, x, z, m = 0) => x >= f.x - m && x < f.x + f.w + m && z >= f.z
 // Resto siempre positivo (la parcela de la casa tiene coordenadas negativas)
 const mod = (a, n) => ((a % n) + n) % n;
 const inParcel = (x, z, m = 0) => [...FARM.parcels, ...FARM.lands.map((l) => l.rect)].some(([x0, z0, x1, z1]) => x >= x0 + m && x < x1 - m && z >= z0 + m && z < z1 - m);
-const kindKey = (k) => (!k ? '' : k.field ? (k.locked ? 'junk' : 'field') : k.path ? 'path' : k.strip ? 'strip' : k.pad ? `pad${k.pad}` : k.yard ? 'yard' : k.forest ? 'forest' : k.wild ? 'wild' : 'b');
+const kindKey = (k) => (!k ? '' : k.mound ? 'mound' : k.field ? (k.locked ? 'junk' : 'field') : k.path ? 'path' : k.strip ? 'strip' : k.pad ? `pad${k.pad}` : k.yard ? 'yard' : k.forest ? 'forest' : k.wild ? 'wild' : 'b');
 const FOREST = [0x4f8a36, 0x5a9a3e, 0x4a7a32, 0x5f8a3a, 0x6a7a3a, 0x56703a]; // suelo de bosque: hierba oscura y tierra
 const ASPHALT = [0x5c5c62, 0x56565c], CONCRETE = [0x9a948c, 0x8f8a82];
 const CRATER = [0x6a4a2a, 0x5a3e24, 0x7a5432, 0x4a3420]; // el fondo del cráter del ovni
 const STRAW = [0x9a7a3a, 0x8a6a30, 0xa8843e, 0x94723a];
+const MOUND = [0x3f6a30, 0x4a7436, 0x35582c, 0x566a34, 0x8a7a4a, 0x4a5a30]; // la hierba vieja de la montañita del pozo
+const MOUND_TOP = [0x3a5a34, 0x44623a, 0x4a5a44, 0x3e5236]; // ... y la de arriba, más apagada
 const FLOWERS = 5; // flores por planta del colmenar, como mucho (salen 1 + su nivel)
 const TOWN_STONE = [0xc8bca4, 0xb8ac94, 0xd4c8b0]; // la plaza empedrada del pueblo
 const TOWN_ROAD = [0xa49a88, 0x968c7a]; // sus calles
@@ -145,6 +147,7 @@ export class Farm {
         if (!inShapeOf(c + 0.5, r + 0.5)) return null;
         // El pozo de los deseos: un corro de tierra pisada alrededor
         if (c >= 120 && Math.hypot(c + 0.5 - 135, r + 0.5 - 15) < 3.6) return { yard: true };
+        if (c >= 120) return { mound: true }; // (el resto de la montañita del pozo: hierba vieja y oscura)
         // Un campo: su forma, no su rectángulo (lo que sobra del rectángulo, hierba; sin limpiar, abandonado)
         for (const v of this.views) {
             if (!inRect(v.rect, c, r)) continue;
@@ -228,6 +231,18 @@ export class Farm {
         this.well.root.position.set(135, 0, 15);
         this.well.root.traverse((o) => (o.userData.well = true));
         this.places.well.add(this.well.root);
+        // Lo desvencijado de su montañita (matojos, arbustos, vallas rotas, piedras): a la altura del
+        // suelo de cada sitio, solo dentro de su zona
+        {
+            const PW = PLACES.find((p) => p.id === 'well'), base = new THREE.Vector3();
+            this.wellTopH = PW.h;
+            this.root.updateMatrixWorld(true);
+            this.well.root.getWorldPosition(base);
+            this.well.buildShabby((lx, lz) => {
+                const x = base.x + lx, z = base.z + lz;
+                return regionAt(x, z) === PW.ri ? groundAt(x, z) - base.y : null;
+            });
+        }
         // El recinto del granero: cada pieza en su sitio, repartidas por toda su zona (tocar
         // cualquiera abre el armamento, como el granero)
         // (compoundOn: sin el granero abierto no se ve; pieces: cada pieza, para que aparezcan
@@ -461,6 +476,11 @@ export class Farm {
             : k && k.clearing && this.townTile(t) !== null ? this.townTile(t)
             : k && k.clearing && this.inCrater(t.c + 0.5, t.r + 0.5) ? CRATER[mod(c * 3 + r * 5 + mod(c * r, 2), CRATER.length)]
             : k && k.clearing ? CLEARING[mod(Math.floor(Math.sin(c * 0.5) * 1.6 + Math.sin(r * 0.43 + c * 0.2) * 1.6) + mod(c * 7 + r * 3, 2), CLEARING.length)]
+            // La montañita del pozo: hierba vieja y oscura a manchas (arriba, más apagada y morada; abajo,
+            // con calvas de tierra seca)
+            : k && k.mound ? (t.h >= (this.wellTopH || 0) - 0.01
+                ? MOUND_TOP[mod(Math.floor(Math.sin(c * 0.6) * 1.5 + Math.sin(r * 0.5 + c * 0.2) * 1.5) + mod(c * 7 + r * 3, 2), MOUND_TOP.length)]
+                : MOUND[mod(Math.floor(Math.sin(c * 0.45) * 2 + Math.sin(r * 0.37 + c * 0.13) * 2) + mod(c * 3 + r * 5, 3), MOUND.length)])
             : k && k.yard ? YARD[mod(c + r, 2)] : theme.grass[mod(c * 5 + r * 3 + mod(c * r, 3), 3)];
         _c.setHex(col).offsetHSL(0, 0, (hash(c, r, 5) - 0.5) * theme.grassJitter); // (fijo por casilla: al rehacer el suelo no cambia de tono)
         // (su color de verdad se guarda: si es de una parcela sin comprar, se ve en sombra)
@@ -1042,6 +1062,7 @@ export class Farm {
             });
         }
         v.fresh = true; // (se colocan ya, sin esperar al siguiente paso de la animación)
+        v.settle = v.plants.reduce((t, s) => Math.max(t, s.t0 || 0), 0) + 0.6; // (hasta que acaban de brotar)
         // Lo que queda fuera de cámara no se dibuja: la esfera de todo el campo (en su parcela)
         if (v.plants.length) {
             let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
@@ -1525,9 +1546,14 @@ export class Farm {
             if (!step && !v.fresh) continue;
             const p = progress[v.id] || 0, key = Math.round(p * 24);
             // (fuera de cámara no se mueven; de lejos, sin viento: solo cuando crecen)
-            const sph = v.meshes[0] && v.meshes[0].boundingSphere;
-            if (!v.fresh && sph && this.camera && !v.herd && !_frustum.intersectsSphere(sph)) continue;
-            if (!v.fresh && !v.herd && (this.zoom || 1) > 2.6 && v.key === key) continue;
+            // (la esfera del campo está en las coordenadas de su parcela: al mundo con su malla; y
+            // mientras brotan, siempre: si no, se quedarían sin brotar)
+            const m0 = v.meshes[0], settled = !v.herd && this.clock > (v.settle || 0);
+            if (!v.fresh && settled && m0 && m0.boundingSphere && this.camera) {
+                m0.updateWorldMatrix(true, false);
+                if (!_frustum.intersectsSphere(_sph.copy(m0.boundingSphere).applyMatrix4(m0.matrixWorld))) continue;
+            }
+            if (!v.fresh && settled && (this.zoom || 1) > 2.6 && v.key === key) continue;
             const recolor = v.fresh || v.key !== key || !!v.herd;
             v.key = key;
             v.fresh = false;

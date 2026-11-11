@@ -133,7 +133,7 @@ test('ovni ladrón: se para encima de la zona con más cultivos y su rayo absorb
 test('día y noche: de noche el cielo se oscurece, sale la luna y los alienígenas brillan y vienen más', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await enterBigField(page);
-    await expect(page.locator('#daytime')).toHaveText('DIA');
+    await expect(page.locator('#daytime .sun-ico')).toBeVisible(); // (solo el sol o la luna)
     expect(await page.evaluate(() => [game.sniper.nightK, game.sniper.nightSky.visible])).toEqual([0, false]);
     // DEBUG: HORA pasa por AUTO, DÍA y NOCHE (en las pruebas empieza fijada de día)
     await page.evaluate(() => { game.dayNight.force = 'night'; });
