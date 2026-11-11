@@ -2160,18 +2160,15 @@ function syncMerchantLife(pop = true) {
     // Más vecinos con la ampliación (uno por cada 4 piezas)
     farm.village.setResidents(RESIDENTS.filter((n) => state.village.length >= n).length + Math.floor(state.town / 4));
 }
-// Tras cada cosa del pueblo: ¿sube de nivel? ¿algún logro nuevo? (con su aviso y su oro)
+// Tras cada cosa del pueblo: ¿sube de nivel? (con su aviso y su oro). (Los logros del pueblo ya no
+// están)
 function merchantNews2() {
-    const up = state.checkVillage(), got = state.checkMedals();
+    const up = state.checkVillage();
     if (up) {
         stage(`${L('YOUR VILLAGE IS NOW', 'TU PUEBLO YA ES')}: ${VILLAGE_LEVELS[up.lv].name}`, up.gold ? `+${up.gold} ${L('GOLD', 'DE ORO')}` : '');
         sfx.play('achievement');
+        updateCounts(true);
     }
-    got.forEach((m, k) => setTimeout(() => {
-        stage(`${L('ACHIEVEMENT', 'LOGRO')}: ${m.name}`, `${m.desc} · +${m.gold} ${L('GOLD', 'DE ORO')}`);
-        sfx.play('achievement');
-    }, (up ? 2200 : 0) + k * 2200));
-    if (up || got.length) updateCounts(true);
 }
 syncMerchantLife(false);
 // El retrato de cada uno, de su color (el sprite es el del primero, verde)
@@ -2188,7 +2185,6 @@ function moodScore(id) {
 function renderMerchant() {
     const id = curM, def = MERCHANT_BY_ID[id], v = farm.village.byId[id], clock = clocks[id];
     setHtml($('merchant-village'), villageHtml());
-    setHtml($('merchant-medals'), medalsHtml());
     $('merchant-name').textContent = def.name;
     document.querySelector('#merchant .merchant-portrait').style.filter = `hue-rotate(${hueOf(def.skin)}deg)`;
     // La lista: cada uno con su favorito y cuándo se va (si está) o cuándo vuelve (si no)

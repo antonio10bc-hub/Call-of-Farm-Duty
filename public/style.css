@@ -1713,3 +1713,9 @@ body.practice .left-badge { display: none; }
 .well-reveal .dup { position: relative; display: flex; align-items: center; gap: 6px; padding: 6px 10px; font-size: 10px; color: var(--ink); background: #ffd23f; border: 3px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); }
 .well-reveal .dup .ico { width: 16px; height: 16px; }
 .well-card.dup small { color: #b8860b; }
+/* La lista de mercaderes, en una columna (no cabe en dos con sus tiempos) */
+@media (min-width: 700px) {
+    .merchant-dock .merchant-tabs { grid-template-columns: 1fr; gap: 3px; }
+    .merchant-dock .m-tab { padding: 4px 8px; gap: 6px; }
+    .merchant-dock .m-tab .m-when { min-width: 92px; text-align: right; }
+}

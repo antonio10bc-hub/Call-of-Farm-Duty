@@ -419,10 +419,10 @@ test('pueblo de los mercaderes: día de mercado, exclusivo de la nave madre, niv
     expect(ex).toBeTruthy();
     expect(await page.evaluate((ex) => { game.state.items.gold = 999; return [game.state.buy(game.clocks.mother.visit, ex, 'm0'), game.state.buy(game.clocks.mother.visit, ex, 'mother')]; }, ex)).toEqual([false, true]);
     await page.evaluate(() => game.openMerchant('m0'));
-    // Nivel del pueblo y logros: al llenarlo, sube de nivel (con su oro), se quedan a vivir 3 y salta el logro
+    // Nivel del pueblo: al llenarlo, sube de nivel (con su oro) y se quedan a vivir 3 (sin logros: ya no hay)
     await page.evaluate(() => { game.state.village = Object.keys(game.farm.village.decor); });
     await tap('dbg-medals');
-    expect(await page.evaluate(() => [game.state.villageLevel, game.state.villageLv, game.state.medals.includes('full'), game.state.medals.includes('exclusive'), game.farm.village.residents.filter((r) => r.on).length])).toEqual([4, 4, true, true, 3]);
+    expect(await page.evaluate(() => [game.state.villageLevel, game.state.villageLv, game.farm.village.residents.filter((r) => r.on).length])).toEqual([4, 4, 3]);
     // Celos: si a otro le tienes mucha más confianza, este paga más
     await page.evaluate(() => { game.state.merchants.m0.trust = 35; game.state.newOrders(game.clocks.m2.visit, 'm2'); });
     expect(await page.evaluate(() => game.state.merchants.m2.jealous)).toBe(true);
