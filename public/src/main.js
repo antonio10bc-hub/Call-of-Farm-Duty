@@ -738,7 +738,7 @@ const DOCK = [
         go: () => toggleFieldsPop() },
     { id: 'house', icon: 'home', label: L('FARMHOUSE', 'CASA'), show: () => !FARM.house.hidden && state.open('house'), alert: () => state.canUpgradeHouse,
         go: () => { const h = farm.byId.house.def; dockGo(h.x, h.z, () => select({ structure: 'house' })); } },
-    { id: 'well', icon: 'well', label: L('WISHING WELL', 'POZO DE LOS DESEOS'), show: () => state.open('barn'), alert: () => state.wishPool().length > 0 && state.items.gold >= state.wishCost(),
+    { id: 'well', icon: 'well', label: L('WISHING WELL', 'POZO DE LOS DESEOS'), show: () => state.open('barn'), alert: () => false, // (sin aviso: con oro para un deseo, brilla el propio pozo)
         go: () => dockGo(135, 15, () => openWell()) },
     { id: 'merchant', icon: 'merchant', label: L('MERCHANTS', 'MERCADERES'), show: () => !merchantClock.locked, alert: () => MERCHANTS.some((d) => merchantCan(d.id)),
         go: () => { const c = vParcel(VILLAGE.cx, VILLAGE.cz); dockGo(c.x, c.z, () => openMerchant(MERCHANTS.find((d) => merchantCan(d.id))?.id || MERCHANTS.find((d) => farm.village.byId[d.id].open)?.id || curM)); } },
@@ -922,7 +922,8 @@ function placeBubbles() {
         placeAt(wellSign, (_b.x * 0.5 + 0.5) * innerWidth, (-_b.y * 0.5 + 0.5) * innerHeight);
         const can = state.wishPool().length > 0 && state.items.gold >= state.wishCost(), html = `${ico('well')}<span>${L('WISHING WELL', 'POZO DE LOS DESEOS')}</span><i class="sign-up"></i>`;
         if (wellSign.innerHTML !== html) wellSign.innerHTML = html;
-        wellSign.classList.toggle('can-up', can);
+        wellSign.classList.toggle('can-up', false);
+        farm.well.canWish = can; // (con oro para un deseo, el pozo brilla un poco)
     }
     rangeSign.classList.toggle('hidden', !wellOn);
     if (wellOn) {

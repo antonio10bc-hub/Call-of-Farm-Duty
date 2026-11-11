@@ -8,7 +8,7 @@ import { box } from './materials.js';
 // moneda cae dando vueltas al agua, salpica y sube una columna de luz del color de lo que ha salido
 const STONE = [0x9a948a, 0x8a847a, 0xa8a298, 0x7a746a], WOOD = 0x8a5a2a, WOOD2 = 0x6a4020, ROOF = 0x6a3a2a, MOSS = 0x5a8a3a;
 const ease = (k) => k * k * (3 - 2 * k);
-const WATER = new THREE.Color(0x3ab8e8), WHITE = new THREE.Color(0xffffff);
+const WATER = new THREE.Color(0x3ab8e8), WHITE = new THREE.Color(0xffffff), _gold = new THREE.Color(0xffe08a);
 
 export class WishingWell extends VoxelModel {
     constructor(outline) {
@@ -278,6 +278,13 @@ export class WishingWell extends VoxelModel {
         this.updateMystic(dt, time);
         if (this.t < 0) {
             this.waterMat.color.setRGB(0.23 * glow * 2, 0.72 * glow * 1.4, 0.91);
+            // Con oro para un deseo: un brillo suave que respira alrededor del pozo (y el agua, más viva)
+            const want = this.canWish ? 0.1 + Math.sin(time * 2.2) * 0.04 : 0;
+            this.auraMat.color.setHex(0xfff0a0);
+            this.auraMat.opacity += (want - this.auraMat.opacity) * Math.min(1, dt * 3);
+            this.aura.visible = this.auraMat.opacity > 0.01;
+            this.aura.scale.set(1, 1, 1);
+            if (this.canWish) this.waterMat.color.lerp(_gold, 0.25 + Math.sin(time * 2.2) * 0.1);
             this.updateFx(dt);
             return;
         }
