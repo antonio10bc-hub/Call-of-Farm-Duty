@@ -628,7 +628,6 @@ export class Farm {
         if (r < VILLAGE.R - 0.6) return TOWN_STONE[(Math.floor(r / 1.7) + ((c + w) & 1)) % TOWN_STONE.length];
         if (r > 11 && r < 12.8) return TOWN_ROAD[(c + w) & 1];
         if (P >= 3 && r > 20.8 && r < 22.4) return TOWN_ROAD[(c + w) & 1];
-        if (P >= 4 && ((r > 28 && r < 29.6) || (r > 34.2 && r < 35.8))) return TOWN_ROAD[(c + w) & 1]; // (las rondas de los barrios)
         const paved = pavedIn(P);
         for (const g of this.vgeo) {
             const cs = Math.cos(g.a), sn = Math.sin(g.a), along = dx * cs + dz * sn, side = Math.abs(-dx * sn + dz * cs);

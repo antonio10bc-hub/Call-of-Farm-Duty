@@ -9,7 +9,7 @@ import { CROPS } from '../content/crops.js';
 // nave de un mercader al estrellarse), los árboles tumbados a sus lados, la hoguera y el claro de
 // la nave madre. Cada mercader (Visitor) llega en su ovni disfrazado de vehículo por su surco; la
 // nave madre (Mother) baja en vertical sobre su claro.
-const WOOD = 0x9a6a3a, WOOD2 = 0x7a4f2a, DARK = 0x5a3a22, STONE = 0x9a948a;
+const WOOD = 0x9a6a3a, WOOD2 = 0x7a4f2a, DARK = 0x5a3a22, STONE = 0x9a948a, RED_BOX = 0xc8402e;
 const DIRT = [0x8a5a34, 0x76492a, 0x9a6a3a], TRENCH = [0x5a3a22, 0x4a2e1a];
 const METAL = 0x9aa8b8, METAL2 = 0x7a8898, HULL = 0x4a5868, GLASS = 0x9fdcff, CARD = 0xe8d8b0;
 const RUBBER = 0xe0a860; // las gomas de las caretas
@@ -1260,8 +1260,9 @@ export class Village extends VoxelModel {
             let n = 0;
             for (let rr = VILLAGE.R + 0.4; rr < geo.endR + 0.4; rr += 0.8, n++) {
                 const w = furrowHalf(geo, rr) * 2 + 0.3, x = VILLAGE.cx + ca * rr, z = VILLAGE.cz + sa * rr, th = n % 2 ? 0.1 : 0.106;
-                this.part(road, 0.8, th, w, n % 2 ? 0xa49a88 : 0x968c7a, x, th / 2, z, false).rotation.y = -geo.a;
-                for (const sd of [-1, 1]) this.part(road, 0.76, 0.16, 0.2, 0xd4c8b0, x - sa * sd * (w / 2), 0.08, z + ca * sd * (w / 2), false).rotation.y = -geo.a;
+                this.part(road, 0.8, th, w, n % 2 ? 0x54545a : 0x4e4e54, x, th / 2, z, false).rotation.y = -geo.a;
+                if (n % 3 === 0) this.part(road, 0.4, th + 0.01, 0.1, 0xf3e6c4, x, th / 2 + 0.005, z, false).rotation.y = -geo.a; // (la raya del centro)
+                for (const sd of [-1, 1]) this.part(road, 0.76, 0.18, 0.6, 0xc8c0b0, x - sa * sd * (w / 2 + 0.2), 0.09, z + ca * sd * (w / 2 + 0.2), false).rotation.y = -geo.a; // (aceras)
             }
             road.visible = false;
             g.add(road);
@@ -1293,29 +1294,86 @@ export class Village extends VoxelModel {
         const WALLS = [0xf3e6c4, 0xe8c8a0, 0xc8dce8, 0xe0b8c8, 0xd8e0b0, 0xf0d0a0], ROOFS = [0xc8402e, 0x3a6ab8, 0x5a8a3a, 0x8a4a8a, 0xd88a2a];
         const nearStreet = (a, r, m) => geos.some((q) => !q.def.mother && Math.abs(Math.atan2(Math.sin(a - q.a), Math.cos(a - q.a))) * r < (q.half || 2) + m);
         const inPark = (a) => Math.abs(Math.atan2(Math.sin(a - mother.a), Math.cos(a - mother.a))) < 0.55;
-        const house = (x, z, ry, k, big = 1) => {
-            const h = new THREE.Group();
+        // (azar fijo: la misma propuesta cada vez)
+        const rnd = (n) => { const v = Math.sin(n * 12.9898 + 4.1) * 43758.5453; return v - Math.floor(v); };
+        // Una casa de una de cinco formas: casita a dos aguas, alta de dos plantas, en L, de tejado
+        // plano con su parabólica y nave ancha; de tamaños y colores distintos, con su huerto, una
+        // valla o un seto, y algún árbol en el jardín
+        const house = (x, z, ry, k) => {
+            const h = new THREE.Group(), form = Math.floor(rnd(k * 3.1) * 5), sc = 0.85 + rnd(k * 5.7) * 0.45;
             h.position.set(x, 0, z);
             h.rotation.y = ry;
-            const W = 2.2 * big, D = 1.9 * big, H = 1.4 * big;
+            const W = (form === 4 ? 3.0 : form === 1 ? 1.7 : 2.2) * sc, D = (form === 4 ? 2.2 : 1.9) * sc, H = (form === 1 ? 2.4 : 1.3) * sc;
+            const wall = WALLS[Math.floor(rnd(k * 7.3) * WALLS.length)], roof = ROOFS[Math.floor(rnd(k * 9.1) * ROOFS.length)];
             this.part(h, W + 0.3, 0.16, D + 0.3, STONE, 0, 0.08, 0);
-            this.part(h, W, H, D, WALLS[k % WALLS.length], 0, 0.16 + H / 2, 0);
-            for (let i = 0; i < 3; i++) this.part(h, W + 0.3 - i * 0.7, 0.3, D + 0.24 - i * 0.02, ROOFS[k % ROOFS.length], 0, 0.16 + H + 0.15 + i * 0.3, 0);
-            this.part(h, 0.5, 0.8, 0.06, DARK, 0, 0.56, D / 2 + 0.01);
-            this.lit(h, 0.4, 0.36, 0.06, 0xffe08a, W / 2 - 0.45, 0.16 + H * 0.6, D / 2 + 0.01);
-            if (k % 3 === 0) { this.part(h, 0.06, 0.8, 0.06, METAL, -W / 2 + 0.3, 0.16 + H + 1.1, 0); this.lit(h, 0.16, 0.16, 0.16, 0x7dff4a, -W / 2 + 0.3, 0.16 + H + 1.55, 0); }
-            // Su huerto detrás
-            for (let i = 0; i < 3; i++) this.part(h, 0.5, 0.14, 0.9, [0x5aa83a, 0x4a9a34, 0x8a5a3a][i], -0.7 + i * 0.7, 0.07, -D / 2 - 0.8, false);
+            this.part(h, W, H, D, wall, 0, 0.16 + H / 2, 0);
+            const top = 0.16 + H;
+            if (form === 3) {
+                // Tejado plano con pretil y parabólica
+                this.part(h, W + 0.1, 0.14, D + 0.1, 0x8a8a86, 0, top + 0.07, 0);
+                this.part(h, 0.5, 0.06, 0.5, 0xd8dce2, W / 4, top + 0.5, -D / 4).rotation.x = -0.6;
+                this.part(h, 0.06, 0.4, 0.06, METAL, W / 4, top + 0.3, -D / 4, false);
+            } else {
+                const steps = form === 1 ? 2 : 3;
+                for (let i = 0; i < steps; i++) this.part(h, W + 0.3 - i * (W / steps), 0.3, D + 0.24 - i * 0.02, roof, 0, top + 0.15 + i * 0.3, 0);
+                if (rnd(k * 2.3) < 0.5) this.part(h, 0.3, 0.6, 0.3, 0x8a5a3a, -W / 3, top + 0.5, -D / 4); // (chimenea)
+            }
+            if (form === 2) {
+                // El ala de la L, más baja y a un lado
+                const w2 = 1.3 * sc, d2 = 1.4 * sc;
+                this.part(h, w2, 1.0 * sc, d2, wall, W / 2 + w2 / 2 - 0.1, 0.16 + 0.5 * sc, -D / 2 + d2 / 2);
+                for (let i = 0; i < 2; i++) this.part(h, w2 + 0.2 - i * 0.6, 0.26, d2 + 0.2, roof, W / 2 + w2 / 2 - 0.1, 0.16 + 1.0 * sc + 0.13 + i * 0.26, -D / 2 + d2 / 2);
+            }
+            this.part(h, 0.5, 0.8, 0.06, DARK, -W / 5, 0.56, D / 2 + 0.01);
+            this.lit(h, 0.4, 0.36, 0.06, 0xffe08a, W / 2 - 0.45, 0.16 + Math.min(H, 1.3) * 0.6, D / 2 + 0.01);
+            if (form === 1) this.lit(h, 0.4, 0.36, 0.06, 0xffe08a, 0, 0.16 + H * 0.78, D / 2 + 0.01);
+            if (rnd(k * 4.4) < 0.3) { this.part(h, 0.06, 0.8, 0.06, METAL, -W / 2 + 0.3, top + 1.0, 0); this.lit(h, 0.16, 0.16, 0.16, 0x7dff4a, -W / 2 + 0.3, top + 1.45, 0); }
+            // El jardín de atrás: huerto, y valla o seto (no todas)
+            const back = -D / 2 - 0.9, yard = rnd(k * 6.6);
+            for (let i = 0; i < 2 + Math.floor(rnd(k) * 3); i++) this.part(h, 0.45, 0.14, 0.8, [0x5aa83a, 0x4a9a34, 0x8a5a3a][i % 3], -W / 2 + 0.3 + i * 0.6, 0.07, back, false);
+            if (yard < 0.4) for (let i = 0; i < 6; i++) this.part(h, 0.08, 0.5, 0.08, 0xf3e6c4, -W / 2 - 0.2 + i * ((W + 0.4) / 5), 0.25, back - 0.7, false);
+            else if (yard < 0.7) this.part(h, W + 0.6, 0.6, 0.4, 0x3d8a2c, 0, 0.3, back - 0.7);
+            if (rnd(k * 8.8) < 0.45) { this.part(h, 0.2, 1.0, 0.2, WOOD2, W / 2 + 0.6, 0.5, back + 0.4); this.part(h, 0.9, 0.8, 0.9, [0x4caf3c, 0xb87dff][rnd(k * 3.3) < 0.8 ? 0 : 1], W / 2 + 0.6, 1.3, back + 0.4); }
+            if (rnd(k * 1.7) < 0.35) { this.part(h, 0.08, 0.6, 0.08, DARK, W / 2 + 0.2, 0.3, D / 2 + 0.9, false); this.part(h, 0.3, 0.22, 0.2, RED_BOX, W / 2 + 0.2, 0.68, D / 2 + 0.9); } // (buzón)
             g.add(h);
+            return D;
         };
-        // Las casas: anillos de barrio (r 25 y 31), entre calles, de cara al centro
+        // Las rondas de los barrios: asfalto con su raya discontinua y aceras a los dos lados
+        const RINGS = [28.8, 36.6], ASPH = [0x54545a, 0x4e4e54], WALK = 0xc8c0b0;
+        // (las rondas no son círculos: se ondulan, cada una a su manera)
+        const wobR = (R, a) => R + Math.sin(a * 3 + R) * 1.3 + Math.sin(a * 5 - R * 0.7) * 0.6;
+        for (const R0 of RINGS) {
+            const n = Math.round((Math.PI * 2 * R0) / 0.8);
+            for (let i = 0; i < n; i++) {
+                const a = (i / n) * Math.PI * 2, R = wobR(R0, a);
+                if (R > this.reach((a * 180) / Math.PI) - 2.5) continue;
+                const x = VILLAGE.cx + Math.cos(a) * R, z = VILLAGE.cz + Math.sin(a) * R, ry = -a, th = i % 2 ? 0.12 : 0.126;
+                this.part(g, 2.6, th, 0.96, ASPH[i % 2], x, th / 2, z, false).rotation.y = ry;
+                if (i % 3 === 0 && !nearStreet(a, R, 0.5)) this.part(g, 0.1, 0.13, 0.5, 0xf3e6c4, x, 0.066, z, false).rotation.y = ry;
+                for (const sd of [-1, 1]) {
+                    const r2 = R + sd * 1.65, x2 = VILLAGE.cx + Math.cos(a) * r2, z2 = VILLAGE.cz + Math.sin(a) * r2;
+                    if (!nearStreet(a, r2, 0.3)) this.part(g, 0.7, 0.18, 0.98, WALK, x2, 0.09, z2, false).rotation.y = ry;
+                }
+            }
+        }
+        // Las casas: a los dos lados de cada ronda, de cara a ella, sueltas (a distancias, giros y
+        // tamaños distintos; con huecos para placitas), cada una con su camino de entrada
         let k = 0;
-        for (const R of [25.5, 31.5, 37.5]) {
-            const step = 5.4 / R;
-            for (let a = 0; a < Math.PI * 2; a += step) {
-                if (nearStreet(a, R, 3.4) || inPark(a) || R > this.reach((a * 180) / Math.PI) - 4) continue;
-                const x = VILLAGE.cx + Math.cos(a) * R, z = VILLAGE.cz + Math.sin(a) * R;
-                house(x, z, Math.atan2(VILLAGE.cx - x, VILLAGE.cz - z), k++, R > 35 ? 1.15 : 1);
+        for (const [R, road] of [[25.2, 28.8], [32.6, 28.8], [33.1, 36.6], [40.4, 36.6]]) {
+            if (Math.abs(R - road) < 3 || (R === 33.1)) continue; // (entre las dos rondas, una sola fila)
+            for (let a = rnd(R) * 0.2; a < Math.PI * 2; ) {
+                const kk = k++, dR = wobR(road, a) - road, rr = R + dR + (rnd(kk * 1.3) - 0.5) * 1.2, road2 = road + dR;
+                a += (3.4 + rnd(kk * 2.1) * 2.6) / R;
+                if (rnd(kk * 5.3) < 0.1 || nearStreet(a, rr, 3.0) || inPark(a) || rr > this.reach((a * 180) / Math.PI) - 3.5) continue;
+                const x = VILLAGE.cx + Math.cos(a) * rr, z = VILLAGE.cz + Math.sin(a) * rr;
+                const toRoad = Math.sign(road2 - rr), face = Math.atan2(Math.cos(a) * toRoad, Math.sin(a) * toRoad) + (rnd(kk * 7.7) - 0.5) * 0.35;
+                const D = house(x, z, face, kk);
+                // Camino de entrada, de la puerta a la acera
+                const len = Math.abs(road2 - rr) - D / 2 - 1.9;
+                if (len > 0.3) {
+                    const m = rr + toRoad * (D / 2 + 0.2 + len / 2);
+                    this.part(g, 0.6, 0.1, len, 0xd8c8a0, VILLAGE.cx + Math.cos(a) * m, 0.05, VILLAGE.cz + Math.sin(a) * m, false).rotation.y = -a + Math.PI / 2;
+                }
             }
         }
         // La calle del mercado: la del primero (toldos de rayas a los dos lados)
