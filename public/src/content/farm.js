@@ -57,18 +57,18 @@ export const FARM = {
             { yard: [1, 1, 29, 29], cost: { wheat: 60, tomato: 30 } },
         ],
         strip: [9, 20, 28, 24],
-        pads: [[3, 3, 10, 9], [20, 3, 27, 9], [2.5, 9.5, 8.5, 15]],
+        pads: [[2.5, 2.5, 14.5, 9.5], [20, 3, 27, 9], [2.5, 9.5, 8.5, 15]],
     },
     // Lo del recinto del granero: kind (la pieza de render/compound.js), x, z (su centro, en las
     // coordenadas de la parcela; en el mapa se reparte estirado por toda la zona) y ry (cuartos de vuelta)
     compound: [
-        { kind: 'nuke', x: 6.5, z: 6 },
+        { kind: 'nuke', x: 8.5, z: 6, pad: 1 }, // (pad: en el centro de esa plataforma y a su medida)
         { kind: 'armory', x: 23.5, z: 6 },
-        { kind: 'radar', x: 12.3, z: 3.6 }, // (fuera de la plataforma de la nuclear)
+        { kind: 'radar', x: 17.2, z: 3.4 }, // (fuera de la plataforma de la nuclear)
         { kind: 'heli', x: 5.5, z: 12.3 },
-        { kind: 'camp', x: 24.5, z: 12.5 },
-        { kind: 'hangar', x: 5, z: 22 },
-        { kind: 'plane', x: 20, z: 22 },
+        { kind: 'range', x: 24.5, z: 13, structure: 'range' }, // (el campo de tiro de pruebas: se toca para entrar)
+        { kind: 'hangar', x: 5, z: 22, strip: true },
+        { kind: 'plane', x: 20, z: 22, strip: true },
         { kind: 'checkpoint', x: 15, z: 27.3 },
         { kind: 'depot', x: 26.5, z: 26.5 },
         { kind: 'depot', x: 3.5, z: 26.8, ry: 1 },
@@ -389,6 +389,16 @@ export function worldToPlace(P, x, z) {
     const [dx, dz] = stretch(P, x - P.c[0], z - P.c[1], true);
     return { x: P.from[0] + 15 + dx, z: P.from[1] + 15 + dz };
 }
+// Un rectángulo de la parcela P (en sus coordenadas de siempre), recto en el mundo: sus lados
+// llegan hasta donde llegan los estirados (por su línea media), pero sin torcerse (la pista y las
+// plataformas de hormigón: al estirarlas se doblaban a escalones). En el mundo, a medias casillas
+export function worldRect(P, [x0, z0, x1, z1]) {
+    const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2, snap = (v) => Math.round(v * 2) / 2;
+    const a = placeToWorld(P, x0, mz), b = placeToWorld(P, x1, mz), c = placeToWorld(P, mx, z0), d = placeToWorld(P, mx, z1);
+    return [snap(a.x), snap(c.z), snap(b.x), snap(d.z)];
+}
+// Del mundo al grupo de la parcela P (que solo la lleva a su sitio, sin estirar)
+export const worldToLocal = (P, x, z) => ({ x: P.from[0] + 15 + x - P.c[0], z: P.from[1] + 15 + z - P.c[1] });
 // Lo que se cuelga del grupo de una parcela (que solo la lleva a su sitio, sin estirar): dónde
 // tiene que ir dentro del grupo un punto de sus coordenadas de siempre para caer donde toca
 export function stretchLocal(x, z) {

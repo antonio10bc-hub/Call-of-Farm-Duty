@@ -20,7 +20,7 @@ import { buildPig, animatePig } from '../render/pig.js';
 import { buildFish, animateFish } from '../render/fish.js';
 import { buildChicken, animateChicken } from '../render/chicken.js';
 import { BARNYARD, SLOTS, BarnPiece } from '../render/barnyard.js';
-import { reachAt, FARM, TURRETS, PLACES, toWorld, worldToPlace, inShapeOf, inFieldShape, stretchLocal, floorPlace } from '../content/farm.js';
+import { reachAt, FARM, TURRETS, PLACES, toWorld, worldToPlace, inShapeOf, inFieldShape, stretchLocal, floorPlace, worldRect, worldToLocal } from '../content/farm.js';
 
 const _d = new THREE.Object3D();
 const _c = new THREE.Color();
@@ -176,6 +176,9 @@ export class Farm {
         far.position.set(this.cx, -0.31, this.cz);
         root.add(far);
 
+        // La pista y las plataformas del recinto, rectas en el mundo (en el suelo y en lo de encima)
+        const PF = PLACES.find((p) => p.id === 'farm');
+        this.barnW = { P: PF, strip: worldRect(PF, FARM.barn.strip), pads: FARM.barn.pads.map((r) => worldRect(PF, r)) };
         this.buildFloor();
 
         for (const v of this.views) {
@@ -227,18 +230,24 @@ export class Farm {
         // con magia al abrirlo)
         this.compound = new Compound(theme.outline);
         this.compoundOn = true;
+        // (lo que va sobre una plataforma, a su medida y en su centro)
+        const padW = (n) => this.barnW.pads[n - 1];
+        this.compound.padHalf = (n) => [(padW(n)[2] - padW(n)[0]) / 2, (padW(n)[3] - padW(n)[1]) / 2];
         this.compoundPieces = FARM.compound.map((c) => {
-            const g = this.compound.piece(c.kind), at = stretchLocal(c.x, c.z);
+            const g = this.compound.piece(c.kind, c.pad), at = c.pad ? worldToLocal(this.barnW.P, (padW(c.pad)[0] + padW(c.pad)[2]) / 2, (padW(c.pad)[1] + padW(c.pad)[3]) / 2) : stretchLocal(c.x, c.z);
+            // (lo de la pista, en su eje: la pista es recta en el mundo)
+            if (c.strip) at.z = worldToLocal(this.barnW.P, 0, (this.barnW.strip[1] + this.barnW.strip[3]) / 2).z;
             g.position.set(at.x, 0, at.z);
             g.rotation.y = (c.ry || 0) * (Math.PI / 2);
             return { g, x: c.x, z: c.z, y: 0, ry: g.rotation.y };
         });
         this.compound.root.traverse((o) => (o.userData.structure = 'barn'));
+        FARM.compound.forEach((c, i) => c.structure && this.compoundPieces[i].g.traverse((o) => (o.userData.structure = c.structure)));
         this.compound.root.visible = false;
         this.places.farm.add(this.compound.root);
         // De noche, en el recinto: las luces de la pista y dos focos que barren
-        const [sx0, sz0, sx1, sz1] = FARM.barn.strip, lights = [];
-        for (let x = sx0 + 0.5; x < sx1; x += 1.6) for (const z of [sz0 + 0.2, sz1 - 0.2]) lights.push(stretchLocal(x, z));
+        const [sx0, sz0, sx1, sz1] = this.barnW.strip, lights = [];
+        for (let x = sx0 + 0.5; x < sx1; x += 1.6) for (const z of [sz0 + 0.2, sz1 - 0.2]) lights.push(worldToLocal(this.barnW.P, x, z));
         this.runwayMat = new THREE.MeshBasicMaterial({ color: 0x6a5a3a });
         const rl = new THREE.InstancedMesh(box(0.3, 0.16, 0.3), this.runwayMat, lights.length);
         lights.forEach((p, i) => rl.setMatrixAt(i, _d.matrix.makeTranslation(p.x, 0.1, p.z)));
@@ -318,10 +327,10 @@ export class Farm {
             const sub = [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]].map(([a, b]) => {
                 const wx = cellX(k) + a, wz = cellZ(k) + b, l = worldToPlace(P, wx, wz);
                 const c = Math.min(P.from[0] + 29, Math.max(P.from[0], Math.floor(l.x))), r = Math.min(P.from[1] + 29, Math.max(P.from[1], Math.floor(l.z)));
-                return { c, r, k: this.kindAt(c, r), wx, wz, h: P.h, s: 1 };
+                return { c, r, k: this.floorKind(P, c, r, wx, wz), wx, wz, h: P.h, s: 1 };
             });
             const key = kindKey(sub[0].k);
-            if (key !== 'field' && key !== 'path' && sub.every((t) => kindKey(t.k) === key)) tiles.push({ ...sub[0], wx: cellX(k), wz: cellZ(k), s: 2, subs: sub.map((t) => [t.c, t.r]) });
+            if (key !== 'field' && key !== 'path' && key !== 'strip' && key !== 'pad1' && sub.every((t) => kindKey(t.k) === key)) tiles.push({ ...sub[0], wx: cellX(k), wz: cellZ(k), s: 2, subs: sub.map((t) => [t.c, t.r, t.wx, t.wz]) });
             else tiles.push(...sub);
         }
         for (const t of tiles) {
@@ -403,6 +412,18 @@ export class Farm {
         return out;
     }
 
+    // Lo que hay en una casilla del suelo: lo de kindAt, salvo la pista y las plataformas del
+    // recinto, que van por sus rectángulos rectos en el mundo (barnW)
+    floorKind(P, c, r, wx, wz) {
+        const k = this.kindAt(c, r);
+        if (!P || P.id !== 'farm' || !this.barnW || !k || !(k.strip || k.pad || k.yard)) return k;
+        const inW = ([x0, z0, x1, z1]) => wx >= x0 && wx < x1 && wz >= z0 && wz < z1;
+        if (inW(this.barnW.strip)) return { strip: true };
+        const pad = this.barnW.pads.findIndex(inW);
+        if (pad >= 0) return { pad: pad + 1 };
+        return k.strip || k.pad ? { yard: true } : k;
+    }
+
     tileY(k) {
         return k && k.field ? -0.12 : k && k.path ? -0.17 : -0.15;
     }
@@ -424,7 +445,7 @@ export class Farm {
                 : this.fields[k.field].crop === 'wheat' && this.fields[k.field].level >= 2 ? STRAW[(r & 1) + 2 * mod(c * 3 + r, 2)] : theme.soil[r & 1]) // (el prado, de hierba)
             : k && k.path ? theme.path[mod(c * 7 + r * 3, 2)]
             // La pista: asfalto con la raya del centro a trozos
-            : k && k.strip ? (t.r === 21 && mod(t.c, 3) !== 0 ? 0xe8e4d8 : ASPHALT[mod(c + r, 2)])
+            : k && k.strip ? (this.stripLine(t) && mod(c, 3) !== 0 ? 0xe8e4d8 : ASPHALT[mod(c + r, 2)])
             // El hormigón (la de la nuclear, con su borde de franjas amarillas y negras)
             : k && k.pad ? (k.pad === 1 && this.padEdge(t) ? (mod(c + r, 2) ? 0xffcc33 : 0x2a2622) : CONCRETE[mod(c + r, 2)])
             // El suelo del bosque: manchas de hierba oscura y tierra
@@ -442,8 +463,14 @@ export class Farm {
 
     // ¿Está en el borde de su plataforma de hormigón? (las casillas de sus coordenadas de siempre)
     padEdge(t) {
-        const [x0, z0, x1, z1] = FARM.barn.pads[t.k.pad - 1];
-        return t.c <= Math.ceil(x0) || t.c >= Math.floor(x1) - 1 || t.r <= Math.ceil(z0) || t.r >= Math.floor(z1) - 1;
+        const [x0, z0, x1, z1] = this.barnW.pads[t.k.pad - 1], m = (t.s || 1) / 2 + 0.6;
+        return t.wx - x0 < m || x1 - t.wx < m || t.wz - z0 < m || z1 - t.wz < m;
+    }
+
+    // ¿Cae en la raya del centro de la pista?
+    stripLine(t) {
+        const [, z0, , z1] = this.barnW.strip;
+        return t.s !== 2 && Math.floor(t.wz - (z0 + z1) / 2 + 0.5) === 0;
     }
 
     // ---------- Parcelas en venta: en sombra hasta comprarlas ----------
@@ -524,7 +551,7 @@ export class Farm {
     // Vuelve a pintar las casillas que han cambiado (un campo crece o se limpia) y aparta la
     // decoración que queda debajo de los campos
     refreshGround() {
-        const changed = this.floor.tiles.some((t) => (t.subs || [[t.c, t.r]]).some(([c, r]) => kindKey(this.kindAt(c, r)) !== kindKey(t.k)));
+        const changed = this.floor.tiles.some((t) => (t.subs || [[t.c, t.r, t.wx, t.wz]]).some(([c, r, wx, wz]) => kindKey(this.floorKind(floorPlace(wx, wz), c, r, wx, wz)) !== kindKey(t.k)));
         // (el trigo pasa a rastrojo de paja al nivel 3: también se repinta)
         const straw = this.fields.wheat && this.fields.wheat.level >= 2;
         if (changed || straw !== this.straw) this.buildFloor();

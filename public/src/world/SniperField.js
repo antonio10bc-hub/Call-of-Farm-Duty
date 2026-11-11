@@ -10,6 +10,7 @@ import { buildPig, animatePig } from '../render/pig.js';
 import { buildFish, animateFish } from '../render/fish.js';
 import { buildChicken, animateChicken } from '../render/chicken.js';
 import { FIELD } from '../content/field.js';
+import { RangeTargets } from './RangeTargets.js';
 
 const _d = new THREE.Object3D();
 const _c = new THREE.Color();
@@ -100,6 +101,9 @@ export class SniperField {
         ft.root.visible = false;
         this.root.add(ft.root);
         this.farTower = { x: F.x, z: F.z, floor: 3.2, model: ft };
+        // El campo de tiro de pruebas: dianas y su línea de tiro (solo se ven ahí)
+        this.rangeT = new RangeTargets(theme.outline);
+        this.root.add(this.rangeT.root);
         this.build();
     }
 
@@ -246,7 +250,8 @@ export class SniperField {
         const inPond = (x, z, m = 0) => this.inPond(x, z, m);
         this.tiles.forEach(({ c, r, soil }, i) => {
             if (!soil) return;
-            const col = kind === 'junk' ? JUNK.ground[mod(c * 7 + r * 5 + mod(c * r, 3), JUNK.ground.length)]
+            const col = kind === 'range' ? [0xd8c08a, 0xccb47e, 0xc8ae78][mod(c * 3 + r * 5, 3)] // (el campo de pruebas: arena)
+                : kind === 'junk' ? JUNK.ground[mod(c * 7 + r * 5 + mod(c * r, 3), JUNK.ground.length)]
                 : inPond(c + 0.5, r + 0.5) ? [0x4aa8e0, 0x3f98d4][(c + r) & 1] // (el agua)
                 : inPond(c + 0.5, r + 0.5, 1.3) ? [0xd9c48a, 0xccb67a][(c + r) & 1] // (la orilla)
                 : CROPS[kind] && CROPS[kind].mud ? [0x7a5232, 0x6a4628, 0x8a5e38][mod(c * 3 + r * 5, 3)] // (la pocilga, de barro)
@@ -285,6 +290,11 @@ export class SniperField {
         this.dress(crop);
         this.crop = crop;
         count = Math.min(count, MAX);
+        // El campo de pruebas: dianas (sin torres: se tira de pie desde la línea de tiro)
+        if (crop === 'range') {
+            for (const t of this.towers) t.model.root.visible = false;
+            return this.rangeT.spawn(this.rangeMode || 'mix', this.targets);
+        }
         if (crop === 'tomato') return this.spawnTomatoes(count);
         if (crop === 'pumpkin') return this.spawnPumpkins(count);
         if (crop === 'corn') return this.spawnCorn(count);
@@ -820,6 +830,7 @@ export class SniperField {
 
     // ¿Se le puede dar? (las vacas, solo con la ubre llena; las ovejas, con la bola de lana hecha)
     hittable(s) {
+        if (s.range) return this.rangeT.hittable(s);
         return s.alive && s.landed && (s.kind === 'hen' ? !!s.egg : s.kind === 'fish' ? !!s.jump && s.jump.y > 0.25 : (s.kind !== 'cow' && s.kind !== 'sheep' && s.kind !== 'pig') || s.swell >= 1);
     }
 
@@ -940,6 +951,7 @@ export class SniperField {
         if (this.herd) for (const c of [...this.herd.children]) this.herd.remove(c);
         this.targets.length = 0;
         this.plants.length = 0;
+        if (this.rangeT) this.rangeT.hide();
         for (const m of [this.tStalks, this.tEars, this.tLeaves, this.tStems, this.tFruit, this.tFruitHull, this.tCalyx]) m.count = 0;
         this.clearJunk();
     }
@@ -999,6 +1011,7 @@ export class SniperField {
         else if (this.crop === 'truffle') this.drawPigs(dt, time);
         else if (this.crop === 'fish') this.drawFish(dt, time);
         else if (this.crop === 'egg') this.drawHens(dt, time);
+        else if (this.crop === 'range') this.rangeT.update(dt, time);
         else if (this.crop === 'wheat') this.drawWheat(time);
         else if (this.crop === 'tomato') this.drawTomatoes(dt, time);
         else if (this.crop) this.drawPlants(dt, time);
@@ -1259,6 +1272,7 @@ function segDist(x, z, ax, az, bx, bz) {
 // Caja de impacto de un blanco: se ciñe a la silueta de la mata de trigo (tallos y espigas) o
 // al tomate (algo más grande que él, que se ve enorme pero es lo que hay que darle)
 function hitBox(s) {
+    if (s.hb) return [s.x - s.hb[0], s.y - s.hb[1], s.z - s.hb[2], s.x + s.hb[0], s.y + s.hb[1], s.z + s.hb[2]]; // (las dianas del campo de pruebas)
     if (s.kind === 'hen') return [s.x - 0.42, s.y - 0.48, s.z - 0.42, s.x + 0.42, s.y + 0.48, s.z + 0.42]; // (el huevo, algo más grande que él)
     if (s.kind === 'fish') return [s.x - s.ur, s.y - s.ur * 0.8, s.z - s.ur, s.x + s.ur, s.y + s.ur * 0.8, s.z + s.ur]; // (el pez, según su tamaño)
     if (s.kind === 'cow' || s.kind === 'sheep' || s.kind === 'pig') return [s.x - s.ur, s.y - s.uh, s.z - s.ur, s.x + s.ur, s.y + s.uh, s.z + s.ur]; // (la ubre, la bola de lana o la trufa)

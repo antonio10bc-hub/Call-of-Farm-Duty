@@ -16,6 +16,8 @@ import { Turrets } from './Turrets.js';
 import { MysteryBox } from './MysteryBox.js';
 import { WONDER_ZOOM, WONDER } from '../content/mysterybox.js';
 import { loadoutStats } from '../content/arsenal.js';
+import { RANGE_FX, RANGE_SPOTS, RANGE_EYE } from '../world/RangeTargets.js';
+const fxOf = (crop) => CROPS[crop] || RANGE_FX; // (las dianas del campo de pruebas no son un cultivo)
 
 const S = CONFIG.sniper;
 const FIRE = [0xffffff, 0xffe03a, 0xff9a1f, 0xff3e1a];
@@ -201,16 +203,15 @@ export class Sniper {
     // what: { crop, count, arena, turrets } para cosechar (count blancos de ese cultivo en un
     // campo de tamaño arena, con o sin sus torretas automáticas) o { unlock: true }; loadout:
     // el equipo de la armería ({ scope, rifle, mag })
+    // practice: el campo de pruebas (nada cuenta: los blancos vuelven a salir y no se acaba)
     enter(what) {
         this.setArena(what.arena || 1);
         this.special = this.base = null;
         this.dropT = this.swapT = this.overheat = 0;
-        this.loadout = what.loadout;
-        this.stats = loadoutStats(what.loadout);
-        this.rifle.setLoadout(what.loadout);
-        this.tracer.material.color.setHex(this.stats.tracer);
-        this.ammo = this.stats.size;
-        this.reloadT = this.regenT = 0;
+        this.practice = !!what.practice;
+        this.practiceCount = what.count;
+        this.respawnT = 0;
+        this.setLoadout(what.loadout);
         this.unlocking = !!what.unlock;
         this.crop = what.crop || null;
         this.field.restartIntro();
@@ -253,6 +254,29 @@ export class Sniper {
             const w = D.startWonder && WONDER.find((x) => x.id === D.startWonder);
             if (w) this.giveSpecial(w);
         }
+    }
+
+    // Cambiar de equipo (al entrar, y en el campo de pruebas en cualquier momento)
+    setLoadout(loadout) {
+        if (this.special) {
+            this.special = null;
+            this.base = null;
+        }
+        this.loadout = loadout;
+        this.stats = loadoutStats(loadout);
+        this.rifle.setLoadout(loadout);
+        this.tracer.material.color.setHex(this.stats.tracer);
+        this.ammo = this.stats.size;
+        this.reloadT = this.regenT = 0;
+        this.bolt = 0;
+    }
+
+    // Campo de pruebas: otros blancos (los de ese cultivo)
+    setTargets(mode) {
+        this.crop = 'range';
+        this.field.rangeMode = mode || this.field.rangeMode;
+        this.field.spawn('range', this.practiceCount);
+        this.respawnT = 0;
     }
 
     // El arma de la caja sorpresa: sustituye al rifle (un solo cargador, sin recargas) hasta
@@ -319,8 +343,17 @@ export class Sniper {
 
     // Ojo del tirador en la torre i (en el desbloqueo, siempre la atalaya lejana)
     eyeOf(i, out = new THREE.Vector3()) {
+        if (this.practice) {
+            const p = RANGE_SPOTS[i % RANGE_SPOTS.length];
+            return out.set(p.x, RANGE_EYE, p.z); // (campo de pruebas: de pie, en la línea de tiro)
+        }
         const t = this.unlocking ? this.field.farTower : this.field.towers[i];
         return out.set(t.x, t.floor + 1.15, t.z);
+    }
+
+    // Los sitios desde los que se tira: las torres (o, en el campo de pruebas, los puestos de la línea)
+    get stations() {
+        return this.practice ? RANGE_SPOTS : this.field.towers;
     }
 
     get moving() {
@@ -330,7 +363,7 @@ export class Sniper {
     // Salta a la torre vecina (dir: +1 / -1). La mira sigue puesta si lo estaba.
     goCorner(dir) {
         if (this.move || this.ending >= 0 || this.unlocking || this.lockCorners || this.ks.predator) return;
-        const n = this.field.towers.length;
+        const n = this.stations.length;
         const to = (this.corner + dir + n) % n;
         this.move = { from: this.pos.clone(), to: this.eyeOf(to), t: 0, idx: to };
         this.hooks.sfx.play('corner');
@@ -339,10 +372,10 @@ export class Sniper {
     // Salta a la torre vecina que queda a la izquierda (side -1) o a la derecha (+1) de la vista
     goSide(side) {
         if (this.move || this.ending >= 0 || this.unlocking || this.lockCorners || this.ks.predator) return;
-        const n = this.field.towers.length;
+        const n = this.stations.length;
         const rx = Math.cos(this.lookYaw), rz = -Math.sin(this.lookYaw); // derecha de la vista
         const along = (d) => {
-            const t = this.field.towers[(this.corner + d + n) % n];
+            const t = this.stations[(this.corner + d + n) % n];
             return (t.x - this.pos.x) * rx + (t.z - this.pos.z) * rz;
         };
         this.goCorner(along(1) * side >= along(-1) * side ? 1 : -1);
@@ -351,6 +384,7 @@ export class Sniper {
     // Al entrar se mira al centro del campo (o, en el desbloqueo, hacia el montón de chatarra)
     aimPoint() {
         const b = this.unlocking && this.field.barrel;
+        if (this.practice) return { x: this.pos.x + 14, y: 1.2, z: this.pos.z }; // (campo de pruebas: al frente, por su calle)
         return b ? { x: b.x, y: b.y - 1, z: b.z } : { x: this.field.cx, y: 0.5, z: this.field.cz };
     }
 
@@ -562,7 +596,7 @@ export class Sniper {
 
     // Un tiro a algo que aguanta más (calabaza): se resquebraja, salta un trozo y el hitmarker
     damage(s) {
-        const C = CROPS[this.crop];
+        const C = fxOf(this.crop);
         s.flash = 1;
         this.particles.burst(s.x, s.size * 0.6, s.z, 26, C.burst, { speed: 3, up: 3.5, size: 0.1, ttl: 0.7 });
         this.waves.spawn(s.x, s.z, 0xffe9a0, 1.2, 0.25);
@@ -575,7 +609,7 @@ export class Sniper {
     // (doble, triple, multi kill y las recompensas) y, si no queda nada, se acaba el campo.
     // auto: los recogen las torretas automáticas (no cuentan para la racha)
     harvest(list, auto = false) {
-        const { sfx } = this.hooks, C = CROPS[this.crop];
+        const { sfx } = this.hooks, C = fxOf(this.crop);
         list.forEach((s, k) => {
             s.alive = false;
             s.dying = 0.14 + Math.min(k, 6) * 0.05;
@@ -599,6 +633,11 @@ export class Sniper {
 
     // Sin nada que recoger (ni nadie huyendo con algo robado, ni la nuclear a punto): se acaba
     checkEnd() {
+        // (en el campo de pruebas no se acaba: al poco vuelven a salir)
+        if (this.practice) {
+            if (this.field.remaining === 0 && !this.respawnT) this.respawnT = 1.4;
+            return;
+        }
         if (this.field.remaining === 0 && !this.ks.holdsEnd && !this.walkers.carrying && !this.flyers.carrying && this.ending < 0 && !this.unlocking) this.finish();
     }
 
@@ -750,6 +789,7 @@ export class Sniper {
         this.walkers.update(dt, time);
         this.box.update(dt, time);
         if (this.dropT > 0 && (this.dropT -= rawDt) <= 0) this.dropSpecial();
+        if (this.respawnT > 0 && (this.respawnT -= rawDt) <= 0) this.setTargets(); // (campo de pruebas: otra tanda)
         // La pistola de rayos, sobrecalentada tras cada rayo: echa vapor por la boca hasta enfriarse
         if (this.overheat > 0) {
             this.overheat -= rawDt;
@@ -778,8 +818,8 @@ export class Sniper {
                 this.roll = 0;
                 this.dipV -= 2.2; // aterrizaje: las piernas amortiguan
                 this.trauma = Math.min(1, this.trauma + 0.2);
-                const t = this.field.towers[this.corner];
-                t.model.select();
+                const t = this.practice ? { x: this.pos.x, z: this.pos.z, floor: 0 } : this.field.towers[this.corner];
+                if (t.model) t.model.select();
                 this.particles.burst(t.x, t.floor + 0.1, t.z, 14, [this.theme.dust, 0xb07a44], { speed: 1.6, up: 1.2, size: 0.08, ttl: 0.5 });
                 this.hooks.sfx.play('drop');
                 vibrate('pickup');
@@ -869,7 +909,7 @@ export class Sniper {
                 } else {
                     this.camera.getWorldDirection(_v);
                     const p = _o.copy(this.pos).addScaledVector(_v, 7);
-                    this.particles.burst(p.x + (Math.random() - 0.5) * 5, p.y + 2, p.z + (Math.random() - 0.5) * 5, 16, [...CROPS[this.crop].burst, 0xffffff], { speed: 1.6, up: 1.5, size: 0.08, ttl: 1.5, grav: 4 });
+                    this.particles.burst(p.x + (Math.random() - 0.5) * 5, p.y + 2, p.z + (Math.random() - 0.5) * 5, 16, [...fxOf(this.crop).burst, 0xffffff], { speed: 1.6, up: 1.5, size: 0.08, ttl: 1.5, grav: 4 });
                 }
             }
             const doneAt = this.unlocking ? 4.6 : 2.6;

@@ -123,7 +123,7 @@ export const REGIONS = [
     { place: 'tomatoP', seeds: [[98, 114]] },  // los tomates, en la suya
     { place: 'house', seeds: [[60, 62]] },
     { place: 'merchant', seeds: [[118, 38], [124, 60], [138, 56]], h: 7.8 }, // los mercaderes: el bosque alto y la parte de arriba de la margen este, todo a la altura del bosque
-    { place: 'well', seeds: [[49, 73]], from: 'nw' },          // el pozo de los deseos: la esquina de las vacas junto al granero
+    { place: 'well', seeds: [[49, 73]], from: 'nw', hFrom: 'nw', hUp: 2 * STEP },          // el pozo de los deseos: la esquina de las vacas junto al granero
     { place: 'nw', seeds: [[40, 50], [38, 70]] }, // la orilla alta: prado de vacas (a la derecha, junto al lago)
     { place: 'nw2', seeds: [[6, 42], [8, 66]] },  // ... y su otra mitad, a la izquierda: ovejas (las dos, de tamaño parecido)
     { place: 'west', seeds: [[34, 96]] },      // la cañada, debajo de las dos: gallinas (más pequeña)
@@ -245,6 +245,8 @@ export const G = {
     const sum = REGIONS.map(() => [0, 0]);
     for (let k = 0; k < N; k++) if (reg[k] >= 0) { sum[reg[k]][0] += nat[k]; sum[reg[k]][1]++; }
     REGIONS.forEach((r, ri) => (r.h = r.h ?? (sum[ri][1] ? Math.max(0, quant(sum[ri][0] / sum[ri][1])) : 0))); // (h fija: la de los mercaderes)
+    // (hFrom: a la altura de otra región, más hUp; el pozo, un escalón por encima del prado de las vacas)
+    for (const r of REGIONS) if (r.hFrom) r.h = REGIONS.find((p) => p.place === r.hFrom).h + (r.hUp || 0);
     for (let k = 0; k < N; k++) if (reg[k] >= 0 && nat[k] > REGIONS[reg[k]].h + 2.6) reg[k] = SLOPE;
     for (let k = 0; k < N; k++) {
         if (!inside[k] || water[k]) continue;

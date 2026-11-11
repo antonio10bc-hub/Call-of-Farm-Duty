@@ -12,7 +12,7 @@ const changed = [...new Set([...sh(`git diff --name-only ${ref}`), ...sh('git ls
 
 const MAP = [
     [/^public\/src\/(world\/Farm|render\/(structures|junk|VoxelModel|materials)|content\/farm)\.js$/, ['map', 'unlock', 'ufo']],
-    [/^public\/src\/(game\/Sniper|world\/SniperField|render\/(RifleModel|Shockwaves)|ui\/Scope)\.js$/, ['sniper', 'killstreaks', 'unlock']],
+    [/^public\/src\/(game\/Sniper|world\/SniperField|render\/(RifleModel|Shockwaves)|ui\/Scope)\.js$/, ['sniper', 'killstreaks', 'unlock', 'range']],
     [/^public\/src\/(game\/Killstreaks|content\/killstreaks)\.js$/, ['killstreaks', 'debug']],
     [/^public\/src\/(game\/Flyers|content\/ufo)\.js$/, ['ufo']],
     [/^public\/src\/game\/FarmState\.js$/, ['map', 'debug', 'unlock']],
@@ -23,7 +23,8 @@ const MAP = [
     [/^public\/src\/(content\/arsenal|ui\/GearArt)\.js$/, ['map', 'debug']],
     [/^public\/src\/game\/DayNight\.js$/, ['killstreaks']],
     [/^public\/src\/(render\/merchant|content\/merchant(Life)?)\.js$/, ['map', 'progress']],
-    [/^public\/src\/(world\/(valley|Scenery|Life|Extras)|render\/compound)\.js$/, ['map', 'unlock']],
+    [/^public\/src\/(world\/(valley|Scenery|Life|Extras)|render\/compound)\.js$/, ['map', 'unlock', 'range']],
+    [/^public\/src\/render\/well\.js$/, ['map']],
     [/^public\/src\/game\/(Walkers|Turrets|MysteryBox)\.js$/, ['sniper', 'killstreaks']],
 ];
 

@@ -526,6 +526,26 @@ body.cine .farm-ui, body.cine .bubbles { visibility: hidden; }
 .well-item i { font-style: normal; font-size: 6px; color: #8a7060; text-align: center; }
 .well-item.on { background: var(--cream); }
 .well-item.on i { color: var(--ink); }
+/* El hueco recién conseguido: un aro del color de su rareza que barre y bota */
+.well-item.just { position: relative; z-index: 1; animation: wellJust 1.6s steps(8) 2; }
+.well-item.just::after { content: ''; position: absolute; inset: -6px; border: 3px solid var(--tier); animation: wellRing 0.8s steps(5) 4; pointer-events: none; }
+@keyframes wellJust { 0%, 100% { transform: none; } 20% { transform: translateY(-6px) scale(1.15); box-shadow: inset 0 0 0 2px var(--tier), 0 0 0 4px var(--tier), 0 0 18px var(--tier); } 50% { transform: scale(1.08); } }
+@keyframes wellRing { from { transform: scale(0.8); opacity: 1; } to { transform: scale(1.5); opacity: 0; } }
+/* La pieza en grande en el centro, con rayos de su color (en la cinemática del pozo) */
+.well-reveal { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; pointer-events: none; }
+.well-reveal.hidden { display: none; }
+.well-reveal .rays { position: absolute; left: 50%; top: 50%; width: 140vmax; height: 140vmax; margin: -70vmax 0 0 -70vmax; background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--tier) 55%, transparent) 0 10deg, transparent 10deg 20deg); -webkit-mask: radial-gradient(circle, #000 0 8%, transparent 45%); mask: radial-gradient(circle, #000 0 8%, transparent 45%); animation: raysTurn 6s steps(36) infinite; }
+.well-reveal img { position: relative; width: min(46vmin, 260px); image-rendering: pixelated; filter: drop-shadow(0 0 0 var(--ink)) drop-shadow(4px 4px 0 rgba(42, 26, 14, .6)); }
+.well-reveal b, .well-reveal em { position: relative; padding: 6px 10px; font-size: 14px; font-style: normal; color: var(--ink); background: var(--cream); border: 3px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); }
+.well-reveal em { font-size: 9px; color: #fff; background: var(--tier); }
+.well-reveal.in > * { animation: revealIn .5s steps(5) both; }
+.well-reveal.in b { animation-delay: .15s; }
+.well-reveal.in em { animation-delay: .3s; }
+.well-reveal.out { animation: revealOut .4s steps(4) forwards; }
+@keyframes revealIn { from { opacity: 0; transform: scale(0.2) rotate(-12deg); } 70% { opacity: 1; transform: scale(1.15); } to { opacity: 1; transform: none; } }
+@keyframes revealOut { to { opacity: 0; transform: translateX(-30vw) scale(0.4); } }
+@keyframes raysTurn { to { transform: rotate(360deg); } }
+body.well-cine .letterbox i { height: 7vh; }
 /* En la armería, lo que aún no es tuyo: con el color de su rareza (sale del pozo) */
 .gear[data-tier="common"], .gear[data-tier="rare"], .gear[data-tier="epic"] { box-shadow: inset 0 0 0 3px var(--tier); }
 .merchant-tabs { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; }
@@ -1583,8 +1603,6 @@ body.cine .aim-btn { display: none !important; }
 @keyframes welcomeIn { from { transform: translateY(12px) scale(.9); } }
 
 /* Mini-mapa en la esquina de arriba a la derecha, bajo el reloj */
-.minimap { position: absolute; right: 12px; top: calc(var(--safe-top) + 96px); width: 104px; height: 104px; image-rendering: pixelated; border: 3px solid var(--ink); box-shadow: 0 3px 0 var(--ink); background: #74b848; cursor: pointer; }
-body.mapview .minimap { display: none; }
 /* Foto: el botón (una cámara de píxeles) y la pantalla sin interfaz mientras se hace */
 .photo-btn { left: auto; right: 10px; bottom: calc(max(8px, env(safe-area-inset-bottom)) + 40px); padding: 6px 7px 5px; }
 .photo-ico { display: block; width: 20px; height: 14px; background: var(--ink); clip-path: polygon(0 20%, 30% 20%, 38% 0, 62% 0, 70% 20%, 100% 20%, 100% 100%, 0 100%); position: relative; }
@@ -1596,3 +1614,46 @@ body.photo .farm-ui, body.photo .bubbles, body.photo .daytime, body.photo .panel
 @media (min-width: 1101px) {
     .debug-screen .debug-cols { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
 }
+
+/* ---------- El menú de los mercaderes (uno para todos) ---------- */
+/* Arriba, el pueblo; luego, elegir mercader; luego, lo de ese mercader */
+.dock-top { position: relative; display: flex; align-items: center; gap: 8px; padding-right: 34px; }
+.dock-top .panel-x { top: 0; right: 0; }
+.merchant-village { flex: 1; display: grid; gap: 3px; padding: 6px 8px; color: var(--ink); background: var(--cream); border: 3px solid var(--ink); }
+.merchant-village small { font-size: 6px; color: #6a4a2a; }
+.merchant-village b { font-size: 11px; font-weight: normal; }
+.merchant-village .trust-bar { width: 100%; }
+.m-tab .m-name { display: none; font-weight: normal; }
+.merchant-more summary { cursor: pointer; font-size: 8px; color: #ffd23f; padding: 4px 0; }
+/* En el ordenador: pegado a la izquierda, de arriba abajo (el mercader, en el centro de lo que queda) */
+@media (min-width: 700px) {
+    .ufo-shop.merchant-dock { left: 0; top: 0; bottom: 0; width: clamp(360px, 32vw, 460px); height: auto; max-height: none; padding: calc(var(--safe-top, 0px) + 12px) 12px 12px; transform: none; overflow-y: auto; border: 4px solid var(--ink); border-left: 0; box-shadow: 6px 0 0 rgba(42, 26, 14, .4), inset -4px 0 0 #6a4a30; }
+    .ufo-shop.merchant-dock.in { animation: dockIn .3s steps(3) both; }
+    .merchant-dock .merchant-village b { font-size: 14px; }
+    .merchant-dock .merchant-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+    .merchant-dock .m-tab { justify-content: flex-start; padding: 6px 8px; font-size: 8px; }
+    .merchant-dock .m-tab .m-name { display: block; flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .merchant-dock .merchant-orders { overflow: visible; flex: none; }
+}
+@keyframes dockIn { from { transform: translateX(-60px); } }
+
+/* ---------- El campo de tiro de pruebas ---------- */
+.range-btn { display: none; position: absolute; top: calc(var(--safe-top, 0px) + 110px); right: 12px; z-index: 6; padding: 8px 14px; font-size: 10px; }
+body.practice .range-btn { display: block; }
+body.practice .left-badge { display: none; }
+.range-menu { position: fixed; left: 50%; top: 50%; z-index: 40; width: min(760px, 96vw); max-height: 86vh; transform: translate(-50%, -50%); display: flex; flex-direction: column; gap: 6px; padding: 10px; color: var(--cream); background: #4a3020; border: 4px solid var(--ink); box-shadow: 0 6px 0 rgba(42, 26, 14, .5); }
+.range-menu.hidden { display: none; }
+.range-head { position: relative; padding-right: 34px; font-size: 10px; color: #ffd23f; }
+.range-head .panel-x { top: -4px; right: -4px; }
+.range-body { overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.rg-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.rg-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 64px; padding: 4px 6px; font-family: var(--font); font-size: 6px; color: var(--ink); background: var(--cream); border: 2px solid var(--ink); box-shadow: 0 2px 0 var(--ink); cursor: pointer; }
+.rg-btn img { width: 40px; image-rendering: pixelated; }
+.rg-btn .ico { width: 18px; height: 18px; }
+.rg-btn i { font-style: normal; text-align: center; }
+.rg-btn.on { background: #ffd23f; outline: 3px solid #17d65a; outline-offset: -1px; }
+.rg-btn:active { transform: translateY(2px); box-shadow: none; }
+.rg-target { width: 20px; height: 20px; border: 2px solid var(--ink); border-radius: 50%; background: radial-gradient(circle, #e8402e 0 22%, #fff3d6 23% 45%, #e8402e 46% 70%, #fff3d6 71%); }
+.rg-target.t-moving { box-shadow: -6px 0 0 -2px #8a7060, 6px 0 0 -2px #8a7060; }
+.rg-target.t-popup { border-radius: 40% 40% 4px 4px; background: #7dff4a; }
+.rg-target.t-steel { border-radius: 2px; background: #8a929a; }

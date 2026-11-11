@@ -7,6 +7,7 @@ import { VoxelModel } from './VoxelModel.js';
 // moneda cae dando vueltas al agua, salpica y sube una columna de luz del color de lo que ha salido
 const STONE = [0x9a948a, 0x8a847a, 0xa8a298, 0x7a746a], WOOD = 0x8a5a2a, WOOD2 = 0x6a4020, ROOF = 0x6a3a2a, MOSS = 0x5a8a3a;
 const ease = (k) => k * k * (3 - 2 * k);
+const WATER = new THREE.Color(0x3ab8e8), WHITE = new THREE.Color(0xffffff);
 
 export class WishingWell extends VoxelModel {
     constructor(outline) {
@@ -60,25 +61,66 @@ export class WishingWell extends VoxelModel {
         this.part(r, 0.12, 1.1, 0.12, WOOD2, P.x, 0.55, P.z);
         this.part(r, 1.3, 0.42, 0.08, 0xc8955a, P.x, 1.15, P.z + 0.06);
         for (let i = 0; i < 5; i++) this.part(r, 0.14, 0.18, 0.03, 0x2a1a0e, P.x - 0.4 + i * 0.2, 1.15, P.z + 0.115, false);
-        // La columna de luz del deseo y la moneda que cae
-        this.beamMat = this.own(new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false }));
+        // La columna de luz del deseo (el rayo: un núcleo blanco dentro), los anillos de la carga y
+        // la moneda que cae
+        const add = (c, o = 0) => this.own(new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, depthWrite: false, blending: THREE.AdditiveBlending }));
+        this.beamMat = add(0xffffff);
         this.beam = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1, 1.4), this.beamMat);
+        this.coreMat = add(0xffffff);
+        this.beam.add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 1, 0.5), this.coreMat));
         this.beam.visible = false;
         r.add(this.beam);
+        this.ringMat = add(0xffffff);
+        // El aura: una caja de luz del color alrededor del pozo (crece con la carga)
+        this.auraMat = add(0xffffff);
+        this.aura = new THREE.Mesh(new THREE.BoxGeometry(3.4, 2.2, 3.4), this.auraMat);
+        this.aura.position.y = 1.1;
+        this.aura.visible = false;
+        r.add(this.aura);
+        this.rings = [0, 1, 2].map(() => {
+            const g = new THREE.Group();
+            for (let k = 0; k < 4; k++) {
+                const bar = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.2, 0.22), this.ringMat);
+                bar.position.set(Math.cos((k * Math.PI) / 2) * 1.45, 0, Math.sin((k * Math.PI) / 2) * 1.45);
+                bar.rotation.y = -(k * Math.PI) / 2 + Math.PI / 2;
+                g.add(bar);
+            }
+            g.visible = false;
+            r.add(g);
+            return g;
+        });
         this.coin = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.26, 0.05), this.own(new THREE.MeshBasicMaterial({ color: 0xffd23f })));
         this.coin.visible = false;
         r.add(this.coin);
-        this.bake([r], [water, this.crank, this.rope, this.bucket, this.beam, this.coin]);
+        // La pieza que sale disparada (un cartel con su foto, siempre de cara a la cámara)
+        this.prize = new THREE.Sprite(this.own(new THREE.SpriteMaterial({ transparent: true, depthWrite: false })));
+        this.prize.visible = false;
+        r.add(this.prize);
+        this.bake([r], [water, this.crank, this.rope, this.bucket, this.beam, this.coin, this.prize, this.aura, ...this.rings]);
         this.t = -1;
         this.color = new THREE.Color(0xffffff);
     }
 
-    // ¡Un deseo! (color: el de la rareza de lo que ha salido). onSplash: cuando la moneda llega al agua
-    wish(color, onSplash) {
+    // ¡Un deseo! color: el de la rareza de lo que ha salido; art: la foto de la pieza (data URL).
+    // onSplash: cuando la moneda llega al agua. speed: más rápido (en las pruebas).
+    // Tiempos (s): 0-1 la moneda; 1-2.8 la carga (el agua y los anillos se encienden del color);
+    // 2.8-3.6 el rayo, con la pieza delante; hasta 4.2 se apaga
+    wish(color, onSplash, art = null, speed = 1) {
         this.t = 0;
+        this.speed = speed;
         this.color.setHex(color);
         this.onSplash = onSplash;
         this.splashed = false;
+        this.prize.visible = false;
+        if (art) {
+            const tex = new THREE.TextureLoader().load(art);
+            tex.magFilter = tex.minFilter = THREE.NearestFilter;
+            tex.colorSpace = THREE.SRGBColorSpace;
+            if (this.prize.material.map) this.prize.material.map.dispose();
+            this.prize.material.map = tex;
+            this.prize.material.needsUpdate = true;
+        }
+        this.hasPrize = !!art;
     }
 
     get busy() {
@@ -98,7 +140,7 @@ export class WishingWell extends VoxelModel {
             this.updateFx(dt);
             return;
         }
-        this.t += dt;
+        this.t += dt * this.speed;
         const t = this.t;
         // La moneda: sube desde delante, da vueltas y cae al agua (0..1 s)
         const k = Math.min(1, t / 1);
@@ -109,15 +151,47 @@ export class WishingWell extends VoxelModel {
             this.splashed = true;
             if (this.onSplash) this.onSplash();
         }
-        // El agua se enciende del color y sube la columna de luz (1..3 s)
-        const kb = Math.min(1, Math.max(0, (t - 1) / 2));
-        this.beam.visible = kb > 0 && kb < 1;
-        this.beam.scale.set(1, 1 + ease(kb) * 14, 1);
+        // La carga (1..2.8 s): el agua late cada vez más deprisa hacia el color; tres anillos suben
+        // del agua girando a saltos (de 8 en 8 pasos por vuelta) y se aprietan
+        const kc = Math.min(1, Math.max(0, (t - 1) / 1.8));
+        const beat = 0.5 + 0.5 * Math.sin(t * (6 + kc * 30));
+        this.waterMat.color.copy(WATER).lerp(this.color, kc).lerp(WHITE, kc * beat * 0.6);
+        this.ringMat.color.copy(this.color).lerp(WHITE, beat * 0.4);
+        this.ringMat.opacity = kc > 0 && t < 2.9 ? 0.4 + kc * 0.6 : 0;
+        this.auraMat.color.copy(this.color);
+        this.auraMat.opacity = t < 2.9 ? kc * (0.25 + beat * 0.25) : 0.5 * Math.max(0, 1 - (t - 2.9) / 1.2);
+        this.aura.visible = this.auraMat.opacity > 0.01;
+        this.aura.scale.set(1 + kc * 0.15 * beat, 1 + kc * 0.6, 1 + kc * 0.15 * beat);
+        this.rings.forEach((g, i) => {
+            g.visible = this.ringMat.opacity > 0;
+            const ph = (kc * (1.4 + i * 0.5) + i / 3) % 1;
+            g.position.y = 0.6 + ph * (1.2 + kc * 2.4);
+            g.scale.setScalar(1.05 - ph * 0.35 * kc);
+            g.rotation.y = Math.floor(t * (4 + kc * 12) + i * 3) * (Math.PI / 8);
+        });
+        this.root.position.y = kc > 0 && kc < 1 ? (Math.random() - 0.5) * 0.06 * kc : 0; // (tiembla)
+        // El rayo (2.8..3.6 s, y se apaga hasta 4.2): sube en un instante, con la pieza delante
+        const kb = Math.min(1, Math.max(0, (t - 2.8) / 0.35)), fade = 1 - Math.min(1, Math.max(0, (t - 3.6) / 0.6));
+        this.beam.visible = t > 2.8 && fade > 0;
+        this.beam.scale.set(1 + (1 - kb) * 0.6, 0.1 + ease(kb) * 60, 1 + (1 - kb) * 0.6);
         this.beam.position.y = 0.6 + this.beam.scale.y / 2;
         this.beamMat.color.copy(this.color);
-        this.beamMat.opacity = 0.5 * Math.sin(kb * Math.PI);
-        this.waterMat.color.copy(this.color).lerp(new THREE.Color(0x3ab8e8), Math.min(1, kb * 1.2));
-        if (t > 3.2) this.t = -1;
+        this.beamMat.opacity = 0.7 * fade;
+        this.coreMat.opacity = 0.9 * fade;
+        if (t > 2.8) this.waterMat.color.copy(this.color).lerp(WHITE, 0.5 * fade).lerp(WATER, 1 - fade);
+        this.prize.visible = this.hasPrize && t > 2.75 && t < 3.9;
+        if (this.prize.visible) {
+            const kp = Math.min(1, (t - 2.75) / 1.1);
+            this.prize.position.set(0, 1 + kp * kp * 64 + kp * 6, 0);
+            const sz = 2.4 + Math.sin(Math.min(1, kp * 3) * Math.PI) * 0.8;
+            this.prize.scale.set(sz, sz, 1);
+            this.prize.material.rotation = Math.sin(t * 20) * 0.2;
+        }
+        if (t > 4.2) {
+            this.t = -1;
+            this.root.position.y = 0;
+            this.beam.visible = this.prize.visible = this.aura.visible = false;
+        }
         this.updateFx(dt);
     }
 }

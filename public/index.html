@@ -77,7 +77,6 @@
         <!-- Foto: sin la interfaz, se guarda una captura del mapa -->
         <button id="btn-photo" class="map-btn photo-btn" aria-label="Photo" data-es-aria="Foto"><i class="photo-ico"></i></button>
         <!-- Mini-mapa: el valle entero y lo que se está viendo (tocarlo lleva allí) -->
-        <canvas id="minimap" class="minimap" aria-label="Minimap" data-es-aria="Mini-mapa"></canvas>
         <!-- Al volver tras un rato: lo que ha pasado mientras no estabas -->
         <div id="welcome" class="welcome hidden" role="dialog" aria-labelledby="welcome-title">
             <div class="welcome-card">
@@ -100,6 +99,12 @@
 
     <!-- Francotirador: interfaz sobre la vista en primera persona -->
     <div id="snipe-ui" class="snipe-ui hidden">
+        <!-- Campo de pruebas: su menú (cualquier arma, racha o blanco) -->
+        <button id="btn-range" class="btn range-btn" data-es="PROBAR (T)">TEST (T)</button>
+        <div id="range-menu" class="panel range-menu hidden">
+            <div class="range-head"><b data-es="CAMPO DE PRUEBAS · NADA CUENTA">TEST RANGE · NOTHING COUNTS</b><button id="range-close" class="panel-x" aria-label="Close" data-es-aria="Cerrar">X</button></div>
+            <div id="range-body" class="range-body"></div>
+        </div>
         <button id="btn-home" class="corner-btn corner-left home-corner" aria-label="Farm" data-es-aria="Granja"><span class="home-icon"></span><span data-es="GRANJA">FARM</span></button>
         <div id="snipe-wheat" class="coins-badge coin-counter"><span id="hud-ico" class="ico wheat-ico"></span><span id="hud-wheat">0</span></div>
         <div class="left-badge"><span data-es="QUEDAN">LEFT</span> <b id="left-count">0</b></div>
@@ -167,22 +172,30 @@
     </div>
 
     <!-- El comerciante: hoja abajo con él, sus monedas de oro, cuánto le queda y sus encargos -->
-    <div id="merchant" class="ufo-shop merchant-sheet hidden">
-        <div class="ufo-head">
-            <i class="merchant-portrait"></i>
-            <div class="ufo-talk merchant-talk"><b id="merchant-name">MERCHANT</b><span id="merchant-line"></span></div>
+    <!-- El menú de los mercaderes (uno para todos): en el ordenador, pegado a la izquierda y de
+         arriba abajo, con el mercader elegido en el centro de lo que queda a la derecha. De arriba
+         abajo: el pueblo (su nivel), elegir mercader, y lo de ese mercader -->
+    <div id="merchant" class="ufo-shop merchant-sheet merchant-dock hidden">
+        <div class="dock-top">
+            <div id="merchant-village" class="merchant-village"></div>
             <div class="coins-badge static gold-badge"><span class="ico gold-ico"></span><span id="merchant-gold">0</span></div>
             <button id="merchant-close" class="panel-x" aria-label="Close" data-es-aria="Cerrar">X</button>
         </div>
-        <!-- Una pestaña por mercader (los que están, en color; los demás, lo que les falta) -->
+        <!-- Una ficha por mercader (los que están, en color; los demás, lo que les falta) -->
         <div id="merchant-tabs" class="merchant-tabs"></div>
+        <div class="ufo-head">
+            <i class="merchant-portrait"></i>
+            <div class="ufo-talk merchant-talk"><b id="merchant-name">MERCHANT</b><span id="merchant-line"></span></div>
+        </div>
         <!-- Su confianza (nivel y lo que falta), su favorito, la racha hacia el regalo y su ánimo -->
         <div id="merchant-trust" class="merchant-trust"></div>
         <div id="merchant-timer" class="merchant-timer"></div>
         <div id="merchant-orders" class="merchant-orders"></div>
+        <details class="merchant-more"><summary data-es="LOGROS">ACHIEVEMENTS</summary><div id="merchant-medals"></div></details>
     </div>
 
     <!-- El pozo de los deseos: se echa una moneda de oro y sale una pieza de la armería -->
+    <div id="well-reveal" class="well-reveal hidden"></div>
     <div id="well" class="ufo-shop merchant-sheet well-sheet hidden">
         <div class="ufo-head">
             <i class="merchant-portrait well-portrait"></i>

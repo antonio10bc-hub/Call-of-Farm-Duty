@@ -7,11 +7,11 @@
 //   --map             vista MAPA (todo el valle)
 //   --unlock a,b      desbloquea esos campos (wheat, tomato, pumpkin, corn, milk, wool, egg, truffle, fish)
 //   --level n         pone esos campos a ese nivel (0-4)
-//   --merchant        el mercader aquí (espera a que monte el puesto)
-//   --trust n         confianza del mercader (puntos: 0, 4, 10, 20, 35 = niveles 1-5)
-//   --own all|a,b     colección del mercader (todas o esas piezas)
+//   --merchant        el primer mercader (m0) aquí (espera a que monte el puesto)
+//   --trust n         confianza de m0 (puntos: 0, 4, 10, 20, 35 = niveles 1-5)
+//   --own all|a,b     lo comprado para el pueblo (todo o esas piezas)
 //   --snipe cultivo   entra al campo de tiro de ese cultivo (lo desbloquea) y espera a que brote
-//   --eval "js"       código que se ejecuta en la página antes de capturar
+//   --eval "js"       código que se ejecuta en la página antes de capturar (si devuelve algo, se escribe)
 //   --wait ms         espera antes de cada captura                          [2500]
 //   --size WxH        tamaño de la ventana                                   [900x600]
 //   --mobile          390x760 (como las pruebas)
@@ -53,7 +53,7 @@ for (let k = 0; k < 50; k++) {
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM || undefined, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: +(opt.scale || 1) });
 const errors = [];
-page.on('pageerror', (e) => errors.push(e.message));
+page.on('pageerror', (e) => { errors.push(e.message); console.error('pageerror:', e.message, (e.stack || '').split('\n')[1] || ''); });
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 await page.goto(`http://localhost:${PORT}/?test`);
 await page.waitForFunction(() => window.game && game.farm && game.farm.introT > 2.5, null, { timeout: 120000 });
@@ -70,19 +70,19 @@ if (opt.merchant || opt.trust !== undefined || opt.own) {
     await page.evaluate(([trust, own]) => {
         const S = game.state;
         S.story.merchant = true;
-        if (trust !== null) S.merchant.trust = trust;
-        if (own) S.merchant.owned = own === 'all' ? ['gnome', 'duckhat', 'flamingo', 'banner', 'trophy', 'discoball', 'statue'] : own.split(',');
+        if (trust !== null) S.merchants.m0.trust = trust;
+        if (own) { S.village = own === 'all' ? [...game.allDecor] : own.split(','); game.syncMerchantLife(false); }
         S.save();
-        game.merchantClock.force = 'here';
+        game.clocks.m0.force = 'here';
     }, [opt.trust === undefined ? null : +opt.trust, opt.own || null]);
-    await page.waitForFunction(() => game.farm.camp.open, null, { timeout: 120000 });
+    await page.waitForFunction(() => game.farm.village.byId.m0.open, null, { timeout: 120000 });
 }
 if (opt.snipe) {
     await page.evaluate((id) => { game.state.unlock(id, Date.now(), true); while (game.revealUnlocked()); game.harvest(id); }, opt.snipe);
     await page.waitForFunction(() => game.mode === 'snipe' && game.sniper.field.targets.every((s) => s.landed), null, { timeout: 120000 });
     await page.evaluate(() => { game.sniper.flyers.next = Infinity; game.sniper.walkers.reset(); game.sniper.walkers.next = Infinity; });
 }
-if (opt.eval) await page.evaluate(opt.eval);
+if (opt.eval) { const r = await page.evaluate(opt.eval); if (r !== undefined) console.log(typeof r === "string" ? r : JSON.stringify(r)); } // (si devuelve algo, se escribe)
 if (opt.map) await page.click('#btn-map');
 
 const clip = opt.clip ? (([x, y, w, h]) => ({ x, y, width: w, height: h }))(opt.clip.split(',').map(Number)) : undefined;
@@ -106,7 +106,7 @@ if (opt.at.length) {
     await shoot(opt.map ? 'map' : opt.snipe ? `snipe-${opt.snipe}` : 'shot');
 }
 
-// El reparto del valle en zonas (como el mini-mapa, en grande y con las semillas)
+// El reparto del valle en zonas (en grande y con las semillas)
 if (opt.regions) {
     const url = await page.evaluate(async () => {
         const m = await import('/src/world/valley.js'), S = 4, N = 260;

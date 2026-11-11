@@ -11,7 +11,6 @@ import { TIERS, tierOf } from './content/well.js';
 import { MERCHANT, rareVisit } from './content/merchant.js';
 import { MERCHANTS, MERCHANT_BY_ID, VisitClock, ALL_DECOR, DECOR_BY_ID, VILLAGE, VILLAGE_LEVELS, RESIDENTS, MEDALS, MARKET, MARKET_FORCE, marketNow } from './content/merchants.js';
 import { regionAt, isWater, groundAt } from './world/valley.js';
-import { Minimap } from './ui/Minimap.js';
 import { RetroRenderer } from './render/RetroRenderer.js';
 import { CameraRig } from './render/CameraRig.js';
 import { Particles } from './render/Particles.js';
@@ -175,8 +174,9 @@ const sniper = new Sniper(THEME, {
     sfx,
     onHit(target, nx, ny) {
         if (prologue.active) return; // en el prólogo no se recoge nada de verdad
-        state.collect(snipeField);
         const x = (nx * 0.5 + 0.5) * innerWidth, y = (-ny * 0.5 + 0.5) * innerHeight;
+        if (sniper.practice) return popPlus(x, y), ($('left-count').textContent = sniper.field.remaining); // (campo de pruebas: no cuenta)
+        state.collect(snipeField);
         popPlus(x, y);
         flyItem(cropOf(snipeField).icon, x, y, $('snipe-wheat'), () => updateCounts(true));
         $('left-count').textContent = sniper.field.remaining;
@@ -214,7 +214,7 @@ const sniper = new Sniper(THEME, {
         renderer.flash(0xffffff, 1);
         for (let k = 1; k <= 6; k++) setTimeout(() => renderer.flash(k % 2 ? 0xfff6dc : 0xffffff, 1 - k * 0.12), k * 160);
         for (const def of FARM.fields) {
-            if (prologue.active || def.id === snipeField || !state.isReady(def.id)) continue;
+            if (prologue.active || sniper.practice || def.id === snipeField || !state.isReady(def.id)) continue;
             for (let n = state.fields[def.id].left; n > 0; n--) state.collect(def.id);
         }
         if (!prologue.active) updateCounts(true);
@@ -240,7 +240,7 @@ const sniper = new Sniper(THEME, {
         medal(L('UFO THIEF! SHOOT IT DOWN', '¡OVNI LADRÓN! DERRÍBALO'), 'stolen');
     },
     onStolen(target, nx, ny, n = 1) {
-        if (prologue.active) return;
+        if (prologue.active || sniper.practice) return;
         for (let k = 0; k < n; k++) state.lose(snipeField);
         killPop((nx * 0.5 + 0.5) * innerWidth, (-ny * 0.5 + 0.5) * innerHeight, cropOf(snipeField).icon, 'stolen-pop', `-${n}`);
         medal(L('STOLEN!', '¡ROBADO!'), 'stolen');
@@ -250,7 +250,7 @@ const sniper = new Sniper(THEME, {
     // Bala que da a un alienígena (a pie o en ovni): aspa en el centro y su chasquido
     // La caja sorpresa: aparece (aviso y su torre marcada), se le dispara desde otra torre o se va
     // Torreta del campo de tiro: ¿le queda munición? y cada mata que recoge gasta una
-    turretArmed: () => !state.turretEmpty(snipeField),
+    turretArmed: () => !sniper.practice && !state.turretEmpty(snipeField),
     onTurretHarvest: () => turretShot(snipeField),
     onBox(what) {
         if (what === 'spawn') {
@@ -952,7 +952,8 @@ const SOON_LANDS = FARM.lands.filter((l) => l.soon).map((l) => {
 // stay: sin mover la cámara (el toque largo)
 function select(what, stay = false) {
     // El granero es el cuartel de las rachas de bajas: abre su menú (sin abrir, se abre)
-    if (what && (what.structure === 'barn' || what.structure === 'silo') && !state.open('barn')) return openBarn();
+    if (what && (what.structure === 'barn' || what.structure === 'silo' || what.structure === 'range') && !state.open('barn')) return openBarn();
+    if (what && what.structure === 'range' && state.open('barn')) return goRange();
     if (what && what.structure === 'barn') {
         select(null);
         farm.byId.barn.select();
@@ -1107,7 +1108,6 @@ function updateLandTour(dt) {
 function buyLand(id) {
     const land = state.landOf(id);
     if (!land || !state.buyLand(land.id)) return sfx.play('miss');
-    miniPaint = 0.5; // (en el mini-mapa, ya tuya)
     select(null);
     farm.ownLand(land.id);
     // Un vuelo por la parcela mientras se retira la sombra: de lejos, toda; luego, hacia su poste
@@ -1317,6 +1317,43 @@ function harvest(id) {
     if (mode === 'farm' && state.isReady(id)) goSnipe(id, false);
 }
 
+// ---------- El campo de tiro de pruebas ----------
+// En el recinto del granero: se entra al campo de tiro sin que nada cuente (ni se recoge, ni se
+// gasta, ni se pierde) y desde su menú se cambia a cualquier arma, accesorio, arma de la caja,
+// racha o tipo de blanco (fijos, blindados, que corren, que saltan, al plato...). Lo elegido se
+// queda mientras dura la partida (no se guarda)
+// Las tandas de dianas: de todo, fijas, móviles, emergentes (siluetas que se levantan) y de acero
+const RANGE_TARGETS = [['mix', L('ALL', 'DE TODO')], ['fixed', L('FIXED', 'FIJAS')], ['moving', L('MOVING', 'MÓVILES')], ['popup', L('POP-UP', 'EMERGENTES')], ['steel', L('STEEL', 'DE ACERO')]];
+const range = { mode: 'mix', loadout: null, aliens: false, ufos: false };
+function goRange() {
+    if (mode !== 'farm' || inCine()) return;
+    range.loadout = range.loadout || { ...state.arsenal.loadout };
+    goSnipe('wheat', false);
+    goSnipe.practice = true;
+    const p = farm.compoundPieces.find((c, i) => FARM.compound[i].kind === 'range');
+    if (p) rigFocus(...(() => { const w = new THREE.Vector3(); p.g.getWorldPosition(w); return [w.x, w.z, w.y]; })());
+}
+function renderRange() {
+    const lo = sniper.loadout || range.loadout, btn = (attrs, on, inner, title = '') => `<button ${attrs} class="rg-btn${on ? ' on' : ''}" title="${title}">${inner}</button>`;
+    const row = (title, html) => `<div class="merchant-sub">${title}</div><div class="rg-row">${html}</div>`;
+    $('range-body').innerHTML = row(L('TARGETS', 'BLANCOS'), RANGE_TARGETS.map(([id, name]) => btn(`data-target="${id}"`, id === range.mode, `<span class="rg-target t-${id}"></span><i>${name}</i>`)).join(''))
+        + ARSENAL_KINDS.map((k) => row(GEAR[k].title, ARSENAL[k].map((it) => btn(`data-gear="${k}:${it.id}"`, !sniper.special && lo[k] === it.id, `<img alt="" src="${gearArt(k, it)}"><i>${it.name}</i>`, it.desc)).join(''))).join('')
+        + row(L('MYSTERY BOX WEAPONS', 'ARMAS DE LA CAJA'), WONDER.map((w) => btn(`data-wonder="${w.id}"`, sniper.special && sniper.special.id === w.id, `<i>${w.name}</i>`)).join(''))
+        + row(L('KILLSTREAKS', 'RACHAS'), KILLSTREAKS.map((k) => btn(`data-ks="${k.id}"`, false, `<span class="ico ${k.icon}-ico"></span><i>${k.short}</i>`, k.desc)).join(''))
+        + row(L('ENEMIES', 'ENEMIGOS'), btn('data-toggle="aliens"', range.aliens, `<i>${L('ALIENS ON FOOT', 'ALIENS A PIE')}</i>`) + btn('data-toggle="ufos"', range.ufos, `<i>${L('UFOS', 'OVNIS')}</i>`));
+}
+function openRange(on = $('range-menu').classList.contains('hidden')) {
+    if (!sniper.practice) return;
+    $('range-menu').classList.toggle('hidden', !on);
+    if (on) {
+        sniper.release(false);
+        if (document.exitPointerLock && locked()) document.exitPointerLock();
+        renderRange();
+    }
+    sfx.play('ui');
+}
+
+
 function startUnlock(id) {
     if (mode === 'farm' && state.canUnlock(id)) goSnipe(id, true);
 }
@@ -1332,6 +1369,7 @@ function quickAction() {
 }
 
 function enterSnipe() {
+    if (goSnipe.practice) return enterRange();
     const unlock = goSnipe.unlock;
     const def = FIELD_BY_ID[snipeField], arena = def.levels[state.fields[snipeField].level].arena;
     sniper.tracks = { crop: state.open('grenades'), alien: state.open('aliens') };
@@ -1358,6 +1396,32 @@ function enterSnipe() {
     setTimeout(() => mode === 'snipe' && banner(msg, 'go'), 450);
 }
 
+// Al campo de pruebas: con todo (todas las rachas, aliens y ovnis), sin caja sorpresa ni torretas
+function enterRange() {
+    sniper.tracks = { crop: true, alien: true };
+    sniper.ksIds = null;
+    sniper.flyersOn = range.ufos;
+    sniper.walkersOn = range.aliens;
+    sniper.boxOn = false;
+    sniper.field.rangeMode = range.mode;
+    sniper.enter({ practice: true, crop: 'range', count: 30, arena: 1, loadout: { ...range.loadout } });
+    document.body.classList.remove('fallout');
+    document.body.classList.add('sniping', 'practice');
+    mode = 'snipe';
+    snipeStart = time;
+    renderer.flash(INK, 1);
+    $('farm-ui').classList.add('hidden');
+    $('bubbles').classList.add('hidden');
+    $('snipe-ui').classList.remove('hidden');
+    $('range-menu').classList.add('hidden');
+    $('left-count').textContent = sniper.field.remaining;
+    showCorner(0);
+    updateCounts();
+    startMusic(THEME.sniperMusic);
+    $('nuke-count').classList.add('hidden');
+    setTimeout(() => mode === 'snipe' && banner(L('TEST RANGE', 'CAMPO DE PRUEBAS'), 'go'), 450);
+}
+
 function goFarm(done = false) {
     if (mode !== 'snipe' || prologue.active) return; // (del prólogo no se sale: se quedaría a medias)
     mode = 'toFarm';
@@ -1370,7 +1434,10 @@ function goFarm(done = false) {
 }
 
 function enterFarm() {
-    const unlocking = sniper.unlocking;
+    const unlocking = sniper.unlocking, practice = sniper.practice;
+    sniper.practice = goSnipe.practice = false;
+    document.body.classList.remove('practice');
+    $('range-menu').classList.add('hidden');
     sniper.leave();
     if (document.exitPointerLock && locked()) document.exitPointerLock();
     document.body.classList.remove('predator', 'fallout');
@@ -1387,6 +1454,7 @@ function enterFarm() {
     snipeField = null;
     updateCounts();
     startMusic(THEME.music);
+    if (practice) return; // (del campo de pruebas: nada que contar)
     if (revealUnlocked()) return;
     if (goFarm.done && !unlocking) {
         const f = farm.fields[id].rect, crop = cropOf(id);
@@ -1678,6 +1746,7 @@ addEventListener('keydown', (e) => {
     else if (k === 'q') sniper.goSide(-1);
     else if (k === 'e') sniper.goSide(1);
     else if (k === 'r') sniper.reload();
+    else if (k === 't' || k === 'tab') { e.preventDefault(); openRange(); } // (campo de pruebas: su menú, también con el ratón bloqueado)
 });
 addEventListener('blur', () => keys.clear()); // (sin foco no llegan los keyup: que no se queden pulsadas)
 addEventListener('keyup', (e) => {
@@ -1732,6 +1801,40 @@ const tapBtn = (id, fn) => $(id).addEventListener('click', (e) => {
     fn();
 });
 tapBtn('btn-home', () => goFarm());
+// El menú del campo de pruebas
+tapBtn('btn-range', () => openRange());
+tapBtn('range-close', () => openRange(false));
+$('range-menu').addEventListener('pointerdown', (e) => e.stopPropagation());
+$('range-menu').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const b = e.target.closest('button[data-target], button[data-gear], button[data-wonder], button[data-ks], button[data-toggle]');
+    if (!b || !sniper.practice) return;
+    const d = b.dataset;
+    if (d.target) {
+        range.mode = d.target;
+        sniper.setTargets(d.target);
+        $('left-count').textContent = sniper.field.remaining;
+        updateCounts();
+    } else if (d.gear) {
+        const [k, id] = d.gear.split(':');
+        range.loadout = { ...(sniper.loadout || range.loadout), [k]: id };
+        sniper.setLoadout(range.loadout);
+        sfx.play('reloaded');
+    } else if (d.wonder) sniper.giveSpecial(WONDER.find((w) => w.id === d.wonder));
+    else if (d.ks) {
+        openRange(false);
+        sniper.ks.trigger(d.ks);
+        return;
+    } else if (d.toggle) {
+        range[d.toggle] = !range[d.toggle];
+        sniper.walkersOn = range.aliens;
+        sniper.flyersOn = range.ufos;
+        if (!range.aliens) sniper.walkers.reset();
+        if (!range.ufos) sniper.flyers.reset();
+    }
+    sfx.play('ui');
+    renderRange();
+});
 tapBtn('btn-prev', () => sniper.goSide(-1));
 tapBtn('btn-next', () => sniper.goSide(1));
 tapBtn('panel-action', () => {
@@ -1773,7 +1876,7 @@ const inCine = () => document.body.classList.contains('cine');
 
 // Sin nubes delante con la tienda abierta
 function shopClouds() {
-    const clear = !$('ufo-shop').classList.contains('hidden');
+    const clear = !$('ufo-shop').classList.contains('hidden') || !$('well').classList.contains('hidden') || !!wellCine; // (el pozo está en el borde: las nubes le pasan por delante)
     farm.cloudMesh.visible = farm.cloudHull.visible = !clear;
 }
 
@@ -1973,16 +2076,26 @@ function openMerchant(id = curM) {
     curM = id;
     select(null);
     sfx.play('ui');
-    const v = farm.village.byId[id], c = vParcel(v.spot.x, v.spot.z);
-    rig.focus(c.x, c.z);
+    const v = farm.village.byId[id], was = !$('merchant').classList.contains('hidden');
     rig.zoomTarget = 0.85;
     merchantSay(v.open ? merchantHello(id) : MERCHANT.lines.away);
     renderMerchant();
     const el = $('merchant');
-    el.classList.remove('hidden', 'in');
-    void el.offsetWidth;
-    el.classList.add('in');
+    if (!was) {
+        el.classList.remove('hidden', 'in');
+        void el.offsetWidth;
+        el.classList.add('in');
+    }
+    frameMerchant();
 }
+// La cámara, con el mercader elegido en el centro de lo que deja libre el menú (a la derecha)
+function frameMerchant() {
+    const v = farm.village.byId[curM], w = vWorld(v.spot.x, v.spot.z), el = $('merchant');
+    const dock = innerWidth >= 700 && !el.classList.contains('hidden') ? el.offsetWidth : 0;
+    const shift = (dock / innerWidth) * rig.halfWidth * rig.zoomTarget; // (en el mundo, hacia la izquierda de la pantalla)
+    rigFocus(w.x - Math.cos(rig.yaw) * shift, w.z + Math.sin(rig.yaw) * shift, w.y);
+}
+addEventListener('resize', () => { if (!$('merchant').classList.contains('hidden')) frameMerchant(); });
 
 function merchantSay(text, warn = false) {
     $('merchant-line').textContent = text;
@@ -2036,12 +2149,14 @@ const KIND_TAG = { basket: L('COMBO', 'COMBINADO'), urgent: L('URGENT', 'URGENTE
 function renderMerchant() {
     const id = curM, def = MERCHANT_BY_ID[id], v = farm.village.byId[id], clock = clocks[id];
     $('merchant-gold').textContent = state.items.gold;
+    $('merchant-village').innerHTML = villageHtml();
+    $('merchant-medals').innerHTML = medalsHtml();
     $('merchant-name').textContent = def.name;
     document.querySelector('#merchant .merchant-portrait').style.filter = `hue-rotate(${hueOf(def.skin)}deg)`;
     // Las pestañas
     $('merchant-tabs').innerHTML = MERCHANTS.map((d) => {
         const here = farm.village.byId[d.id].open, left = clocks[d.id].left;
-        return `<button data-tab="${d.id}" class="m-tab${d.id === id ? ' on' : ''}${here ? ' here' : ''}${merchantCan(d.id) ? ' can' : ''}"><i class="m-dot" style="background:#${new THREE.Color(d.skin).getHexString()}"></i><span>${here ? ico(CROPS[d.fav].icon) : left === null ? '-' : fmt(left)}</span></button>`;
+        return `<button data-tab="${d.id}" class="m-tab${d.id === id ? ' on' : ''}${here ? ' here' : ''}${merchantCan(d.id) ? ' can' : ''}"><i class="m-dot" style="background:#${new THREE.Color(d.skin).getHexString()}"></i><b class="m-name">${d.name}</b><span>${here ? ico(CROPS[d.fav].icon) : left === null ? '-' : fmt(left)}</span></button>`;
     }).join('');
     const here = v.open, left = clock.left, M = state.merchants[id], lv = state.trustOf(id);
     $('merchant-timer').textContent = left === null ? '' : here ? `${L('LEAVES IN', 'SE VA EN')} ${fmt(left)}` : `${L('BACK IN', 'VUELVE EN')} ${fmt(left)}`;
@@ -2051,7 +2166,7 @@ function renderMerchant() {
         + `<span class="trust-bar"><i style="width:${Math.round(k * 100)}%"></i></span>`
         + `<span class="trust-meta">${L('LOVES', 'LE ENCANTA')} ${ico(CROPS[def.fav].icon)} · ${L('STREAK', 'RACHA')} ${M.streak % GIFT_EVERY}/${GIFT_EVERY} · ${MOODS[M.mood]}</span>`;
     if (!here) {
-        $('merchant-orders').innerHTML = `<div class="merchant-away">${L('NOT HERE RIGHT NOW. EACH MERCHANT COMES WHEN THEY PLEASE, WITH NEW ORDERS.', 'AHORA NO ESTÁ. CADA MERCADER VIENE CUANDO QUIERE, CON ENCARGOS NUEVOS.')}</div>` + shopHtml(id, false) + villageHtml();
+        $('merchant-orders').innerHTML = `<div class="merchant-away">${L('NOT HERE RIGHT NOW. EACH MERCHANT COMES WHEN THEY PLEASE, WITH NEW ORDERS.', 'AHORA NO ESTÁ. CADA MERCADER VIENE CUANDO QUIERE, CON ENCARGOS NUEVOS.')}</div>` + shopHtml(id, false);
         return;
     }
     const visit = clock.visit;
@@ -2065,7 +2180,7 @@ function renderMerchant() {
         return `<div class="order${o.done ? ' done' : ''}${o.kind ? ` ${o.kind}` : ''}" id="order-${i}">${tag}<span class="order-want">${Object.entries(want).map(([c, n]) => `${ico(CROPS[c].icon)}<b>${n}</b>`).join('')}</span><span class="order-arrow">&gt;</span>`
             + `<span class="order-pay">${ico('gold')}<b>+${pay}</b>${o.reward ? `<small>+ ${DECOR_BY_ID[o.reward].name}</small>` : ''}</span><button data-i="${i}"${o.done || !can ? ' disabled' : ''}>${label}</button></div>`;
     }).join('');
-    $('merchant-orders').innerHTML = html + shopHtml(id, true) + villageHtml();
+    $('merchant-orders').innerHTML = html + shopHtml(id, true);
 }
 
 // Lo que piden entre todos los que están (y lo que tienes de cada cosa)
@@ -2089,11 +2204,17 @@ function shopHtml(id, open) {
     }).join('');
 }
 
-// El pueblo (su nivel y lo que falta para el siguiente) y los logros
+// Arriba del todo, el pueblo: su nivel, cuánto tiene y la barra hasta el siguiente
 function villageHtml() {
-    const n = state.village.length, lv = state.villageLevel, next = VILLAGE_LEVELS[lv + 1];
-    return `<div class="merchant-sub">${L('YOUR VILLAGE', 'TU PUEBLO')}: ${VILLAGE_LEVELS[lv].name} · ${n}/${ALL_DECOR.length}${next ? ` · ${next.name} ${L('AT', 'CON')} ${next.n}` : ''}</div>`
-        + `<div class="merchant-sub">${L('ACHIEVEMENTS', 'LOGROS')} ${state.medals.length}/${MEDALS.length}</div><div class="merchant-coll">${MEDALS.map((m) => `<span class="${state.medals.includes(m.id) ? 'on' : ''}" title="${m.desc}">${m.name}</span>`).join('')}</div>`;
+    const n = state.village.length, lv = state.villageLevel, cur = VILLAGE_LEVELS[lv], next = VILLAGE_LEVELS[lv + 1];
+    const k = next ? (n - (cur.n || 0)) / Math.max(1, next.n - (cur.n || 0)) : 1;
+    return `<small>${L('YOUR VILLAGE', 'TU PUEBLO')} · ${L('LV', 'NV')} ${lv + 1}</small><b>${cur.name}</b>`
+        + `<span class="trust-bar"><i style="width:${Math.round(Math.min(1, k) * 100)}%"></i></span>`
+        + `<small>${n}/${ALL_DECOR.length}${next ? ` · ${next.name} ${L('AT', 'CON')} ${next.n}` : ''}</small>`;
+}
+// Abajo, plegados: los logros
+function medalsHtml() {
+    return `<div class="merchant-sub">${state.medals.length}/${MEDALS.length}</div><div class="merchant-coll">${MEDALS.map((m) => `<span class="${state.medals.includes(m.id) ? 'on' : ''}" title="${m.desc}">${m.name}</span>`).join('')}</div>`;
 }
 
 $('merchant').addEventListener('click', (e) => {
@@ -2183,37 +2304,89 @@ function renderWell() {
         const all = ARSENAL_KINDS.flatMap((k) => ARSENAL[k].filter((it) => it.price && tierOf(it) === t).map((it) => ({ k, it })));
         return `<div class="merchant-sub">${t.name} · ${all.filter(({ k, it }) => state.ownsGear(k, it.id)).length}/${all.length}</div><div class="well-grid">${all.map(({ k, it }) => {
             const have = state.ownsGear(k, it.id);
-            return `<span class="well-item${have ? ' on' : ''}" data-tier="${t.id}" title="${it.desc}"><img alt="" src="${gearArt(k, it)}"><i>${have ? it.name : '?'}</i></span>`;
+            return `<span class="well-item${have ? ' on' : ''}" data-tier="${t.id}" data-id="${k}:${it.id}" title="${it.desc}"><img alt="" src="${gearArt(k, it)}"><i>${have ? it.name : '?'}</i></span>`;
         }).join('')}</div>`;
     }).join('');
 }
 
+// El deseo, de cine: sin tocar nada, la moneda vuela al pozo, la cámara se acerca, el pozo se
+// enciende del color de lo que va a salir, la cámara se aleja con el rayo y la pieza disparada
+// hacia arriba, la pieza aparece en grande en el centro, se va, se abre el menú y su hueco se
+// enciende; y vuelve el control. (En las pruebas, todo mucho más rápido)
+let wellCine = null;
+let CINE_SPEED = CONFIG.test ? 6 : 1; // (game.cineSpeed: para verla a velocidad normal en una captura)
 tapBtn('well-wish', () => {
-    if (farm.well.busy) return;
+    if (farm.well.busy || wellCine) return;
     const p = state.wish();
     if (!p) return sfx.play('miss');
     sfx.play('coin');
     updateCounts(true);
     wellResult = null;
-    $('well-line').textContent = L('...', '...');
-    renderWell();
-    // La moneda cae; al tocar el agua, salpica y sube la luz; luego sale la pieza
+    $('well').classList.add('hidden');
+    document.body.classList.add('cine', 'well-cine');
+    rig.focus(135, 15);
+    const art = gearArt(p.kind, p.it);
     farm.well.wish(p.tier.color, () => {
         const w = toWorld(135, 15, 0.7);
         farmParticles.burst(w.x, w.y, w.z, 24, [0xb8ecff, 0xffffff, 0x3ab8e8], { speed: 2, up: 3.4, size: 0.1, ttl: 0.7 });
         sfx.play('pop');
-    });
-    setTimeout(() => {
-        wellResult = p;
-        $('well-line').textContent = p.tier.id === 'epic' ? L('WOW! THE WELL IS IN A GOOD MOOD TODAY.', '¡HALA! EL POZO ESTÁ DE BUEN HUMOR HOY.') : L('A NEW PIECE FOR YOUR ARMORY!', '¡UNA PIEZA NUEVA PARA TU ARMERÍA!');
-        stage(`${L('FROM THE WELL', 'DEL POZO')}: ${p.it.name}`, `${p.tier.name} · ${L('NOW IN THE ARMORY', 'YA EN LA ARMERÍA')}`);
+    }, art, CINE_SPEED);
+    wellCine = { p, art, t: 0, done: new Set() };
+});
+function updateWellCine(dt) {
+    const c = wellCine;
+    if (!c) return;
+    c.t += dt * CINE_SPEED;
+    const { p, t } = c, at = (time, id) => t >= time && !c.done.has(id) && c.done.add(id);
+    const w = (y) => toWorld(135, 15, y);
+    if (at(0.5, 'in')) rig.zoomTarget = 0.55;
+    // La carga: tiembla cada vez más
+    if (t > 1 && t < 2.8 && (c.shk = (c.shk || 0) - dt) < 0) {
+        c.shk = 0.15;
+        rig.shake(0.02 + ((t - 1) / 1.8) * 0.08);
+        const q = w(0.8);
+        if (!CONFIG.test) farmParticles.burst(q.x, q.y, q.z, 4, [p.tier.color, 0xffffff], { speed: 1.2, up: 1.5, size: 0.08, ttl: 0.5 });
+    }
+    if (at(1.2, 'charge')) sfx.play('bounceGet');
+    if (at(2.8, 'beam')) {
+        rig.zoomTarget = 1.25;
+        rig.shake(0.5);
+        renderer.flash(p.tier.color, 0.75);
         sfx.play(p.tier.id === 'epic' ? 'achievement' : 'bounceGet');
         vibrate('pickup');
-        const w = toWorld(135, 15, 2);
-        farmParticles.burst(w.x, w.y, w.z, 40, [p.tier.color, 0xffffff, 0xffd23f], { speed: 3, up: 5, size: 0.12, ttl: 1.1, grav: 5 });
+        const q = w(1);
+        farmParticles.burst(q.x, q.y, q.z, 50, [p.tier.color, 0xffffff, 0xffd23f], { speed: 4, up: 7, size: 0.14, ttl: 1.2, grav: 5 });
+    }
+    // La pieza en el centro de la pantalla: aparece, se queda y se va
+    if (at(3.8, 'show')) {
+        const el = $('well-reveal');
+        el.style.setProperty('--tier', '#' + p.tier.color.toString(16).padStart(6, '0'));
+        el.innerHTML = `<div class="rays"></div><img alt="" src="${c.art}"><b>${p.it.name}</b><em>${p.tier.name}</em>`;
+        el.className = 'well-reveal in';
+        sfx.play('ui');
+    }
+    if (at(5.3, 'out')) $('well-reveal').className = 'well-reveal out';
+    // Se abre el menú y su hueco se enciende; vuelve el control
+    if (at(5.7, 'menu')) {
+        $('well-reveal').className = 'well-reveal hidden';
+        document.body.classList.remove('cine', 'well-cine');
+        wellCine = null;
+        wellResult = p;
+        $('well-line').textContent = p.tier.id === 'epic' ? L('WOW! THE WELL IS IN A GOOD MOOD TODAY.', '¡HALA! EL POZO ESTÁ DE BUEN HUMOR HOY.') : L('A NEW PIECE FOR YOUR ARMORY!', '¡UNA PIEZA NUEVA PARA TU ARMERÍA!');
+        rig.zoomTarget = 0.8;
         renderWell();
-    }, 1700);
-});
+        const el = $('well');
+        el.classList.remove('hidden', 'in');
+        void el.offsetWidth;
+        el.classList.add('in');
+        const slot = $('well-list').querySelector(`.well-item[data-id="${p.kind}:${p.it.id}"]`);
+        if (slot) {
+            slot.classList.add('just');
+            slot.scrollIntoView({ block: 'center' });
+        }
+        sfx.play('achievement');
+    }
+}
 $('well').addEventListener('click', (e) => e.stopPropagation());
 $('well').addEventListener('pointerdown', (e) => e.stopPropagation());
 tapBtn('well-close', () => {
@@ -3252,7 +3425,7 @@ function frame(now) {
         farmParticles.update(dt);
         farmParticles.sync();
         updateLandTour(dt);
-        updateMinimap(dt);
+        updateWellCine(dt);
         if (welcomeFrom && farm.introT > 2.6) showWelcome();
         updateAmbient(dt);
         rig.update(dt);
@@ -3289,35 +3462,6 @@ function frame(now) {
         if (mode !== 'farm') renderer.render(sniper.scene, sniper.camera, dt);
     }
 }
-
-// ---------- Mini-mapa ----------
-// Cada zona, del color de lo que tiene (las que no son tuyas, apagadas); se repinta cada poco
-const ZONE = { farm: [214, 190, 140], house: [240, 170, 170], merchant: [70, 130, 60], wheatP: [230, 200, 80], tomatoP: [220, 80, 60], west: [250, 220, 160], west2: [240, 140, 50], east: [230, 220, 90], nw: [200, 230, 160], nw2: [235, 235, 225], south: [90, 170, 220] };
-const minimap = new Minimap($('minimap'), (ri) => {
-    const P = PLACES.find((p) => p.ri === ri);
-    if (!P) return [120, 150, 100, false];
-    const land = FARM.lands.find((l) => l.id === P.id), mine = !land || (!land.soon && farm.landOwned[land.id]);
-    return [...(ZONE[P.id] || [130, 150, 110]), mine];
-});
-minimap.paint();
-let miniT = 0, miniPaint = 0;
-function updateMinimap(dt) {
-    if ((miniT -= dt) > 0) return;
-    miniT = 0.2;
-    if ((miniPaint -= 0.2) <= 0) {
-        miniPaint = 5;
-        minimap.paint();
-    }
-    minimap.draw(rig.x, rig.z, rig.halfWidth * rig.zoom, rig.halfDepth * rig.zoom);
-}
-$('minimap').addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
-    const r = e.target.getBoundingClientRect(), [x, z] = minimap.toWorld(((e.clientX - r.left) / r.width) * 104, ((e.clientY - r.top) / r.height) * 104);
-    if (mapView) leaveMap(false);
-    rigFocus(x, z, groundAt(x, z));
-    sfx.play('ui');
-});
-
 // ---------- Foto ----------
 // Sin la interfaz, se dibuja el mapa y se guarda la imagen (a píxel grande, con el nombre del juego)
 function takePhoto() {
@@ -3405,4 +3549,4 @@ if ('serviceWorker' in navigator && !/^(localhost|127\.)/.test(location.hostname
 }
 
 // Para las pruebas (Playwright)
-window.game = { state, sniper, farm, rig, prologue, dayNight, merchantClock, clocks, openMerchant, openWell, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, upgradeHouse, openShop, get cine() { return inCine(); }, goFarm, select, updateCounts, pause: () => (paused = true) };
+window.game = { goRange, range, allDecor: ALL_DECOR.map((d) => d.id), syncMerchantLife, set cineSpeed(v) { CINE_SPEED = v; }, get wellCine() { return wellCine; }, state, sniper, farm, rig, prologue, dayNight, merchantClock, clocks, openMerchant, openWell, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, upgradeHouse, openShop, get cine() { return inCine(); }, goFarm, select, updateCounts, pause: () => (paused = true) };
