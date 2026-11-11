@@ -259,7 +259,7 @@ export class SniperField {
                 : inPond(c + 0.5, r + 0.5) ? [0x4aa8e0, 0x3f98d4][(c + r) & 1] // (el agua)
                 : inPond(c + 0.5, r + 0.5, 1.3) ? [0xd9c48a, 0xccb67a][(c + r) & 1] // (la orilla)
                 : CROPS[kind] && CROPS[kind].mud ? [0x7a5232, 0x6a4628, 0x8a5e38][mod(c * 3 + r * 5, 3)] // (la pocilga, de barro)
-                : CROPS[kind] && CROPS[kind].pasture ? [0xa8e070, 0x9ad962, 0xb4e67a][mod(c * 3 + r * 5, 3)] : theme.soil[r & 1];
+                : CROPS[kind] && (CROPS[kind].pasture || CROPS[kind].meadow) ? [0xa8e070, 0x9ad962, 0xb4e67a][mod(c * 3 + r * 5, 3)] : theme.soil[r & 1];
             this.floor.setColorAt(i, _c.setHex(col).offsetHSL(0, 0, (Math.random() - 0.5) * theme.grassJitter));
         });
         this.floor.instanceColor.needsUpdate = true;

@@ -70,8 +70,12 @@ export const FARM = {
         { kind: 'hangar', x: 5, z: 22, strip: true },
         { kind: 'plane', x: 20, z: 22, strip: true },
         { kind: 'checkpoint', x: 15, z: 27.3 },
-        { kind: 'depot', x: 26.5, z: 26.5 },
         { kind: 'depot', x: 3.5, z: 26.8, ry: 1 },
+        // Lo que llena los huecos (con aire entre unos y otros)
+        { kind: 'tower', x: 11, z: 18.7 },        // torre de control, junto al principio de la pista
+        { kind: 'motorpool', x: 8.6, z: 27.2 },   // parque móvil, abajo a la izquierda
+        { kind: 'fuel', x: 27.2, z: 26.6 },       // depósitos de combustible, en la esquina de abajo a la derecha
+        { kind: 'barracks', x: 21.4, z: 27.8 },   // barracón, abajo, entre el control y el combustible
     ],
     // La casa y su parcela: empieza en ruinas con toda la parcela abandonada (zone). Nivel 1: la
     // casita arreglada y limpio alrededor; 2: gran parte de la parcela; 3: toda (clear).

@@ -810,6 +810,9 @@ houseSign.id = 'sign-house';
 // Cartel del pozo de los deseos (con la flecha si llega el oro para una moneda)
 const wellSign = uiButton('field-sign well-sign hidden', () => openWell());
 wellSign.id = 'sign-well';
+// Cartel del campo de tiro de pruebas (en el recinto del granero)
+const rangeSign = uiButton('field-sign range-sign hidden', () => goRange());
+rangeSign.id = 'sign-range';
 
 // ¿Hay algo de la armería que ya se puede comprar? (flecha verde en su cartel y aviso en el dock)
 // (ya no se compra nada con oro: lo nuevo sale del pozo de los deseos)
@@ -876,6 +879,14 @@ function placeBubbles() {
         const can = state.wishPool().length > 0 && state.items.gold >= state.wishCost(), html = `${ico('well')}<span>${L('WISHING WELL', 'POZO DE LOS DESEOS')}</span><i class="sign-up"></i>`;
         if (wellSign.innerHTML !== html) wellSign.innerHTML = html;
         wellSign.classList.toggle('can-up', can);
+    }
+    rangeSign.classList.toggle('hidden', !wellOn);
+    if (wellOn) {
+        farm.world(24.5, 3.4, 13, _b).project(rig.camera);
+        rangeSign.style.left = `${Math.round((_b.x * 0.5 + 0.5) * innerWidth)}px`;
+        rangeSign.style.top = `${Math.round((-_b.y * 0.5 + 0.5) * innerHeight)}px`;
+        const html = `${ico('target')}<span>${L('TEST RANGE', 'CAMPO DE PRUEBAS')}</span>`;
+        if (rangeSign.innerHTML !== html) rangeSign.innerHTML = html;
     }
     for (const d of MERCHANTS) {
         // (sin él, solo el del primero: lo que le falta para volver)

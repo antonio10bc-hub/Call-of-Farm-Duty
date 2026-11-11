@@ -130,6 +130,11 @@ const SPRITES = {
         rows: ['..KKKKKK..', '.KRRRRRRK.', 'KRRRRRRRRK', '.KWK..KWK.', '.KW....WK.', 'KKKKKKKKKK', 'KSSBBBBSSK', 'KSLSSLSSLK', 'KSSLSSLSSK', '.KKKKKKKK.'],
         pal: { K: INK, R: '#c8402e', W: '#8a5a2a', S: '#9a948a', L: '#b8b2a8', B: '#5af0ff' },
     },
+    // El campo de tiro de pruebas: una diana roja y blanca con su flecha clavada
+    target: {
+        rows: ['..KKKKKK..', '.KRRRRRRK.', 'KRRWWWWRRK', 'KRWWRRWWRK', 'KRWRRKRWRK', 'KRWRKYRWRK', 'KRWWRRWWRK', 'KRRWWWWRRK', '.KRRRRRRK.', '..KKKKKK..'],
+        pal: { K: INK, R: '#e8402e', W: '#fff3d6', Y: '#ffd23f' },
+    },
     // Botón AJUSTES: un engranaje de 8 dientes con su agujero
     gear: {
         rows: ['....KKKK....', '.KK.KLGK.KK.', '.KLKKLGKKGK.', '.KKLLGGGGKK.', 'KKLGKKKKGGKK', 'KLGGK..KGGGK', 'KLGGK..KGGGK', 'KKGGKKKKGGKK', '.KKGGGGGGKK.', '.KGKKGGKKGK.', '.KK.KGGK.KK.', '....KKKK....'],

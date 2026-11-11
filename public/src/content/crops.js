@@ -163,6 +163,7 @@ export const CROPS = {
         icon: 'honey',
         growTime: 70,
         stages: [0x6fbf3a, 0x8fcc40, 0xc8b040, 0xf0a020],
+        meadow: true, // (su campo es un prado de hierba, no tierra arada)
         hive: 0xf0d080,
         roof: 0xb07a44,
         fruit: 0xf0a020,

@@ -45,6 +45,7 @@ const FOREST = [0x4f8a36, 0x5a9a3e, 0x4a7a32, 0x5f8a3a, 0x6a7a3a, 0x56703a]; // 
 const ASPHALT = [0x5c5c62, 0x56565c], CONCRETE = [0x9a948c, 0x8f8a82];
 const CRATER = [0x6a4a2a, 0x5a3e24, 0x7a5432, 0x4a3420]; // el fondo del cráter del ovni
 const STRAW = [0x9a7a3a, 0x8a6a30, 0xa8843e, 0x94723a];
+const FLOWERS = 5; // flores por planta del colmenar, como mucho (salen 1 + su nivel)
 const TOWN_STONE = [0xc8bca4, 0xb8ac94, 0xd4c8b0]; // la plaza empedrada del pueblo
 const TOWN_ROAD = [0xa49a88, 0x968c7a]; // sus calles
 const CLEARING = [0x8fbf54, 0x9ab85a, 0xa8a060, 0xb89a64, 0x86b04e]; // el claro del mercader
@@ -442,7 +443,7 @@ export class Farm {
         const col = k && k.field
             ? (k.locked ? JUNK.ground[mod(c * 7 + r * 5 + mod(c * r, 3), JUNK.ground.length)]
                 : pond && this.inPond(pond, t.c + 0.5, t.r + 0.5) ? POND[(c + r) & 1] : pond && this.inPond(pond, t.c + 0.5, t.r + 0.5, 1) ? SAND[(c + r) & 1] // (la laguna en el centro)
-                : CROPS[this.fields[k.field].crop].mud ? MUD[mod(c * 3 + r * 5, 3)] : CROPS[this.fields[k.field].crop].pasture ? PASTURE[mod(c * 3 + r * 5, 3)]
+                : CROPS[this.fields[k.field].crop].mud ? MUD[mod(c * 3 + r * 5, 3)] : CROPS[this.fields[k.field].crop].pasture || CROPS[this.fields[k.field].crop].meadow ? PASTURE[mod(c * 3 + r * 5, 3)]
                 // (el trigo grande, sobre rastrojo de paja: se lee lleno con menos tallos)
                 : this.fields[k.field].crop === 'wheat' && this.fields[k.field].level >= 2 ? STRAW[(r & 1) + 2 * mod(c * 3 + r, 2)] : theme.soil[r & 1]) // (el prado, de hierba)
             : k && k.path ? theme.path[mod(c * 7 + r * 3, 2)]
@@ -591,6 +592,7 @@ export class Farm {
             }
         }
         if (P >= 3) d = Math.min(d, Math.abs(r - 21.6) - 1.6 - wob * 0.3);
+        if (P >= 4) d = Math.min(d, r - (this.villageReach((Math.atan2(dz, dx) * 180) / Math.PI) - 2.5) - wob * 0.5); // (la propuesta: todo el claro)
         for (const g of this.vgeo) {
             const c = Math.cos(g.a), s = Math.sin(g.a);
             if (g.def.mother) {
@@ -626,6 +628,7 @@ export class Farm {
         if (r < VILLAGE.R - 0.6) return TOWN_STONE[(Math.floor(r / 1.7) + ((c + w) & 1)) % TOWN_STONE.length];
         if (r > 11 && r < 12.8) return TOWN_ROAD[(c + w) & 1];
         if (P >= 3 && r > 20.8 && r < 22.4) return TOWN_ROAD[(c + w) & 1];
+        if (P >= 4 && ((r > 28 && r < 29.6) || (r > 34.2 && r < 35.8))) return TOWN_ROAD[(c + w) & 1]; // (las rondas de los barrios)
         const paved = pavedIn(P);
         for (const g of this.vgeo) {
             const cs = Math.cos(g.a), sn = Math.sin(g.a), along = dx * cs + dz * sn, side = Math.abs(-dx * sn + dz * cs);
@@ -924,7 +927,7 @@ export class Farm {
     //   Maíz: dos por casilla, altas, con su hoja y la mazorca.
     buildPlants(v, old = null, fromCenter = false) {
         if (CROPS[v.crop].pasture) return this.buildHerd(v);
-        const f = v.rect, wheat = v.crop === 'wheat', n0 = { wheat: v.level >= 2 ? 1.5 : PER_TILE, corn: 1.4, tomato: 1.3, pumpkin: 1.2, honey: 1, sunflower: 1.1 }[v.crop] || 1;
+        const f = v.rect, wheat = v.crop === 'wheat', n0 = { wheat: v.level >= 2 ? 1.5 : PER_TILE, corn: 1.4, tomato: 1.3, pumpkin: 1.2, honey: 1.3, sunflower: 1.1 }[v.crop] || 1;
         const prev = new Map(v.plants.map((s) => [s.key, s]));
         v.plants = [];
         for (let tx = f.x; tx < f.x + f.w; tx++) for (let tz = f.z; tz < f.z + f.d; tz++) {
@@ -984,16 +987,21 @@ export class Farm {
         } else if (v.crop === 'honey') {
             // Colmenas (una de cada tres plantas; las demás, matas de flores): caja, tejadillo y
             // dos flores por planta
-            v.plants.forEach((s, i) => (s.hive = i % 3 === 0));
+            // (pocas colmenas, sueltas, y cada vez más flores por planta con el nivel: un prado en flor)
+            v.plants.forEach((s, i) => (s.hive = hash(Math.floor(s.x / 4), Math.floor(s.z / 4), 7) < 0.5 && i % 25 === 0));
             v.meshes = [
                 this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[0], count)),
                 this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[1], count)),
-                this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[2], count * 2)),
+                this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[2], count * FLOWERS)),
+                this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[3], count * FLOWERS)),
             ];
             const H = CROPS.honey;
             v.plants.forEach((s, i) => {
                 v.meshes[1].setColorAt(i, _c.setHex(H.roof));
-                for (let k = 0; k < 2; k++) v.meshes[2].setColorAt(i * 2 + k, _c.setHex(H.flowers[(i + k * 3) % H.flowers.length]));
+                for (let k = 0; k < FLOWERS; k++) {
+                    v.meshes[2].setColorAt(i * FLOWERS + k, _c.setHex(H.flowers[(i * 3 + k * 5) % H.flowers.length]).offsetHSL(0, 0, (hash(i, k, 3) - 0.5) * 0.12));
+                    v.meshes[3].setColorAt(i * FLOWERS + k, _c.setHex(0x4a9a34));
+                }
             });
         } else if (v.crop === 'sunflower') {
             // Tallo, hojas (2), la cabeza amarilla y su centro
@@ -1805,27 +1813,33 @@ export class Farm {
     // Colmenar: las colmenas (cajas claras con su tejadillo, más llenas de miel al madurar: se
     // doran) y matas de flores que se mecen
     updateHoney(v, time, p) {
-        const H = CROPS.honey, [hiveMesh, roofMesh, flowerMesh] = v.meshes;
+        const H = CROPS.honey, [hiveMesh, roofMesh, flowerMesh, stemMesh] = v.meshes, shown = Math.min(FLOWERS, 1 + v.level);
         const ripe = Math.min(1, Math.max(0, (p - 0.5) / 0.5));
         v.plants.forEach((s, i) => {
             const g = this.grow(s, p), hv = s.hive ? g : 0.0001;
             _d.rotation.set(0, s.ry, 0);
-            _d.position.set(s.wx, 0.3 * hv, s.wz);
-            _d.scale.set(0.5 * hv, Math.max(0.0001, 0.6 * hv), 0.42 * hv);
+            _d.position.set(s.wx, 0.4 * hv, s.wz);
+            _d.scale.set(0.7 * hv, Math.max(0.0001, 0.8 * hv), 0.6 * hv);
             _d.updateMatrix();
             hiveMesh.setMatrixAt(i, _d.matrix);
             hiveMesh.setColorAt(i, _c.setHex(H.hive).lerp(_c2.setHex(H.fruit), ripe * 0.6));
-            _d.position.set(s.wx, 0.64 * hv, s.wz);
-            _d.scale.set(0.62 * hv, Math.max(0.0001, 0.1 * hv), 0.54 * hv);
+            _d.position.set(s.wx, 0.86 * hv, s.wz);
+            _d.scale.set(0.86 * hv, Math.max(0.0001, 0.14 * hv), 0.76 * hv);
             _d.updateMatrix();
             roofMesh.setMatrixAt(i, _d.matrix);
-            for (let k = 0; k < 2; k++) {
-                const a = s.ry + k * 2.6, d = s.hive ? 0.42 : 0.15, sway = Math.sin(time * 1.5 + s.ph + k) * 0.05;
-                _d.position.set(s.wx + Math.sin(a) * d, (0.3 + k * 0.08) * g, s.wz + Math.cos(a) * d);
+            // Flores: tallo y corola, repartidas alrededor (las que tocan por el nivel)
+            for (let k = 0; k < FLOWERS; k++) {
+                const on = k < shown ? g : 0.0001, a = s.ry + k * 2.39, d = (s.hive ? 0.6 : 0.1) + (k % 3) * 0.15, hgt = 0.3 + ((k * 7 + i) % 4) * 0.08;
+                const sway = Math.sin(time * 1.5 + s.ph + k) * 0.06, x = s.wx + Math.sin(a) * d, z = s.wz + Math.cos(a) * d;
                 _d.rotation.set(sway, a, 0);
-                _d.scale.set(0.14 * g, Math.max(0.0001, 0.12 * g), 0.14 * g);
+                _d.position.set(x, hgt * on / 2, z);
+                _d.scale.set(0.04 * on, Math.max(0.0001, hgt * on), 0.04 * on);
                 _d.updateMatrix();
-                flowerMesh.setMatrixAt(i * 2 + k, _d.matrix);
+                stemMesh.setMatrixAt(i * FLOWERS + k, _d.matrix);
+                _d.position.set(x, hgt * on, z);
+                _d.scale.set(0.22 * on, Math.max(0.0001, 0.12 * on), 0.22 * on);
+                _d.updateMatrix();
+                flowerMesh.setMatrixAt(i * FLOWERS + k, _d.matrix);
             }
         });
     }

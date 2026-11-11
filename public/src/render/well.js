@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { VoxelModel } from './VoxelModel.js';
+import { box } from './materials.js';
 
 // El pozo de los deseos: el típico pozo de piedra gris (dos hileras de piedras en corro, con su
 // musgo), un tejadillo de madera sobre dos postes, la manivela con su cuerda y el cubo, y dentro
@@ -96,9 +97,99 @@ export class WishingWell extends VoxelModel {
         this.prize = new THREE.Sprite(this.own(new THREE.SpriteMaterial({ transparent: true, depthWrite: false })));
         this.prize.visible = false;
         r.add(this.prize);
-        this.bake([r], [water, this.crank, this.rope, this.bucket, this.beam, this.coin, this.prize, this.aura, ...this.rings]);
+        this.buildMystic(r);
+        this.bake([r], [water, this.crank, this.rope, this.bucket, this.beam, this.coin, this.prize, this.aura, ...this.rings, ...this.crystals, this.flies, this.mist]);
         this.t = -1;
         this.color = new THREE.Color(0xffffff);
+    }
+
+    // Lo místico de su montañita: un corro de menhires (algunos inclinados, con musgo) con runas
+    // que laten en morado y turquesa, cristales que flotan y giran, setas que brillan, bruma baja
+    // que respira y luciérnagas dando vueltas
+    buildMystic(r) {
+        const glow = (c) => this.own(new THREE.MeshBasicMaterial({ color: c }));
+        this.runeMats = [glow(0xb87dff), glow(0x5af0ff)];
+        const STONES = [0x6a6a78, 0x5a5a68, 0x7a7888];
+        for (let k = 0; k < 7; k++) {
+            const a = (k / 7) * Math.PI * 2 + 0.3;
+            if (Math.abs(Math.atan2(Math.sin(a - 1.2), Math.cos(a - 1.2))) < 0.35) continue; // (el hueco del cartel)
+            const h = 1.3 + ((k * 5) % 4) * 0.3, x = Math.cos(a) * 3.9, z = Math.sin(a) * 3.9, st = new THREE.Group();
+            st.position.set(x, 0, z);
+            st.rotation.y = -a + Math.PI / 2;
+            st.rotation.z = (k % 3 === 1 ? 0.12 : k % 3 === 2 ? -0.08 : 0);
+            r.add(st);
+            this.part(st, 0.62, h, 0.42, STONES[k % 3], 0, h / 2, 0);
+            this.part(st, 0.5, 0.18, 0.36, STONES[(k + 1) % 3], 0, h + 0.09, 0);
+            if (k % 2 === 0) this.part(st, 0.64, 0.12, 0.3, MOSS, 0, h * 0.35, 0.07, false);
+            // La runa, en la cara que mira al pozo
+            const m = new THREE.Mesh(box(0.22, 0.42, 0.04), this.runeMats[k % 2]);
+            m.position.set(0, h * 0.6, 0.23);
+            st.add(m);
+            const m2 = new THREE.Mesh(box(0.08, 0.12, 0.045), this.runeMats[k % 2]);
+            m2.position.set(0.12, h * 0.6 + 0.24, 0.23);
+            st.add(m2);
+        }
+        // Setas que brillan, en corros, entre las piedras
+        for (const [x, z, n] of [[-2.8, 1.4, 3], [2.5, -2.4, 2], [-1.6, -3.0, 3], [3.1, 1.0, 2]]) for (let i = 0; i < n; i++) {
+            const dx = x + (i - 1) * 0.28, dz = z + ((i * 7) % 3 - 1) * 0.2, hh = 0.18 + (i % 2) * 0.1;
+            this.part(r, 0.07, hh, 0.07, 0xe8e0d0, dx, hh / 2, dz, false);
+            const cap = new THREE.Mesh(box(0.24, 0.1, 0.24), this.runeMats[(i + n) % 2]);
+            cap.position.set(dx, hh + 0.05, dz);
+            r.add(cap);
+        }
+        // Cristales que flotan (cada uno con su sombra de luz debajo)
+        this.crystals = [[-2.6, -1.6, 0], [2.8, 0.6, 1], [0.4, -3.1, 0]].map(([x, z, c], i) => {
+            const g = new THREE.Group();
+            g.position.set(x, 2.4, z);
+            g.userData = { y: 2.4 + i * 0.3, ph: i * 2.1 };
+            const m = new THREE.Mesh(box(0.34, 0.6, 0.34), this.runeMats[c]);
+            m.rotation.set(0.6, 0.6, 0);
+            g.add(m);
+            const m2 = new THREE.Mesh(box(0.18, 0.3, 0.18), glow(0xffffff));
+            m2.position.y = 0.42;
+            m2.rotation.set(0.6, 0.2, 0.3);
+            g.add(m2);
+            r.add(g);
+            return g;
+        });
+        // La bruma baja: losas de luz morada casi transparentes, que respiran
+        this.mistMat = this.own(new THREE.MeshBasicMaterial({ color: 0xb87dff, transparent: true, opacity: 0.12, depthWrite: false }));
+        this.mist = new THREE.Group();
+        for (let k = 0; k < 10; k++) {
+            const a = (k / 10) * Math.PI * 2, d = 2.6 + (k % 3) * 0.6;
+            const m = new THREE.Mesh(box(1.4, 0.06, 1.0), this.mistMat);
+            m.position.set(Math.cos(a) * d, 0.08 + (k % 2) * 0.03, Math.sin(a) * d);
+            m.rotation.y = -a;
+            this.mist.add(m);
+        }
+        r.add(this.mist);
+        // Luciérnagas
+        this.flies = new THREE.Group();
+        this.flyData = [];
+        const fm = glow(0xfff6a0);
+        for (let k = 0; k < 14; k++) {
+            const m = new THREE.Mesh(box(0.07, 0.07, 0.07), fm);
+            this.flies.add(m);
+            this.flyData.push({ m, r: 1.8 + Math.random() * 2.8, a: Math.random() * 6.3, w: (0.2 + Math.random() * 0.4) * (k % 2 ? 1 : -1), y: 0.5 + Math.random() * 2.4, ph: Math.random() * 6.3 });
+        }
+        r.add(this.flies);
+    }
+
+    updateMystic(dt, time) {
+        const pulse = 0.5 + 0.5 * Math.sin(time * 1.6);
+        this.runeMats[0].color.setHSL(0.76, 0.9, 0.55 + pulse * 0.2);
+        this.runeMats[1].color.setHSL(0.5, 0.9, 0.5 + (1 - pulse) * 0.2);
+        for (const g of this.crystals) {
+            g.position.y = g.userData.y + Math.sin(time * 1.2 + g.userData.ph) * 0.25;
+            g.rotation.y = time * 0.7 + g.userData.ph;
+        }
+        this.mistMat.opacity = 0.08 + Math.sin(time * 0.8) * 0.05;
+        this.mist.rotation.y = time * 0.05;
+        for (const f of this.flyData) {
+            f.a += f.w * dt;
+            f.m.position.set(Math.cos(f.a) * f.r, f.y + Math.sin(time * 2 + f.ph) * 0.3, Math.sin(f.a) * f.r);
+            f.m.visible = Math.sin(time * 3 + f.ph * 3) > -0.3; // (parpadean)
+        }
     }
 
     // ¡Un deseo! color: el de la rareza de lo que ha salido; art: la foto de la pieza (data URL).
@@ -135,6 +226,7 @@ export class WishingWell extends VoxelModel {
         this.rope.position.set(0, (1.95 + by + 0.15) / 2, 0);
         this.crank.rotation.x = Math.sin(time * 0.8) * 0.4;
         const glow = 0.5 + Math.sin(time * 2) * 0.08;
+        this.updateMystic(dt, time);
         if (this.t < 0) {
             this.waterMat.color.setRGB(0.23 * glow * 2, 0.72 * glow * 1.4, 0.91);
             this.updateFx(dt);

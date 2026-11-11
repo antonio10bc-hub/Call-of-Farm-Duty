@@ -445,6 +445,7 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
 .milk-ico { --ico: var(--px-milk); }
 .wool-ico { --ico: var(--px-wool); }
 .egg-ico { --ico: var(--px-egg); }
+.target-ico { --ico: var(--px-target); }
 .honey-ico { --ico: var(--px-honey); }
 .sunflower-ico { --ico: var(--px-sunflower); }
 .truffle-ico { --ico: var(--px-truffle); }

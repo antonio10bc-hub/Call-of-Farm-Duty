@@ -210,6 +210,21 @@ export class Compound extends VoxelModel {
         this.part(g, 1.6, 1.1, 0.12, 0x7a4f2a, -3.0, 0.65, 1.0);
         for (let k = 0; k < 4; k++) this.part(g, 0.08, 0.9, 0.06, INK, -3.6 + k * 0.38, 0.6, 1.1, false).rotation.z = 0.12;
         this.flag(g, 2.7, -2.0, OLIVE);
+        // Red de camuflaje sobre el búnker (parches de dos verdes y su borde caído) y una antena
+        for (const [x, z, w, d, c] of [[-1.2, -0.8, 1.6, 1.4, 0x5a6a3a], [0.6, -0.2, 1.8, 1.6, 0x4a5a2e], [1.4, -1.3, 1.2, 1.0, 0x6a7a42], [-0.4, 0.4, 1.2, 0.9, 0x6a7a42]]) this.part(g, w, 0.08, d, c, x, 2.2 + (x + z) * 0.004, z, false);
+        for (const x of [-2.4, 2.4]) this.part(g, 0.1, 1.2, 0.1, DARK, x, 1.6, 1.2, false);
+        this.part(g, 0.06, 1.6, 0.06, DARK, 1.6, 2.9, -1.4, false);
+        this.part(g, 0.4, 0.06, 0.06, DARK, 1.6, 3.5, -1.4, false);
+        // Carretilla elevadora con un palé de cajas, y la valla de la plataforma (postes con cadena)
+        this.part(g, 0.8, 0.5, 1.1, YELLOW, -1.9, 0.4, 3.2);
+        this.part(g, 0.7, 0.4, 0.06, 0x2a2a2a, -1.9, 1.0, 2.6, false);
+        for (const x of [-2.2, -1.6]) this.part(g, 0.08, 1.4, 0.08, DARK, x, 0.7, 2.6, false);
+        for (const z of [2.9, 3.6]) for (const x of [-2.2, -1.6]) this.part(g, 0.22, 0.22, 0.22, 0x2e2a28, x, 0.11, z, false);
+        this.crate(g, -1.9, 0.1, 2.15, 0);
+        for (const [x, z] of [[-3.7, 2.6], [-3.7, -2.9], [3.9, -2.9], [3.9, 2.6]]) {
+            this.part(g, 0.14, 0.8, 0.14, YELLOW, x, 0.4, z, false);
+            this.part(g, 0.18, 0.12, 0.18, INK, x, 0.86, z, false);
+        }
     }
 
     // Torre de radar: patas de celosía, caseta y la antena que gira; mástil con luz
@@ -229,6 +244,15 @@ export class Compound extends VoxelModel {
         this.part(dish, 1.6, 0.9, 0.1, 0xd8dce2, 0, 0.9, 0.1).rotation.x = -0.4;
         this.spin.push([dish, 1.4]);
         keep.push(dish);
+        // Al pie: el generador (con su tubo de escape), cables y una valla baja de postes
+        this.part(g, 1.1, 0.7, 0.7, OLIVE, -1.5, 0.35, 1.0);
+        this.part(g, 1.12, 0.12, 0.72, YELLOW, -1.5, 0.62, 1.0, false);
+        this.part(g, 0.12, 0.5, 0.12, DARK, -1.1, 0.9, 0.8, false);
+        this.part(g, 1.2, 0.04, 0.08, INK, -0.5, 0.03, 0.7, false);
+        for (let k = 0; k < 8; k++) {
+            const a = (k / 8) * Math.PI * 2;
+            this.part(g, 0.1, 0.6, 0.1, 0x6a6a66, Math.cos(a) * 2.0, 0.3, Math.sin(a) * 2.0, false);
+        }
         this.part(g, 0.1, 3.0, 0.1, DARK, 1.6, 1.5, -1.2, false);
         const l = this.part(g, 0.18, 0.18, 0.18, 0xff2a1a, 1.6, 3.1, -1.2);
         this.blink.push(l);
@@ -258,6 +282,14 @@ export class Compound extends VoxelModel {
         for (const r of [0, Math.PI / 2]) this.part(rotor, 4.2, 0.04, 0.18, 0x2a2a2a, 0, 0, 0, false).rotation.y = r;
         this.spin.push([rotor, 2.2]);
         keep.push(rotor);
+        // Junto a la plataforma: el carro de combustible con su manguera, la manga de viento y un
+        // extintor
+        this.part(g, 1.3, 0.7, 0.7, RED, 2.9, 0.5, -1.2);
+        for (const z of [-1.5, -0.9]) this.part(g, 0.24, 0.24, 0.24, 0x2e2a28, 2.5, 0.12, z, false), this.part(g, 0.24, 0.24, 0.24, 0x2e2a28, 3.3, 0.12, z, false);
+        this.part(g, 0.8, 0.05, 0.08, INK, 2.1, 0.06, -0.8, false);
+        this.part(g, 0.08, 2.2, 0.08, DARK, -2.7, 1.1, -2.4, false);
+        for (let k = 0; k < 3; k++) this.part(g, 0.36 - k * 0.06, 0.26 - k * 0.04, 0.26 - k * 0.04, k % 2 ? CREAM : 0xff7a2a, -2.5 + k * 0.32, 2.0, -2.4, false);
+        this.part(g, 0.22, 0.45, 0.22, RED, 2.6, 0.23, 1.6);
     }
 
     // El campo de tiro de pruebas: la línea de tiro bajo un tejadillo (mostrador de sacos y un
@@ -348,6 +380,17 @@ export class Compound extends VoxelModel {
         this.part(g, 0.06, 0.3, 0.36, 0xfff6c0, 2.56, 3.0, -1.6, false);
         for (const [x, z] of [[-1.0, 2.6], [-0.5, 2.7], [-0.8, 3.1]]) this.drum(g, x, z);
         this.crate(g, 1.0, 0, 2.8);
+        // Delante, el carro de herramientas rojo y una escalera de mantenimiento; detrás, el
+        // camión cisterna aparcado
+        this.part(g, 0.6, 0.6, 0.4, RED, 3.0, 0.4, 1.6);
+        this.part(g, 0.62, 0.06, 0.42, INK, 3.0, 0.5, 1.6, false);
+        for (let k = 0; k < 4; k++) this.part(g, 0.5, 0.06, 0.2, YELLOW, 3.2, 0.25 + k * 0.32, -2.2 - k * 0.12, false);
+        this.part(g, 0.08, 1.4, 0.08, YELLOW, 2.95, 0.7, -2.4, false);
+        this.part(g, 0.08, 1.4, 0.08, YELLOW, 3.45, 0.7, -2.4, false);
+        this.part(g, 1.2, 1.0, 1.0, OLIVE, -1.5, 0.75, -3.4);
+        this.part(g, 2.4, 0.9, 1.0, 0xc8c8c0, 0.4, 0.75, -3.4);
+        this.part(g, 0.6, 0.4, 0.06, GLASS, -2.12, 1.0, -3.4, false);
+        for (const x of [-1.5, 0, 1.2]) for (const z of [-3.95, -2.85]) this.part(g, 0.36, 0.36, 0.2, 0x2e2a28, x, 0.2, z, false);
     }
 
     // El avión de la racha del bombardero, aparcado en la pista: fuselaje, alas, cola, cuatro
@@ -393,6 +436,13 @@ export class Compound extends VoxelModel {
         this.flag(g, -3.1, 0.9, OLIVE);
         this.flag(g, 3.1, 0.9, RED);
         this.lamp(g, 2.9, -1.0);
+        // La garita del guardia (con ventana y tejadillo), conos y bandas de pinchos
+        this.part(g, 1.1, 1.5, 1.1, CONC, -3.6, 0.75, -1.4);
+        this.part(g, 1.3, 0.14, 1.3, OLIVE2, -3.6, 1.57, -1.4);
+        this.part(g, 0.7, 0.4, 0.06, GLASS, -3.6, 1.1, -0.83, false);
+        for (const x of [-0.9, 0.5]) this.part(g, 0.24, 0.42, 0.24, 0xff7a2a, x, 0.21, 0.6);
+        this.part(g, 2.4, 0.06, 0.24, 0x5a5a56, -0.2, 0.03, 1.4, false);
+        for (let k = 0; k < 6; k++) this.part(g, 0.08, 0.12, 0.08, 0xb8b8b4, -1.2 + k * 0.4, 0.1, 1.4, false);
     }
 
     // Un almacén al aire libre: cajas apiladas, bidones y una lona
@@ -400,7 +450,87 @@ export class Compound extends VoxelModel {
         for (const [x, z, y, ry] of [[0, 0, 0, 0], [0.7, 0, 0, 0], [0.35, 0, 0.42, 0.2], [-0.8, 0.6, 0, 0.4], [1.2, 0.8, 0, -0.2]]) this.crate(g, x, y, z, ry);
         for (const [x, z] of [[-1.2, -0.6], [-0.7, -0.8], [-1.0, -1.2]]) this.drum(g, x, z);
         this.drum(g, 1.6, -0.4, OLIVE, true);
+        // El contenedor de carga (con sus nervios) y la lona sobre un montón
+        this.part(g, 1.4, 1.3, 3.0, 0x8a4a2a, -2.4, 0.65, 0.6);
+        for (let k = 0; k < 5; k++) this.part(g, 1.44, 1.2, 0.08, 0x7a3a22, -2.4, 0.65, -0.6 + k * 0.6, false);
+        this.part(g, 0.06, 1.0, 0.9, 0x6a3018, -1.68, 0.6, 1.4, false);
         this.part(g, 1.8, 0.1, 1.4, OLIVE2, 0.35, 0.95, 0.1, false).rotation.z = 0.08;
+    }
+
+    // La torre de control del aeródromo: base de hormigón, cabina de cristal con su balcón, la
+    // baliza que gira y la manga de viento
+    tower(g, keep) {
+        this.part(g, 1.8, 3.0, 1.8, CONC, 0, 1.5, 0);
+        for (let k = 0; k < 3; k++) this.part(g, 1.84, 0.1, 1.84, CONC2, 0, 0.8 + k * 0.8, 0, false);
+        this.part(g, 0.6, 1.0, 0.06, 0x3a3a34, 0, 0.5, 0.92, false);
+        this.part(g, 2.6, 0.16, 2.6, CONC2, 0, 3.1, 0);
+        this.part(g, 2.2, 1.0, 2.2, GLASS, 0, 3.7, 0);
+        for (const [x, z] of [[-1.1, -1.1], [1.1, -1.1], [-1.1, 1.1], [1.1, 1.1]]) this.part(g, 0.12, 1.0, 0.12, DARK, x, 3.7, z, false);
+        this.part(g, 2.5, 0.2, 2.5, OLIVE2, 0, 4.3, 0);
+        for (const s of [-1, 1]) this.part(g, 2.7, 0.06, 0.06, DARK, 0, 3.6, s * 1.3, false), this.part(g, 0.06, 0.06, 2.7, DARK, s * 1.3, 3.6, 0, false);
+        const bea = new THREE.Group();
+        bea.position.set(0, 4.6, 0);
+        g.add(bea);
+        this.part(bea, 0.3, 0.3, 0.3, 0xffcc33, 0, 0, 0);
+        this.part(bea, 0.9, 0.08, 0.14, 0xfff0a0, 0.45, 0, 0, false);
+        this.spin.push([bea, 3]);
+        keep.push(bea);
+        this.part(g, 0.08, 2.6, 0.08, DARK, 1.6, 1.3, 1.6, false);
+        for (let k = 0; k < 3; k++) this.part(g, 0.4 - k * 0.07, 0.3 - k * 0.05, 0.3 - k * 0.05, k % 2 ? CREAM : 0xff7a2a, 1.82 + k * 0.36, 2.4, 1.6, false);
+    }
+
+    // El parque móvil: un tejadillo de chapa sobre postes, el jeep y el camión con su lona,
+    // bidones y un surtidor
+    motorpool(g) {
+        for (const [x, z] of [[-2.6, -1.4], [2.6, -1.4], [-2.6, 1.4], [2.6, 1.4]]) this.part(g, 0.14, 2.0, 0.14, DARK, x, 1.0, z, false);
+        this.part(g, 5.6, 0.12, 3.2, 0x8a9a8a, 0, 2.05, 0);
+        this.part(g, 5.7, 0.06, 0.2, 0x6a7a6a, 0, 2.14, -1.4, false);
+        // Jeep
+        this.part(g, 1.0, 0.5, 1.8, OLIVE, -1.3, 0.55, 0);
+        this.part(g, 0.9, 0.3, 0.7, OLIVE2, -1.3, 0.95, 0.3);
+        this.part(g, 0.8, 0.3, 0.06, GLASS, -1.3, 0.95, -0.1, false);
+        for (const x of [-1.85, -0.75]) for (const z of [-0.6, 0.6]) this.part(g, 0.2, 0.4, 0.4, 0x2e2a28, x, 0.2, z, false);
+        // Camión con lona
+        this.part(g, 1.3, 1.0, 1.0, OLIVE, 1.3, 0.8, -0.9);
+        this.part(g, 1.3, 0.3, 0.06, GLASS, 1.3, 1.05, -1.42, false);
+        this.part(g, 1.4, 1.2, 2.0, 0x6a7a4a, 1.3, 1.1, 0.6);
+        this.part(g, 1.44, 0.16, 2.04, 0x5a6a3a, 1.3, 1.75, 0.6, false);
+        for (const x of [0.6, 2.0]) for (const z of [-0.9, 0.3, 1.2]) this.part(g, 0.22, 0.46, 0.46, 0x2e2a28, x, 0.23, z, false);
+        for (const [x, z] of [[-3.2, -0.4], [-3.2, 0.2]]) this.drum(g, x, z, OLIVE);
+        this.part(g, 0.4, 1.0, 0.4, RED, 3.3, 0.5, 1.6);
+        this.part(g, 0.3, 0.2, 0.06, CREAM, 3.3, 0.8, 1.81, false);
+    }
+
+    // Los depósitos de combustible: dos tanques cilíndricos (a bloques) sobre sus cunas, con
+    // escalerilla, tuberías y el cartel de no fumar
+    fuel(g) {
+        for (const [x, c] of [[-1.3, 0xd8dcd4], [1.3, 0xc8ccc4]]) {
+            for (const z of [-1.0, 1.0]) this.part(g, 1.4, 0.4, 0.3, CONC2, x, 0.2, z, false);
+            this.part(g, 1.8, 1.6, 2.8, c, x, 1.2, 0);
+            this.part(g, 1.4, 1.9, 2.82, c, x, 1.2, 0);
+            this.part(g, 1.84, 0.12, 0.12, RED, x, 1.6, 1.42, false);
+            this.part(g, 0.6, 0.06, 0.6, 0x9a9a96, x, 2.18, 0, false);
+        }
+        for (let k = 0; k < 5; k++) this.part(g, 0.4, 0.05, 0.12, YELLOW, -0.1, 0.3 + k * 0.4, -1.5, false);
+        this.part(g, 2.8, 0.12, 0.12, 0x6a6a66, 0, 0.3, 1.7, false);
+        this.part(g, 0.1, 1.0, 0.1, DARK, 2.6, 0.5, 1.9, false);
+        this.part(g, 0.6, 0.6, 0.05, CREAM, 2.6, 1.15, 1.93);
+        this.part(g, 0.5, 0.08, 0.06, RED, 2.6, 1.15, 1.96, false).rotation.z = 0.7;
+    }
+
+    // El barracón: una nave larga de madera con tejado de chapa, escalones, ventanas, el mástil
+    // con la bandera y un banco
+    barracks(g) {
+        this.part(g, 4.6, 0.3, 2.2, CONC2, 0, 0.15, 0);
+        this.part(g, 4.4, 1.3, 2.0, 0x6a5a3a, 0, 0.95, 0);
+        for (let i = 0; i < 3; i++) this.part(g, 4.7, 0.2, 2.3 - i * 0.7, i % 2 ? 0x7a8a7a : 0x8a9a8a, 0, 1.7 + i * 0.2, 0);
+        for (const x of [-1.5, -0.5, 1.5]) this.part(g, 0.5, 0.4, 0.06, GLASS, x, 1.1, 1.02, false);
+        this.part(g, 0.6, 0.9, 0.06, 0x3a2a1a, 0.5, 0.75, 1.02, false);
+        this.part(g, 0.9, 0.2, 0.4, CONC, 0.5, 0.1, 1.3);
+        this.part(g, 0.08, 3.6, 0.08, 0xd8d8d8, -2.8, 1.8, 1.4, false);
+        this.part(g, 1.0, 0.6, 0.04, RED, -2.3, 3.2, 1.4, false);
+        this.part(g, 0.4, 0.3, 0.05, CREAM, -2.5, 3.3, 1.42, false);
+        this.part(g, 1.2, 0.1, 0.3, 0x7a4f2a, 1.6, 0.4, 1.5);
     }
 
     update(dt, time) {

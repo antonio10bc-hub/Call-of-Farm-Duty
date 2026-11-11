@@ -990,6 +990,7 @@ export class Village extends VoxelModel {
         super(outline);
         const r = this.root;
         this.geo = villageGeometry(reach);
+        this.reach = reach;
         this.buildGround(r);
         this.buildFire(r);
         // La decoración (escondida hasta que la compras)
@@ -1005,7 +1006,8 @@ export class Village extends VoxelModel {
             this.decor[d.id] = { g, pop: 0, base: g.scale.x };
             keep.push(g);
         }
-        this.bake([r], [...keep, this.flames, this.fireGlow]);
+        this.bake([r], [...keep, this.flames, this.fireGlow, ...Object.values(this.fallen || {})]);
+        for (const f of Object.values(this.fallen || {})) this.bake([f], []);
         for (const { g } of Object.values(this.decor)) this.bake([g], [g.spin, ...(g.water || [])].filter(Boolean));
         // Los habitantes (se quedan a vivir con el pueblo crecido): alienígenas pequeños, también
         // disfrazados, que pasean por el cráter
@@ -1076,7 +1078,10 @@ export class Village extends VoxelModel {
                 }
             }
             // Árboles tumbados hacia fuera a los dos lados (más cuanto más cerca del surco y del
-            // principio, donde la nave tocó tierra)
+            // principio, donde la nave tocó tierra). Aparte: se quitan cuando su calle se pavimenta
+            const fallen = new THREE.Group();
+            r.add(fallen);
+            (this.fallen = this.fallen || {})[g.def.id] = fallen;
             let i = 0;
             for (let rr = g.parkR + 2; rr < g.endR - 0.5; rr += 1.9, i++) {
                 for (const side of [-1, 1]) {
@@ -1094,7 +1099,7 @@ export class Village extends VoxelModel {
                     this.part(tree, 0.55, 0.4, 0.55, 0x5cc04a, 0, 2.5, 0);
                     this.part(tree, 0.7, 0.18, 0.4, DIRT[(i + j) % 3], 0, 0.06, -side * 0.35);
                     pivot.add(tree);
-                    r.add(pivot);
+                    fallen.add(pivot);
                 }
             }
         }
@@ -1276,8 +1281,84 @@ export class Village extends VoxelModel {
         }
     }
 
+    // ---------- Propuesta de expansión (fase 4: solo para verla, no está en el juego) ----------
+    // Todo el claro hecho ciudad: dos rondas de barrio (casitas de colores de cara al centro, con
+    // su huerto y alguna antena alien), la calle del mercado (toldos a los dos lados de una calle),
+    // el parque alien con su estanque en la cuña de la avenida de la nave madre y el barrio
+    // tecnológico alrededor de su plataforma (cúpulas y antenas)
+    buildPlan() {
+        const g = (this.planG = new THREE.Group());
+        this.root.add(g);
+        const geos = Object.values(this.geo), mother = geos.find((q) => q.def.mother);
+        const WALLS = [0xf3e6c4, 0xe8c8a0, 0xc8dce8, 0xe0b8c8, 0xd8e0b0, 0xf0d0a0], ROOFS = [0xc8402e, 0x3a6ab8, 0x5a8a3a, 0x8a4a8a, 0xd88a2a];
+        const nearStreet = (a, r, m) => geos.some((q) => !q.def.mother && Math.abs(Math.atan2(Math.sin(a - q.a), Math.cos(a - q.a))) * r < (q.half || 2) + m);
+        const inPark = (a) => Math.abs(Math.atan2(Math.sin(a - mother.a), Math.cos(a - mother.a))) < 0.55;
+        const house = (x, z, ry, k, big = 1) => {
+            const h = new THREE.Group();
+            h.position.set(x, 0, z);
+            h.rotation.y = ry;
+            const W = 2.2 * big, D = 1.9 * big, H = 1.4 * big;
+            this.part(h, W + 0.3, 0.16, D + 0.3, STONE, 0, 0.08, 0);
+            this.part(h, W, H, D, WALLS[k % WALLS.length], 0, 0.16 + H / 2, 0);
+            for (let i = 0; i < 3; i++) this.part(h, W + 0.3 - i * 0.7, 0.3, D + 0.24 - i * 0.02, ROOFS[k % ROOFS.length], 0, 0.16 + H + 0.15 + i * 0.3, 0);
+            this.part(h, 0.5, 0.8, 0.06, DARK, 0, 0.56, D / 2 + 0.01);
+            this.lit(h, 0.4, 0.36, 0.06, 0xffe08a, W / 2 - 0.45, 0.16 + H * 0.6, D / 2 + 0.01);
+            if (k % 3 === 0) { this.part(h, 0.06, 0.8, 0.06, METAL, -W / 2 + 0.3, 0.16 + H + 1.1, 0); this.lit(h, 0.16, 0.16, 0.16, 0x7dff4a, -W / 2 + 0.3, 0.16 + H + 1.55, 0); }
+            // Su huerto detrás
+            for (let i = 0; i < 3; i++) this.part(h, 0.5, 0.14, 0.9, [0x5aa83a, 0x4a9a34, 0x8a5a3a][i], -0.7 + i * 0.7, 0.07, -D / 2 - 0.8, false);
+            g.add(h);
+        };
+        // Las casas: anillos de barrio (r 25 y 31), entre calles, de cara al centro
+        let k = 0;
+        for (const R of [25.5, 31.5, 37.5]) {
+            const step = 5.4 / R;
+            for (let a = 0; a < Math.PI * 2; a += step) {
+                if (nearStreet(a, R, 3.4) || inPark(a) || R > this.reach((a * 180) / Math.PI) - 4) continue;
+                const x = VILLAGE.cx + Math.cos(a) * R, z = VILLAGE.cz + Math.sin(a) * R;
+                house(x, z, Math.atan2(VILLAGE.cx - x, VILLAGE.cz - z), k++, R > 35 ? 1.15 : 1);
+            }
+        }
+        // La calle del mercado: la del primero (toldos de rayas a los dos lados)
+        const mk = geos.find((q) => q.def.id === 'm0'), c = Math.cos(mk.a), s = Math.sin(mk.a);
+        for (let t = mk.parkR + 7, i = 0; t < mk.endR - 2; t += 2.4, i++) for (const sd of [-1, 1]) {
+            const off = (furrowHalf(mk, t) + 1.6) * sd, x = VILLAGE.cx + c * t - s * off, z = VILLAGE.cz + s * t + c * off, st = new THREE.Group();
+            st.position.set(x, 0, z);
+            st.rotation.y = -mk.a;
+            this.part(st, 1.8, 0.7, 1.0, WOOD, 0, 0.35, 0);
+            for (let j = 0; j < 4; j++) this.part(st, 0.45, 0.1, 1.4, j % 2 ? 0xfff3d6 : [0xc8402e, 0x3a8ad8, 0x5aa83a][i % 3], -0.68 + j * 0.45, 1.6 - j * 0.02, 0, false);
+            for (const px of [-0.85, 0.85]) this.part(st, 0.08, 1.6, 0.08, WOOD2, px, 0.8, 0.6, false);
+            this.part(st, 0.4, 0.3, 0.4, [0xffd23f, 0xe8352a, 0xf08a1e][(i + sd + 3) % 3], 0, 0.85, 0);
+            g.add(st);
+        }
+        // El parque alien: árboles de copas moradas y turquesa, un estanque redondo y bancos
+        const pa = mother.a + 0.32, pc = { x: VILLAGE.cx + Math.cos(pa) * 26, z: VILLAGE.cz + Math.sin(pa) * 26 };
+        for (let i = 0; i < 25; i++) {
+            const q = Math.sqrt(i / 25) * 5.2, aa = i * 2.4, x = pc.x + Math.cos(aa) * q, z = pc.z + Math.sin(aa) * q;
+            if (i < 6) { this.part(g, 1.0, 0.08, 1.0, [0x4aa8e0, 0x3f98d4][i % 2], x, 0.04, z, false); continue; }
+            this.part(g, 0.24, 1.4, 0.24, WOOD2, x, 0.7, z);
+            this.lit(g, 1.1, 0.9, 1.1, [0xb87dff, 0x5af0ff, 0x7dff4a][i % 3], x, 1.8, z);
+        }
+        const pb = mother.a - 0.32;
+        for (let i = 0; i < 18; i++) {
+            const q = Math.sqrt(i / 18) * 4.6, aa = i * 2.4, x = VILLAGE.cx + Math.cos(pb) * 27 + Math.cos(aa) * q, z = VILLAGE.cz + Math.sin(pb) * 27 + Math.sin(aa) * q;
+            this.part(g, 0.22, 1.2, 0.22, WOOD2, x, 0.6, z);
+            this.part(g, 1.0, 0.8, 1.0, [0x4caf3c, 0x3d9a34][i % 2], x, 1.55, z);
+        }
+        // El barrio tecnológico, junto a la plataforma de la nave madre: cúpulas y antenas
+        for (const [dr, da] of [[-4, -0.35], [-4, 0.35], [5, -0.25], [5, 0.25]]) {
+            const rr = mother.padR + dr, x = VILLAGE.cx + Math.cos(mother.a + da) * rr, z = VILLAGE.cz + Math.sin(mother.a + da) * rr;
+            for (let i = 0; i < 3; i++) this.part(g, 3 - i * 0.9, 0.6, 3 - i * 0.9, i === 2 ? GLASS : METAL, x, 0.3 + i * 0.6, z);
+            this.part(g, 0.1, 2.0, 0.1, METAL2, x + 1.2, 1.0, z, false);
+            this.lit(g, 0.24, 0.24, 0.24, 0x7dff4a, x + 1.2, 2.1, z);
+        }
+        this.bake([g], []);
+        g.visible = false;
+    }
+
     // La fase del pueblo: qué casas y farolas se ven (pop: las nuevas, con un bote)
     setTownPhase(phase, pop = true) {
+        if (phase >= 4 && !this.planG) this.buildPlan();
+        if (this.planG) this.planG.visible = phase >= 4;
         if (!this.townG) this.buildTown();
         const paved = pavedIn(phase);
         for (const [id, H] of Object.entries(this.houses)) {
@@ -1286,6 +1367,7 @@ export class Village extends VoxelModel {
             H.g.visible = on;
             this.lamps[id].visible = on && phase >= 3;
             H.road.visible = on;
+            if (this.fallen[id]) this.fallen[id].visible = !on;
         }
         this.townPhase = phase;
     }
