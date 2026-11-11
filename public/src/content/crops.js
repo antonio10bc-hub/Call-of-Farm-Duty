@@ -156,4 +156,39 @@ export const CROPS = {
         loot: 0xfaf6ec,
         stub: [0x9ad962, 0x8fd45a, 0xa8e070],
     },
+    // Miel: colmenas entre flores; las abejas llevan gotas de miel brillante por el aire dando
+    // vueltas. Se le dispara a la gota (no a la abeja)
+    honey: {
+        name: L('HONEY', 'MIEL'),
+        icon: 'honey',
+        growTime: 70,
+        stages: [0x6fbf3a, 0x8fcc40, 0xc8b040, 0xf0a020],
+        hive: 0xf0d080,
+        roof: 0xb07a44,
+        fruit: 0xf0a020,
+        drop: 0xffb020,
+        flowers: [0xff7ae0, 0xffe03a, 0x5af0ff, 0xffffff],
+        burst: [0xffb020, 0xffd23f, 0xf08a1e, 0xfff3d6],
+        chaff: [0xffd23f, 0x2a1a0e, 0xfff3d6],
+        unit: L('DROPS', 'GOTAS'),
+        loot: 0xffb020,
+        stub: [0x6a9a3a, 0xff7ae0, 0xffe03a, 0x5a8a32],
+    },
+    // Girasoles: altos, con la cabeza que va girando; solo se le puede dar a una cabeza cuando te
+    // mira (cambiar de torre importa)
+    sunflower: {
+        name: L('SUNFLOWERS', 'GIRASOLES'),
+        icon: 'sunflower',
+        growTime: 55,
+        stages: [0x6fbf3a, 0x5aa83a, 0x4a9a34, 0x3d8a2c],
+        leaves: [0x5aa83a, 0x4a9a34, 0x3d8a2c],
+        fruit: 0xffd23f,
+        center: 0x6a4020,
+        unripe: 0x9ad04a,
+        burst: [0xffd23f, 0xffe03a, 0x6a4020, 0xfff3d6],
+        chaff: [0xffd23f, 0x3d8a2c, 0x2a1a0e],
+        unit: L('FLOWERS', 'FLORES'),
+        loot: 0xffd23f,
+        stub: [0x4a9a34, 0x3d8a2c, 0x8a7a4a],
+    },
 };

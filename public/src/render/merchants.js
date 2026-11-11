@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { VoxelModel } from './VoxelModel.js';
 import { box } from './materials.js';
-import { MERCHANTS, VILLAGE, ALL_DECOR, decorAt, polar } from '../content/merchants.js';
+import { MERCHANTS, VILLAGE, ALL_DECOR, decorAt, polar, pavedIn } from '../content/merchants.js';
 import { CROPS } from '../content/crops.js';
 
 // El pueblo de los mercaderes: el cráter grande del centro de su zona (donde montan sus puestos y
@@ -40,6 +40,13 @@ export function villageGeometry(reach) {
         const parkR = R + 1.1 + half, endR = Math.max(parkR + 9, reach(def.angle) - 2.5);
         return [def.id, { def, a, dir: [-c, -s], sc, half, parkR, endR, park: polar(parkR, def.angle), start: polar(endR, def.angle), stall }];
     }));
+}
+
+// La parcela de la casa de cada mercader (fases 2 y 3): junto a su calle, un poco más allá de
+// donde aparca, a su derecha, de cara a la calle
+export function houseLot(g) {
+    const t = g.parkR + 5.5, c = Math.cos(g.a), s = Math.sin(g.a), off = furrowHalf(g, t) + 3.2;
+    return { x: VILLAGE.cx + c * t - s * off, z: VILLAGE.cz + s * t + c * off, ry: Math.atan2(s, -c), r: 2.6 };
 }
 
 // Lo ancho del surco a una distancia r del centro: estrecho donde tocó tierra, ancho donde se paró
@@ -1216,6 +1223,73 @@ export class Village extends VoxelModel {
         this.marketG.visible = !!on;
     }
 
+    // ---------- El pueblo en tres fases (content/merchants.js: TOWN) ----------
+    // Las casas de los mercaderes (cada una con su color y un toque alien: antena con su bola que
+    // brilla de noche) y las farolas de las calles pavimentadas. El suelo (plaza empedrada, rondas
+    // y calles) lo pinta la granja (Farm.setTownPhase)
+    buildTown() {
+        const g = (this.townG = new THREE.Group());
+        this.root.add(g);
+        this.houses = {};
+        this.lamps = {};
+        for (const geo of Object.values(this.geo)) {
+            if (geo.def.mother) continue;
+            const d = geo.def, lot = houseLot(geo), h = new THREE.Group();
+            h.position.set(lot.x, 0, lot.z);
+            h.rotation.y = lot.ry;
+            // Base, paredes, tejado a dos aguas (del color de su gorro), puerta, ventanas y antena
+            this.part(h, 3.2, 0.2, 2.8, STONE, 0, 0.1, 0);
+            this.part(h, 2.8, 1.9, 2.4, d.coat, 0, 1.15, 0);
+            for (let i = 0; i < 3; i++) this.part(h, 3.2 - i * 0.9, 0.36, 2.8 - i * 0.02, i % 2 ? d.hat : new THREE.Color(d.hat).multiplyScalar(0.85).getHex(), 0, 2.28 + i * 0.36, 0);
+            this.part(h, 0.7, 1.2, 0.08, DARK, 0, 0.8, 1.22);
+            for (const x of [-0.9, 0.9]) this.lit(h, 0.5, 0.5, 0.06, 0xffe08a, x, 1.4, 1.22);
+            this.part(h, 0.08, 1.0, 0.08, METAL, 0.8, 3.4, -0.4);
+            this.lit(h, 0.22, 0.22, 0.22, d.skin, 0.8, 3.95, -0.4);
+            this.part(h, 0.35, 0.7, 0.35, 0x8a5a3a, -0.9, 2.9, -0.5);
+            h.visible = false;
+            g.add(h);
+            this.bake([h], []);
+            this.houses[d.id] = { g: h, pop: 0 };
+            // Su calle pavimentada: losas de piedra sobre el surco, con bordillo claro
+            const road = new THREE.Group(), ca = Math.cos(geo.a), sa = Math.sin(geo.a);
+            let n = 0;
+            for (let rr = VILLAGE.R + 0.4; rr < geo.endR + 0.4; rr += 0.8, n++) {
+                const w = furrowHalf(geo, rr) * 2 + 0.3, x = VILLAGE.cx + ca * rr, z = VILLAGE.cz + sa * rr, th = n % 2 ? 0.1 : 0.106;
+                this.part(road, 0.8, th, w, n % 2 ? 0xa49a88 : 0x968c7a, x, th / 2, z, false).rotation.y = -geo.a;
+                for (const sd of [-1, 1]) this.part(road, 0.76, 0.16, 0.2, 0xd4c8b0, x - sa * sd * (w / 2), 0.08, z + ca * sd * (w / 2), false).rotation.y = -geo.a;
+            }
+            road.visible = false;
+            g.add(road);
+            this.bake([road], []);
+            this.houses[d.id].road = road;
+            // Las farolas de su calle (a los dos lados, alternas)
+            const lamps = new THREE.Group(), c = Math.cos(geo.a), s = Math.sin(geo.a);
+            for (let t = geo.parkR + 2, k = 0; t < geo.endR - 1; t += 4.5, k++) {
+                const off = (furrowHalf(geo, t) + 0.7) * (k % 2 ? 1 : -1), x = VILLAGE.cx + c * t - s * off, z = VILLAGE.cz + s * t + c * off;
+                this.part(lamps, 0.12, 2.4, 0.12, DARK, x, 1.2, z);
+                this.lit(lamps, 0.34, 0.3, 0.34, 0xfff0a0, x, 2.5, z);
+            }
+            lamps.visible = false;
+            g.add(lamps);
+            this.bake([lamps], []);
+            this.lamps[d.id] = lamps;
+        }
+    }
+
+    // La fase del pueblo: qué casas y farolas se ven (pop: las nuevas, con un bote)
+    setTownPhase(phase, pop = true) {
+        if (!this.townG) this.buildTown();
+        const paved = pavedIn(phase);
+        for (const [id, H] of Object.entries(this.houses)) {
+            const on = paved.includes(id);
+            if (on && !H.g.visible && pop) H.pop = 1;
+            H.g.visible = on;
+            this.lamps[id].visible = on && phase >= 3;
+            H.road.visible = on;
+        }
+        this.townPhase = phase;
+    }
+
     // Cuántos se han quedado a vivir
     setResidents(n) {
         this.residents.forEach((R, i) => (R.g.visible = i < n));
@@ -1228,6 +1302,11 @@ export class Village extends VoxelModel {
 
     update(dt, time, nightK = 0) {
         for (const v of this.visitors) v.update(dt, time, nightK);
+        // Las casas nuevas, con un bote
+        if (this.houses) for (const H of Object.values(this.houses)) if (H.pop > 0) {
+            H.pop = Math.max(0, H.pop - dt * 1.4);
+            H.g.scale.set(1, Math.max(0.0001, back(Math.min(1, (1 - H.pop) * 1.2))), 1);
+        }
         if (this.marketPop > 0) {
             this.marketPop = Math.max(0, this.marketPop - dt * 1.5);
             this.marketG.scale.set(1, Math.max(0.0001, back(Math.min(1, (1 - this.marketPop) * 1.2))), 1);

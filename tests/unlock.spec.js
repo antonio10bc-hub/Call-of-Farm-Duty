@@ -95,25 +95,25 @@ test('parcelas en venta: se compran con el oro del comerciante, se desbloquean c
     await openFarm(page);
     await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
     // EN VENTA, con su precio en oro y en sombra (con su poste de SE VENDE); sin oro no se compra
-    expect(await page.evaluate(() => [game.farm.shadeOf('west2', 75, 15), game.farm.landPosts.west2.owned])).toEqual([1, false]);
+    expect(await page.evaluate(() => [game.farm.shadeOf('sw', -15, 45), game.farm.landPosts.sw.owned])).toEqual([1, false]);
     await expect(page.locator('#sign-pumpkin')).toHaveText('15');
     await expect(page.locator('#sign-pumpkin')).toHaveClass(/for-sale/);
     // (el corral de las gallinas, al lado, también se compra con oro)
     await expect(page.locator('#sign-egg')).toHaveText('50');
     await expect(page.locator('#sign-egg')).toHaveClass(/for-sale/);
     await page.evaluate(() => game.select({ field: 'pumpkin' }));
-    await expect(page.locator('#panel-title')).toHaveText('PARCELA OESTE');
+    await expect(page.locator('#panel-title')).toHaveText('PARCELA DE CALABAZAS');
     await expect(page.locator('#action-label')).toHaveText('COMPRAR 15');
     await expect(page.locator('#panel-action')).toBeDisabled();
     await page.evaluate(() => { game.state.items.gold = 20; });
     await expect(page.locator('#panel-action')).toBeEnabled();
     await page.locator('#panel-action').click();
-    expect(await page.evaluate(() => [game.state.lands.west2, game.state.items.gold, game.state.fields.pumpkin.unlocked])).toEqual([true, 5, false]);
+    expect(await page.evaluate(() => [game.state.lands.sw, game.state.items.gold, game.state.fields.pumpkin.unlocked])).toEqual([true, 5, false]);
     // Ya es tuya: la sombra se retira en una onda desde el poste, que salta, y se iza tu bandera
     await expect(page.locator('#stage')).toContainText('AHORA ES TUYA');
-    expect(await page.evaluate(() => [game.farm.landPosts.west2.owned, !!game.farm.landWave.west2])).toEqual([true, true]);
-    await expect.poll(() => page.evaluate(() => game.farm.shadeOf('west2', 75, 15))).toBe(0);
-    await expect.poll(() => page.evaluate(() => !!game.farm.landWave.west2), { timeout: 60_000 }).toBe(false);
+    expect(await page.evaluate(() => [game.farm.landPosts.sw.owned, !!game.farm.landWave.sw])).toEqual([true, true]);
+    await expect.poll(() => page.evaluate(() => game.farm.shadeOf('sw', -15, 45))).toBe(0);
+    await expect.poll(() => page.evaluate(() => !!game.farm.landWave.sw), { timeout: 60_000 }).toBe(false);
     // Comprada: ahora se vuela su barril, como cualquier terreno
     await expect(page.locator('#sign-pumpkin')).toHaveText('¡DESBLOQUEAR!');
     await page.evaluate(() => game.startUnlock('pumpkin'));
@@ -127,6 +127,6 @@ test('parcelas en venta: se compran con el oro del comerciante, se desbloquean c
     await expect(page.locator('#farm-pumpkin')).toBeVisible();
     // Se guarda
     await page.reload();
-    await expect.poll(() => page.evaluate(() => window.game && [game.state.lands.west2, game.state.fields.pumpkin.unlocked, game.farm.shadeOf('west2', 75, 15)])).toEqual([true, true, 0]);
+    await expect.poll(() => page.evaluate(() => window.game && [game.state.lands.sw, game.state.fields.pumpkin.unlocked, game.farm.shadeOf('sw', -15, 45)])).toEqual([true, true, 0]);
     expect(errors).toEqual([]);
 });

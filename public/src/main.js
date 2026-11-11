@@ -9,7 +9,7 @@ import { ARSENAL, ARSENAL_KINDS, CLASSES, DEFAULT_LOADOUT } from './content/arse
 import { gearArt } from './ui/GearArt.js';
 import { TIERS, tierOf } from './content/well.js';
 import { MERCHANT, rareVisit } from './content/merchant.js';
-import { MERCHANTS, MERCHANT_BY_ID, VisitClock, ALL_DECOR, DECOR_BY_ID, VILLAGE, VILLAGE_LEVELS, RESIDENTS, MEDALS, MARKET, MARKET_FORCE, marketNow } from './content/merchants.js';
+import { MERCHANTS, MERCHANT_BY_ID, VisitClock, ALL_DECOR, DECOR_BY_ID, VILLAGE, VILLAGE_LEVELS, RESIDENTS, MEDALS, MARKET, MARKET_FORCE, marketNow, townPhase } from './content/merchants.js';
 import { regionAt, isWater, groundAt } from './world/valley.js';
 import { RetroRenderer } from './render/RetroRenderer.js';
 import { CameraRig } from './render/CameraRig.js';
@@ -2126,6 +2126,7 @@ function syncMerchantLife(pop = true) {
         v.setMood(state.merchants[d.id].mood);
     }
     farm.village.setDecor(state.village, pop);
+    farm.setTownPhase(townPhase(state.village.length), pop); // (el pueblo en tres fases: casas, calles y farolas)
     farm.village.setResidents(RESIDENTS.filter((n) => state.village.length >= n).length);
 }
 // Tras cada cosa del pueblo: ¿sube de nivel? ¿algún logro nuevo? (con su aviso y su oro)

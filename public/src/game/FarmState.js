@@ -19,7 +19,7 @@ const KEY = 'cofd.farm.v4';
 // guardaron con las cifras de antes). 3: niveles del granero (las partidas de antes, que ya
 // tenían granada y misil Predator, empiezan con el granero en el nivel 2). 4: niveles de la
 // casa (las de antes, con la casa ya arreglada, empiezan en el nivel 1)
-const REV = 5;
+const REV = 6;
 const BARN = FARM.barn.levels;
 const HOUSE = FARM.house.levels;
 const OLD_KEYS = ['cofd.farm.v3', 'cofd.farm.v2']; // v3: un solo campo de trigo
@@ -129,6 +129,9 @@ export class FarmState {
                     this.lands.west2 = true;
                     this.lands.west = false;
                 }
+                // (rev 6: las calabazas bajan a la parcela de abajo y su cañada es ahora el colmenar:
+                // quien tenía la cañada se queda también la de las calabazas)
+                if ((d.rev | 0) < 6 && this.lands.west2) this.lands.sw = true;
                 // Los mercaderes (las de antes: un solo mercader, que es el primero; su colección pasa a
                 // ser decoración del pueblo)
                 const loadM = (m, M) => Object.assign(M, { visit: m.visit | 0, orders: (m.orders || []).filter((o) => o && CROPS[o.crop] && Object.keys(orderWants(o)).every((c) => CROPS[c])),

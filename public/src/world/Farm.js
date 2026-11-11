@@ -5,8 +5,8 @@ import { G, GN, cellX, cellZ, hash } from './valley.js';
 import { easeOutBack } from '../core/math.js';
 import { STRUCTURES, Turret, Sandbags, LandPost } from '../render/structures.js';
 import { Plot } from '../render/props.js';
-import { Village, villageGeometry, furrowHalf } from '../render/merchants.js';
-import { VILLAGE } from '../content/merchants.js';
+import { Village, villageGeometry, furrowHalf, houseLot } from '../render/merchants.js';
+import { VILLAGE, pavedIn } from '../content/merchants.js';
 import { WishingWell } from '../render/well.js';
 import { Compound } from '../render/compound.js';
 import { Life } from './Life.js';
@@ -45,6 +45,8 @@ const FOREST = [0x4f8a36, 0x5a9a3e, 0x4a7a32, 0x5f8a3a, 0x6a7a3a, 0x56703a]; // 
 const ASPHALT = [0x5c5c62, 0x56565c], CONCRETE = [0x9a948c, 0x8f8a82];
 const CRATER = [0x6a4a2a, 0x5a3e24, 0x7a5432, 0x4a3420]; // el fondo del cráter del ovni
 const STRAW = [0x9a7a3a, 0x8a6a30, 0xa8843e, 0x94723a];
+const TOWN_STONE = [0xc8bca4, 0xb8ac94, 0xd4c8b0]; // la plaza empedrada del pueblo
+const TOWN_ROAD = [0xa49a88, 0x968c7a]; // sus calles
 const CLEARING = [0x8fbf54, 0x9ab85a, 0xa8a060, 0xb89a64, 0x86b04e]; // el claro del mercader
 const rectOf = ([x0, z0, x1, z1]) => ({ x: x0, z: z0, w: x1 - x0, d: z1 - z0 });
 const PASTURE = [0xa8e070, 0x9ad962, 0xb4e67a]; // hierba fresca del prado de las vacas
@@ -327,7 +329,7 @@ export class Farm {
             const sub = [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]].map(([a, b]) => {
                 const wx = cellX(k) + a, wz = cellZ(k) + b, l = worldToPlace(P, wx, wz);
                 const c = Math.min(P.from[0] + 29, Math.max(P.from[0], Math.floor(l.x))), r = Math.min(P.from[1] + 29, Math.max(P.from[1], Math.floor(l.z)));
-                return { c, r, k: this.floorKind(P, c, r, wx, wz), wx, wz, h: P.h, s: 1 };
+                return { c, r, k: this.floorKind(P, c, r, wx, wz), wx, wz, h: G.h[k], s: 1 }; // (a la altura de su celda: el pozo, extruido en su zona)
             });
             const key = kindKey(sub[0].k);
             if (key !== 'field' && key !== 'path' && key !== 'strip' && key !== 'pad1' && sub.every((t) => kindKey(t.k) === key)) tiles.push({ ...sub[0], wx: cellX(k), wz: cellZ(k), s: 2, subs: sub.map((t) => [t.c, t.r, t.wx, t.wz]) });
@@ -452,6 +454,7 @@ export class Farm {
             : k && k.forest ? FOREST[mod(Math.floor(Math.sin(c * 0.37) * 2 + Math.sin(r * 0.29 + c * 0.11) * 2 + mod(c * 3 + r * 5, 3)), FOREST.length)]
             : k && k.wild ? JUNK.ground[mod(c * 5 + r * 7 + mod(c * r, 3), JUNK.ground.length)]
             // El claro del mercader: hierba pisada y calvas de tierra (no un suelo liso)
+            : k && k.clearing && this.townTile(t) !== null ? this.townTile(t)
             : k && k.clearing && this.inCrater(t.c + 0.5, t.r + 0.5) ? CRATER[mod(c * 3 + r * 5 + mod(c * r, 2), CRATER.length)]
             : k && k.clearing ? CLEARING[mod(Math.floor(Math.sin(c * 0.5) * 1.6 + Math.sin(r * 0.43 + c * 0.2) * 1.6) + mod(c * 7 + r * 3, 2), CLEARING.length)]
             : k && k.yard ? YARD[mod(c + r, 2)] : theme.grass[mod(c * 5 + r * 3 + mod(c * r, 3), 3)];
@@ -576,6 +579,18 @@ export class Farm {
         const [dx, dz] = this.villageAt(x, z), r = Math.hypot(dx, dz);
         const wob = Math.sin(x * 0.9 + z * 0.4) * 0.5 + Math.sin(z * 1.3 - x * 0.5) * 0.4;
         let d = r - VILLAGE.R - 1.8 - wob * 0.5;
+        // (el pueblo crecido: la ronda interior, las parcelas de las casas y, en la fase 3, la
+        // ronda exterior)
+        const P = this.townPhase || 1;
+        if (P >= 2) {
+            d = Math.min(d, r - 13.6 - wob * 0.4);
+            const paved = pavedIn(P);
+            for (const g of this.vgeo) if (!g.def.mother && paved.includes(g.def.id)) {
+                const L = houseLot(g);
+                d = Math.min(d, Math.hypot(dx - (L.x - VILLAGE.cx), dz - (L.z - VILLAGE.cz)) - 3.2 - wob * 0.3);
+            }
+        }
+        if (P >= 3) d = Math.min(d, Math.abs(r - 21.6) - 1.6 - wob * 0.3);
         for (const g of this.vgeo) {
             const c = Math.cos(g.a), s = Math.sin(g.a);
             if (g.def.mother) {
@@ -600,6 +615,38 @@ export class Farm {
         // (y el fondo de la zona de impacto de la nave madre: tierra quemada y removida)
         const M = this.vgeo.find((g) => g.def.mother);
         return !!M && Math.hypot(dx - (M.pad.x - VILLAGE.cx), dz - (M.pad.z - VILLAGE.cz)) < 8.2;
+    }
+
+    // El suelo del pueblo crecido (fases 2 y 3): la plaza empedrada en anillos, las rondas y las
+    // calles pavimentadas, y la avenida de la nave madre (o null: lo de siempre)
+    townTile(t) {
+        const P = this.townPhase || 1;
+        if (P < 2) return null;
+        const [dx, dz] = this.villageAt(t.c + 0.5, t.r + 0.5), r = Math.hypot(dx, dz), c = Math.floor(t.wx), w = Math.floor(t.wz);
+        if (r < VILLAGE.R - 0.6) return TOWN_STONE[(Math.floor(r / 1.7) + ((c + w) & 1)) % TOWN_STONE.length];
+        if (r > 11 && r < 12.8) return TOWN_ROAD[(c + w) & 1];
+        if (P >= 3 && r > 20.8 && r < 22.4) return TOWN_ROAD[(c + w) & 1];
+        const paved = pavedIn(P);
+        for (const g of this.vgeo) {
+            const cs = Math.cos(g.a), sn = Math.sin(g.a), along = dx * cs + dz * sn, side = Math.abs(-dx * sn + dz * cs);
+            if (g.def.mother) {
+                if (P >= 3 && along > VILLAGE.R - 1 && along < g.padR - 6 && side < 2.2) return TOWN_STONE[(c + w) % TOWN_STONE.length];
+                continue;
+            }
+            if (!paved.includes(g.def.id) || along < VILLAGE.R - 1 || along > g.endR + 1) continue;
+            if (side < furrowHalf(g, along) + 0.3) return TOWN_ROAD[(c + w) & 1];
+        }
+        return null;
+    }
+
+    // La fase del pueblo de los mercaderes (content/merchants.js: townPhase): sus casas y farolas,
+    // el suelo (se rehace) y los árboles que quedan debajo de lo nuevo
+    setTownPhase(phase, pop = true) {
+        if (phase === this.townPhase) return;
+        this.townPhase = phase;
+        this.village.setTownPhase(phase, pop);
+        this.buildFloor();
+        this.refreshGround();
     }
 
     // ¿En el abanico de árboles tumbados a los lados de un surco? (ahí no queda ninguno en pie)
@@ -836,6 +883,22 @@ export class Farm {
             add(solid, rx * 0.34, 0.67, rz * 0.34, 0.1, 0.06, 0.1, 0xf0a020, r);
             for (const a of [-0.08, 0.08]) add(thin, rz * a, 0.14, -rx * a, 0.05, 0.28, 0.05, 0xf0a020);
             add(solid, rz * 0.4, 0.17, -rx * 0.4, 0.22, 0.3, 0.22, 0xfff6e6);
+        } else if (crop === 'honey') {
+            // Una colmena de muestra (cajas con su tejadillo) entre flores, y una abeja
+            add(solid, 0, 0.3, 0, 0.6, 0.6, 0.5, 0xf0d080, r);
+            add(solid, 0, 0.66, 0, 0.72, 0.1, 0.62, 0xb07a44, r);
+            add(solid, 0, 0.12, 0, 0.62, 0.04, 0.52, 0xd8b060, r);
+            for (const [dx, dz, c] of [[0.6, 0.3, 0xff7ae0], [-0.5, 0.4, 0xffe03a], [0.3, -0.6, 0x5af0ff]]) {
+                add(thin, dx, 0.18, dz, 0.05, 0.36, 0.05, 0x3d8a2c);
+                add(solid, dx, 0.4, dz, 0.16, 0.12, 0.16, c);
+            }
+            add(solid, 0.4, 1.0, 0.1, 0.16, 0.12, 0.12, 0xffd23f);
+            add(solid, 0.4, 0.86, 0.1, 0.1, 0.12, 0.1, 0xffb020);
+        } else if (crop === 'sunflower') {
+            add(thin, 0, 1.0, 0, 0.1, 2.0, 0.1, 0x4a9a34);
+            add(solid, 0, 0.9, 0, 0.5, 0.06, 0.14, 0x5aa83a, r);
+            add(solid, 0, 2.05, 0.04, 0.6, 0.6, 0.1, 0xffd23f);
+            add(solid, 0, 2.05, 0.09, 0.3, 0.3, 0.06, 0x6a4020);
         } else if (crop === 'corn') {
             add(thin, 0, 0.9, 0, 0.12, 1.8, 0.12, 0x8ab83a);
             add(thin, 0.35, 0.7, 0.1, 0.1, 1.4, 0.1, 0x7ab83a);
@@ -861,7 +924,7 @@ export class Farm {
     //   Maíz: dos por casilla, altas, con su hoja y la mazorca.
     buildPlants(v, old = null, fromCenter = false) {
         if (CROPS[v.crop].pasture) return this.buildHerd(v);
-        const f = v.rect, wheat = v.crop === 'wheat', n0 = { wheat: v.level >= 2 ? 1.5 : PER_TILE, corn: 1.4, tomato: 1.3, pumpkin: 1.2 }[v.crop] || 1;
+        const f = v.rect, wheat = v.crop === 'wheat', n0 = { wheat: v.level >= 2 ? 1.5 : PER_TILE, corn: 1.4, tomato: 1.3, pumpkin: 1.2, honey: 1, sunflower: 1.1 }[v.crop] || 1;
         const prev = new Map(v.plants.map((s) => [s.key, s]));
         v.plants = [];
         for (let tx = f.x; tx < f.x + f.w; tx++) for (let tz = f.z; tz < f.z + f.d; tz++) {
@@ -901,7 +964,7 @@ export class Farm {
             m.dispose();
         }
         const count = v.plants.length;
-        if (!v.mats) v.mats = [toon(0xffffff), toon(0xffffff), toon(0xffffff)];
+        if (!v.mats) v.mats = [toon(0xffffff), toon(0xffffff), toon(0xffffff), toon(0xffffff)];
         if (wheat) {
             // Tallos y espigas. Las espigas no cambian de color: maduras doradas, con dos tonos
             v.meshes = [this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[0], count)), this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[1], count))];
@@ -917,6 +980,32 @@ export class Farm {
             v.plants.forEach((s, i) => {
                 for (let k = 0; k < 2; k++) v.meshes[0].setColorAt(i * 2 + k, _c.setHex(P.leaves[(k + i) % 3]).offsetHSL(0, 0, (s.tone - 0.5) * 0.06));
                 v.meshes[2].setColorAt(i, _c.setHex(P.calyx));
+            });
+        } else if (v.crop === 'honey') {
+            // Colmenas (una de cada tres plantas; las demás, matas de flores): caja, tejadillo y
+            // dos flores por planta
+            v.plants.forEach((s, i) => (s.hive = i % 3 === 0));
+            v.meshes = [
+                this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[0], count)),
+                this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[1], count)),
+                this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[2], count * 2)),
+            ];
+            const H = CROPS.honey;
+            v.plants.forEach((s, i) => {
+                v.meshes[1].setColorAt(i, _c.setHex(H.roof));
+                for (let k = 0; k < 2; k++) v.meshes[2].setColorAt(i * 2 + k, _c.setHex(H.flowers[(i + k * 3) % H.flowers.length]));
+            });
+        } else if (v.crop === 'sunflower') {
+            // Tallo, hojas (2), la cabeza amarilla y su centro
+            v.meshes = [
+                this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[0], count)),
+                this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[1], count * 2)),
+                this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[2], count)),
+                this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[3], count)),
+            ];
+            v.plants.forEach((s, i) => {
+                for (let k = 0; k < 2; k++) v.meshes[1].setColorAt(i * 2 + k, _c.setHex(CROPS.sunflower.leaves[(k + i) % 3]).offsetHSL(0, 0, (s.tone - 0.5) * 0.06));
+                v.meshes[3].setColorAt(i, _c.setHex(CROPS.sunflower.center));
             });
         } else if (v.crop === 'corn') {
             // Caña, hojas (2) y mazorca
@@ -1424,6 +1513,8 @@ export class Farm {
             if (v.crop === 'wheat') this.updateWheat(v, time, p);
             else if (v.crop === 'pumpkin') this.updatePumpkin(v, time, p);
             else if (v.crop === 'corn') this.updateCorn(v, time, p);
+            else if (v.crop === 'honey') this.updateHoney(v, time, p);
+            else if (v.crop === 'sunflower') this.updateSunflower(v, time, p);
             else if (v.herd) this.updateHerd(v, pdt, time, p);
             else this.updateTomato(v, time, p);
             if (v.barn) for (const b of v.barn) if (b.root.visible) b.update(pdt, time);
@@ -1708,6 +1799,70 @@ export class Farm {
             _d.updateMatrix();
             cobMesh.setMatrixAt(i, _d.matrix);
             cobMesh.setColorAt(i, _c.setHex(ripe ? C.fruit : C.unripe));
+        });
+    }
+
+    // Colmenar: las colmenas (cajas claras con su tejadillo, más llenas de miel al madurar: se
+    // doran) y matas de flores que se mecen
+    updateHoney(v, time, p) {
+        const H = CROPS.honey, [hiveMesh, roofMesh, flowerMesh] = v.meshes;
+        const ripe = Math.min(1, Math.max(0, (p - 0.5) / 0.5));
+        v.plants.forEach((s, i) => {
+            const g = this.grow(s, p), hv = s.hive ? g : 0.0001;
+            _d.rotation.set(0, s.ry, 0);
+            _d.position.set(s.wx, 0.3 * hv, s.wz);
+            _d.scale.set(0.5 * hv, Math.max(0.0001, 0.6 * hv), 0.42 * hv);
+            _d.updateMatrix();
+            hiveMesh.setMatrixAt(i, _d.matrix);
+            hiveMesh.setColorAt(i, _c.setHex(H.hive).lerp(_c2.setHex(H.fruit), ripe * 0.6));
+            _d.position.set(s.wx, 0.64 * hv, s.wz);
+            _d.scale.set(0.62 * hv, Math.max(0.0001, 0.1 * hv), 0.54 * hv);
+            _d.updateMatrix();
+            roofMesh.setMatrixAt(i, _d.matrix);
+            for (let k = 0; k < 2; k++) {
+                const a = s.ry + k * 2.6, d = s.hive ? 0.42 : 0.15, sway = Math.sin(time * 1.5 + s.ph + k) * 0.05;
+                _d.position.set(s.wx + Math.sin(a) * d, (0.3 + k * 0.08) * g, s.wz + Math.cos(a) * d);
+                _d.rotation.set(sway, a, 0);
+                _d.scale.set(0.14 * g, Math.max(0.0001, 0.12 * g), 0.14 * g);
+                _d.updateMatrix();
+                flowerMesh.setMatrixAt(i * 2 + k, _d.matrix);
+            }
+        });
+    }
+
+    // Girasoles: tallos altos con dos hojas y la cabeza (verde al crecer, amarilla madura) que va
+    // girando despacio, siguiendo al sol
+    updateSunflower(v, time, p) {
+        const C = CROPS.sunflower, [stalkMesh, leafMesh, headMesh, centerMesh] = v.meshes;
+        const ripe = p >= 1, st = ripe ? 3 : p < 0.35 ? 0 : p < 0.7 ? 1 : 2;
+        v.plants.forEach((s, i) => {
+            const h = s.h * 1.9 * this.grow(s, p);
+            const sway = Math.sin(time * 1.1 - s.x * 0.3 + s.ph * 0.3) * 0.05;
+            _d.position.set(s.wx - Math.sin(sway) * h / 2, Math.cos(sway) * h / 2, s.wz);
+            _d.rotation.set(0, 0, sway);
+            _d.scale.set(0.09, Math.max(0.0001, h), 0.09);
+            _d.updateMatrix();
+            stalkMesh.setMatrixAt(i, _d.matrix);
+            stalkMesh.setColorAt(i, _c.setHex(C.stages[st]));
+            for (let k = 0; k < 2; k++) {
+                const a = s.ry + k * Math.PI, y = h * (0.35 + k * 0.2);
+                _d.position.set(s.wx + Math.sin(a) * 0.16, y, s.wz + Math.cos(a) * 0.16);
+                _d.rotation.set(0, a, 0.6 * (k ? -1 : 1));
+                _d.scale.set(0.05, Math.max(0.0001, 0.3 * h / 1.8), 0.16);
+                _d.updateMatrix();
+                leafMesh.setMatrixAt(i * 2 + k, _d.matrix);
+            }
+            const e = p < 0.4 ? 0.0001 : Math.min(1, (p - 0.4) / 0.5), yaw = s.ry + time * 0.15;
+            _d.position.set(s.wx - Math.sin(sway) * h, h + 0.05, s.wz);
+            _d.rotation.set(-0.3, yaw, 0);
+            _d.scale.set(0.5 * e, Math.max(0.0001, 0.5 * e), 0.08);
+            _d.updateMatrix();
+            headMesh.setMatrixAt(i, _d.matrix);
+            headMesh.setColorAt(i, _c.setHex(ripe ? C.fruit : C.unripe));
+            _d.translateZ(0.05);
+            _d.scale.set(0.24 * e, Math.max(0.0001, 0.24 * e), 0.06);
+            _d.updateMatrix();
+            centerMesh.setMatrixAt(i, _d.matrix);
         });
     }
 

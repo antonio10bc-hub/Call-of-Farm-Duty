@@ -90,6 +90,16 @@ const SPRITES = {
         rows: ['...KKKK...', '..KWWWWK..', '.KWCCWWCK.', 'KWWWCWCWWK', 'KWCWWCWWWK', 'KCWWCWWCWK', 'KWWCWWCWWK', '.KWWCCWWK.', '..KKKKKKK.', '........KK'],
         pal: { K: INK, W: '#fffdf6', C: '#d8cbb0' },
     },
+    // Tarro de miel: con su tapa de tela y una gota que cae
+    honey: {
+        rows: ['..KKKKKK..', '.KRRRRRRK.', '..KKKKKK..', '.KHHHHHHK.', 'KHLHHHHHDK', 'KHLHHHHHDK', 'KHHHHHHDDK', 'KHHHHHDDDK', '.KHHHDDDK.', '..KKKKKK..'],
+        pal: { K: INK, R: '#c8402e', H: '#ffb020', L: '#ffe08a', D: '#e08a10' },
+    },
+    // Girasol: pétalos amarillos alrededor del centro marrón, con su tallo
+    sunflower: {
+        rows: ['...Y..Y...', '.YYKKKKYY.', '.YKBBBBKY.', 'YKBDBBDBKY', '.KBBDDBBK.', 'YKBDBBDBKY', '.YKBBBBKY.', '.YYKKKKYY.', '...Y.GG...', '....GG....'],
+        pal: { K: INK, Y: '#ffd23f', B: '#8a5a2a', D: '#5a3a1a', G: '#5aa83a' },
+    },
     corn: {
         rows: ['....KK....', '...KYYK...', '..KYWYYK..', '..KYYYYK..', '..KYYYOK..', '.GKYYYYKG.', 'GGKYYYOKGG', '.GGKYOKGG.', '..GGKKGG..', '...GGGG...'],
         pal: { K: INK, Y: '#ffd23f', O: '#e8b830', W: '#fff3a0', G: '#7ab83a' },

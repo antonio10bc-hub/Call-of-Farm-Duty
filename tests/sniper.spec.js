@@ -299,3 +299,26 @@ test('caja sorpresa: sale en otra torre; desde lejos no se abre, desde su torre 
     await expect(page.locator('#medals')).toContainText('OTRA VEZ EL RIFLE');
     expect(errors).toEqual([]);
 });
+
+test('abejas y girasoles: se le dispara a la gota de miel de la abeja; al girasol, solo cuando te mira', { tag: '@full' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await enterCrop(page, 'honey');
+    expect(await page.evaluate(() => game.sniper.field.sheaves.every((s) => s.bee))).toBe(true);
+    await page.evaluate(() => game.sniper.field.sheaves.forEach((s) => (s.w = 0))); // (quietas: que no se escapen de la mira)
+    await aimAndShoot(page, '(() => { const s = game.sniper.field.sheaves.find((x) => x.alive); return s && { x: s.x, y: s.y, z: s.z }; })()');
+    await expect.poll(() => page.evaluate(() => game.state.items.honey)).toBeGreaterThan(0);
+    // Girasoles: de espaldas no se les puede dar; de cara, sí
+    await page.evaluate(() => game.goFarm());
+    await expect.poll(() => page.evaluate(() => game.mode), { timeout: 20_000 }).toBe('farm');
+    await enterCrop(page, 'sunflower');
+    const r = await page.evaluate(() => {
+        const f = game.sniper.field, s = f.sheaves.find((x) => x.alive), eye = game.sniper.pos;
+        const yaw = Math.atan2(eye.x - s.x, eye.z - s.z);
+        s.head.rotation.y = yaw + Math.PI;
+        const back = f.hittable(s);
+        s.head.rotation.y = yaw;
+        return [back, f.hittable(s)];
+    });
+    expect(r).toEqual([false, true]);
+    expect(errors).toEqual([]);
+});

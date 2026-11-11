@@ -123,7 +123,7 @@ export const REGIONS = [
     { place: 'tomatoP', seeds: [[98, 114]] },  // los tomates, en la suya
     { place: 'house', seeds: [[60, 62]] },
     { place: 'merchant', seeds: [[118, 38], [124, 60], [138, 56]], h: 7.8 }, // los mercaderes: el bosque alto y la parte de arriba de la margen este, todo a la altura del bosque
-    { place: 'well', seeds: [[49, 73]], from: 'nw', hFrom: 'nw', hUp: 2 * STEP },          // el pozo de los deseos: la esquina de las vacas junto al granero
+    { place: 'well', seeds: [[49, 73]], from: 'nw', hFrom: 'nw', hUp: 2 * STEP, top: { up: 4 * STEP, r: 5.2 } },          // el pozo de los deseos: la esquina de las vacas junto al granero
     { place: 'nw', seeds: [[40, 50], [38, 70]] }, // la orilla alta: prado de vacas (a la derecha, junto al lago)
     { place: 'nw2', seeds: [[6, 42], [8, 66]] },  // ... y su otra mitad, a la izquierda: ovejas (las dos, de tamaño parecido)
     { place: 'west', seeds: [[34, 96]] },      // la cañada, debajo de las dos: gallinas (más pequeña)
@@ -252,6 +252,19 @@ export const G = {
         if (!inside[k] || water[k]) continue;
         h[k] = reg[k] >= 0 ? REGIONS[reg[k]].h : Math.max(0, quant(nat[k]));
     }
+    // (top: la región se eleva otro nivel más solo en un corro alrededor de su centro, como si se
+    // extruyera; el resto de la región, a su altura de antes. El pozo)
+    REGIONS.forEach((r, ri) => {
+        if (!r.top) return;
+        let cx = 0, cz = 0, n = 0;
+        for (let k = 0; k < N; k++) if (reg[k] === ri) { cx += cellX(k); cz += cellZ(k); n++; }
+        if (!n) return;
+        cx /= n; cz /= n;
+        r.topAt = [cx, cz];
+        const base = r.h;
+        r.h += r.top.up;
+        for (let k = 0; k < N; k++) if (reg[k] === ri && !water[k]) h[k] = Math.hypot(cellX(k) - cx, cellZ(k) - cz) > r.top.r ? base : r.h;
+    });
     // La orilla del lago: la tierra de alrededor nunca queda por debajo del agua (si no, el agua
     // parece flotar): un borde de tierra a la altura de la superficie
     for (let k = 0; k < N; k++) {

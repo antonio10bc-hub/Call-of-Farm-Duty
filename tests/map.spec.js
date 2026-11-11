@@ -318,7 +318,7 @@ test('parcelas repartidas por el valle: las de PRONTO, abandonadas y en sombra; 
     await openFarm(page);
     await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
     // Las de las esquinas y la de abajo: abandonadas, en sombra y sin nada que comprar
-    for (const [id, x, z] of [['sw', -15, 45], ['se', 45, 45], ['east2', 75, 45]]) { // (la de en medio, south, es ya la laguna)
+    for (const [id, x, z] of [['se', 45, 45]]) { // (la de en medio, south, es ya la laguna; sw y east2 son ya calabazas y girasoles)
         expect(await page.evaluate(([id, x, z]) => [game.farm.shadeOf(id, x, z), game.farm.kindAt(x, z) && game.farm.kindAt(x, z).wild, id in game.state.lands], [id, x, z])).toEqual([1, true, false]);
     }
     // Vista global y vuelta

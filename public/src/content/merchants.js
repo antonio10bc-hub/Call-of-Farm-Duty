@@ -102,6 +102,13 @@ export const VILLAGE_LEVELS = [
     { n: 16, name: L('TOWN', 'VILLA'), gold: 60 },
     { n: 24, name: L('CITY', 'CIUDAD'), gold: 100 },
 ];
+// Las tres fases del pueblo (por lo comprado): 1 campamento (plaza y calles de tierra), 2 pueblo
+// (plaza empedrada, ronda interior, tres calles pavimentadas y las casas de sus mercaderes), 3
+// ciudad (todas las calles con farolas, todas las casas, ronda exterior y la avenida de la nave madre)
+export const TOWN = { phase2: 9, phase3: 24, first: ['m0', 'm2', 'm4'] };
+export const townPhase = (n) => (n >= TOWN.phase3 ? 3 : n >= TOWN.phase2 ? 2 : 1);
+// Las calles pavimentadas en cada fase (los mercaderes de esas calles)
+export const pavedIn = (phase) => (phase >= 3 ? MERCHANTS.filter((m) => !m.mother).map((m) => m.id) : phase === 2 ? TOWN.first : []);
 export const villageLevel = (n) => VILLAGE_LEVELS.reduce((lv, L0, i) => (n >= L0.n ? i : lv), 0);
 // Los habitantes: con cuántas cosas se queda a vivir cada uno en el pueblo
 export const RESIDENTS = [8, 15, 22];

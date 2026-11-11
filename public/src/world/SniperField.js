@@ -11,6 +11,7 @@ import { buildFish, animateFish } from '../render/fish.js';
 import { buildChicken, animateChicken } from '../render/chicken.js';
 import { FIELD } from '../content/field.js';
 import { RangeTargets } from './RangeTargets.js';
+import { BeeSun } from './BeeSun.js';
 
 const _d = new THREE.Object3D();
 const _c = new THREE.Color();
@@ -104,6 +105,9 @@ export class SniperField {
         // El campo de tiro de pruebas: dianas y su línea de tiro (solo se ven ahí)
         this.rangeT = new RangeTargets(theme.outline);
         this.root.add(this.rangeT.root);
+        // Abejas con su gota de miel y girasoles que giran
+        this.beeSun = new BeeSun(theme.outline);
+        this.root.add(this.beeSun.root);
         this.build();
     }
 
@@ -295,6 +299,7 @@ export class SniperField {
             for (const t of this.towers) t.model.root.visible = false;
             return this.rangeT.spawn(this.rangeMode || 'mix', this.targets);
         }
+        if (crop === 'honey' || crop === 'sunflower') return this.beeSun.spawn(crop, count, this);
         if (crop === 'tomato') return this.spawnTomatoes(count);
         if (crop === 'pumpkin') return this.spawnPumpkins(count);
         if (crop === 'corn') return this.spawnCorn(count);
@@ -831,6 +836,7 @@ export class SniperField {
     // ¿Se le puede dar? (las vacas, solo con la ubre llena; las ovejas, con la bola de lana hecha)
     hittable(s) {
         if (s.range) return this.rangeT.hittable(s);
+        if (s.bee || s.sun) return this.beeSun.hittable(s, this.eye);
         return s.alive && s.landed && (s.kind === 'hen' ? !!s.egg : s.kind === 'fish' ? !!s.jump && s.jump.y > 0.25 : (s.kind !== 'cow' && s.kind !== 'sheep' && s.kind !== 'pig') || s.swell >= 1);
     }
 
@@ -952,6 +958,7 @@ export class SniperField {
         this.targets.length = 0;
         this.plants.length = 0;
         if (this.rangeT) this.rangeT.hide();
+        if (this.beeSun) this.beeSun.clear();
         for (const m of [this.tStalks, this.tEars, this.tLeaves, this.tStems, this.tFruit, this.tFruitHull, this.tCalyx]) m.count = 0;
         this.clearJunk();
     }
@@ -989,6 +996,7 @@ export class SniperField {
 
     // onLand(target): cuando un blanco termina de brotar
     update(dt, time, eye, onLand) {
+        this.eye = eye; // (los girasoles: ¿miran al tirador?)
         if (this.introT < 2.2) {
             this.introT += dt;
             for (const a of this.animated) this.layout(a, this.introT);
@@ -1012,6 +1020,7 @@ export class SniperField {
         else if (this.crop === 'fish') this.drawFish(dt, time);
         else if (this.crop === 'egg') this.drawHens(dt, time);
         else if (this.crop === 'range') this.rangeT.update(dt, time);
+        else if (this.crop === 'honey' || this.crop === 'sunflower') this.beeSun.update(dt, time);
         else if (this.crop === 'wheat') this.drawWheat(time);
         else if (this.crop === 'tomato') this.drawTomatoes(dt, time);
         else if (this.crop) this.drawPlants(dt, time);

@@ -28,17 +28,17 @@ export const FARM = {
         { id: 'west', rect: [-30, 0, 0, 30], price: 50, field: 'egg', name: L('HEN RUN', 'CORRAL DE GALLINAS') },
         { id: 'east', rect: [30, 0, 60, 30], price: 25, field: 'corn', name: L('EAST PLOT', 'PARCELA ESTE') },
         { id: 'nw', rect: [-30, -30, 0, 0], price: 40, field: 'milk', name: L('NORTH-WEST PLOT', 'PARCELA NOROESTE') },
-        { id: 'sw', rect: [-30, 30, 0, 60], soon: true },
+        { id: 'sw', rect: [-30, 30, 0, 60], price: 15, field: 'pumpkin', name: L('PUMPKIN PLOT', 'PARCELA DE CALABAZAS') },
         // (el desagüe del lago, a la derecha de los cerdos: la laguna del pescador)
         { id: 'south', rect: [0, 30, 30, 60], price: 45, field: 'fish', name: L('FISHING POND', 'LAGUNA DEL PESCADOR') },
         { id: 'se', rect: [30, 30, 60, 60], soon: true },
         // Las otras mitades de la orilla alta (la de las ovejas), la cañada y la parcela de abajo
         { id: 'nw2', rect: [60, -30, 90, 0], price: 60, field: 'wool', name: L('SHEEP MEADOW', 'PRADO DE LAS OVEJAS') },
-        { id: 'west2', rect: [60, 0, 90, 30], price: 15, field: 'pumpkin', name: L('WEST PLOT', 'PARCELA OESTE') },
+        { id: 'west2', rect: [60, 0, 90, 30], price: 45, field: 'honey', name: L('APIARY', 'COLMENAR') },
         // La de la casa (aparcada de momento, la casa personalizable: ver house.hidden) es ahora la
         // pocilga de los cerdos
         { id: 'house', rect: [0, -30, 30, 0], price: 35, field: 'truffle', name: L('PIGSTY', 'POCILGA') },
-        { id: 'east2', rect: [60, 30, 90, 60], soon: true },
+        { id: 'east2', rect: [60, 30, 90, 60], price: 55, field: 'sunflower', name: L('SUNFLOWER FIELD', 'CAMPO DE GIRASOLES') },
     ],
     bounds: { x0: -30, z0: -30, x1: 120, z1: 60 }, // todas las parcelas (en sus coordenadas de siempre)
     // El granero (armamento: rachas de bajas y mejoras del rifle) y su recinto militar, que llena
@@ -149,16 +149,50 @@ export const FARM = {
             id: 'pumpkin',
             crop: 'pumpkin',
             name: L('PUMPKIN PATCH', 'CAMPO DE CALABAZAS'),
-            corner: { x: 75, z: 15, center: true }, // crece desde el centro de su parcela
+            corner: { x: -15, z: 45, center: true }, // crece desde el centro de su parcela (la de abajo de la cañada)
             cost: { wheat: 8, pumpkin: 2 },
             turrets: { wheat: 40, pumpkin: 10 },
-            locked: { land: 'west2', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
+            locked: { land: 'sw', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
             levels: [
                 { w: 6, d: 5, sheaves: 6, arena: 1, sign: 0x9a6a3a },
                 { w: 10, d: 9, sheaves: 10, arena: 1.25, sign: 0xb07a44 },
                 { w: 15, d: 14, sheaves: 16, arena: 1.55, sign: 0x5a9e32 },
                 { w: 20, d: 19, sheaves: 26, arena: 1.9, sign: 0x3a7ec8 },
                 { w: 28, d: 28, sheaves: 40, arena: 2.4, sign: 0xc8402e },
+            ],
+        },
+        // Colmenar: donde estaban las calabazas (la cañada); abejas con gotas de miel
+        {
+            id: 'honey',
+            crop: 'honey',
+            name: L('APIARY', 'COLMENAR'),
+            corner: { x: 75, z: 15, center: true },
+            cost: { wheat: 10, honey: 3 },
+            turrets: { wheat: 40, honey: 12 },
+            locked: { land: 'west2', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
+            levels: [
+                { w: 6, d: 5, sheaves: 6, arena: 1, sign: 0x9a6a3a },
+                { w: 10, d: 9, sheaves: 10, arena: 1.25, sign: 0xb07a44 },
+                { w: 15, d: 14, sheaves: 16, arena: 1.55, sign: 0x5a9e32 },
+                { w: 20, d: 19, sheaves: 24, arena: 1.9, sign: 0x3a7ec8 },
+                { w: 28, d: 28, sheaves: 34, arena: 2.4, sign: 0xc8402e },
+            ],
+        },
+        // Girasoles: debajo de los tomates
+        {
+            id: 'sunflower',
+            crop: 'sunflower',
+            name: L('SUNFLOWER FIELD', 'CAMPO DE GIRASOLES'),
+            corner: { x: 75, z: 45, center: true },
+            cost: { wheat: 8, sunflower: 4 },
+            turrets: { wheat: 40, sunflower: 16 },
+            locked: { land: 'east2', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
+            levels: [
+                { w: 6, d: 5, sheaves: 8, arena: 1, sign: 0x9a6a3a },
+                { w: 10, d: 9, sheaves: 14, arena: 1.25, sign: 0xb07a44 },
+                { w: 15, d: 14, sheaves: 22, arena: 1.55, sign: 0x5a9e32 },
+                { w: 20, d: 19, sheaves: 32, arena: 1.9, sign: 0x3a7ec8 },
+                { w: 28, d: 28, sheaves: 48, arena: 2.4, sign: 0xc8402e },
             ],
         },
         {
