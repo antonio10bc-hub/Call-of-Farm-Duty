@@ -484,11 +484,16 @@ export class Sniper {
         this.kickV += S.recoil * this.stats.recoil * (this.scoped ? 30 : 22);
         this.kickYaw = (Math.random() - 0.5) * S.recoil * this.stats.recoil * 0.5;
         this.trauma = Math.min(1, this.trauma + (this.scoped ? 0.2 : 0.35));
+        // Golpe de zoom (el campo de visión se abre un instante) y la mirilla que se abre
+        const heavy = this.stats.recoil >= 1.5;
+        this.fovPunch += (this.scoped ? 0.6 * this.stats.recoil : 2.5) * (heavy ? 1.8 : 1);
+        this.bloom = 1;
+        this.shakeUp = 1; // (la sacudida del disparo, hacia arriba)
         // (el cerrojo se mueve y suena al ritmo de su mejora)
         this.rifle.fire(this.special ? 1 : S.boltTime / this.stats.bolt);
         sfx.play(this.special ? this.special.sfx : 'snipe');
         if (!this.special) setTimeout(() => sfx.play('bolt'), 320 * (this.stats.bolt / S.boltTime));
-        vibrate('crate');
+        vibrate(heavy ? 'shotHeavy' : 'shot');
 
         // El disparo sale justo por la mirilla: el centro de lo que se ve ahora
         this.camera.updateMatrixWorld();
@@ -575,6 +580,8 @@ export class Sniper {
             end = end || origin.clone().addScaledVector(dir, tEnd);
             this.hitStop = S.hitStop * Math.min(3, hits.length);
             this.trauma = Math.min(1, this.trauma + 0.2 * hits.length);
+            if (this.hooks.onHitMarker) this.hooks.onHitMarker(hits.length >= 3 ? 'big' : 'harvest'); // (con 3 o más, la grande y roja)
+            if (hits.length >= 3) vibrate('collateral');
             // Colateral: varias de una bala
             if (hits.length > 1 && this.hooks.onMedal) this.hooks.onMedal({ collateral: hits.length });
             this.harvest(hits.map((h) => h.sheaf));
@@ -601,7 +608,7 @@ export class Sniper {
         this.particles.burst(s.x, s.size * 0.6, s.z, 26, C.burst, { speed: 3, up: 3.5, size: 0.1, ttl: 0.7 });
         this.waves.spawn(s.x, s.z, 0xffe9a0, 1.2, 0.25);
         this.hooks.sfx.play('crateHit');
-        if (this.hooks.onHitMarker) this.hooks.onHitMarker();
+        if (this.hooks.onHitMarker) this.hooks.onHitMarker('hit');
         vibrate('pickup');
     }
 
@@ -621,7 +628,7 @@ export class Sniper {
             this.waves.spawn(s.x, s.z, 0xffe9a0, 1.8, 0.35);
             _v.set(s.x, s.y, s.z).project(this.camera);
             this.hooks.onHit(s, _v.x, _v.y);
-            if (k && k < 6) setTimeout(() => sfx.play('harvest'), k * 90);
+            if (k && k < 6) setTimeout(() => sfx.play('harvest', 0, { rate: 2 ** (k / 12) }), k * 90); // (cada pieza del colateral, un semitono más arriba)
         });
         sfx.play('harvest');
         if (!auto) {
@@ -836,7 +843,10 @@ export class Sniper {
         this.turned = 0;
         const zk = clamp((this.adsK - 0.3) / 0.7, 0, 1);
         this.fov = S.fov + (this.stats.zoom - S.fov) * zk * zk * (3 - 2 * zk);
-        this.camera.fov = this.fov;
+        this.fovPunch = (this.fovPunch || 0) * Math.exp(-14 * rawDt);
+        this.bloom = Math.max(0, (this.bloom || 0) - rawDt / 0.25);
+        this.shakeUp = Math.max(0, (this.shakeUp || 0) - rawDt / 0.18);
+        this.camera.fov = this.fov + this.fovPunch * (this.fov / S.fov);
         this.camera.updateProjectionMatrix();
         this.bolt = Math.max(0, this.bolt - dt);
         // El cargador: la recarga corre; la célula alienígena va regenerando balas
@@ -863,11 +873,13 @@ export class Sniper {
         const sw = S.sway * this.adsK * this.stats.steady;
         const jitter = this.adsK >= S.adsReady ? S.settleSway * this.settle * this.settle * this.stats.steady : 0;
         const fovK = this.fov / S.fov;
-        this.yaw = this.lookYaw + Math.sin(time * 0.9) * sw + Math.sin(time * 11) * jitter + this.kickYaw * this.kickP * 10 + (Math.random() * 2 - 1) * shake;
-        this.pitch = clamp(this.lookPitch + Math.sin(time * 1.8) * sw * 0.6 + Math.cos(time * 13) * jitter * 0.8 + this.kickP * fovK + (Math.random() * 2 - 1) * shake, -1.5, 1.5);
+        // (la sacudida, con ondas en vez de ruido: marea menos; la del disparo, hacia arriba)
+        const rt = this.realT = (this.realT || 0) + rawDt, nx = Math.sin(rt * 37) * 0.6 + Math.sin(rt * 53 + 1.3) * 0.4, ny = Math.sin(rt * 41 + 2.1) * 0.6 + Math.sin(rt * 59 + 0.4) * 0.4;
+        this.yaw = this.lookYaw + Math.sin(time * 0.9) * sw + Math.sin(time * 11) * jitter + this.kickYaw * this.kickP * 10 + nx * shake;
+        this.pitch = clamp(this.lookPitch + Math.sin(time * 1.8) * sw * 0.6 + Math.cos(time * 13) * jitter * 0.8 + this.kickP * fovK + ny * shake * (1 - this.shakeUp) + Math.abs(ny) * shake * this.shakeUp, -1.5, 1.5);
         this.camera.position.copy(this.pos);
         this.camera.position.y += this.dipP * 0.12 + (this.move ? 0 : Math.sin(time * 1.6) * 0.008 * (1 - this.adsK));
-        this.camera.rotation.set(this.pitch, this.yaw, this.roll);
+        this.camera.rotation.set(this.pitch, this.yaw, this.roll + tr * 0.012 * Math.sin(rt * 29));
 
         const bob = this.move ? -Math.sin(this.move.t * Math.PI * 2) * 0.03 : Math.sin(time * 1.6) * 0.004 + this.dipP * 0.05;
         this.rifle.update(rawDt, wrapAngle(this.yaw - this.prevYaw), this.pitch - this.prevPitch, bob, this.adsK);

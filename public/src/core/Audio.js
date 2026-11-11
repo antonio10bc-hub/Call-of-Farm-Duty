@@ -1,4 +1,7 @@
 // Efectos chiptune sintetizados al vuelo con WebAudio: cero archivos que cargar.
+// Cuánto varía cada sonido al azar (±): los que se repiten mucho
+const VARY = { snipe: 0.06, harvest: 0.05, hitmark: 0.06, bolt: 0.04, pop: 0.08, splat: 0.08, wall: 0.06 };
+
 export class Sfx {
     constructor(volume = 0.32) {
         this.ctx = null;
@@ -46,7 +49,9 @@ export class Sfx {
     }
 
     tone(type, f0, f1, dur, vol, pan = 0, delay = 0) {
-        const c = this.ctx, t = c.currentTime + delay;
+        const c = this.ctx, t = c.currentTime + delay, r = this.rate || 1; // (rate: el tono del sonido de ahora)
+        f0 *= r;
+        f1 *= r;
         const o = c.createOscillator(), g = c.createGain();
         o.type = type;
         o.frequency.setValueAtTime(f0, t);
@@ -60,6 +65,7 @@ export class Sfx {
 
     noise(dur, vol, freq, pan = 0, delay = 0) {
         const c = this.ctx, t = c.currentTime + delay;
+        freq *= this.rate || 1;
         const src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
         src.buffer = this.noiseBuf;
         f.type = 'lowpass';
@@ -101,11 +107,22 @@ export class Sfx {
         notes.forEach((n, i) => this.tone(type, n, n, len, vol, 0, i * step));
     }
 
-    play(name, pan = 0) {
+    // opts.rate: más agudo (>1) o más grave (<1); opts.vary: variación al azar (±; los disparos y la
+    // cosecha, para que no suenen siempre igual)
+    play(name, pan = 0, opts = null) {
         if (!this.ctx || this.ctx.state !== 'running' || !this.enabled) return;
+        this.rate = (opts && opts.rate ? opts.rate : 1) * (1 + (Math.random() - 0.5) * 2 * (opts && opts.vary !== undefined ? opts.vary : VARY[name] || 0));
+        try {
+            this.playRaw(name, pan);
+        } finally {
+            this.rate = 1;
+        }
+    }
+
+    playRaw(name, pan) {
         switch (name) {
             // Francotirador: estampido grave + chasquido, cerrojo, mira y cosecha
-            case 'snipe': this.noise(0.5, 0.9, 5200, pan); this.tone('square', 220, 40, 0.35, 0.35, pan); this.tone('sine', 90, 30, 0.5, 0.5, pan); break;
+            case 'snipe': this.noise(0.5, 0.9, 5200, pan); this.tone('square', 220, 40, 0.35, 0.35, pan); this.tone('sine', 90, 30, 0.5, 0.5, pan); this.noise(0.9, 0.12, 900, pan, 0.09); break; // (y su eco por el valle)
             // Rachas de bajas: granada, misil Predator, bombardero y bomba nuclear
             case 'grenade': this.noise(0.25, 0.12, 2400, pan); this.tone('triangle', 500, 900, 0.18, 0.08, pan); this.tone('sine', 1500, 500, 1.3, 0.05, pan, 0.1); break;
             case 'missile': this.noise(1.2, 0.35, 1800); this.tone('sawtooth', 120, 420, 1.2, 0.08); break;

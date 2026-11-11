@@ -8,6 +8,9 @@ const PATTERNS = {
     kill: [40, 40, 90],
     dead: [220],
     crate: [12],
+    shot: [18], // el disparo
+    shotHeavy: [35], // el del antimaterial
+    collateral: [15, 25, 15, 25, 40], // varias de una bala
     nuke: [120, 60, 220],
 };
 

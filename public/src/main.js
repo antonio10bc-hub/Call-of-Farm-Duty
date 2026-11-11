@@ -272,12 +272,14 @@ const sniper = new Sniper(THEME, {
         } else medal(L('OUT OF AMMO: BACK TO THE RIFLE', 'SIN MUNICIÓN: OTRA VEZ EL RIFLE'), 'box');
         updateBoxHud();
     },
-    onHitMarker() {
+    // Marca de acierto en tres niveles: hit (un golpe que no recoge: calabaza), harvest (recoge;
+    // amarilla), big (colateral de 3 o más: roja y grande, y más grave)
+    onHitMarker(kind = 'hit') {
         const el = $('hitmarker');
-        el.classList.remove('on');
+        el.classList.remove('on', 'hit', 'harvest', 'big');
         void el.offsetWidth;
-        el.classList.add('on');
-        sfx.play('hitmark');
+        el.classList.add('on', kind);
+        sfx.play('hitmark', 0, kind === 'big' ? { rate: 0.75 } : null);
     },
     // Ovni pequeño derribado (ya no da monedas: el oro solo lo paga el mercader)
     onUfoDown() {
@@ -3589,7 +3591,8 @@ function frame(now) {
         updateAmmo();
         // La mirilla se abre con la dispersión: así se ve cuánto puede fallar el tiro
         const spreadPx = (Math.tan(sniper.spread) / Math.tan((sniper.fov * Math.PI) / 360)) * (innerHeight / 2);
-        $('reticle').style.setProperty('--spread', `${Math.max(5, Math.round(spreadPx))}px`);
+        $('reticle').style.setProperty('--spread', `${Math.max(5, Math.round(spreadPx + (sniper.bloom || 0) * 14))}px`); // (y se abre un poco más al disparar)
+        if (scope.el) scope.el.style.transform = sniper.bloom > 0.01 && sniper.scoped ? `scale(${(1 + sniper.bloom * 0.04).toFixed(3)})` : ''; // (con la mira, un pulso del visor al disparar)
         $('snipe-hint').classList.toggle('gone', sniper.moving || sniper.scoped || time - snipeStart > 6);
         updateStreak();
         updatePredator();

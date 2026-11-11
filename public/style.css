@@ -1784,3 +1784,9 @@ body.practice .left-badge { display: none; }
 .rare-shop > summary { list-style: none; cursor: pointer; }
 .rare-shop > summary::-webkit-details-marker { display: none; }
 .rare-shop:not([open]) { padding-bottom: 8px; }
+/* Marcas de acierto: blanca pequeña (golpe), amarilla (recoge), roja y grande (colateral de 3+) */
+.hitmarker.hit { transform: scale(0.8); }
+.hitmarker.harvest i { background: #ffd23f; }
+.hitmarker.big { transform: scale(2); }
+.hitmarker.big i { background: #ff3a2a; }
+.hitmarker.big.on { animation-duration: .45s; }
