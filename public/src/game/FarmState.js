@@ -6,7 +6,7 @@ import { KILLSTREAKS } from '../content/killstreaks.js';
 import { MERCHANT, RARE, rareVisit } from '../content/merchant.js';
 import { WELL, wellPool, wishPick } from '../content/well.js';
 import { trustLevel, TRUST_PAY, MOOD_PAY, GIFT_EVERY, URGENT, BASKET_PAY, SPECIAL } from '../content/merchantLife.js';
-import { MERCHANTS, MERCHANT_BY_ID, DECOR_BY_ID, decorOf, FAV_PAY, exclusiveFor, JEALOUS, MARKET, marketNow, MEDALS, ALL_DECOR, VILLAGE_LEVELS, villageLevel } from '../content/merchants.js';
+import { MERCHANTS, MERCHANT_BY_ID, DECOR_BY_ID, decorOf, FAV_PAY, exclusiveFor, JEALOUS, MARKET, marketNow, MEDALS, ALL_DECOR, VILLAGE_LEVELS, villageLevel, townPhase, expandCost } from '../content/merchants.js';
 
 // Lo que pide un encargo: { cultivo: cuánto } (el combinado, varios)
 export const orderWants = (o) => o.items || { [o.crop]: o.n };
@@ -63,6 +63,7 @@ export class FarmState {
         this.flags = { gift: false, market: false };
         this.medals = [];
         this.villageLv = 0;
+        this.town = 0; // pasos de la ampliación del pueblo (content/merchants.js: expandCost)
         // La historia: lo que ya ha pasado, una vez cada cosa (y lo que abre):
         //   crop      el trigo a nivel 2: el trigo mágico regala las rachas de cultivos
         //   alien     el trigo a nivel 3: regala las rachas alienígenas (y empiezan los alienígenas)
@@ -144,6 +145,7 @@ export class FarmState {
                 this.flags = { gift: !!(d.flags && d.flags.gift), market: !!(d.flags && d.flags.market) };
                 this.medals = Array.isArray(d.medals) ? d.medals.filter((id) => MEDALS.some((m) => m.id === id)) : [];
                 this.villageLv = d.villageLv | 0;
+                this.town = d.town | 0;
                 this.ufo.met = !!(d.ufo && d.ufo.met);
                 if (d.home) {
                     if (Array.isArray(d.home.owned)) this.home.owned = d.home.owned.filter((id) => SHOP_ITEMS[id]);
@@ -203,7 +205,7 @@ export class FarmState {
 
     save() {
         try {
-            localStorage.setItem(KEY, JSON.stringify({ rev: REV, prologue: this.prologue, items: this.items, fields: this.fields, barn: this.barn, house: this.house, arsenal: this.arsenal, ufo: this.ufo, home: this.home, merchants: this.merchants, village: this.village, flags: this.flags, medals: this.medals, villageLv: this.villageLv, lands: this.lands, story: this.story }));
+            localStorage.setItem(KEY, JSON.stringify({ rev: REV, prologue: this.prologue, items: this.items, fields: this.fields, barn: this.barn, house: this.house, arsenal: this.arsenal, ufo: this.ufo, home: this.home, merchants: this.merchants, village: this.village, flags: this.flags, medals: this.medals, villageLv: this.villageLv, town: this.town, lands: this.lands, story: this.story }));
         } catch {
             /* ignorar */
         }
@@ -576,6 +578,19 @@ export class FarmState {
     // El nivel del pueblo (según cuántas cosas tiene); si acaba de subir, lo devuelve (y da su oro)
     get villageLevel() {
         return villageLevel(this.village.length);
+    }
+
+    // Ampliar el pueblo un paso (con el pueblo terminado; max: cuántos pasos hay)
+    canExpand(max) {
+        return townPhase(this.village.length) >= 3 && this.town < max && this.items.gold >= expandCost(this.town);
+    }
+
+    expandTown(max) {
+        if (!this.canExpand(max)) return false;
+        this.items.gold -= expandCost(this.town);
+        this.town++;
+        this.save();
+        return true;
     }
 
     checkVillage() {

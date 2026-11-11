@@ -1288,8 +1288,17 @@ export class Village extends VoxelModel {
     // el parque alien con su estanque en la cuña de la avenida de la nave madre y el barrio
     // tecnológico alrededor de su plataforma (cúpulas y antenas)
     buildPlan() {
-        const g = (this.planG = new THREE.Group());
-        this.root.add(g);
+        const plan = (this.planG = new THREE.Group());
+        this.root.add(plan);
+        // Cada cosa que se construye es una pieza aparte (se ve al ampliar el pueblo): g, la de ahora
+        this.planItems = [];
+        let g = null;
+        const item = (kind, x, z) => {
+            g = new THREE.Group();
+            g.visible = false;
+            plan.add(g);
+            this.planItems.push({ g, kind, x, z, d: Math.hypot(x - VILLAGE.cx, z - VILLAGE.cz), pop: 0 });
+        };
         const geos = Object.values(this.geo), mother = geos.find((q) => q.def.mother);
         const WALLS = [0xf3e6c4, 0xe8c8a0, 0xc8dce8, 0xe0b8c8, 0xd8e0b0, 0xf0d0a0], ROOFS = [0xc8402e, 0x3a6ab8, 0x5a8a3a, 0x8a4a8a, 0xd88a2a];
         const nearStreet = (a, r, m) => geos.some((q) => !q.def.mother && Math.abs(Math.atan2(Math.sin(a - q.a), Math.cos(a - q.a))) * r < (q.half || 2) + m);
@@ -1339,6 +1348,7 @@ export class Village extends VoxelModel {
             return D;
         };
         // Las rondas de los barrios: asfalto con su raya discontinua y aceras a los dos lados
+        item('ring', VILLAGE.cx, VILLAGE.cz);
         const RINGS = [29.5], ASPH = [0x54545a, 0x4e4e54], WALK = 0xc8c0b0;
         // (las rondas no son círculos: se ondulan, cada una a su manera)
         const wobR = (R, a) => R + Math.sin(a * 3 + R) * 1.3 + Math.sin(a * 5 - R * 0.7) * 0.6;
@@ -1395,6 +1405,7 @@ export class Village extends VoxelModel {
             const a = rnd(tries * 3.7) * Math.PI * 2, r = 17 + rnd(tries * 5.1) * 26, x = VILLAGE.cx + Math.cos(a) * r, z = VILLAGE.cz + Math.sin(a) * r;
             if (!free(x, z, 5)) continue;
             n++;
+            item('cluster', x, z);
             // La placita: losas en corro, con un árbol o una fuentecilla en medio
             for (let i = 0; i < 10; i++) { const b = (i / 10) * Math.PI * 2; this.part(g, 0.9, 0.08, 0.9, i % 2 ? 0xd4c8b0 : 0xc8bca4, x + Math.cos(b) * 1.1, 0.04, z + Math.sin(b) * 1.1, false).rotation.y = -b; }
             if (rnd(tries) < 0.5) { this.part(g, 0.24, 1.2, 0.24, WOOD2, x, 0.6, z); this.part(g, 1.2, 0.9, 1.2, [0x4caf3c, 0xb87dff][n % 2], x, 1.6, z); }
@@ -1416,15 +1427,17 @@ export class Village extends VoxelModel {
         for (let n = 0; n < 45 && tries < 2600; tries++) {
             const a = rnd(tries * 3.7) * Math.PI * 2, r = 17 + rnd(tries * 5.1) * 26, x = VILLAGE.cx + Math.cos(a) * r, z = VILLAGE.cz + Math.sin(a) * r;
             if (!free(x, z, 1.8)) continue;
-            n++;
             const R0 = nearestRoad(x, z);
             if (R0.d > 9) continue; // (no muy lejos de una calle)
+            n++;
+            item('house', x, z);
             const D = house(x, z, Math.atan2(R0.ux, R0.uz) + (rnd(tries * 2.2) - 0.5) * 0.2, k++);
             placed.push({ x, z, r: 1.9 });
             lane(x, z, R0.ux, R0.uz, D / 2, R0.d - D / 2);
         }
         // La calle del mercado: la del primero (toldos de rayas a los dos lados)
         const mk = geos.find((q) => q.def.id === 'm0'), c = Math.cos(mk.a), s = Math.sin(mk.a);
+        item('market', VILLAGE.cx + c * (mk.parkR + 12), VILLAGE.cz + s * (mk.parkR + 12));
         for (let t = mk.parkR + 7, i = 0; t < mk.endR - 2; t += 2.4, i++) for (const sd of [-1, 1]) {
             const off = (furrowHalf(mk, t) + 1.6) * sd, x = VILLAGE.cx + c * t - s * off, z = VILLAGE.cz + s * t + c * off, st = new THREE.Group();
             st.position.set(x, 0, z);
@@ -1437,6 +1450,7 @@ export class Village extends VoxelModel {
         }
         // El parque alien: árboles de copas moradas y turquesa, un estanque redondo y bancos
         const pa = mother.a + 0.32, pc = { x: VILLAGE.cx + Math.cos(pa) * 26, z: VILLAGE.cz + Math.sin(pa) * 26 };
+        item('park', pc.x, pc.z);
         for (let i = 0; i < 25; i++) {
             const q = Math.sqrt(i / 25) * 5.2, aa = i * 2.4, x = pc.x + Math.cos(aa) * q, z = pc.z + Math.sin(aa) * q;
             if (i < 6) { this.part(g, 1.0, 0.08, 1.0, [0x4aa8e0, 0x3f98d4][i % 2], x, 0.04, z, false); continue; }
@@ -1444,26 +1458,47 @@ export class Village extends VoxelModel {
             this.lit(g, 1.1, 0.9, 1.1, [0xb87dff, 0x5af0ff, 0x7dff4a][i % 3], x, 1.8, z);
         }
         const pb = mother.a - 0.32;
+        item('grove', VILLAGE.cx + Math.cos(pb) * 27, VILLAGE.cz + Math.sin(pb) * 27);
         for (let i = 0; i < 18; i++) {
             const q = Math.sqrt(i / 18) * 4.6, aa = i * 2.4, x = VILLAGE.cx + Math.cos(pb) * 27 + Math.cos(aa) * q, z = VILLAGE.cz + Math.sin(pb) * 27 + Math.sin(aa) * q;
             this.part(g, 0.22, 1.2, 0.22, WOOD2, x, 0.6, z);
             this.part(g, 1.0, 0.8, 1.0, [0x4caf3c, 0x3d9a34][i % 2], x, 1.55, z);
         }
         // El barrio tecnológico, junto a la plataforma de la nave madre: cúpulas y antenas
+        item('tech', VILLAGE.cx + Math.cos(mother.a) * mother.padR, VILLAGE.cz + Math.sin(mother.a) * mother.padR);
         for (const [dr, da] of [[-4, -0.35], [-4, 0.35], [5, -0.25], [5, 0.25]]) {
             const rr = mother.padR + dr, x = VILLAGE.cx + Math.cos(mother.a + da) * rr, z = VILLAGE.cz + Math.sin(mother.a + da) * rr;
             for (let i = 0; i < 3; i++) this.part(g, 3 - i * 0.9, 0.6, 3 - i * 0.9, i === 2 ? GLASS : METAL, x, 0.3 + i * 0.6, z);
             this.part(g, 0.1, 2.0, 0.1, METAL2, x + 1.2, 1.0, z, false);
             this.lit(g, 0.24, 0.24, 0.24, 0x7dff4a, x + 1.2, 2.1, z);
         }
-        this.bake([g], []);
-        g.visible = false;
+        // El orden en que se construye: la ronda, y luego de dentro hacia fuera, con los barrios
+        // especiales intercalados (el mercado pronto; el parque, la tecnología y la arboleda después)
+        const special = { market: 4, park: 11, tech: 19, grove: 27 };
+        const rest = this.planItems.filter((it) => it.kind !== 'ring' && !(it.kind in special)).sort((p, q) => p.d - q.d);
+        const order = [this.planItems.find((it) => it.kind === 'ring'), ...rest];
+        for (const [kind, at] of Object.entries(special).sort((p, q) => p[1] - q[1])) order.splice(Math.min(at, order.length), 0, this.planItems.find((it) => it.kind === kind));
+        this.planItems = order;
+        for (const it of this.planItems) this.bake([it.g], []);
+    }
+
+    // Cuánto se ha ampliado el pueblo (las primeras n piezas, a la vista; pop: la nueva, con un bote)
+    setTownPlan(n, pop = true) {
+        if (!this.planG) this.buildPlan();
+        this.planItems.forEach((it, i) => {
+            const on = i < n;
+            if (on && !it.g.visible && pop) it.pop = 1;
+            it.g.visible = on;
+        });
+    }
+
+    get planCount() {
+        if (!this.planG) this.buildPlan();
+        return this.planItems.length;
     }
 
     // La fase del pueblo: qué casas y farolas se ven (pop: las nuevas, con un bote)
     setTownPhase(phase, pop = true) {
-        if (phase >= 4 && !this.planG) this.buildPlan();
-        if (this.planG) this.planG.visible = phase >= 4;
         if (!this.townG) this.buildTown();
         const paved = pavedIn(phase);
         for (const [id, H] of Object.entries(this.houses)) {
@@ -1489,6 +1524,11 @@ export class Village extends VoxelModel {
 
     update(dt, time, nightK = 0) {
         for (const v of this.visitors) v.update(dt, time, nightK);
+        // Lo nuevo de la ampliación, con un bote
+        if (this.planItems) for (const it of this.planItems) if (it.pop > 0) {
+            it.pop = Math.max(0, it.pop - dt * 1.4);
+            it.g.scale.set(1, Math.max(0.0001, back(Math.min(1, (1 - it.pop) * 1.2))), 1);
+        }
         // Las casas nuevas, con un bote
         if (this.houses) for (const H of Object.values(this.houses)) if (H.pop > 0) {
             H.pop = Math.max(0, H.pop - dt * 1.4);

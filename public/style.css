@@ -1660,3 +1660,10 @@ body.practice .left-badge { display: none; }
 .rg-target.t-moving { box-shadow: -6px 0 0 -2px #8a7060, 6px 0 0 -2px #8a7060; }
 .rg-target.t-popup { border-radius: 40% 40% 4px 4px; background: #7dff4a; }
 .rg-target.t-steel { border-radius: 2px; background: #8a929a; }
+
+/* Ampliar el pueblo (con el pueblo terminado): su paso y el botón con lo siguiente y su precio */
+.town-expand { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; margin-top: 4px; padding-top: 6px; border-top: 2px dashed rgba(42, 26, 14, .3); }
+.town-expand button { display: inline-flex; align-items: center; gap: 4px; padding: 6px 8px; font-family: var(--font); font-size: 7px; color: var(--ink); background: #ffd23f; border: 2px solid var(--ink); box-shadow: 0 2px 0 var(--ink); cursor: pointer; }
+.town-expand button:disabled { background: #d8c8a8; color: #8a7060; cursor: default; }
+.town-expand button .ico { width: 12px; height: 12px; }
+.town-expand b { font-size: 8px; font-weight: normal; color: #2f8a2c; }

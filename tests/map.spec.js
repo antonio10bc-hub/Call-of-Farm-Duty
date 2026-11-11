@@ -491,3 +491,21 @@ test('dock: CAMPOS abre encima otra barra con los cultivos desbloqueados y tocar
     await expect(page.locator('#fields-pop')).toBeHidden();
     expect(errors).toEqual([]);
 });
+
+test('ampliar el pueblo: con el pueblo terminado, cada paso construye la siguiente pieza (la ronda primero) por oro, y se guarda', { tag: '@full' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await openFarm(page);
+    await page.evaluate(() => { const S = game.state; S.story.merchant = true; S.village = game.allDecor.slice(); S.items.gold = 100; game.syncMerchantLife(false); game.clocks.m0.force = 'here'; });
+    await expect.poll(() => page.evaluate(() => game.farm.village.byId.m0.open), { timeout: 120_000 }).toBe(true);
+    await page.evaluate(() => game.openMerchant('m0'));
+    const btn = page.locator('#merchant-village [data-expand]');
+    await expect(btn).toBeEnabled();
+    await btn.click();
+    expect(await page.evaluate(() => [game.state.town, game.state.items.gold, game.farm.village.planItems[0].kind, game.farm.village.planItems[0].g.visible, game.farm.townPhase])).toEqual([1, 94, 'ring', true, 4]);
+    await page.locator('#merchant-village [data-expand]').click();
+    expect(await page.evaluate(() => [game.state.town, game.farm.village.planItems[1].g.visible])).toEqual([2, true]);
+    // Se guarda
+    await page.reload();
+    await expect.poll(() => page.evaluate(() => window.game && game.state.town)).toBe(2);
+    expect(errors).toEqual([]);
+});

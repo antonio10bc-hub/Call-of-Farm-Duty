@@ -9,7 +9,7 @@ import { ARSENAL, ARSENAL_KINDS, CLASSES, DEFAULT_LOADOUT } from './content/arse
 import { gearArt } from './ui/GearArt.js';
 import { TIERS, tierOf } from './content/well.js';
 import { MERCHANT, rareVisit } from './content/merchant.js';
-import { MERCHANTS, MERCHANT_BY_ID, VisitClock, ALL_DECOR, DECOR_BY_ID, VILLAGE, VILLAGE_LEVELS, RESIDENTS, MEDALS, MARKET, MARKET_FORCE, marketNow, townPhase } from './content/merchants.js';
+import { MERCHANTS, MERCHANT_BY_ID, VisitClock, ALL_DECOR, DECOR_BY_ID, VILLAGE, VILLAGE_LEVELS, RESIDENTS, MEDALS, MARKET, MARKET_FORCE, marketNow, townPhase, expandCost } from './content/merchants.js';
 import { regionAt, isWater, groundAt } from './world/valley.js';
 import { RetroRenderer } from './render/RetroRenderer.js';
 import { CameraRig } from './render/CameraRig.js';
@@ -2137,7 +2137,10 @@ function syncMerchantLife(pop = true) {
         v.setMood(state.merchants[d.id].mood);
     }
     farm.village.setDecor(state.village, pop);
-    farm.setTownPhase(townPhase(state.village.length), pop); // (el pueblo en tres fases: casas, calles y farolas)
+    // (el pueblo en tres fases: casas, calles y farolas; terminado, se amplía paso a paso: fase 4)
+    const phase = townPhase(state.village.length);
+    farm.setTownPhase(phase >= 3 && state.town > 0 ? 4 : phase, pop);
+    if (phase >= 3) farm.village.setTownPlan(state.town, pop);
     farm.village.setResidents(RESIDENTS.filter((n) => state.village.length >= n).length);
 }
 // Tras cada cosa del pueblo: ¿sube de nivel? ¿algún logro nuevo? (con su aviso y su oro)
@@ -2222,7 +2225,15 @@ function villageHtml() {
     const k = next ? (n - (cur.n || 0)) / Math.max(1, next.n - (cur.n || 0)) : 1;
     return `<small>${L('YOUR VILLAGE', 'TU PUEBLO')} · ${L('LV', 'NV')} ${lv + 1}</small><b>${cur.name}</b>`
         + `<span class="trust-bar"><i style="width:${Math.round(Math.min(1, k) * 100)}%"></i></span>`
-        + `<small>${n}/${ALL_DECOR.length}${next ? ` · ${next.name} ${L('AT', 'CON')} ${next.n}` : ''}</small>`;
+        + `<small>${n}/${ALL_DECOR.length}${next ? ` · ${next.name} ${L('AT', 'CON')} ${next.n}` : ''}</small>` + expandHtml();
+}
+// Con el pueblo terminado (fase 3), se amplía: cada paso construye la siguiente pieza, por oro
+const PLAN_NAMES = { ring: L('RING ROAD', 'RONDA'), house: L('HOUSE', 'CASA'), cluster: L('GROUP OF HOUSES', 'GRUPO DE CASAS'), market: L('MARKET STREET', 'CALLE DEL MERCADO'), park: L('ALIEN PARK', 'PARQUE ALIEN'), tech: L('TECH QUARTER', 'BARRIO TECNOLÓGICO'), grove: L('GROVE', 'ARBOLEDA') };
+function expandHtml() {
+    if (townPhase(state.village.length) < 3) return '';
+    const total = farm.village.planCount, step = state.town, it = farm.village.planItems[step];
+    return `<div class="town-expand"><small>${L('EXPAND THE TOWN', 'AMPLIAR EL PUEBLO')} · ${step}/${total}</small>`
+        + (it ? `<button data-expand="1"${state.canExpand(total) ? '' : ' disabled'}>${PLAN_NAMES[it.kind]} · ${ico('gold')}${expandCost(step)}</button>` : `<b>${L('ALL BUILT!', '¡TODO CONSTRUIDO!')}</b>`) + '</div>';
 }
 // Abajo, plegados: los logros
 function medalsHtml() {
@@ -2233,6 +2244,15 @@ $('merchant').addEventListener('click', (e) => {
     e.stopPropagation();
     const id = curM, visit = clocks[id].visit, tb = e.target.closest('button[data-tab]'), gb = e.target.closest('button[data-gift]'), bb = e.target.closest('button[data-buy]');
     if (tb) return openMerchant(tb.dataset.tab);
+    if (e.target.closest('button[data-expand]')) {
+        const it = farm.village.planItems[state.town];
+        if (!it || !state.expandTown(farm.village.planCount)) return sfx.play('miss');
+        sfx.play('coin');
+        syncMerchantLife();
+        stage(L('NEW IN YOUR VILLAGE', 'NUEVO EN TU PUEBLO'), PLAN_NAMES[it.kind], true);
+        updateCounts(true);
+        return renderMerchant();
+    }
     const name = (d) => DECOR_BY_ID[d].name;
     if (gb) {
         const g = state.claimGift(id);
@@ -3561,4 +3581,4 @@ if ('serviceWorker' in navigator && !/^(localhost|127\.)/.test(location.hostname
 }
 
 // Para las pruebas (Playwright)
-window.game = { goRange, range, allDecor: ALL_DECOR.map((d) => d.id), syncMerchantLife, set cineSpeed(v) { CINE_SPEED = v; }, get wellCine() { return wellCine; }, state, sniper, farm, rig, prologue, dayNight, merchantClock, clocks, openMerchant, openWell, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, upgradeHouse, openShop, get cine() { return inCine(); }, goFarm, select, updateCounts, pause: () => (paused = true) };
+window.game = { expandHtml, goRange, range, allDecor: ALL_DECOR.map((d) => d.id), syncMerchantLife, set cineSpeed(v) { CINE_SPEED = v; }, get wellCine() { return wellCine; }, state, sniper, farm, rig, prologue, dayNight, merchantClock, clocks, openMerchant, openWell, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, upgradeHouse, openShop, get cine() { return inCine(); }, goFarm, select, updateCounts, pause: () => (paused = true) };

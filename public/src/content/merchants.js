@@ -106,6 +106,10 @@ export const VILLAGE_LEVELS = [
 // (plaza empedrada, ronda interior, tres calles pavimentadas y las casas de sus mercaderes), 3
 // ciudad (todas las calles con farolas, todas las casas, ronda exterior y la avenida de la nave madre)
 export const TOWN = { phase2: 9, phase3: 24, first: ['m0', 'm2', 'm4'] };
+// La ampliación del pueblo (con el pueblo terminado, fase 3): cada paso construye la siguiente
+// pieza (la ronda, casas sueltas, grupitos de casas, el mercado, el parque, el barrio tecnológico,
+// la arboleda), de dentro hacia fuera. Lo que cuesta cada paso, en oro
+export const expandCost = (step) => 6 + Math.floor(step / 4) * 2;
 export const townPhase = (n) => (n >= TOWN.phase3 ? 3 : n >= TOWN.phase2 ? 2 : 1);
 // Las calles pavimentadas en cada fase (los mercaderes de esas calles)
 export const pavedIn = (phase) => (phase >= 3 ? MERCHANTS.filter((m) => !m.mother).map((m) => m.id) : phase === 2 ? TOWN.first : []);
