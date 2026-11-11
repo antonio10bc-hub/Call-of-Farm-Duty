@@ -1733,3 +1733,54 @@ body.practice .left-badge { display: none; }
 /* En la fila de cultivos: listo para recoger = una línea verde abajo (sin el punto rojo) */
 .dock-pop-btn:not(.reload-all) .dock-dot { display: none !important; }
 .dock-pop-btn .ready-line { position: absolute; left: 6px; right: 6px; bottom: 4px; height: 4px; background: #17d65a; box-shadow: 0 0 0 1px var(--ink); }
+
+/* ---------- Menú del pueblo, ordenado (tamaños: 7 meta, 8 etiquetas y botones, 10 cantidades, 12 título) ---------- */
+#merchant { --s1: 4px; --s2: 8px; --s3: 12px; }
+.merchant-village .v-line { display: flex; align-items: center; gap: var(--s2); }
+.merchant-village .v-line b { font-size: 12px; }
+.merchant-village .v-line small { font-size: 7px; color: #6a4a2a; white-space: nowrap; }
+.merchant-village .v-line .trust-bar { flex: 1; }
+.town-expand { gap: var(--s1) var(--s2); }
+.town-expand small { font-size: 7px; }
+.town-expand .perk-next { flex-basis: 100%; font-size: 7px; color: #8a5a10; }
+.perk-chip { font-style: normal; font-size: 7px; padding: 2px 4px; color: #fff; background: #2f8a2c; border: 2px solid var(--ink); }
+.town-expand .perks { display: none; }
+/* La ficha del mercader: dos filas */
+.merchant-talk .merchant-trust { flex-direction: column; align-items: stretch; gap: var(--s1); }
+.merchant-talk .t-row { display: flex; align-items: center; gap: var(--s2); }
+.merchant-talk .mood { gap: var(--s1); font-size: 7px; color: #6a4a2a; }
+.merchant-talk .mood .ico.on { width: 16px; height: 16px; }
+.merchant-talk .t-streak { margin-left: auto; display: flex; align-items: center; gap: var(--s1); font-size: 7px; color: #6a4a2a; }
+/* Los encargos: tarjetas de tres columnas, todas iguales */
+#merchant .order.card { display: grid; grid-template-columns: 28px minmax(0, 1fr) 108px; align-items: center; gap: var(--s2); min-height: 48px; padding: var(--s1) var(--s2) var(--s1) 0; border-left: 6px solid #c8bca4; }
+#merchant .order.card.ready { border-left-color: #2f8a2c; }
+#merchant .order.card.urgent { border-left-color: #d84a3a; }
+#merchant .order.card.special { border-left-color: #8a5ad8; }
+#merchant .order.card.basket { border-left-color: #3a8ad8; }
+#merchant .order.card.gift { border-left-color: #ffd23f; }
+#merchant .order.card.done { min-height: 28px; opacity: .55; }
+#merchant .order.card.late { filter: grayscale(.6); }
+.o-badge { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.o-badge small { font-size: 7px; color: #d84a3a; }
+.o-badge small.hurry { animation: ksWarn .5s steps(2) infinite; }
+.o-chip { display: grid; place-items: center; width: 22px; height: 22px; font-style: normal; font-size: 10px; color: #fff; background: #8a7060; border: 2px solid var(--ink); }
+.order.urgent .o-chip { background: #d84a3a; }
+.order.special .o-chip { background: #8a5ad8; }
+.order.basket .o-chip { background: #3a8ad8; }
+.order.gift .o-chip { background: #ffd23f; color: var(--ink); }
+.o-want { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s3); min-width: 0; }
+.o-crop { display: grid; grid-template-columns: auto auto; align-items: center; column-gap: 3px; }
+.o-crop b { font-size: 10px; }
+.o-crop small { grid-column: 1 / -1; font-size: 7px; }
+.o-crop small.ok { color: #2f8a2c; }
+.o-crop small.short { color: #d84a3a; }
+.o-act { display: flex; flex-direction: column; align-items: stretch; gap: 3px; }
+.o-act .order-pay { display: flex; align-items: center; justify-content: flex-end; gap: 3px; font-size: 10px; }
+.o-act .order-pay small { font-size: 7px; color: #d84a3a; }
+.o-act .o-reward { flex-basis: 100%; text-align: right; color: #8a5ad8 !important; }
+#merchant .o-act button { width: 100%; min-width: 0; padding: 4px; font-size: 7px; }
+#merchant .order.card.ready .o-act button:not(:disabled) { background: #8ad86a; }
+/* La tienda rara, plegable */
+.rare-shop > summary { list-style: none; cursor: pointer; }
+.rare-shop > summary::-webkit-details-marker { display: none; }
+.rare-shop:not([open]) { padding-bottom: 8px; }

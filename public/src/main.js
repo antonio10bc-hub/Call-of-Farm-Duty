@@ -2198,10 +2198,12 @@ syncMerchantLife(false);
 // El retrato de cada uno, de su color (el sprite es el del primero, verde)
 const hueOf = (c) => Math.round((new THREE.Color(c).getHSL({}).h - new THREE.Color(0x7dff4a).getHSL({}).h) * 360);
 
+const KIND_ICON = { basket: '+', urgent: '!', special: '*' }; // (su ficha: un signo en su color)
 const KIND_TAG = { basket: L('COMBO', 'COMBINADO'), urgent: L('URGENT', 'URGENTE'), special: L('SPECIAL', 'ESPECIAL') };
 // El medidor de felicidad: cinco caras (de muy triste a muy feliz); sale de su ánimo, su racha y si
 // está celoso
 const FACES = ['face0', 'face1', 'face2', 'face3', 'face4']; // (sprites de PixelArt.js)
+const MOOD_WORDS = [L('UPSET', 'DISGUSTADO'), L('SAD', 'TRISTE'), L('CALM', 'TRANQUILO'), L('HAPPY', 'CONTENTO'), L('THRILLED', 'ENCANTADO')];
 function moodScore(id) {
     const M = state.merchants[id], s = { serious: -1, neutral: 0, happy: 1 }[M.mood] ?? 0;
     return Math.max(-2, Math.min(2, s + (M.streak % GIFT_EVERY >= 2 ? 1 : 0) - (M.jealous ? 1 : 0)));
@@ -2220,24 +2222,33 @@ function renderMerchant() {
     const here = v.open, M = state.merchants[id], lv = state.trustOf(id);
     // Su amistad (nivel, puntos y barra hasta el siguiente, racha hacia el regalo) y su felicidad
     const from = TRUST[lv - 1], to = TRUST[lv], k = to === undefined ? 1 : (M.trust - from) / (to - from), mood = moodScore(id);
-    setHtml($('merchant-trust'), `<span class="trust-name">${LEVEL_NAMES[lv - 1]}</span><span class="pips">${[1, 2, 3, 4, 5].map((i) => `<i class="pip${i <= lv ? ' on' : ''}"></i>`).join('')}</span>`
-        + `<span class="trust-bar"><i style="width:${Math.round(k * 100)}%"></i></span>`
-        + `<span class="mood" title="${MOODS[M.mood]}">${FACES.map((f, i) => `<i class="ico ${f}-ico${i === mood + 2 ? ' on' : ''}"></i>`).join('')}</span>`
-        + `<span class="trust-meta">${L('STREAK', 'RACHA')} ${M.streak % GIFT_EVERY}/${GIFT_EVERY}</span>`);
+    // (dos filas: la amistad; y su cara de ahora con su palabra y la racha hacia el regalo)
+    const st = M.streak % GIFT_EVERY;
+    setHtml($('merchant-trust'), `<div class="t-row"><span class="trust-name">${LEVEL_NAMES[lv - 1]}</span><span class="pips">${[1, 2, 3, 4, 5].map((i) => `<i class="pip${i <= lv ? ' on' : ''}"></i>`).join('')}</span>`
+        + `<span class="trust-bar"><i style="width:${Math.round(k * 100)}%"></i></span></div>`
+        + `<div class="t-row"><span class="mood"><i class="ico ${FACES[mood + 2]}-ico on"></i>${MOOD_WORDS[mood + 2]}</span>`
+        + `<span class="t-streak">${L('GIFT IN', 'REGALO EN')} <span class="pips">${Array.from({ length: GIFT_EVERY }, (_, i) => `<i class="pip${i < st ? ' on' : ''}"></i>`).join('')}</span></span></div>`);
     if (!here) {
         setHtml($('merchant-orders'), `<div class="merchant-away">${L('NOT HERE RIGHT NOW. EACH MERCHANT COMES WHEN THEY PLEASE, WITH NEW ORDERS.', 'AHORA NO ESTÁ. CADA MERCADER VIENE CUANDO QUIERE, CON ENCARGOS NUEVOS.')}</div>` + shopHtml(id, false));
         return;
     }
     const visit = clock.visit;
     let html = M.jealous || M.market ? `<div class="merchant-sub">${M.market ? `${L('MARKET DAY', 'DÍA DE MERCADO')} x${MARKET.pay}` : ''}${M.market && M.jealous ? ' · ' : ''}${M.jealous ? L('JEALOUS: PAYS MORE TO WIN YOU BACK', 'CELOSO: PAGA MÁS PARA RECUPERARTE') : ''}</div>` : '';
-    html += M.gift === null ? '' : `<div class="order gift"><span class="order-want">${typeof M.gift === 'number' ? `${ico('gold')}<b>+${M.gift}</b>` : `<b>${DECOR_BY_ID[M.gift].name}</b>`}</span><button data-gift="1">${L('OPEN GIFT', 'ABRIR REGALO')}</button></div>`;
-    html += state.ordersFor(visit, id).map((o, i) => {
+    html += M.gift === null ? '' : `<div class="order card gift ready"><span class="o-badge"><i class="o-chip">?</i></span><span class="o-want">${typeof M.gift === 'number' ? `${ico('gold')}<b>+${M.gift}</b>` : `<b>${DECOR_BY_ID[M.gift].name}</b>`}</span><span class="o-act"><button data-gift="1">${L('OPEN GIFT', 'ABRIR REGALO')}</button></span></div>`;
+    // Los encargos, como tarjetas de tres columnas (tipo | qué pide, con lo que tienes | pago y
+    // botón): todas iguales; las hechas, finas y al final
+    const orders = state.ordersFor(visit, id).map((o, i) => ({ o, i }));
+    html += `<div class="merchant-sub">${L('ORDERS', 'ENCARGOS')} ${orders.filter(({ o }) => o.done).length}/${orders.length}</div>`;
+    html += [...orders.filter(({ o }) => !o.done), ...orders.filter(({ o }) => o.done)].map(({ o, i }) => {
         const can = state.canDeliver(o), want = orderWants(o), need = Math.max(...Object.entries(want).map(([c, n]) => n - state.items[c]));
         const label = o.done ? L('DONE', 'HECHO') : can ? L('DELIVER', 'ENTREGAR') : `${L('NEED', 'FALTAN')} ${need}`;
-        const late = o.until && Date.now() >= o.until, tag = o.kind ? `<em class="order-tag">${KIND_TAG[o.kind]}${o.kind === 'urgent' && !o.done ? ` ${late ? L('LATE', 'TARDE') : `${fmt((o.until - Date.now()) / 1000)} x${URGENT.pay}`}` : ''}</em>` : '';
-        const pay = o.done ? o.paid || o.gold : state.payOf(o);
-        return `<div class="order${o.done ? ' done' : ''}${o.kind ? ` ${o.kind}` : ''}" id="order-${i}">${tag}<span class="order-want">${Object.entries(want).map(([c, n]) => `${ico(CROPS[c].icon)}<b>${n}</b>`).join('')}</span><span class="order-arrow">&gt;</span>`
-            + `<span class="order-pay">${ico('gold')}<b>+${pay}</b>${o.reward ? `<small>+ ${DECOR_BY_ID[o.reward].name}</small>` : ''}</span><button data-i="${i}"${o.done || !can ? ' disabled' : ''}>${label}</button></div>`;
+        const late = o.until && Date.now() >= o.until, left = o.until ? (o.until - Date.now()) / 1000 : 0;
+        const badge = `<span class="o-badge" title="${o.kind ? KIND_TAG[o.kind] : ''}">${o.kind ? `<i class="o-chip">${KIND_ICON[o.kind]}</i>` : ''}${o.kind === 'urgent' && !o.done ? `<small class="${!late && left < 20 ? 'hurry' : ''}">${late ? L('LATE', 'TARDE') : fmt(left)}</small>` : ''}</span>`;
+        const pay = o.done ? o.paid || o.gold : state.payOf(o), mult = o.kind === 'urgent' && !o.done && !late ? `<small>x${URGENT.pay}</small>` : '';
+        if (o.done) return `<div class="order card done${o.kind ? ` ${o.kind}` : ''}" id="order-${i}">${badge}<span class="o-want">${Object.entries(want).map(([c, n]) => `${ico(CROPS[c].icon)}<b>${n}</b>`).join('')}</span><span class="o-act"><span class="order-pay">${ico('gold')}<b>+${pay}</b></span><button data-i="${i}" disabled>✔</button></span></div>`;
+        return `<div class="order card${o.kind ? ` ${o.kind}` : ''}${can ? ' ready' : ''}${late ? ' late' : ''}" id="order-${i}">${badge}`
+            + `<span class="o-want">${Object.entries(want).map(([c, n]) => `<span class="o-crop">${ico(CROPS[c].icon)}<b>${n}</b><small class="${state.items[c] >= n ? 'ok' : 'short'}">${Math.min(state.items[c], 9999)}/${n}</small></span>`).join('')}</span>`
+            + `<span class="o-act"><span class="order-pay">${ico('gold')}<b>+${pay}</b>${mult}${o.reward ? `<small class="o-reward">+ ${DECOR_BY_ID[o.reward].name}</small>` : ''}</span><button data-i="${i}"${!can ? ' disabled' : ''}>${label}</button></span></div>`;
     }).join('');
     setHtml($('merchant-orders'), html + shopHtml(id, true));
 }
@@ -2267,30 +2278,34 @@ function wantsHtml() {
 // visita); sin él, se ven pero no se compran
 function shopHtml(id, open) {
     // (en su vitrina: un panel morado con borde dorado y su brillo)
-    return `<div class="rare-shop"><div class="rare-head"><i class="rare-star"></i>${L('RARE THINGS FOR YOUR VILLAGE', 'COSAS RARAS PARA TU PUEBLO')}<i class="rare-star"></i></div>` + state.stock(clocks[id].visit, id).map((d) => {
+    // (plegada si ya lo tienes todo)
+    const stock = state.stock(clocks[id].visit, id), mine = stock.filter((d) => state.collects(d)).length;
+    return `<details class="rare-shop"${mine < stock.length ? ' open' : ''}><summary class="rare-head"><i class="rare-star"></i>${L('RARE THINGS', 'COSAS RARAS')} ${mine}/${stock.length}<i class="rare-star"></i></summary>` + stock.map((d) => {
         const it = DECOR_BY_ID[d], have = state.collects(it.id), short = state.items.gold < it.gold;
         return `<div class="order shop${have ? ' done' : ''}${it.exclusive ? ' party' : ''}">${it.exclusive ? `<em class="order-tag">${L('TODAY ONLY', 'SOLO HOY')}</em>` : ''}<span class="order-want"><b>${it.name}</b></span><span class="order-pay">${ico('gold')}<b>${it.gold}</b></span><button data-buy="${it.id}"${have || short || !open ? ' disabled' : ''}>${have ? L('YOURS', 'TUYO') : L('BUY', 'COMPRAR')}</button></div>`;
-    }).join('') + '</div>';
+    }).join('') + '</details>';
 }
 
 // Arriba del todo, el pueblo: su nivel, cuánto tiene y la barra hasta el siguiente
 function villageHtml() {
     const n = state.village.length, lv = state.villageLevel, cur = VILLAGE_LEVELS[lv], next = VILLAGE_LEVELS[lv + 1];
     const k = next ? (n - (cur.n || 0)) / Math.max(1, next.n - (cur.n || 0)) : 1;
-    return `<small>${L('YOUR VILLAGE', 'TU PUEBLO')} · ${L('LV', 'NV')} ${lv + 1}</small><b>${cur.name}</b>`
-        + `<span class="trust-bar"><i style="width:${Math.round(Math.min(1, k) * 100)}%"></i></span>`
-        + `<small>${n}/${ALL_DECOR.length}${next ? ` · ${next.name} ${L('AT', 'CON')} ${next.n}` : ''}</small>` + expandHtml();
+    // (en una línea: nombre, nivel, barra y cuántas cosas; debajo, la ampliación)
+    return `<div class="v-line" title="${next ? `${next.name} ${L('AT', 'CON')} ${next.n}` : ''}"><b>${cur.name}</b><small>${L('LV', 'NV')} ${lv + 1}</small>`
+        + `<span class="trust-bar"><i style="width:${Math.round(Math.min(1, k) * 100)}%"></i></span><small>${n}/${ALL_DECOR.length}</small></div>` + expandHtml();
 }
 // Con el pueblo terminado (fase 3), se amplía: cada paso construye la siguiente pieza, por oro
 const PERK_TEXT = { market: L('MARKET: ORDERS PAY +20%', 'MERCADO: LOS ENCARGOS PAGAN +20%'), park: L('PARK: +1 TRUST PER DELIVERY', 'PARQUE: +1 DE CONFIANZA POR ENTREGA'), tech: L('TECH: WISHES 25% CHEAPER', 'TECNOLOGÍA: DESEOS UN 25% MÁS BARATOS'), grove: L('GROVE: MERCHANTS STAY LONGER', 'ARBOLEDA: LOS MERCADERES SE QUEDAN MÁS') };
+const PERK_CHIP = { market: L('MKT +20%', 'MERC +20%'), park: L('PARK +1', 'PARQUE +1'), tech: L('TECH -25%', 'TEC -25%'), grove: L('GROVE +T', 'ARBOL +T') };
 const PLAN_NAMES = { ring: L('RING ROAD', 'RONDA'), house: L('HOUSE', 'CASA'), cluster: L('GROUP OF HOUSES', 'GRUPO DE CASAS'), market: L('MARKET STREET', 'CALLE DEL MERCADO'), park: L('ALIEN PARK', 'PARQUE ALIEN'), tech: L('TECH QUARTER', 'BARRIO TECNOLÓGICO'), grove: L('GROVE', 'ARBOLEDA') };
 function expandHtml() {
     if (townPhase(state.village.length) < 3) return '';
     const total = farm.village.planCount, step = state.town, it = farm.village.planItems[step];
-    return `<div class="town-expand"><small>${L('EXPAND THE TOWN', 'AMPLIAR EL PUEBLO')} · ${step}/${total}</small>`
-        + (it ? `<button data-expand="1"${state.canExpand(total) ? '' : ' disabled'}>${PLAN_NAMES[it.kind]} · ${ico('gold')}${expandCost(step)}</button>` : `<b>${L('ALL BUILT!', '¡TODO CONSTRUIDO!')}</b>`)
-        + (it && PERK_TEXT[it.kind] ? `<small class="perk-next">${PERK_TEXT[it.kind]}</small>` : '')
-        + (Object.keys(state.perks).length ? `<small class="perks">${Object.keys(state.perks).map((k) => PERK_TEXT[k]).join(' · ')}</small>` : '') + '</div>';
+    // (las ventajas ganadas, como fichas con su texto entero al pasar por encima; la siguiente, junto al botón)
+    const chips = Object.keys(state.perks).map((k) => `<i class="perk-chip" title="${PERK_TEXT[k]}">${PERK_CHIP[k]}</i>`).join('');
+    return `<div class="town-expand"><small>${L('EXPAND', 'AMPLIAR')} ${step}/${total}</small>${chips}`
+        + (it ? `<button data-expand="1"${state.canExpand(total) ? '' : ' disabled'} title="${PERK_TEXT[it.kind] || ''}">${PLAN_NAMES[it.kind]} · ${ico('gold')}${expandCost(step)}</button>` : `<b>${L('ALL BUILT!', '¡TODO CONSTRUIDO!')}</b>`)
+        + (it && PERK_TEXT[it.kind] ? `<small class="perk-next">${PERK_TEXT[it.kind]}</small>` : '') + '</div>';
 }
 // Abajo, plegados: los logros
 function medalsHtml() {
