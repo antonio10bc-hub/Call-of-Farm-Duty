@@ -2177,7 +2177,7 @@ const hueOf = (c) => Math.round((new THREE.Color(c).getHSL({}).h - new THREE.Col
 const KIND_TAG = { basket: L('COMBO', 'COMBINADO'), urgent: L('URGENT', 'URGENTE'), special: L('SPECIAL', 'ESPECIAL') };
 // El medidor de felicidad: cinco caras (de muy triste a muy feliz); sale de su ánimo, su racha y si
 // está celoso
-const FACES = ['😢', '🙁', '😐', '🙂', '😄'];
+const FACES = ['face0', 'face1', 'face2', 'face3', 'face4']; // (sprites de PixelArt.js)
 function moodScore(id) {
     const M = state.merchants[id], s = { serious: -1, neutral: 0, happy: 1 }[M.mood] ?? 0;
     return Math.max(-2, Math.min(2, s + (M.streak % GIFT_EVERY >= 2 ? 1 : 0) - (M.jealous ? 1 : 0)));
@@ -2198,7 +2198,7 @@ function renderMerchant() {
     const from = TRUST[lv - 1], to = TRUST[lv], k = to === undefined ? 1 : (M.trust - from) / (to - from), mood = moodScore(id);
     setHtml($('merchant-trust'), `<span class="trust-name">${LEVEL_NAMES[lv - 1]}</span><span class="pips">${[1, 2, 3, 4, 5].map((i) => `<i class="pip${i <= lv ? ' on' : ''}"></i>`).join('')}</span>`
         + `<span class="trust-bar"><i style="width:${Math.round(k * 100)}%"></i></span>`
-        + `<span class="mood" title="${MOODS[M.mood]}">${FACES.map((f, i) => `<i class="${i === mood + 2 ? 'on' : ''}">${f}</i>`).join('')}</span>`
+        + `<span class="mood" title="${MOODS[M.mood]}">${FACES.map((f, i) => `<i class="ico ${f}-ico${i === mood + 2 ? ' on' : ''}"></i>`).join('')}</span>`
         + `<span class="trust-meta">${L('STREAK', 'RACHA')} ${M.streak % GIFT_EVERY}/${GIFT_EVERY}</span>`);
     if (!here) {
         setHtml($('merchant-orders'), `<div class="merchant-away">${L('NOT HERE RIGHT NOW. EACH MERCHANT COMES WHEN THEY PLEASE, WITH NEW ORDERS.', 'AHORA NO ESTÁ. CADA MERCADER VIENE CUANDO QUIERE, CON ENCARGOS NUEVOS.')}</div>` + shopHtml(id, false));

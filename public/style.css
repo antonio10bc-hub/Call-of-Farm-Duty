@@ -446,6 +446,12 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
 .wool-ico { --ico: var(--px-wool); }
 .egg-ico { --ico: var(--px-egg); }
 .target-ico { --ico: var(--px-target); }
+.face0-ico { --ico: var(--px-face0); }
+.face1-ico { --ico: var(--px-face1); }
+.face2-ico { --ico: var(--px-face2); }
+.face3-ico { --ico: var(--px-face3); }
+.face4-ico { --ico: var(--px-face4); }
+
 .honey-ico { --ico: var(--px-honey); }
 .sunflower-ico { --ico: var(--px-sunflower); }
 .truffle-ico { --ico: var(--px-truffle); }
@@ -1681,9 +1687,9 @@ body.practice .left-badge { display: none; }
 .merchant-talk .trust-name { font-size: 7px; color: #2f6a1a; }
 .merchant-talk .trust-bar { flex: 1; min-width: 50px; }
 .merchant-talk .trust-meta { font-size: 6px; color: #6a4a2a; }
-.mood { display: inline-flex; gap: 1px; font-size: 12px; line-height: 1; }
-.mood i { font-style: normal; opacity: .28; filter: grayscale(1); }
-.mood i.on { opacity: 1; filter: none; transform: scale(1.25); }
+.mood { display: inline-flex; align-items: center; gap: 2px; }
+.mood .ico { width: 12px; height: 12px; opacity: .3; filter: grayscale(1); }
+.mood .ico.on { width: 16px; height: 16px; opacity: 1; filter: none; }
 .m-tab .m-when { margin-left: auto; font-size: 7px; white-space: nowrap; }
 .m-tab .ico { width: 12px; height: 12px; }
 /* Encargos: filas bajas */

@@ -130,6 +130,27 @@ const SPRITES = {
         rows: ['..KKKKKK..', '.KRRRRRRK.', 'KRRRRRRRRK', '.KWK..KWK.', '.KW....WK.', 'KKKKKKKKKK', 'KSSBBBBSSK', 'KSLSSLSSLK', 'KSSLSSLSSK', '.KKKKKKKK.'],
         pal: { K: INK, R: '#c8402e', W: '#8a5a2a', S: '#9a948a', L: '#b8b2a8', B: '#5af0ff' },
     },
+    // Las caras del medidor de felicidad de los mercaderes (de muy triste a muy feliz)
+    face0: {
+        rows: ['..KKKKKK..', '.KYYYYYYK.', 'KYKKYYKKYK', 'KYYKYYKYYK', 'KBYYYYYYYK', 'KBYYYYYYYK', 'KYYKKKKYYK', 'KYKYYYYKYK', '.KYYYYYYK.', '..KKKKKK..'],
+        pal: { K: INK, Y: '#ffd23f', B: '#5ac8ff', R: '#ff8a7a', W: '#fff6dc' },
+    },
+    face1: {
+        rows: ['..KKKKKK..', '.KYYYYYYK.', 'KYYYYYYYYK', 'KYYKYYKYYK', 'KYYKYYKYYK', 'KYYYYYYYYK', 'KYYKKKKYYK', 'KYKYYYYKYK', '.KYYYYYYK.', '..KKKKKK..'],
+        pal: { K: INK, Y: '#ffd23f', B: '#5ac8ff', R: '#ff8a7a', W: '#fff6dc' },
+    },
+    face2: {
+        rows: ['..KKKKKK..', '.KYYYYYYK.', 'KYYYYYYYYK', 'KYYKYYKYYK', 'KYYKYYKYYK', 'KYYYYYYYYK', 'KYYYYYYYYK', 'KYYKKKKYYK', '.KYYYYYYK.', '..KKKKKK..'],
+        pal: { K: INK, Y: '#ffd23f', B: '#5ac8ff', R: '#ff8a7a', W: '#fff6dc' },
+    },
+    face3: {
+        rows: ['..KKKKKK..', '.KYYYYYYK.', 'KYYYYYYYYK', 'KYYKYYKYYK', 'KYYKYYKYYK', 'KRYYYYYYRK', 'KYKYYYYKYK', 'KYYKKKKYYK', '.KYYYYYYK.', '..KKKKKK..'],
+        pal: { K: INK, Y: '#ffd23f', B: '#5ac8ff', R: '#ff8a7a', W: '#fff6dc' },
+    },
+    face4: {
+        rows: ['..KKKKKK..', '.KYYYYYYK.', 'KYYYYYYYYK', 'KYKYKKYKYK', 'KYYYYYYYYK', 'KRKKKKKKRK', 'KYKWWWWKYK', 'KYYKKKKYYK', '.KYYYYYYK.', '..KKKKKK..'],
+        pal: { K: INK, Y: '#ffd23f', B: '#5ac8ff', R: '#ff8a7a', W: '#fff6dc' },
+    },
     // El campo de tiro de pruebas: una diana roja y blanca con su flecha clavada
     target: {
         rows: ['..KKKKKK..', '.KRRRRRRK.', 'KRRWWWWRRK', 'KRWWRRWWRK', 'KRWRRKRWRK', 'KRWRKYRWRK', 'KRWWRRWWRK', 'KRRWWWWRRK', '.KRRRRRRK.', '..KKKKKK..'],
