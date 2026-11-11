@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { box, toon, outline, OUTLINE } from '../render/materials.js';
+import { box, toon, outline, OUTLINE, bakeRigid } from '../render/materials.js';
 import { buildScenery, updateScenery, onPathWorld } from './Scenery.js';
 import { G, GN, cellX, cellZ, hash } from './valley.js';
 import { easeOutBack } from '../core/math.js';
@@ -23,6 +23,7 @@ import { BARNYARD, SLOTS, BarnPiece } from '../render/barnyard.js';
 import { reachAt, FARM, TURRETS, PLACES, toWorld, worldToPlace, inShapeOf, inFieldShape, stretchLocal, floorPlace, worldRect, worldToLocal } from '../content/farm.js';
 
 const _d = new THREE.Object3D();
+const _frustum = new THREE.Frustum(), _m4 = new THREE.Matrix4();
 const _c = new THREE.Color();
 const _c2 = new THREE.Color();
 const _p = new THREE.Vector3();
@@ -314,6 +315,8 @@ export class Farm {
         for (const key of ['wild', 'decor', 'hints']) if (this[key]) this[key] = this[key].flatMap((e) => (big(e) ? this.chunkify(e) : [e]));
         for (const e of [...this.animated]) if (big(e) && e.positions.every((p) => p.world)) this.chunkify(e);
         this.initShade();
+        // Todo lo animado (los montones pequeños también) se recorta por cámara, no solo lo troceado
+        for (const e of this.animated) if (e.mesh && !e.mesh.frustumCulled && e.positions.length) this.cullable(e);
     }
 
     // Casillas: hierba, caminos, tierra arada en surcos y tierra sucia de los terrenos abandonados.
@@ -993,13 +996,14 @@ export class Farm {
                 this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[1], count)),
                 this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[2], count * FLOWERS)),
                 this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[3], count * FLOWERS)),
+                // (por flor k, la planta i va en k * count + i: así solo se dibujan las que tocan)
             ];
             const H = CROPS.honey;
             v.plants.forEach((s, i) => {
                 v.meshes[1].setColorAt(i, _c.setHex(H.roof));
                 for (let k = 0; k < FLOWERS; k++) {
-                    v.meshes[2].setColorAt(i * FLOWERS + k, _c.setHex(H.flowers[(i * 3 + k * 5) % H.flowers.length]).offsetHSL(0, 0, (hash(i, k, 3) - 0.5) * 0.12));
-                    v.meshes[3].setColorAt(i * FLOWERS + k, _c.setHex(0x4a9a34));
+                    v.meshes[2].setColorAt(k * count + i, _c.setHex(H.flowers[(i * 3 + k * 5) % H.flowers.length]).offsetHSL(0, 0, (hash(i, k, 3) - 0.5) * 0.12));
+                    v.meshes[3].setColorAt(k * count + i, _c.setHex(0x4a9a34));
                 }
             });
         } else if (v.crop === 'sunflower') {
@@ -1510,13 +1514,23 @@ export class Farm {
         this.plantT = (this.plantT || 0) + dt;
         const step = this.plantT >= 1 / 15, pdt = this.plantT;
         if (step) this.plantT = 0;
+        if (step && this.camera) {
+            this.camera.updateMatrixWorld();
+            _frustum.setFromProjectionMatrix(_m4.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse));
+        }
         for (const v of this.views) {
             if (v.locked) continue;
             if (v.drop) this.updateDrop(v, dt);
             else if (v.turret) this.updateTurrets(v, dt, (progress[v.id] || 0) >= 1, !!(this.turretEmpty && this.turretEmpty(v.id)));
             if (!step && !v.fresh) continue;
+            const p = progress[v.id] || 0, key = Math.round(p * 24);
+            // (fuera de cámara no se mueven; de lejos, sin viento: solo cuando crecen)
+            const sph = v.meshes[0] && v.meshes[0].boundingSphere;
+            if (!v.fresh && sph && this.camera && !v.herd && !_frustum.intersectsSphere(sph)) continue;
+            if (!v.fresh && !v.herd && (this.zoom || 1) > 2.6 && v.key === key) continue;
+            const recolor = v.fresh || v.key !== key || !!v.herd;
+            v.key = key;
             v.fresh = false;
-            const p = progress[v.id] || 0;
             if (v.crop === 'wheat') this.updateWheat(v, time, p);
             else if (v.crop === 'pumpkin') this.updatePumpkin(v, time, p);
             else if (v.crop === 'corn') this.updateCorn(v, time, p);
@@ -1527,7 +1541,7 @@ export class Farm {
             if (v.barn) for (const b of v.barn) if (b.root.visible) b.update(pdt, time);
             for (const m of v.meshes) {
                 m.instanceMatrix.needsUpdate = true;
-                if (m.instanceColor) m.instanceColor.needsUpdate = true;
+                if (m.instanceColor && recolor) m.instanceColor.needsUpdate = true; // (el color solo cambia al crecer)
             }
         }
 
@@ -1612,6 +1626,7 @@ export class Farm {
         const ink = outline(this.theme.outline);
         while (v.plants.length < n) {
             const c = v.crop === 'wool' ? buildSheep(ink) : v.crop === 'egg' ? buildChicken(ink) : v.crop === 'truffle' ? buildPig(ink) : buildCow(ink);
+            bakeRigid(c.g); // (sus piezas juntas por grupo: se anima igual con muchas menos llamadas)
             c.g.scale.setScalar(0.0001);
             v.herd.add(c.g);
             v.plants.push({ cow: c, x: f.x + 1 + Math.random() * (f.w - 2), z: f.z + 1 + Math.random() * (f.d - 2), ry: Math.random() * 6, goal: null, speed: 0, wait: Math.random() * 3, t0: this.clock + 0.3 + v.plants.length * 0.12 });
@@ -1812,7 +1827,8 @@ export class Farm {
     // Colmenar: las colmenas (cajas claras con su tejadillo, más llenas de miel al madurar: se
     // doran) y matas de flores que se mecen
     updateHoney(v, time, p) {
-        const H = CROPS.honey, [hiveMesh, roofMesh, flowerMesh, stemMesh] = v.meshes, shown = Math.min(FLOWERS, 1 + v.level);
+        const H = CROPS.honey, [hiveMesh, roofMesh, flowerMesh, stemMesh] = v.meshes, shown = Math.min(FLOWERS, 1 + v.level), n = v.plants.length;
+        flowerMesh.count = stemMesh.count = n * shown; // (solo las flores que tocan por el nivel)
         const ripe = Math.min(1, Math.max(0, (p - 0.5) / 0.5));
         v.plants.forEach((s, i) => {
             const g = this.grow(s, p), hv = s.hive ? g : 0.0001;
@@ -1827,18 +1843,18 @@ export class Farm {
             _d.updateMatrix();
             roofMesh.setMatrixAt(i, _d.matrix);
             // Flores: tallo y corola, repartidas alrededor (las que tocan por el nivel)
-            for (let k = 0; k < FLOWERS; k++) {
-                const on = k < shown ? g : 0.0001, a = s.ry + k * 2.39, d = (s.hive ? 0.6 : 0.1) + (k % 3) * 0.15, hgt = 0.3 + ((k * 7 + i) % 4) * 0.08;
+            for (let k = 0; k < shown; k++) {
+                const on = g, a = s.ry + k * 2.39, d = (s.hive ? 0.6 : 0.1) + (k % 3) * 0.15, hgt = 0.3 + ((k * 7 + i) % 4) * 0.08;
                 const sway = Math.sin(time * 1.5 + s.ph + k) * 0.06, x = s.wx + Math.sin(a) * d, z = s.wz + Math.cos(a) * d;
                 _d.rotation.set(sway, a, 0);
                 _d.position.set(x, hgt * on / 2, z);
                 _d.scale.set(0.04 * on, Math.max(0.0001, hgt * on), 0.04 * on);
                 _d.updateMatrix();
-                stemMesh.setMatrixAt(i * FLOWERS + k, _d.matrix);
+                stemMesh.setMatrixAt(k * n + i, _d.matrix);
                 _d.position.set(x, hgt * on, z);
                 _d.scale.set(0.22 * on, Math.max(0.0001, 0.12 * on), 0.22 * on);
                 _d.updateMatrix();
-                flowerMesh.setMatrixAt(i * FLOWERS + k, _d.matrix);
+                flowerMesh.setMatrixAt(k * n + i, _d.matrix);
             }
         });
     }

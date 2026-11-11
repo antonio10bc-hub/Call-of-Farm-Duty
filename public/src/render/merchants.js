@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { VoxelModel } from './VoxelModel.js';
-import { box } from './materials.js';
+import { box, mergeBoxes, bakeRigid } from './materials.js';
 import { MERCHANTS, VILLAGE, ALL_DECOR, decorAt, polar, pavedIn } from '../content/merchants.js';
 import { CROPS } from '../content/crops.js';
 
@@ -9,6 +9,8 @@ import { CROPS } from '../content/crops.js';
 // nave de un mercader al estrellarse), los árboles tumbados a sus lados, la hoguera y el claro de
 // la nave madre. Cada mercader (Visitor) llega en su ovni disfrazado de vehículo por su surco; la
 // nave madre (Mother) baja en vertical sobre su claro.
+// Las ventanas de las casas de la ampliación, en tres grupos que apagan la luz a horas distintas
+const WINDOWS = [0xffe08a, 0xffe18b, 0xffe28c], WINDOW_OFF = { 0xffe18b: 0.8, 0xffe28c: 0.93 };
 const WOOD = 0x9a6a3a, WOOD2 = 0x7a4f2a, DARK = 0x5a3a22, STONE = 0x9a948a, RED_BOX = 0xc8402e;
 const DIRT = [0x8a5a34, 0x76492a, 0x9a6a3a], TRENCH = [0x5a3a22, 0x4a2e1a];
 const METAL = 0x9aa8b8, METAL2 = 0x7a8898, HULL = 0x4a5868, GLASS = 0x9fdcff, CARD = 0xe8d8b0;
@@ -1011,8 +1013,9 @@ export class Village extends VoxelModel {
         for (const { g } of Object.values(this.decor)) this.bake([g], [g.spin, ...(g.water || [])].filter(Boolean));
         // Los habitantes (se quedan a vivir con el pueblo crecido): alienígenas pequeños, también
         // disfrazados, que pasean por el cráter
-        this.residents = [[0xffb07a, 0x5a8ac8, 0xd84a3a], [0x7ad8ff, 0xd8a03a, 0x3a3a4a], [0xff7ae0, 0x4a8a6a, 0xe8c050]].map(([sk, co, ha], i) => {
+        this.residents = [[0xffb07a, 0x5a8ac8, 0xd84a3a], [0x7ad8ff, 0xd8a03a, 0x3a3a4a], [0xff7ae0, 0x4a8a6a, 0xe8c050], [0x7dff4a, 0xc8402e, 0x2a3a5a], [0xc8a0ff, 0xf3e6c4, 0x5aa83a], [0xffe07a, 0x3a6ab8, 0xff7a2a], [0x5ae8c8, 0x8a4a8a, 0xffd23f], [0xff9a7a, 0x4a5a3a, 0x9fdcff], [0xb87dff, 0xe8c8a0, 0xc8402e]].map(([sk, co, ha], i) => {
             const a = buildAlien(this, sk, co, ha);
+            bakeRigid(a); // (sus piezas juntas por grupo: el brazo se sigue moviendo)
             a.scale.setScalar(0.72);
             a.visible = false;
             r.add(a);
@@ -1292,6 +1295,7 @@ export class Village extends VoxelModel {
         this.root.add(plan);
         // Cada cosa que se construye es una pieza aparte (se ve al ampliar el pueblo): g, la de ahora
         this.planItems = [];
+        this.planDoors = []; // (las puertas de sus casas: los vecinos entran y salen)
         let g = null;
         const item = (kind, x, z) => {
             g = new THREE.Group();
@@ -1334,8 +1338,9 @@ export class Village extends VoxelModel {
                 for (let i = 0; i < 2; i++) this.part(h, w2 + 0.2 - i * 0.6, 0.26, d2 + 0.2, roof, W / 2 + w2 / 2 - 0.1, 0.16 + 1.0 * sc + 0.13 + i * 0.26, -D / 2 + d2 / 2);
             }
             this.part(h, 0.5, 0.8, 0.06, DARK, -W / 5, 0.56, D / 2 + 0.01);
-            this.lit(h, 0.4, 0.36, 0.06, 0xffe08a, W / 2 - 0.45, 0.16 + Math.min(H, 1.3) * 0.6, D / 2 + 0.01);
-            if (form === 1) this.lit(h, 0.4, 0.36, 0.06, 0xffe08a, 0, 0.16 + H * 0.78, D / 2 + 0.01);
+            const win = WINDOWS[k % WINDOWS.length]; // (cada casa apaga la luz a su hora)
+            this.lit(h, 0.4, 0.36, 0.06, win, W / 2 - 0.45, 0.16 + Math.min(H, 1.3) * 0.6, D / 2 + 0.01);
+            if (form === 1) this.lit(h, 0.4, 0.36, 0.06, win, 0, 0.16 + H * 0.78, D / 2 + 0.01);
             if (rnd(k * 4.4) < 0.3) { this.part(h, 0.06, 0.8, 0.06, METAL, -W / 2 + 0.3, top + 1.0, 0); this.lit(h, 0.16, 0.16, 0.16, 0x7dff4a, -W / 2 + 0.3, top + 1.45, 0); }
             // El jardín de atrás: huerto, y valla o seto (no todas)
             const back = -D / 2 - 0.9, yard = rnd(k * 6.6);
@@ -1345,6 +1350,7 @@ export class Village extends VoxelModel {
             if (rnd(k * 8.8) < 0.45) { this.part(h, 0.2, 1.0, 0.2, WOOD2, W / 2 + 0.6, 0.5, back + 0.4); this.part(h, 0.9, 0.8, 0.9, [0x4caf3c, 0xb87dff][rnd(k * 3.3) < 0.8 ? 0 : 1], W / 2 + 0.6, 1.3, back + 0.4); }
             if (rnd(k * 1.7) < 0.35) { this.part(h, 0.08, 0.6, 0.08, DARK, W / 2 + 0.2, 0.3, D / 2 + 0.9, false); this.part(h, 0.3, 0.22, 0.2, RED_BOX, W / 2 + 0.2, 0.68, D / 2 + 0.9); } // (buzón)
             g.add(h);
+            this.planDoors.push({ item: this.planItems.length - 1, x: x + Math.sin(ry) * (D / 2 + 0.5), z: z + Math.cos(ry) * (D / 2 + 0.5) });
             return D;
         };
         // Las rondas de los barrios: asfalto con su raya discontinua y aceras a los dos lados
@@ -1352,7 +1358,17 @@ export class Village extends VoxelModel {
         const RINGS = [29.5], ASPH = [0x54545a, 0x4e4e54], WALK = 0xc8c0b0;
         // (las rondas no son círculos: se ondulan, cada una a su manera)
         const wobR = (R, a) => R + Math.sin(a * 3 + R) * 1.3 + Math.sin(a * 5 - R * 0.7) * 0.6;
+        this.ringAt = (a) => wobR(RINGS[0], a);
+        this.ringGap = (a) => wobR(RINGS[0], a) > this.reach((a * 180) / Math.PI) - 2.5;
         for (const R0 of RINGS) {
+            // Farolas en la acera de fuera (se encienden de noche)
+            for (let a = 0; a < Math.PI * 2; a += 7 / R0) {
+                const R = wobR(R0, a) + 2.1;
+                if (this.ringGap(a) || nearStreet(a, R, 1)) continue;
+                const x = VILLAGE.cx + Math.cos(a) * R, z = VILLAGE.cz + Math.sin(a) * R;
+                this.part(g, 0.12, 2.4, 0.12, DARK, x, 1.2, z);
+                this.lit(g, 0.34, 0.3, 0.34, 0xfff0a0, x, 2.5, z);
+            }
             const n = Math.round((Math.PI * 2 * R0) / 0.8);
             for (let i = 0; i < n; i++) {
                 const a = (i / n) * Math.PI * 2, R = wobR(R0, a);
@@ -1480,16 +1496,71 @@ export class Village extends VoxelModel {
         for (const [kind, at] of Object.entries(special).sort((p, q) => p[1] - q[1])) order.splice(Math.min(at, order.length), 0, this.planItems.find((it) => it.kind === kind));
         this.planItems = order;
         for (const it of this.planItems) this.bake([it.g], []);
+        // Los coches que dan vueltas por la ronda (con la ronda hecha): cochecitos de colores con su
+        // antena alien, cada uno por su carril
+        this.cars = [[0xc8402e, 0.5, 1], [0x3a8ad8, 2.6, -1], [0xffd23f, 4.4, 1]].map(([col, a0, dir]) => {
+            let a = a0;
+            for (let i = 0; i < 60 && this.ringGap(a); i++) a += 0.1; // (que no empiece donde la ronda se corta)
+            const c = new THREE.Group();
+            this.part(c, 0.8, 0.36, 1.5, col, 0, 0.36, 0);
+            this.part(c, 0.66, 0.3, 0.8, GLASS, 0, 0.66, -0.1);
+            this.part(c, 0.7, 0.06, 0.84, col, 0, 0.84, -0.1);
+            for (const x of [-0.42, 0.42]) for (const z of [-0.48, 0.48]) this.part(c, 0.12, 0.28, 0.28, 0x2e2a28, x, 0.14, z, false);
+            this.part(c, 0.04, 0.4, 0.04, METAL, 0.25, 1.05, -0.4, false);
+            this.lit(c, 0.12, 0.12, 0.12, 0x7dff4a, 0.25, 1.28, -0.4);
+            for (const x of [-0.26, 0.26]) this.lit(c, 0.16, 0.12, 0.04, 0xfff0a0, x, 0.4, 0.76);
+            c.visible = false;
+            plan.add(c);
+            this.bake([c], []);
+            return { g: c, a, dir, v: 0.12 + Math.random() * 0.05 };
+        });
     }
 
     // Cuánto se ha ampliado el pueblo (las primeras n piezas, a la vista; pop: la nueva, con un bote)
+    // Lo ya construido (y asentado) se dibuja junto, una malla por material (planMerged); la pieza
+    // recién hecha va aparte mientras bota
     setTownPlan(n, pop = true) {
         if (!this.planG) this.buildPlan();
+        let changed = false;
         this.planItems.forEach((it, i) => {
             const on = i < n;
-            if (on && !it.g.visible && pop) it.pop = 1;
-            it.g.visible = on;
+            if (on === !!it.built) return;
+            it.built = on;
+            changed = true;
+            if (on && pop) {
+                it.pop = 1;
+                it.g.visible = true;
+            } else it.g.visible = false;
         });
+        if (changed) this.rebakePlan();
+    }
+
+    rebakePlan() {
+        this.planMerged = this.mergeInto(this.planG, this.planMerged, this.planItems.filter((it) => it.built && !(it.pop > 0)).map((it) => it.g));
+    }
+
+    // Junta en un grupo nuevo (dentro de parent) todas las mallas de objs, una por material (en
+    // la posición que tengan, aunque estén escondidos); quita el grupo junto de antes (old)
+    mergeInto(parent, old, objs) {
+        if (old) {
+            old.removeFromParent();
+            old.traverse((o) => o.geometry && o.geometry.dispose());
+        }
+        const g = new THREE.Group(), byMat = new Map(), inv = new THREE.Matrix4(), M = new THREE.Matrix4();
+        parent.updateMatrixWorld(true);
+        inv.copy(parent.matrixWorld).invert();
+        for (const obj of objs) obj.traverse((o) => {
+            if (!o.isMesh) return;
+            M.multiplyMatrices(inv, o.matrixWorld);
+            if (!byMat.has(o.material)) byMat.set(o.material, []);
+            byMat.get(o.material).push(o.geometry.clone().applyMatrix4(M));
+        });
+        for (const [mat, list] of byMat) {
+            g.add(new THREE.Mesh(mergeBoxes(list), mat));
+            for (const q of list) q.dispose();
+        }
+        parent.add(g);
+        return g;
     }
 
     get planCount() {
@@ -1503,18 +1574,66 @@ export class Village extends VoxelModel {
         const paved = pavedIn(phase);
         for (const [id, H] of Object.entries(this.houses)) {
             const on = paved.includes(id);
-            if (on && !H.g.visible && pop) H.pop = 1;
-            H.g.visible = on;
-            this.lamps[id].visible = on && phase >= 3;
-            H.road.visible = on;
+            if (on && !H.on && pop) H.pop = 1;
+            H.on = on;
+            H.g.visible = on && H.pop > 0; // (la que bota, aparte; las asentadas, juntas: rebakeTown)
+            H.lampsOn = on && phase >= 3;
+            this.lamps[id].visible = false;
+            H.road.visible = false;
             if (this.fallen[id]) this.fallen[id].visible = !on;
         }
         this.townPhase = phase;
+        this.rebakeTown();
+    }
+
+    // Las casas asentadas, las calles y las farolas de los mercaderes, juntas (una malla por material)
+    rebakeTown() {
+        const objs = [];
+        for (const [id, H] of Object.entries(this.houses)) {
+            if (!H.on) continue;
+            objs.push(H.road);
+            if (!(H.pop > 0)) objs.push(H.g);
+            if (H.lampsOn) objs.push(this.lamps[id]);
+        }
+        this.townMerged = this.mergeInto(this.townG, this.townMerged, objs);
     }
 
     // Cuántos se han quedado a vivir
     setResidents(n) {
-        this.residents.forEach((R, i) => (R.g.visible = i < n));
+        this.residents.forEach((R, i) => {
+            const on = i < n;
+            if (on !== !!R.on) {
+                R.on = on;
+                R.g.visible = on;
+                R.inside = 0;
+            }
+        });
+    }
+
+    // Las puertas a las que se puede ir: las casas de los mercaderes que ya están y las de la ampliación
+    openDoors() {
+        const out = [];
+        if (this.houses) for (const H of Object.values(this.houses)) if (H.on) out.push({ x: H.g.position.x + Math.sin(H.g.rotation.y) * 1.7, z: H.g.position.z + Math.cos(H.g.rotation.y) * 1.7 });
+        if (this.planDoors) for (const d of this.planDoors) if (this.planItems[d.item] && this.planItems[d.item].built) out.push(d);
+        return out;
+    }
+
+    // El camino de la plaza a un punto (o de vuelta, back): por la acera de la calle que más cerca
+    // le queda (la salida de la plaza, la acera hasta su altura) y luego hasta él
+    routeTo(x, z, back = false) {
+        const dx = x - VILLAGE.cx, dz = z - VILLAGE.cz, r = Math.hypot(dx, dz), a = Math.atan2(dz, dx);
+        let best = null, bd = Infinity;
+        for (const q of Object.values(this.geo)) {
+            const d = Math.abs(Math.atan2(Math.sin(a - q.a), Math.cos(a - q.a)));
+            if (d < bd) { bd = d; best = q; }
+        }
+        if (!best || r < VILLAGE.R + 2) return back ? [{ x: VILLAGE.cx + dx * 0.3, z: VILLAGE.cz + dz * 0.3 }] : [];
+        const c = Math.cos(best.a), s = Math.sin(best.a), side = Math.sign(-dx * s + dz * c) || 1;
+        const along = Math.max(VILLAGE.R + 1, Math.min(r, (best.endR || r) - 1)), off = (best.half ? furrowHalf(best, along) : 2) + 0.7;
+        const P = (t) => ({ x: VILLAGE.cx + c * t - s * off * side, z: VILLAGE.cz + s * t + c * off * side });
+        const pts = [{ x: VILLAGE.cx + c * (VILLAGE.R - 2), z: VILLAGE.cz + s * (VILLAGE.R - 2) }, P(VILLAGE.R + 1), P(along)];
+        if (back) return [P(along), P(VILLAGE.R + 1), { x: VILLAGE.cx + c * (VILLAGE.R - 2), z: VILLAGE.cz + s * (VILLAGE.R - 2) }, { x: VILLAGE.cx + (Math.random() - 0.5) * 6, z: VILLAGE.cz + (Math.random() - 0.5) * 6 }];
+        return pts;
     }
 
     // ¿Hay alguien? (la hoguera, encendida)
@@ -1524,25 +1643,52 @@ export class Village extends VoxelModel {
 
     update(dt, time, nightK = 0) {
         for (const v of this.visitors) v.update(dt, time, nightK);
+        // Los coches de la ronda
+        if (this.cars) {
+            const on = !!this.planItems[0].built;
+            for (const C of this.cars) {
+                C.g.visible = on;
+                if (!on) continue;
+                const na = C.a + C.v * C.dir * dt;
+                if (this.ringGap(na) && !this.ringGap(C.a)) { C.dir = -C.dir; continue; } // (donde la ronda se corta, media vuelta)
+                C.a = na;
+                const R = this.ringAt(C.a) + C.dir * 0.55, R2 = this.ringAt(C.a + 0.01 * C.dir) + C.dir * 0.55;
+                const x = VILLAGE.cx + Math.cos(C.a) * R, z = VILLAGE.cz + Math.sin(C.a) * R;
+                const x2 = VILLAGE.cx + Math.cos(C.a + 0.01 * C.dir) * R2, z2 = VILLAGE.cz + Math.sin(C.a + 0.01 * C.dir) * R2;
+                C.g.position.set(x, 0.13, z);
+                C.g.rotation.y = Math.atan2(x2 - x, z2 - z);
+            }
+        }
         // Lo nuevo de la ampliación, con un bote
         if (this.planItems) for (const it of this.planItems) if (it.pop > 0) {
             it.pop = Math.max(0, it.pop - dt * 1.4);
             it.g.scale.set(1, Math.max(0.0001, back(Math.min(1, (1 - it.pop) * 1.2))), 1);
+            if (it.pop === 0) {
+                it.g.visible = false; // (ya asentada: pasa a dibujarse con las demás)
+                this.rebakePlan();
+            }
         }
         // Las casas nuevas, con un bote
         if (this.houses) for (const H of Object.values(this.houses)) if (H.pop > 0) {
             H.pop = Math.max(0, H.pop - dt * 1.4);
             H.g.scale.set(1, Math.max(0.0001, back(Math.min(1, (1 - H.pop) * 1.2))), 1);
+            if (H.pop === 0) {
+                H.g.visible = false;
+                this.rebakeTown();
+            }
         }
         if (this.marketPop > 0) {
             this.marketPop = Math.max(0, this.marketPop - dt * 1.5);
             this.marketG.scale.set(1, Math.max(0.0001, back(Math.min(1, (1 - this.marketPop) * 1.2))), 1);
         }
         // De noche se encienden las farolas, las bombillas y los cristales
-        const night = nightK > 0.4;
-        if (this.litMats && night !== this.litNight) {
-            this.litNight = night;
-            for (const L0 of this.litMats.values()) L0.mat.color.copy(night ? L0.on : L0.off);
+        // (las ventanas de las casas se van apagando según avanza la noche: cada grupo a su hora)
+        if (this.litMats) for (const [c, L0] of this.litMats) {
+            const on = nightK > 0.4 && nightK < (WINDOW_OFF[c] || 2);
+            if (on !== L0.state) {
+                L0.state = on;
+                L0.mat.color.copy(on ? L0.on : L0.off);
+            }
         }
         // Se visitan: de vez en cuando uno va al puesto de otro a charlar
         if ((this.visitT -= dt) <= 0) {
@@ -1559,19 +1705,42 @@ export class Village extends VoxelModel {
             v.bubbleT -= dt;
             v.bubble.visible = v.bubbleT > 0 && Math.sin(time * 3 + 1.5) > -0.3;
         }
-        // Los habitantes pasean por el cráter (sin pisar la fuente) y se paran a mirar
+        // Los habitantes pasean por el cráter (sin pisar la fuente) y se paran a mirar; con el pueblo
+        // crecido, a veces se van a casa por las aceras de las calles, entran, y al rato vuelven
         for (const R of this.residents) {
-            if (!R.g.visible) continue;
+            if (!R.on) continue;
+            if (R.inside > 0) {
+                if ((R.inside -= dt) <= 0) {
+                    R.g.visible = true;
+                    R.route = this.routeTo(R.x, R.z, true);
+                }
+                continue;
+            }
+            if (!R.goal && R.route && R.route.length) R.goal = R.route.shift();
             if (!R.goal && (R.wait -= dt) <= 0) {
-                const a = Math.random() * Math.PI * 2, d = 2.2 + Math.random() * 4.6;
-                R.goal = { x: VILLAGE.cx + Math.cos(a) * d, z: VILLAGE.cz + Math.sin(a) * d };
+                const doors = this.openDoors();
+                if (R.home !== undefined || (doors.length && Math.random() < 0.55)) {
+                    const dr = R.home !== undefined && doors[R.home % doors.length] ? doors[R.home % doors.length] : doors[(Math.random() * doors.length) | 0];
+                    if (dr) {
+                        R.route = [...this.routeTo(dr.x, dr.z), { x: dr.x, z: dr.z, enter: true }];
+                        R.goal = R.route.shift();
+                    }
+                }
+                if (!R.goal) {
+                    const a = Math.random() * Math.PI * 2, d = 2.2 + Math.random() * 4.6;
+                    R.goal = { x: VILLAGE.cx + Math.cos(a) * d, z: VILLAGE.cz + Math.sin(a) * d };
+                }
             }
             let moving = false;
             if (R.goal) {
                 const dx = R.goal.x - R.x, dz = R.goal.z - R.z, d = Math.hypot(dx, dz);
                 if (d < 0.1) {
+                    if (R.goal.enter) {
+                        R.g.visible = false; // (entra en casa)
+                        R.inside = 6 + Math.random() * 10;
+                    }
                     R.goal = null;
-                    R.wait = 1.5 + Math.random() * 4;
+                    R.wait = R.route && R.route.length ? 0 : 1.5 + Math.random() * 4;
                 } else {
                     R.x += (dx / d) * dt * 1.1;
                     R.z += (dz / d) * dt * 1.1;

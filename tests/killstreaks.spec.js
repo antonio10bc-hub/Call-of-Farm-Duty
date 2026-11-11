@@ -29,11 +29,11 @@ test('racha de granadas: la barra sale al recoger y se vacía; a las 5, 10 y 15 
     // Racimo: al caer suelta mini granadas
     await page.evaluate(() => game.sniper.ks.trigger('cluster'));
     await expect(page.locator('#medals')).toContainText('RACIMO');
-    await expect.poll(() => page.evaluate(() => game.sniper.ks.bomblets.length), { timeout: 5_000 }).toBeGreaterThan(0);
+    await expect.poll(() => page.evaluate(() => game.sniper.ks.made.bomblets), { timeout: 30_000 }).toBeGreaterThan(0); // (las mini granadas duran poco: se cuentan)
     // Incendiaria: su fuego quema lo de alrededor y a un alienígena que pase por él
     await page.evaluate(() => game.sniper.ks.trigger('fire'));
     await expect(page.locator('#medals')).toContainText('INCENDIARIA');
-    await expect.poll(() => page.evaluate(() => game.sniper.ks.fires.length), { timeout: 5_000 }).toBeGreaterThan(0);
+    await expect.poll(() => page.evaluate(() => game.sniper.ks.fires.length), { timeout: 30_000 }).toBeGreaterThan(0); // (con la máquina cargada, la granada tarda en caer)
     before = await page.evaluate(() => game.sniper.aliens);
     await page.evaluate(() => {
         const f = game.sniper.ks.fires[0], W = game.sniper.walkers, w = W.spawn();

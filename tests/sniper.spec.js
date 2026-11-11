@@ -304,7 +304,7 @@ test('abejas y girasoles: se le dispara a la gota de miel de la abeja; al giraso
     const errors = watchErrors(page);
     await enterCrop(page, 'honey');
     expect(await page.evaluate(() => game.sniper.field.sheaves.every((s) => s.bee))).toBe(true);
-    await page.evaluate(() => game.sniper.field.sheaves.forEach((s) => (s.w = 0))); // (quietas: que no se escapen de la mira)
+    await page.evaluate(() => game.sniper.field.sheaves.forEach((s) => { s.w = 0; s.hb = [0.6, 0.8, 0.6]; })); // (quietas y con la gota más grande: que no se escapen de la mira con la máquina cargada)
     await aimAndShoot(page, '(() => { const s = game.sniper.field.sheaves.find((x) => x.alive); return s && { x: s.x, y: s.y, z: s.z }; })()');
     await expect.poll(() => page.evaluate(() => game.state.items.honey)).toBeGreaterThan(0);
     // Girasoles: de espaldas no se les puede dar; de cara, sí

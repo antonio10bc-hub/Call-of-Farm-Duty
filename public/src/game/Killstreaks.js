@@ -39,6 +39,7 @@ export class Killstreaks {
         this.grenades = [];
         this.bomblets = [];
         this.fires = [];
+        this.made = { bomblets: 0, fires: 0 }; // (cuántas mini granadas y fuegos ha habido: para las pruebas)
         this.bombs = [];
         this.plane = null;
         this.predator = null;
@@ -127,6 +128,7 @@ export class Killstreaks {
             hulled(b, this.ink, 0.22, 0.05, 0.22, 0xffd23f);
             b.position.set(x, 0.5, z);
             this.root.add(b);
+            this.made.bomblets++;
             this.bomblets.push({ obj: b, vx: Math.sin(a) * v, vz: Math.cos(a) * v, vy: 5 + Math.random() * 2, trail: 0 });
         }
     }
@@ -143,6 +145,7 @@ export class Killstreaks {
         glow.scale.set(r * 2, 0.05, r * 2);
         glow.position.set(x, 0.06, z);
         this.root.add(scorch, glow);
+        this.made.fires++;
         this.fires.push({ x, z, t: KS.fire.time, tick: 0, scorch, glow });
         sn.waves.spawn(x, z, 0xff9a1f, r * 1.4, 0.5);
         sn.hooks.sfx.play('boom');

@@ -121,3 +121,12 @@ export function bakeGroup(group, stop = () => false) {
         for (const g of list) g.dispose();
     }
 }
+
+// Junta, en cada grupo de un modelo (el de fuera y cada subgrupo que se mueve aparte: patas,
+// cabeza, rabo...), sus piezas por material: el modelo se anima igual (se mueven los grupos) con
+// muchas menos llamadas de dibujo. Para los animales del mapa
+export function bakeRigid(root) {
+    const groups = [];
+    root.traverse((o) => { if (!o.isMesh) groups.push(o); });
+    for (const g of groups.reverse()) bakeGroup(g, (o) => !o.isMesh);
+}

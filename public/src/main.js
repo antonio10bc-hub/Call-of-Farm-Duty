@@ -9,7 +9,7 @@ import { ARSENAL, ARSENAL_KINDS, CLASSES, DEFAULT_LOADOUT } from './content/arse
 import { gearArt } from './ui/GearArt.js';
 import { TIERS, tierOf } from './content/well.js';
 import { MERCHANT, rareVisit } from './content/merchant.js';
-import { MERCHANTS, MERCHANT_BY_ID, VisitClock, ALL_DECOR, DECOR_BY_ID, VILLAGE, VILLAGE_LEVELS, RESIDENTS, MEDALS, MARKET, MARKET_FORCE, marketNow, townPhase, expandCost } from './content/merchants.js';
+import { MERCHANTS, MERCHANT_BY_ID, VisitClock, ALL_DECOR, DECOR_BY_ID, VILLAGE, VILLAGE_LEVELS, RESIDENTS, MEDALS, MARKET, MARKET_FORCE, marketNow, townPhase, expandCost, TOWN_PERKS } from './content/merchants.js';
 import { regionAt, isWater, groundAt } from './world/valley.js';
 import { RetroRenderer } from './render/RetroRenderer.js';
 import { CameraRig } from './render/CameraRig.js';
@@ -865,6 +865,17 @@ function refreshSigns() {
     }
 }
 
+// Coloca un cartel en pantalla (solo si se ha movido: escribir su estilo cada fotograma obliga al
+// navegador a recolocar la página)
+function placeAt(el, x, y) {
+    x = Math.round(x);
+    y = Math.round(y);
+    if (el._x === x && el._y === y) return;
+    el._x = x;
+    el._y = y;
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+}
 const _b = new THREE.Vector3();
 function placeBubbles() {
     const show = mode === 'farm' && farm.introT > 1.6;
@@ -874,8 +885,7 @@ function placeBubbles() {
     wellSign.classList.toggle('hidden', !wellOn);
     if (wellOn) {
         farm.world(135, 4.2, 15, _b).project(rig.camera);
-        wellSign.style.left = `${Math.round((_b.x * 0.5 + 0.5) * innerWidth)}px`;
-        wellSign.style.top = `${Math.round((-_b.y * 0.5 + 0.5) * innerHeight)}px`;
+        placeAt(wellSign, (_b.x * 0.5 + 0.5) * innerWidth, (-_b.y * 0.5 + 0.5) * innerHeight);
         const can = state.wishPool().length > 0 && state.items.gold >= state.wishCost(), html = `${ico('well')}<span>${L('WISHING WELL', 'POZO DE LOS DESEOS')}</span><i class="sign-up"></i>`;
         if (wellSign.innerHTML !== html) wellSign.innerHTML = html;
         wellSign.classList.toggle('can-up', can);
@@ -883,8 +893,7 @@ function placeBubbles() {
     rangeSign.classList.toggle('hidden', !wellOn);
     if (wellOn) {
         farm.world(24.5, 3.4, 13, _b).project(rig.camera);
-        rangeSign.style.left = `${Math.round((_b.x * 0.5 + 0.5) * innerWidth)}px`;
-        rangeSign.style.top = `${Math.round((-_b.y * 0.5 + 0.5) * innerHeight)}px`;
+        placeAt(rangeSign, (_b.x * 0.5 + 0.5) * innerWidth, (-_b.y * 0.5 + 0.5) * innerHeight);
         const html = `${ico('target')}<span>${L('TEST RANGE', 'CAMPO DE PRUEBAS')}</span>`;
         if (rangeSign.innerHTML !== html) rangeSign.innerHTML = html;
     }
@@ -896,27 +905,23 @@ function placeBubbles() {
         el.classList.toggle('compact', rig.zoom > 1.15); // (de lejos, solo el icono: no se amontonan)
         const w = vWorld(v.spot.x, v.spot.z, 3.1);
         _b.set(w.x, w.y, w.z).project(rig.camera);
-        el.style.left = `${Math.round((_b.x * 0.5 + 0.5) * innerWidth)}px`;
-        el.style.top = `${Math.round((-_b.y * 0.5 + 0.5) * innerHeight)}px`;
+        placeAt(el, (_b.x * 0.5 + 0.5) * innerWidth, (-_b.y * 0.5 + 0.5) * innerHeight);
     }
     const ufoOn = show && !FARM.house.hidden && state.open('shop') && state.houseMaxed && !cine; // (la tienda, con la casa al máximo)
     ufoSign.classList.toggle('hidden', !ufoOn);
     if (ufoOn) {
         const h = farm.byId.house;
         farm.world(h.def.x + 2.4, h.top + 0.8, h.def.z - 2.4, _b).project(rig.camera);
-        ufoSign.style.left = `${Math.round((_b.x * 0.5 + 0.5) * innerWidth)}px`;
-        ufoSign.style.top = `${Math.round((-_b.y * 0.5 + 0.5) * innerHeight)}px`;
+        placeAt(ufoSign, (_b.x * 0.5 + 0.5) * innerWidth, (-_b.y * 0.5 + 0.5) * innerHeight);
     }
     if (show) {
         const house = farm.byId.house;
         farm.world(house.def.x, (house.level ? house.top : 1.8) - 1.2, house.def.z, _b).project(rig.camera);
-        houseSign.style.left = `${Math.round((_b.x * 0.5 + 0.5) * innerWidth)}px`;
-        houseSign.style.top = `${Math.round((-_b.y * 0.5 + 0.5) * innerHeight)}px`;
+        placeAt(houseSign, (_b.x * 0.5 + 0.5) * innerWidth, (-_b.y * 0.5 + 0.5) * innerHeight);
         const barn = farm.byId.barn;
         // (el cartel ya sube un poco por su cuenta: con esto queda justo sobre el tejado)
         farm.world(barn.def.x, barn.top - 1.4, barn.def.z, _b).project(rig.camera);
-        armory.style.left = `${Math.round((_b.x * 0.5 + 0.5) * innerWidth)}px`;
-        armory.style.top = `${Math.round((-_b.y * 0.5 + 0.5) * innerHeight)}px`;
+        placeAt(armory, (_b.x * 0.5 + 0.5) * innerWidth, (-_b.y * 0.5 + 0.5) * innerHeight);
     }
     for (const def of FARM.fields) {
         // Un solo medallón por cultivo: creciendo (barrita que se llena) o listo (amarillo con
@@ -928,23 +933,20 @@ function placeBubbles() {
         sign.classList.toggle('ready', ready);
         sign.classList.toggle('hidden', !show);
         if (show && f.unlocked) {
-            const bar = sign.querySelector('.grow > i');
+            const bar = sign._bar && sign._bar.isConnected ? sign._bar : (sign._bar = sign.querySelector('.grow > i')); // (si se rehízo el cartel, se busca otra vez)
             const w = `${ready ? 100 : Math.round(state.progress(id) * 10) * 10}%`;
             if (bar && bar.style.width !== w) bar.style.width = w;
         }
         if (!show) continue;
         farm.fieldTop(id, _b).project(rig.camera);
-        const x = `${Math.round((_b.x * 0.5 + 0.5) * innerWidth)}px`, y = `${Math.round((-_b.y * 0.5 + 0.5) * innerHeight)}px`;
-        sign.style.left = x;
-        sign.style.top = y;
+        placeAt(sign, (_b.x * 0.5 + 0.5) * innerWidth, (-_b.y * 0.5 + 0.5) * innerHeight);
     }
     // Las parcelas que aún no tienen cultivo: su candado en el centro
     for (const l of SOON_LANDS) {
         l.sign.classList.toggle('hidden', !show);
         if (!show) continue;
         farm.world((l.rect[0] + l.rect[2]) / 2, 2.2, (l.rect[1] + l.rect[3]) / 2, _b).project(rig.camera);
-        l.sign.style.left = `${Math.round((_b.x * 0.5 + 0.5) * innerWidth)}px`;
-        l.sign.style.top = `${Math.round((-_b.y * 0.5 + 0.5) * innerHeight)}px`;
+        placeAt(l.sign, (_b.x * 0.5 + 0.5) * innerWidth, (-_b.y * 0.5 + 0.5) * innerHeight);
     }
 }
 // Las parcelas de PRONTO (sin cultivo aún): bloqueadas, con su candado como un terreno; tocarlas
@@ -2141,7 +2143,12 @@ function syncMerchantLife(pop = true) {
     const phase = townPhase(state.village.length);
     farm.setTownPhase(phase >= 3 && state.town > 0 ? 4 : phase, pop);
     if (phase >= 3) farm.village.setTownPlan(state.town, pop);
-    farm.village.setResidents(RESIDENTS.filter((n) => state.village.length >= n).length);
+    // Lo que dan los barrios especiales ya construidos (TOWN_PERKS)
+    const built = phase >= 3 ? farm.village.planItems.slice(0, state.town).map((it) => it.kind) : [];
+    state.perks = Object.fromEntries(Object.keys(TOWN_PERKS).filter((k) => built.includes(k)).map((k) => [k, true]));
+    for (const c of Object.values(clocks)) c.stayK = state.perks.grove ? TOWN_PERKS.grove.stay : 1;
+    // Más vecinos con la ampliación (uno por cada 4 piezas)
+    farm.village.setResidents(RESIDENTS.filter((n) => state.village.length >= n).length + Math.floor(state.town / 4));
 }
 // Tras cada cosa del pueblo: ¿sube de nivel? ¿algún logro nuevo? (con su aviso y su oro)
 function merchantNews2() {
@@ -2179,7 +2186,7 @@ function renderMerchant() {
     const from = TRUST[lv - 1], to = TRUST[lv], k = to === undefined ? 1 : (M.trust - from) / (to - from);
     $('merchant-trust').innerHTML = `<span class="trust-name">${LEVEL_NAMES[lv - 1]}</span><span class="pips">${[1, 2, 3, 4, 5].map((i) => `<i class="pip${i <= lv ? ' on' : ''}"></i>`).join('')}</span>`
         + `<span class="trust-bar"><i style="width:${Math.round(k * 100)}%"></i></span>`
-        + `<span class="trust-meta">${L('LOVES', 'LE ENCANTA')} ${ico(CROPS[def.fav].icon)} · ${L('STREAK', 'RACHA')} ${M.streak % GIFT_EVERY}/${GIFT_EVERY} · ${MOODS[M.mood]}</span>`;
+        + `<span class="trust-meta">${L('LOVES', 'LE ENCANTA')} ${ico(CROPS[def.fav].icon)}${def.fav2 ? ico(CROPS[def.fav2].icon) : ''} · ${L('STREAK', 'RACHA')} ${M.streak % GIFT_EVERY}/${GIFT_EVERY} · ${MOODS[M.mood]}</span>`;
     if (!here) {
         $('merchant-orders').innerHTML = `<div class="merchant-away">${L('NOT HERE RIGHT NOW. EACH MERCHANT COMES WHEN THEY PLEASE, WITH NEW ORDERS.', 'AHORA NO ESTÁ. CADA MERCADER VIENE CUANDO QUIERE, CON ENCARGOS NUEVOS.')}</div>` + shopHtml(id, false);
         return;
@@ -2228,12 +2235,15 @@ function villageHtml() {
         + `<small>${n}/${ALL_DECOR.length}${next ? ` · ${next.name} ${L('AT', 'CON')} ${next.n}` : ''}</small>` + expandHtml();
 }
 // Con el pueblo terminado (fase 3), se amplía: cada paso construye la siguiente pieza, por oro
+const PERK_TEXT = { market: L('MARKET: ORDERS PAY +20%', 'MERCADO: LOS ENCARGOS PAGAN +20%'), park: L('PARK: +1 TRUST PER DELIVERY', 'PARQUE: +1 DE CONFIANZA POR ENTREGA'), tech: L('TECH: WISHES 25% CHEAPER', 'TECNOLOGÍA: DESEOS UN 25% MÁS BARATOS'), grove: L('GROVE: MERCHANTS STAY LONGER', 'ARBOLEDA: LOS MERCADERES SE QUEDAN MÁS') };
 const PLAN_NAMES = { ring: L('RING ROAD', 'RONDA'), house: L('HOUSE', 'CASA'), cluster: L('GROUP OF HOUSES', 'GRUPO DE CASAS'), market: L('MARKET STREET', 'CALLE DEL MERCADO'), park: L('ALIEN PARK', 'PARQUE ALIEN'), tech: L('TECH QUARTER', 'BARRIO TECNOLÓGICO'), grove: L('GROVE', 'ARBOLEDA') };
 function expandHtml() {
     if (townPhase(state.village.length) < 3) return '';
     const total = farm.village.planCount, step = state.town, it = farm.village.planItems[step];
     return `<div class="town-expand"><small>${L('EXPAND THE TOWN', 'AMPLIAR EL PUEBLO')} · ${step}/${total}</small>`
-        + (it ? `<button data-expand="1"${state.canExpand(total) ? '' : ' disabled'}>${PLAN_NAMES[it.kind]} · ${ico('gold')}${expandCost(step)}</button>` : `<b>${L('ALL BUILT!', '¡TODO CONSTRUIDO!')}</b>`) + '</div>';
+        + (it ? `<button data-expand="1"${state.canExpand(total) ? '' : ' disabled'}>${PLAN_NAMES[it.kind]} · ${ico('gold')}${expandCost(step)}</button>` : `<b>${L('ALL BUILT!', '¡TODO CONSTRUIDO!')}</b>`)
+        + (it && PERK_TEXT[it.kind] ? `<small class="perk-next">${PERK_TEXT[it.kind]}</small>` : '')
+        + (Object.keys(state.perks).length ? `<small class="perks">${Object.keys(state.perks).map((k) => PERK_TEXT[k]).join(' · ')}</small>` : '') + '</div>';
 }
 // Abajo, plegados: los logros
 function medalsHtml() {
@@ -3421,7 +3431,10 @@ function frame(now) {
         updateCall(dt);
     }
     if (mode === 'farm' || mode === 'toSnipe') {
-        const progress = Object.fromEntries(FARM.fields.map((f) => [f.id, state.progress(f.id)]));
+        const progress = progressNow;
+        for (const f of FARM.fields) progress[f.id] = state.progress(f.id); // (el mismo objeto cada fotograma)
+        farm.camera = rig.camera; // (las plantas fuera de cámara no se mueven)
+        farm.zoom = rig.zoom;
         farm.update(dt, time, progress);
         if (mode === 'toSnipe') {
             modeT += dt;
@@ -3494,6 +3507,7 @@ function frame(now) {
         if (mode !== 'farm') renderer.render(sniper.scene, sniper.camera, dt);
     }
 }
+const progressNow = {}; // (lo que lleva crecido cada campo: se rellena cada fotograma)
 // ---------- Foto ----------
 // Sin la interfaz, se dibuja el mapa y se guarda la imagen (a píxel grande, con el nombre del juego)
 function takePhoto() {

@@ -1667,3 +1667,5 @@ body.practice .left-badge { display: none; }
 .town-expand button:disabled { background: #d8c8a8; color: #8a7060; cursor: default; }
 .town-expand button .ico { width: 12px; height: 12px; }
 .town-expand b { font-size: 8px; font-weight: normal; color: #2f8a2c; }
+.town-expand .perk-next { flex-basis: 100%; color: #8a5a10; }
+.town-expand .perks { flex-basis: 100%; color: #2f8a2c; }

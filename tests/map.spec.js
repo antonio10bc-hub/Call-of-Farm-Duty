@@ -424,7 +424,7 @@ test('pueblo de los mercaderes: día de mercado, exclusivo de la nave madre, niv
     // Nivel del pueblo y logros: al llenarlo, sube de nivel (con su oro), se quedan a vivir 3 y salta el logro
     await page.evaluate(() => { game.state.village = Object.keys(game.farm.village.decor); });
     await tap('dbg-medals');
-    expect(await page.evaluate(() => [game.state.villageLevel, game.state.villageLv, game.state.medals.includes('full'), game.state.medals.includes('exclusive'), game.farm.village.residents.filter((r) => r.g.visible).length])).toEqual([4, 4, true, true, 3]);
+    expect(await page.evaluate(() => [game.state.villageLevel, game.state.villageLv, game.state.medals.includes('full'), game.state.medals.includes('exclusive'), game.farm.village.residents.filter((r) => r.on).length])).toEqual([4, 4, true, true, 3]);
     // Celos: si a otro le tienes mucha más confianza, este paga más
     await page.evaluate(() => { game.state.merchants.m0.trust = 35; game.state.newOrders(game.clocks.m2.visit, 'm2'); });
     expect(await page.evaluate(() => game.state.merchants.m2.jealous)).toBe(true);
@@ -501,9 +501,9 @@ test('ampliar el pueblo: con el pueblo terminado, cada paso construye la siguien
     const btn = page.locator('#merchant-village [data-expand]');
     await expect(btn).toBeEnabled();
     await btn.click();
-    expect(await page.evaluate(() => [game.state.town, game.state.items.gold, game.farm.village.planItems[0].kind, game.farm.village.planItems[0].g.visible, game.farm.townPhase])).toEqual([1, 94, 'ring', true, 4]);
+    expect(await page.evaluate(() => [game.state.town, game.state.items.gold, game.farm.village.planItems[0].kind, game.farm.village.planItems[0].built, game.farm.townPhase])).toEqual([1, 94, 'ring', true, 4]);
     await page.locator('#merchant-village [data-expand]').click();
-    expect(await page.evaluate(() => [game.state.town, game.farm.village.planItems[1].g.visible])).toEqual([2, true]);
+    expect(await page.evaluate(() => [game.state.town, game.farm.village.planItems[1].built])).toEqual([2, true]);
     // Se guarda
     await page.reload();
     await expect.poll(() => page.evaluate(() => window.game && game.state.town)).toBe(2);

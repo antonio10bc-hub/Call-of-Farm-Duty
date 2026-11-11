@@ -6,7 +6,7 @@ import { KILLSTREAKS } from '../content/killstreaks.js';
 import { MERCHANT, RARE, rareVisit } from '../content/merchant.js';
 import { WELL, wellPool, wishPick } from '../content/well.js';
 import { trustLevel, TRUST_PAY, MOOD_PAY, GIFT_EVERY, URGENT, BASKET_PAY, SPECIAL } from '../content/merchantLife.js';
-import { MERCHANTS, MERCHANT_BY_ID, DECOR_BY_ID, decorOf, FAV_PAY, exclusiveFor, JEALOUS, MARKET, marketNow, MEDALS, ALL_DECOR, VILLAGE_LEVELS, villageLevel, townPhase, expandCost } from '../content/merchants.js';
+import { MERCHANTS, MERCHANT_BY_ID, DECOR_BY_ID, decorOf, FAV_PAY, exclusiveFor, JEALOUS, MARKET, marketNow, MEDALS, ALL_DECOR, VILLAGE_LEVELS, villageLevel, townPhase, expandCost, TOWN_PERKS } from '../content/merchants.js';
 
 // Lo que pide un encargo: { cultivo: cuánto } (el combinado, varios)
 export const orderWants = (o) => o.items || { [o.crop]: o.n };
@@ -63,6 +63,7 @@ export class FarmState {
         this.flags = { gift: false, market: false };
         this.medals = [];
         this.villageLv = 0;
+        this.perks = {}; // lo que dan los barrios especiales ya construidos (no se guarda: sale de town)
         this.town = 0; // pasos de la ampliación del pueblo (content/merchants.js: expandCost)
         // La historia: lo que ya ha pasado, una vez cada cosa (y lo que abre):
         //   crop      el trigo a nivel 2: el trigo mágico regala las rachas de cultivos
@@ -347,7 +348,7 @@ export class FarmState {
 
     // ---------- El pozo de los deseos ----------
     wishCost() {
-        return this.freeCosts ? 0 : WELL.cost;
+        return this.freeCosts ? 0 : this.perks.tech ? Math.round(WELL.cost * TOWN_PERKS.tech.wish) : WELL.cost; // (con el barrio tecnológico, más barato)
     }
 
     // Lo que aún puede salir
@@ -457,7 +458,7 @@ export class FarmState {
         const M = this.merchants[id], def = MERCHANT_BY_ID[id], lv = this.trustOf(id);
         const fields = FARM.fields.filter((f) => this.fields[f.id].unlocked);
         if (!fields.length) fields.push(FARM.fields[0]);
-        const fav = fields.find((f) => f.crop === def.fav);
+        const fav = fields.find((f) => f.crop === def.fav), fav2 = def.fav2 && fields.find((f) => f.crop === def.fav2);
         // (celoso: si a otro le tienes bastante más confianza, paga más para recuperarte; en día de
         // mercado, todos pagan más)
         M.jealous = MERCHANTS.some((d) => d.id !== id && this.trustOf(d.id) >= lv + JEALOUS.gap);
@@ -465,12 +466,12 @@ export class FarmState {
         const pay = (1 + TRUST_PAY * (lv - 1)) * MOOD_PAY[M.mood] * (rareVisit(visit) ? RARE.pay : 1) * def.pay * (M.jealous ? JEALOUS.pay : 1) * (M.market ? MARKET.pay : 1);
         const [a, b] = MERCHANT.size, big = def.mother ? 1.6 : 1;
         const size = (f, k = 1) => Math.max(MERCHANT.min, Math.round((this.sheaves(f.id) * (a + Math.random() * (b - a)) * k * big) / MERCHANT.step) * MERCHANT.step);
-        const gold = (want) => Math.ceil(Object.entries(want).reduce((g, [c, n]) => g + n * MERCHANT.rate[c] * (c === def.fav ? FAV_PAY : 1), 0) * pay);
+        const gold = (want) => Math.ceil(Object.entries(want).reduce((g, [c, n]) => g + n * MERCHANT.rate[c] * (c === def.fav || c === def.fav2 ? FAV_PAY : 1), 0) * pay);
         const orders = [];
         const count = MERCHANT.orders - (M.mood === 'serious' ? 1 : 0);
         for (let k = 0; k < count; k++) {
             // El primero, de su favorito; los demás, repartidos entre los campos que haya
-            const f = k === 0 && fav ? fav : fields[(k + visit) % fields.length], n = size(f);
+            const f = k === 0 && fav ? fav : k === 1 && fav2 ? fav2 : fields[(k + visit) % fields.length], n = size(f);
             orders.push({ crop: f.crop, n, gold: gold({ [f.crop]: n }), done: false });
         }
         // Combinado (desde el nivel 2, con dos campos o más): varios cultivos a la vez, paga más
@@ -499,7 +500,8 @@ export class FarmState {
 
     // Lo que paga ahora (el urgente, a tiempo, más)
     payOf(o) {
-        return o.until && Date.now() < o.until ? o.gold * URGENT.pay : o.gold;
+        const g = o.until && Date.now() < o.until ? o.gold * URGENT.pay : o.gold;
+        return this.perks.market ? Math.round(g * TOWN_PERKS.market.pay) : g; // (con la calle del mercado, más)
     }
 
     canDeliver(o) {
@@ -517,7 +519,7 @@ export class FarmState {
         o.done = true;
         o.paid = paid;
         if (o.reward && !this.village.includes(o.reward)) this.village.push(o.reward);
-        M.trust += o.kind === 'special' || o.kind === 'basket' ? 2 : 1;
+        M.trust += (o.kind === 'special' || o.kind === 'basket' ? 2 : 1) + (this.perks.park ? TOWN_PERKS.park.trust : 0); // (con el parque, uno más)
         const all = M.orders.every((q) => q.done);
         if (all) M.trust++;
         if (marketNow()) this.flags.market = true;
