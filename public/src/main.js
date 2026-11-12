@@ -275,6 +275,7 @@ const sniper = new Sniper(THEME, {
     // Marca de acierto en tres niveles: hit (un golpe que no recoge: calabaza), harvest (recoge;
     // amarilla), big (colateral de 3 o más: roja y grande, y más grave)
     onHitMarker(kind = 'hit') {
+        if (!Settings.hitMark) return; // (DEBUG: sin la marca X al acertar)
         if (!Settings.feelOn('feelMarks')) kind = 'hit'; // (sin «marcas por niveles», siempre la misma)
         const el = $('hitmarker');
         el.classList.remove('on', 'hit', 'harvest', 'big');
@@ -3111,10 +3112,11 @@ function refreshSnipeDbg() {
     $('dbg-fxplus').textContent = Settings.fxPlus ? L('ON', 'SÍ') : L('OFF', 'NO');
     $('dbg-feel').textContent = Settings.feel ? L('ON', 'SÍ') : L('OFF', 'NO');
     $('dbg-feel').classList.toggle('set', !Settings.feel);
-    for (const b of document.querySelectorAll('.dbg-feel-sub')) {
+    for (const b of document.querySelectorAll('.dbg-flag')) {
         b.textContent = Settings[b.dataset.flag] ? L('ON', 'SÍ') : L('OFF', 'NO');
         b.classList.toggle('set', !Settings[b.dataset.flag]);
-        b.closest('.ks-row').classList.toggle('off', !Settings.feel); // (sin la respuesta entera, sus partes no cuentan)
+        const row = b.closest('.ks-row');
+        row.classList.toggle('off', (row.classList.contains('feel-sub') && !Settings.feel) || (row.classList.contains('fx-sub') && !Settings.fxPlus)); // (con su grupo apagado, no cuentan)
     }
     $('dbg-ammo-inf').textContent = Settings.infAmmo ? L('YES', 'SÍ') : L('NO', 'NO');
     $('dbg-ammo-inf').classList.toggle('set', Settings.infAmmo);
@@ -3135,7 +3137,7 @@ for (const [id, step] of [
     ['dbg-fxplus', () => Settings.set('fxPlus', !Settings.fxPlus)],
     ['dbg-feel', () => Settings.set('feel', !Settings.feel)],
     ['dbg-ammo-inf', () => Settings.set('infAmmo', !Settings.infAmmo)],
-    ...[...document.querySelectorAll('.dbg-feel-sub')].map((b) => [b.id, () => Settings.set(b.dataset.flag, !Settings[b.dataset.flag])]),
+    ...[...document.querySelectorAll('.dbg-flag')].map((b) => [b.id, () => Settings.set(b.dataset.flag, !Settings[b.dataset.flag])]),
     ['dbg-aliens', () => Settings.set('noAliens', !Settings.noAliens)],
 ]) {
     tapBtn(id, () => {

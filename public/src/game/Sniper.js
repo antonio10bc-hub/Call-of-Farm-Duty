@@ -619,12 +619,12 @@ export class Sniper {
             this.flash.children[2].rotation.z = Math.PI / 4;
             this.rifle.muzzle.add(this.flash);
         }
-        this.flash.visible = true;
+        this.flash.visible = Settings.fxFlash;
         this.flash.scale.setScalar(0.8 + Math.random() * 0.5);
         this.flash.rotation.z = Math.random() * Math.PI;
         this.flashT = 0.045;
-        for (let k = 0; k < 4; k++) this.particles.spawn(m.x, m.y, m.z, (Math.random() - 0.5) * 0.4, 0.4 + Math.random() * 0.4, (Math.random() - 0.5) * 0.4, 0.06, 0.5, [0x9a9a96, 0xc8c8c4][k % 2], -1);
-        if (!this.special) this.casingT = 0.35 * (this.stats.bolt / S.boltTime);
+        if (Settings.fxSmoke) for (let k = 0; k < 4; k++) this.particles.spawn(m.x, m.y, m.z, (Math.random() - 0.5) * 0.4, 0.4 + Math.random() * 0.4, (Math.random() - 0.5) * 0.4, 0.06, 0.5, [0x9a9a96, 0xc8c8c4][k % 2], -1);
+        if (!this.special && Settings.fxCasing) this.casingT = 0.35 * (this.stats.bolt / S.boltTime);
     }
 
     // Lo de los efectos extra que corre con el tiempo (el fogonazo, el cerrojo y el casquillo)
@@ -643,7 +643,7 @@ export class Sniper {
     // Un momento clave (colateral de 4 o más, o el último blanco): cámara lenta corta y un poco de
     // zoom (como mucho una vez cada 6 s)
     keyMoment() {
-        if (!Settings.fxPlus || this.slowCool > 0 || this.ending >= 0) return;
+        if (!Settings.fxPlus || !Settings.fxSlowmo || this.slowCool > 0 || this.ending >= 0) return;
         this.slowmo = Math.max(this.slowmo, 0.35);
         this.fovPunch -= 3;
         this.slowCool = 6;
@@ -653,8 +653,10 @@ export class Sniper {
     damage(s) {
         const C = fxOf(this.crop);
         s.flash = 1;
-        this.particles.burst(s.x, s.size * 0.6, s.z, 26, C.burst, { speed: 3, up: 3.5, size: 0.1, ttl: 0.7 });
-        this.waves.spawn(s.x, s.z, 0xffe9a0, 1.2, 0.25);
+        if (Settings.hitParticles) {
+            this.particles.burst(s.x, s.size * 0.6, s.z, 26, C.burst, { speed: 3, up: 3.5, size: 0.1, ttl: 0.7 });
+            this.waves.spawn(s.x, s.z, 0xffe9a0, 1.2, 0.25);
+        }
         this.hooks.sfx.play('crateHit');
         if (this.hooks.onHitMarker) this.hooks.onHitMarker('hit');
         vibrate('pickup');
@@ -670,11 +672,15 @@ export class Sniper {
             s.dying = 0.14 + Math.min(k, 6) * 0.05;
             s.flash = 1;
             // Grano y paja (o zumo y pepitas de tomate) que saltan, polvo de tierra y una onda
-            this.particles.burst(s.x, s.y, s.z, Settings.fxPlus ? 40 : 50, C.burst, { speed: 3.6, up: 4.2, size: 0.09, ttl: 1.0 });
-            if (Settings.fxPlus) this.particles.burst(s.x, s.y, s.z, 7, C.burst, { speed: 2.6, up: 3.4, size: 0.22, ttl: 1.3, grav: 16 }); // (trozos grandes)
-            this.particles.burst(s.x, s.y - 0.3, s.z, 30, C.chaff, { speed: 2.4, up: 3, size: 0.06, ttl: 1.2, grav: 4 });
-            this.particles.burst(s.x, 0.1, s.z, 12, [this.theme.dust, 0x8a5a34], { speed: 1.8, up: 1, size: 0.12, ttl: 0.5 });
-            this.waves.spawn(s.x, s.z, 0xffe9a0, 1.8, 0.35);
+            // (las partículas del blanco: sus colores, la paja, el polvo y la onda; DEBUG: PARTÍCULAS AL ACERTAR)
+            const chunks = Settings.fxPlus && Settings.fxChunks;
+            if (Settings.hitParticles) {
+                this.particles.burst(s.x, s.y, s.z, chunks ? 40 : 50, C.burst, { speed: 3.6, up: 4.2, size: 0.09, ttl: 1.0 });
+                this.particles.burst(s.x, s.y - 0.3, s.z, 30, C.chaff, { speed: 2.4, up: 3, size: 0.06, ttl: 1.2, grav: 4 });
+                this.particles.burst(s.x, 0.1, s.z, 12, [this.theme.dust, 0x8a5a34], { speed: 1.8, up: 1, size: 0.12, ttl: 0.5 });
+                this.waves.spawn(s.x, s.z, 0xffe9a0, 1.8, 0.35);
+            }
+            if (chunks) this.particles.burst(s.x, s.y, s.z, 7, C.burst, { speed: 2.6, up: 3.4, size: 0.22, ttl: 1.3, grav: 16 }); // (trozos grandes)
             _v.set(s.x, s.y, s.z).project(this.camera);
             this.hooks.onHit(s, _v.x, _v.y);
             if (k && k < 6) setTimeout(() => sfx.play('harvest', 0, Settings.feelOn('feelSound') ? { rate: 2 ** (k / 12) } : null), k * 90); // (cada pieza del colateral, un semitono más arriba)

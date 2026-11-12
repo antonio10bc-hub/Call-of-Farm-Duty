@@ -1807,3 +1807,15 @@ body.practice .left-badge { display: none; }
     .debug-screen .debug-box .set-btn { min-width: 0; width: 100%; }
 }
 .debug-screen .debug-box .feel-main { grid-column: 1 / -1; justify-content: flex-start; gap: 16px; }
+/* Cada ajuste del DEBUG, en su tarjeta: el nombre (y qué hace, si lo dice) y su botón juntos */
+.debug-screen .debug-box.on { grid-template-columns: repeat(auto-fill, minmax(260px, 360px)); }
+.debug-screen .debug-box .ks-row { justify-content: space-between; gap: 10px; padding: 8px 10px; background: rgba(0, 0, 0, .28); border: 2px solid #5a4a30; }
+.debug-screen .debug-box .ks-row > span { display: flex; flex-direction: column; gap: 4px; min-width: 0; text-align: left; }
+.debug-screen .debug-box .ks-row > span small { font-size: 7px; line-height: 1.5; color: #c8b89a; }
+.debug-screen .debug-box .ks-row > span b { font-weight: normal; }
+.debug-screen .debug-box .ks-row .unlock-one { flex: none; max-width: 50%; }
+.debug-screen .debug-box .ks-debug .ks-row { margin: 0; }
+.debug-screen .debug-box .dbg-group { grid-column: 1 / -1; margin-top: 8px; font-size: 9px; color: var(--yellow); border-bottom: 2px dashed #5a4a30; padding-bottom: 4px; }
+.debug-screen .debug-box .feel-main { grid-column: 1 / -1; max-width: 740px; border-color: var(--yellow); }
+.debug-screen .debug-box .ks-row.off { opacity: .35; }
+.debug-screen .debug-box .ks-row > span { align-items: flex-start; } .debug-screen .debug-box .ks-row > span b, .debug-screen .debug-box .ks-row > span small { text-align: left; }

@@ -16,6 +16,9 @@ const DEFAULTS = { music: true, sfx: true, vibration: true, freeCosts: false, fr
     // golpe de zoom, mirilla que se abre, marcas por niveles, vibración, sacudida suave hacia arriba);
     // fxPlus (EFECTOS VISIBLES: fogonazo, casquillo, trozos, cámara lenta)
     feel: true, feelSound: true, feelFov: true, feelBloom: true, feelMarks: true, feelHaptic: true, feelShake: true,
+    // Lo visible, cada cosa suelta (con fxPlus): fogonazo, humo (de serie, quitado), casquillo, trozos grandes y
+    // cámara lenta; y al acertar: las partículas del blanco (con sus colores, el polvo y la onda) y la marca X
+    fxFlash: true, fxSmoke: false, fxCasing: true, fxChunks: true, fxSlowmo: true, hitParticles: true, hitMark: true,
     // Más depuración: deseos gratis, lo que sale del pozo (null al azar, o 'common', 'rare', 'epic', 'dup') y balas infinitas
     freeWish: false, wishForce: null, infAmmo: false };
 

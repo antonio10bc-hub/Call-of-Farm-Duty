@@ -170,13 +170,13 @@ Con el reloj de verdad: 4 min de día y 2 de noche, con amanecer y atardecer de 
 
 ### Ajustes y depuración
 - **Ajustes:** música, sonido, vibración e idioma.
-- **Debug** (botón discreto abajo a la derecha de la granja): a la izquierda, una lista de botones, uno por apartado; al abrirlo no hay ninguno a la vista y tocar uno enseña solo lo suyo, con toda la pantalla para él (en varias columnas; en el móvil, una). Se recuerda el último apartado abierto. VOLVER arriba a la izquierda.
+- **Debug** (botón discreto abajo a la derecha de la granja; cada ajuste en su tarjeta, con su nombre y su botón juntos): a la izquierda, una lista de botones, uno por apartado; al abrirlo no hay ninguno a la vista y tocar uno enseña solo lo suyo, con toda la pantalla para él (en varias columnas; en el móvil, una). Se recuerda el último apartado abierto. VOLVER arriba a la izquierda.
   - **PROGRESO:** COSTES 0, MONEDAS DE ORO (de 10 en 10, y de 100 en 100), +100 DE CADA COSECHA, COSECHAS A 0, VER EL PRÓLOGO y BORRAR PROGRESO (dos toques; no borra los ajustes).
   - **DESBLOQUEAR:** de uno en uno (cada terreno, toda la armería y la torreta de cada campo) y DESBLOQUEAR TODO.
   - **CAMPOS:** el nivel de cada campo con - / + (lo desbloquea si hace falta; enseña nivel·blancos del campo de tiro), MADURAR TODO y la munición de todas las torretas (VACIAR o LLENAR).
   - **CAMPO DE TIRO:** las vacas (NORMAL o UBRES LLENAS), ALIENÍGENAS Y OVNIS (SÍ o NO), BALAS INFINITAS e IR AL CAMPO DE PRUEBAS.
   - **CAJA SORPRESA:** SALE (NORMAL o ENSEGUIDA), DA (AL AZAR o un arma fija) y EMPIEZAS CON (FUSIL o un arma de la caja).
-  - **SENSACIÓN DEL DISPARO:** RESPUESTA DEL DISPARO (todo lo de cámara, mirilla, sonido y mando, de golpe) y cada parte suelta (SONIDO VARIADO Y ECO, GOLPE DE ZOOM, MIRILLA QUE SE ABRE, MARCAS POR NIVELES, VIBRACIÓN DEL DISPARO, SACUDIDA SUAVE HACIA ARRIBA; sin la respuesta entera, apagadas), y EFECTOS VISIBLES (fogonazo, casquillo, trozos y cámara lenta).
+  - **SENSACIÓN DEL DISPARO**, en tres grupos (cada ajuste en su tarjeta, con lo que hace): 1 · LO QUE NOTAS AL DISPARAR (RESPUESTA DEL DISPARO, todo junto, y cada parte: sonido variado y eco, golpe de zoom, mirilla que se abre, marcas por niveles, vibración, sacudida suave hacia arriba); 2 · LO QUE VES AL DISPARAR (EFECTOS VISIBLES, todo junto, y cada uno: fogonazo, humo —de serie, quitado—, casquillo, trozos grandes, cámara lenta); 3 · LO QUE SALE AL ACERTAR (PARTÍCULAS AL ACERTAR: los trocitos con los colores del blanco, el polvo y la onda; y la MARCA DE ACIERTO X).
   - **RACHAS:** las bajas que pide cada una (y RACHAS POR DEFECTO).
   - **MERCADERES:** COMERCIANTE (todos: AUTO, AQUÍ o FUERA); MERCADER (cuál se toca: van pasando) y ESTE: ESTÁ (AUTO, AQUÍ o FUERA); CONFIANZA (nivel 1-5), RACHA, ÁNIMO, FIESTA (AUTO, SÍ o NO), VISITA (CUMPLIR o SIGUIENTE), ENCARGOS (NUEVOS; URGENTE TARDE), REGALO (DAR), DÍA DE MERCADO (AUTO, SÍ o NO), ESTE: LLEGA (SOMBRA; NIVEL: comprueba el del pueblo) y REINICIAR MERCADER.
   - **PUEBLO:** lo comprado (de uno en uno, TODO o NADA), la AMPLIACIÓN (de paso en paso, TODA o NADA; sin cinemática) y lo que hay (fase, vecinos y ventajas).
