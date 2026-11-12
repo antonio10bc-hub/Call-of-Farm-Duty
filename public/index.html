@@ -269,44 +269,32 @@
     <div id="debug" class="screen settings debug-screen hidden">
         <h2 class="end-title">DEBUG</h2>
         <button id="btn-debug-close" class="btn home-btn"><span class="home-icon"></span><span data-es="VOLVER">BACK</span></button>
-        <div id="debug-tabs" class="debug-tabs"></div>
+        <!-- A la izquierda, un botón por apartado; a la derecha, solo lo del apartado elegido -->
+        <div class="debug-body">
+        <nav id="debug-tabs" class="debug-tabs"></nav>
         <div class="debug-cols">
-        <div class="debug-box" id="debug-farm">
-            <div class="debug-box-title" data-es="GRANJA">FARM</div>
+        <div id="debug-empty" class="debug-empty" data-es="ELIGE UN APARTADO">PICK A SECTION</div>
+        <section class="debug-box" id="debug-farm" data-sec="farm">
+            <div class="debug-box-title" data-es="PROGRESO">PROGRESS</div>
             <div class="toggles toggles-col">
                 <button id="toggle-free" class="toggle" data-key="freeCosts" data-es="COSTES 0">FREE COSTS</button>
             </div>
-            <!-- La hora: la del reloj (AUTO) o día o noche fijos -->
-            <div class="ks-row unlock-row"><span data-es="HORA">TIME</span><button class="unlock-one" id="dbg-daytime"></button></div>
-            <!-- El comerciante (AUTO con el reloj, o AQUÍ o FUERA fijos) y monedas de oro -->
-            <div class="ks-row unlock-row"><span data-es="COMERCIANTE">MERCHANT</span><button class="unlock-one" id="dbg-merchant"></button></div>
             <div class="ks-row" id="gold-row"><span data-es="MONEDAS DE ORO">GOLD COINS</span><button class="ks-step" data-d="-10">-</button><b id="dbg-gold"></b><button class="ks-step" data-d="10">+</button></div>
+            <div class="ks-row unlock-row"><span data-es="ORO DE 100 EN 100">GOLD BY 100</span><button class="unlock-one" id="dbg-gold-minus" data-es="-100">-100</button><button class="unlock-one" id="dbg-gold-plus" data-es="+100">+100</button></div>
             <button id="btn-crops" class="btn btn-small set-btn" data-es="+100 DE CADA COSECHA">+100 OF EVERY CROP</button>
+            <button id="btn-crops-zero" class="btn btn-small set-btn" data-es="COSECHAS A 0">CROPS TO 0</button>
             <button id="btn-prologue" class="btn btn-small set-btn" data-es="VER EL PRÓLOGO">WATCH PROLOGUE</button>
             <button id="btn-reset" class="btn btn-danger set-btn" data-es="BORRAR PROGRESO">RESET PROGRESS</button>
-        </div>
-        <div class="debug-box" id="debug-merchant">
-            <div class="debug-box-title" data-es="MERCADERES">MERCHANTS</div>
-            <!-- Cada mercader (se elige arriba): si está, confianza, racha, ánimo, visitas, fiesta, encargos y regalo; y el pueblo -->
-            <div class="ks-row unlock-row"><span data-es="MERCADER">MERCHANT</span><button class="unlock-one" id="dbg-m-pick"></button></div>
-            <div class="ks-row unlock-row"><span data-es="ESTE: ESTÁ">THIS ONE</span><button class="unlock-one" id="dbg-m-here"></button></div>
-            <div class="ks-row" id="dbg-trust-row"><span data-es="CONFIANZA">TRUST</span><button class="ks-step" data-d="-1">-</button><b id="dbg-trust"></b><button class="ks-step" data-d="1">+</button></div>
-            <div class="ks-row" id="dbg-streak-row"><span data-es="RACHA">STREAK</span><button class="ks-step" data-d="-1">-</button><b id="dbg-streak"></b><button class="ks-step" data-d="1">+</button></div>
-            <div class="ks-row unlock-row"><span data-es="ÁNIMO">MOOD</span><button class="unlock-one" id="dbg-mood"></button></div>
-            <div class="ks-row unlock-row"><span data-es="FIESTA">PARTY</span><button class="unlock-one" id="dbg-party"></button></div>
-            <div class="ks-row unlock-row"><span data-es="VISITA">VISIT</span><button class="unlock-one" id="dbg-visit-done" data-es="CUMPLIR">COMPLETE</button><button class="unlock-one" id="dbg-visit-next" data-es="SIGUIENTE">NEXT</button></div>
-            <div class="ks-row unlock-row"><span data-es="ENCARGOS">ORDERS</span><button class="unlock-one" id="dbg-orders" data-es="NUEVOS">NEW</button><button class="unlock-one" id="dbg-urgent-late" data-es="URGENTE TARDE">URGENT LATE</button></div>
-            <div class="ks-row unlock-row"><span data-es="REGALO">GIFT</span><button class="unlock-one" id="dbg-gift" data-es="DAR">GIVE</button></div>
-            <div class="ks-row" id="dbg-coll-row"><span data-es="PUEBLO">VILLAGE</span><button class="ks-step" data-d="-1">-</button><b id="dbg-coll"></b><button class="ks-step" data-d="1">+</button></div>
-            <div class="ks-row unlock-row"><span data-es="PUEBLO">VILLAGE</span><button class="unlock-one" id="dbg-village-all" data-es="TODO">ALL</button><button class="unlock-one" id="dbg-village-none" data-es="NADA">NONE</button></div>
-            <div class="ks-row unlock-row"><span data-es="POZO">WELL</span><button class="unlock-one" id="dbg-wish" data-es="TIRADA GRATIS">FREE WISH</button><button class="unlock-one" id="dbg-well-reset" data-es="VACIAR ARMERÍA">EMPTY ARMORY</button></div>
-            <div class="ks-row unlock-row"><span data-es="DÍA DE MERCADO">MARKET DAY</span><button class="unlock-one" id="dbg-market"></button></div>
-            <div class="ks-row unlock-row"><span data-es="ESTE: LLEGA">THIS ONE: COMING</span><button class="unlock-one" id="dbg-herald" data-es="SOMBRA">SHADOW</button><button class="unlock-one" id="dbg-medals" data-es="NIVEL">LEVEL</button></div>
-            <button id="dbg-merchant-reset" class="btn btn-danger set-btn" data-es="REINICIAR MERCADER">RESET MERCHANT</button>
-        </div>
-        <div class="debug-box" id="debug-fields">
+        </section>
+        <section class="debug-box" id="debug-unlock" data-sec="unlock">
+            <div class="debug-box-title" data-es="DESBLOQUEAR">UNLOCK</div>
+            <div class="ks-debug">
+                <div id="unlock-rows"></div>
+            </div>
+            <button id="btn-unlock-all" class="btn btn-small set-btn" data-es="DESBLOQUEAR TODO">UNLOCK EVERYTHING</button>
+        </section>
+        <section class="debug-box" id="debug-fields" data-sec="fields">
             <div class="debug-box-title" data-es="CAMPOS">FIELDS</div>
-            <!-- El nivel de cada campo (lo desbloquea si hace falta) -->
             <div class="ks-debug">
                 <div class="ks-debug-title" data-es="NIVEL (CULTIVOS EN EL CAMPO DE TIRO)">LEVEL (TARGETS IN THE RANGE)</div>
                 <div id="field-rows"></div>
@@ -316,33 +304,76 @@
                 <div class="ks-debug-title" data-es="MUNICIÓN DE LAS TORRETAS">TURRET AMMO</div>
                 <div class="ks-row unlock-row"><span data-es="TODAS">ALL</span><button class="unlock-one" id="dbg-ammo-empty" data-es="VACIAR">EMPTY</button><button class="unlock-one" id="dbg-ammo-full" data-es="LLENAR">FILL</button></div>
             </div>
-        </div>
-        <div class="debug-box" id="debug-snipe">
+        </section>
+        <section class="debug-box" id="debug-snipe" data-sec="snipe">
             <div class="debug-box-title" data-es="CAMPO DE TIRO">SHOOTING RANGE</div>
-            <!-- La caja sorpresa: cuándo sale, qué arma da y con qué arma se empieza -->
-            <div class="ks-debug">
-                <div class="ks-debug-title" data-es="CAJA SORPRESA">MYSTERY BOX</div>
-                <div class="ks-row unlock-row"><span data-es="SALE">APPEARS</span><button class="unlock-one" id="dbg-box-rate"></button></div>
-                <div class="ks-row unlock-row"><span data-es="DA">GIVES</span><button class="unlock-one" id="dbg-box-pick"></button></div>
-                <div class="ks-row unlock-row"><span data-es="EMPIEZAS CON">START WITH</span><button class="unlock-one" id="dbg-start-wonder"></button></div>
-            </div>
-            <div class="ks-debug">
-                <div class="ks-debug-title" data-es="BICHOS">CRITTERS</div>
-                <div class="ks-row unlock-row"><span data-es="VACAS">COWS</span><button class="unlock-one" id="dbg-cows"></button></div>
-                <div class="ks-row unlock-row"><span data-es="EFECTOS EXTRA DEL DISPARO">EXTRA SHOT FX</span><button class="unlock-one" id="dbg-fxplus"></button></div>
-                <div class="ks-row unlock-row"><span data-es="ALIENÍGENAS Y OVNIS">ALIENS AND UFOS</span><button class="unlock-one" id="dbg-aliens"></button></div>
-            </div>
-        </div>
-        <div class="debug-box" id="debug-streaks">
+            <div class="ks-row unlock-row"><span data-es="VACAS">COWS</span><button class="unlock-one" id="dbg-cows"></button></div>
+            <div class="ks-row unlock-row"><span data-es="ALIENÍGENAS Y OVNIS">ALIENS AND UFOS</span><button class="unlock-one" id="dbg-aliens"></button></div>
+            <div class="ks-row unlock-row"><span data-es="BALAS INFINITAS">INFINITE AMMO</span><button class="unlock-one" id="dbg-ammo-inf"></button></div>
+            <button id="dbg-range" class="btn btn-small set-btn" data-es="IR AL CAMPO DE PRUEBAS">GO TO THE TEST RANGE</button>
+        </section>
+        <section class="debug-box" id="debug-box" data-sec="box">
+            <div class="debug-box-title" data-es="CAJA SORPRESA">MYSTERY BOX</div>
+            <div class="ks-row unlock-row"><span data-es="SALE">APPEARS</span><button class="unlock-one" id="dbg-box-rate"></button></div>
+            <div class="ks-row unlock-row"><span data-es="DA">GIVES</span><button class="unlock-one" id="dbg-box-pick"></button></div>
+            <div class="ks-row unlock-row"><span data-es="EMPIEZAS CON">START WITH</span><button class="unlock-one" id="dbg-start-wonder"></button></div>
+        </section>
+        <section class="debug-box" id="debug-feel" data-sec="feel">
+            <div class="debug-box-title" data-es="SENSACIÓN DEL DISPARO">SHOT FEEL</div>
+            <!-- La respuesta del disparo (todo junto, y cada parte) y los efectos visibles -->
+            <div class="ks-row unlock-row feel-main"><span data-es="RESPUESTA DEL DISPARO (CÁMARA, MIRILLA, SONIDO, MANDO)">SHOT FEEDBACK (CAMERA, CROSSHAIR, SOUND, PAD)</span><button class="unlock-one" id="dbg-feel"></button></div>
+            <div class="ks-row unlock-row feel-sub"><span data-es="SONIDO VARIADO Y ECO">VARIED SOUND AND ECHO</span><button class="unlock-one dbg-feel-sub" id="dbg-feel-sound" data-flag="feelSound"></button></div>
+            <div class="ks-row unlock-row feel-sub"><span data-es="GOLPE DE ZOOM">ZOOM PUNCH</span><button class="unlock-one dbg-feel-sub" id="dbg-feel-fov" data-flag="feelFov"></button></div>
+            <div class="ks-row unlock-row feel-sub"><span data-es="MIRILLA QUE SE ABRE">CROSSHAIR OPENS</span><button class="unlock-one dbg-feel-sub" id="dbg-feel-bloom" data-flag="feelBloom"></button></div>
+            <div class="ks-row unlock-row feel-sub"><span data-es="MARCAS POR NIVELES">TIERED HIT MARKS</span><button class="unlock-one dbg-feel-sub" id="dbg-feel-marks" data-flag="feelMarks"></button></div>
+            <div class="ks-row unlock-row feel-sub"><span data-es="VIBRACIÓN DEL DISPARO">SHOT VIBRATION</span><button class="unlock-one dbg-feel-sub" id="dbg-feel-haptic" data-flag="feelHaptic"></button></div>
+            <div class="ks-row unlock-row feel-sub"><span data-es="SACUDIDA SUAVE HACIA ARRIBA">SMOOTH UPWARD SHAKE</span><button class="unlock-one dbg-feel-sub" id="dbg-feel-shake" data-flag="feelShake"></button></div>
+            <div class="ks-row unlock-row feel-main"><span data-es="EFECTOS VISIBLES (FOGONAZO, CASQUILLO, TROZOS, CÁMARA LENTA)">VISIBLE EFFECTS (FLASH, CASING, CHUNKS, SLOW-MO)</span><button class="unlock-one" id="dbg-fxplus"></button></div>
+        </section>
+        <section class="debug-box" id="debug-streaks" data-sec="streaks">
             <div class="debug-box-title" data-es="RACHAS">STREAKS</div>
-            <!-- Bajas que pide cada racha: una fila por recompensa (las rellena main.js) -->
             <div class="ks-debug">
                 <div class="ks-debug-title" data-es="BAJAS POR RACHA">KILLS PER STREAK</div>
                 <div id="ks-rows"></div>
             </div>
             <button id="ks-default" class="btn btn-small set-btn" data-es="RACHAS POR DEFECTO">DEFAULT STREAKS</button>
-        </div>
-        <div class="debug-box" id="debug-home">
+        </section>
+        <section class="debug-box" id="debug-merchant" data-sec="merchant">
+            <div class="debug-box-title" data-es="MERCADERES">MERCHANTS</div>
+            <div class="ks-row unlock-row"><span data-es="COMERCIANTE">MERCHANT</span><button class="unlock-one" id="dbg-merchant"></button></div>
+            <div class="ks-row unlock-row"><span data-es="MERCADER">MERCHANT</span><button class="unlock-one" id="dbg-m-pick"></button></div>
+            <div class="ks-row unlock-row"><span data-es="ESTE: ESTÁ">THIS ONE</span><button class="unlock-one" id="dbg-m-here"></button></div>
+            <div class="ks-row" id="dbg-trust-row"><span data-es="CONFIANZA">TRUST</span><button class="ks-step" data-d="-1">-</button><b id="dbg-trust"></b><button class="ks-step" data-d="1">+</button></div>
+            <div class="ks-row" id="dbg-streak-row"><span data-es="RACHA">STREAK</span><button class="ks-step" data-d="-1">-</button><b id="dbg-streak"></b><button class="ks-step" data-d="1">+</button></div>
+            <div class="ks-row unlock-row"><span data-es="ÁNIMO">MOOD</span><button class="unlock-one" id="dbg-mood"></button></div>
+            <div class="ks-row unlock-row"><span data-es="FIESTA">PARTY</span><button class="unlock-one" id="dbg-party"></button></div>
+            <div class="ks-row unlock-row"><span data-es="VISITA">VISIT</span><button class="unlock-one" id="dbg-visit-done" data-es="CUMPLIR">COMPLETE</button><button class="unlock-one" id="dbg-visit-next" data-es="SIGUIENTE">NEXT</button></div>
+            <div class="ks-row unlock-row"><span data-es="ENCARGOS">ORDERS</span><button class="unlock-one" id="dbg-orders" data-es="NUEVOS">NEW</button><button class="unlock-one" id="dbg-urgent-late" data-es="URGENTE TARDE">URGENT LATE</button></div>
+            <div class="ks-row unlock-row"><span data-es="REGALO">GIFT</span><button class="unlock-one" id="dbg-gift" data-es="DAR">GIVE</button></div>
+            <div class="ks-row unlock-row"><span data-es="DÍA DE MERCADO">MARKET DAY</span><button class="unlock-one" id="dbg-market"></button></div>
+            <div class="ks-row unlock-row"><span data-es="ESTE: LLEGA">THIS ONE: COMING</span><button class="unlock-one" id="dbg-herald" data-es="SOMBRA">SHADOW</button><button class="unlock-one" id="dbg-medals" data-es="NIVEL">LEVEL</button></div>
+            <button id="dbg-merchant-reset" class="btn btn-danger set-btn" data-es="REINICIAR MERCADER">RESET MERCHANT</button>
+        </section>
+        <section class="debug-box" id="debug-village" data-sec="village">
+            <div class="debug-box-title" data-es="PUEBLO">VILLAGE</div>
+            <div class="ks-row" id="dbg-coll-row"><span data-es="PUEBLO">VILLAGE</span><button class="ks-step" data-d="-1">-</button><b id="dbg-coll"></b><button class="ks-step" data-d="1">+</button></div>
+            <div class="ks-row unlock-row"><span data-es="PUEBLO">VILLAGE</span><button class="unlock-one" id="dbg-village-all" data-es="TODO">ALL</button><button class="unlock-one" id="dbg-village-none" data-es="NADA">NONE</button></div>
+            <div class="ks-row" id="dbg-town-row"><span data-es="AMPLIACIÓN">EXPANSION</span><button class="ks-step" data-d="-1">-</button><b id="dbg-town"></b><button class="ks-step" data-d="1">+</button></div>
+            <div class="ks-row unlock-row"><span data-es="AMPLIACIÓN">EXPANSION</span><button class="unlock-one" id="dbg-town-all" data-es="TODA">ALL</button><button class="unlock-one" id="dbg-town-none" data-es="NADA">NONE</button></div>
+            <div class="ks-row"><span id="dbg-town-info"></span></div>
+        </section>
+        <section class="debug-box" id="debug-well" data-sec="well">
+            <div class="debug-box-title" data-es="POZO">WISHING WELL</div>
+            <div class="ks-row unlock-row"><span data-es="POZO">WELL</span><button class="unlock-one" id="dbg-wish" data-es="TIRADA GRATIS">FREE WISH</button><button class="unlock-one" id="dbg-well-reset" data-es="VACIAR ARMERÍA">EMPTY ARMORY</button></div>
+            <div class="ks-row unlock-row"><span data-es="DESEOS GRATIS">FREE WISHES</span><button class="unlock-one" id="dbg-well-free"></button></div>
+            <div class="ks-row unlock-row"><span data-es="SALE">YOU GET</span><button class="unlock-one" id="dbg-well-force"></button></div>
+            <div class="ks-row unlock-row"><span data-es="CINEMÁTICAS">CINEMATICS</span><button class="unlock-one" id="dbg-cine-speed"></button></div>
+        </section>
+        <section class="debug-box" id="debug-time" data-sec="time">
+            <div class="debug-box-title" data-es="HORA">TIME</div>
+            <div class="ks-row unlock-row"><span data-es="HORA">TIME</span><button class="unlock-one" id="dbg-daytime"></button></div>
+        </section>
+        <section class="debug-box" id="debug-home" data-sec="home">
             <div class="debug-box-title" data-es="CASA">HOUSE</div>
             <div class="toggles toggles-col">
                 <button id="toggle-free-home" class="toggle" data-key="freeHome" data-es="COSTES 0">FREE COSTS</button>
@@ -352,14 +383,7 @@
             </div>
             <button id="btn-home-all" class="btn btn-small set-btn" data-es="DESBLOQUEAR TODO">UNLOCK EVERYTHING</button>
             <button id="btn-home-reset" class="btn btn-danger set-btn" data-es="CASA DE SERIE">DEFAULT HOUSE</button>
-        </div>
-        <div class="debug-box" id="debug-unlock">
-            <div class="debug-box-title" data-es="DESBLOQUEAR">UNLOCK</div>
-            <!-- Desbloquear de uno en uno lo que esté bloqueado (las filas las rellena main.js) -->
-            <div class="ks-debug">
-                <div id="unlock-rows"></div>
-            </div>
-            <button id="btn-unlock-all" class="btn btn-small set-btn" data-es="DESBLOQUEAR TODO">UNLOCK EVERYTHING</button>
+        </section>
         </div>
         </div>
     </div>

@@ -1,4 +1,5 @@
 // Efectos chiptune sintetizados al vuelo con WebAudio: cero archivos que cargar.
+import { Settings } from './Settings.js';
 // Cuánto varía cada sonido al azar (±): los que se repiten mucho
 const VARY = { tink: 0.12, snipe: 0.06, harvest: 0.05, hitmark: 0.06, bolt: 0.04, pop: 0.08, splat: 0.08, wall: 0.06 };
 
@@ -111,7 +112,9 @@ export class Sfx {
     // cosecha, para que no suenen siempre igual)
     play(name, pan = 0, opts = null) {
         if (!this.ctx || this.ctx.state !== 'running' || !this.enabled) return;
-        this.rate = (opts && opts.rate ? opts.rate : 1) * (1 + (Math.random() - 0.5) * 2 * (opts && opts.vary !== undefined ? opts.vary : VARY[name] || 0));
+        // (sin la respuesta del disparo «sonido», cada sonido suena siempre igual)
+        const varied = Settings.feelOn('feelSound');
+        this.rate = varied ? (opts && opts.rate ? opts.rate : 1) * (1 + (Math.random() - 0.5) * 2 * (opts && opts.vary !== undefined ? opts.vary : VARY[name] || 0)) : 1;
         try {
             this.playRaw(name, pan);
         } finally {
@@ -122,7 +125,7 @@ export class Sfx {
     playRaw(name, pan) {
         switch (name) {
             // Francotirador: estampido grave + chasquido, cerrojo, mira y cosecha
-            case 'snipe': this.noise(0.5, 0.9, 5200, pan); this.tone('square', 220, 40, 0.35, 0.35, pan); this.tone('sine', 90, 30, 0.5, 0.5, pan); this.noise(0.9, 0.12, 900, pan, 0.09); break; // (y su eco por el valle)
+            case 'snipe': this.noise(0.5, 0.9, 5200, pan); this.tone('square', 220, 40, 0.35, 0.35, pan); this.tone('sine', 90, 30, 0.5, 0.5, pan); if (Settings.feelOn('feelSound')) this.noise(0.9, 0.12, 900, pan, 0.09); break; // (y su eco por el valle)
             // Rachas de bajas: granada, misil Predator, bombardero y bomba nuclear
             case 'grenade': this.noise(0.25, 0.12, 2400, pan); this.tone('triangle', 500, 900, 0.18, 0.08, pan); this.tone('sine', 1500, 500, 1.3, 0.05, pan, 0.1); break;
             case 'missile': this.noise(1.2, 0.35, 1800); this.tone('sawtooth', 120, 420, 1.2, 0.08); break;

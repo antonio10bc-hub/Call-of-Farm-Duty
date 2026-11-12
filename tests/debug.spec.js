@@ -31,6 +31,7 @@ test('debug: con COSTES 0 se mejora sin gastar nada', { tag: '@full' }, async ({
     await page.evaluate(() => game.select({ field: 'wheat' }));
     await expect(page.locator('#panel-upgrade')).toBeDisabled();
     await page.locator('#btn-debug').click();
+    await tab(page, 'PROGRESO'); // (al abrir no hay ningún apartado a la vista)
     await page.locator('#toggle-free').click();
     await expect(page.locator('#toggle-free')).not.toHaveClass(/off/);
     await page.locator('#btn-debug-close').click();
@@ -169,11 +170,12 @@ test('debug: nivel de cada campo, munición de las torretas y el campo de tiro (
     expect(await page.evaluate(() => [game.state.fields.wheat.level, game.state.fields.wheat.left])).toEqual([4, 240]);
     await expect(page.locator('#field-rows .ks-row').first().locator('b')).toHaveText('5·240');
     // Campo de tiro: empezar con la bazuca, la caja enseguida y sin alienígenas
-    await tab(page, 'CAMPO DE TIRO');
+    await tab(page, 'CAJA SORPRESA');
     await page.locator('#dbg-start-wonder').click();
     await expect(page.locator('#dbg-start-wonder')).toHaveText('BAZUCA');
     await page.locator('#dbg-box-rate').click();
     await expect(page.locator('#dbg-box-rate')).toHaveText('ENSEGUIDA');
+    await tab(page, 'CAMPO DE TIRO');
     await page.locator('#dbg-aliens').click();
     await expect(page.locator('#dbg-aliens')).toHaveText('NO');
     await page.locator('#btn-debug-close').click();
@@ -187,5 +189,35 @@ test('debug: nivel de cada campo, munición de las torretas y el campo de tiro (
     // Se recuerda
     await page.reload();
     await expect.poll(() => page.evaluate(() => window.game && [game.state.fields.wheat.level, window.game && game.sniper.debug.startWonder])).toEqual([4, 'rpg']);
+    expect(errors).toEqual([]);
+});
+
+test('debug por apartados: botones a la izquierda, ninguno abierto al entrar, uno cada vez; la respuesta del disparo y sus partes se quitan, y la ampliación del pueblo', { tag: '@full' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await openFarm(page);
+    await page.evaluate(() => { try { sessionStorage.removeItem('cofd.debugTab'); } catch {} });
+    await page.locator('#btn-debug').click();
+    await expect(page.locator('#debug .debug-box.on')).toHaveCount(0);
+    await expect(page.locator('#debug-empty')).toBeVisible();
+    // (los botones, en columna a la izquierda del contenido)
+    const [t0, t1, cols] = await Promise.all([page.locator('.debug-tab').nth(0).boundingBox(), page.locator('.debug-tab').nth(1).boundingBox(), page.locator('.debug-cols').boundingBox()]);
+    expect(t1.y > t0.y && Math.abs(t1.x - t0.x) < 2 && t0.x + t0.width <= cols.x + 1).toBe(true);
+    await tab(page, 'SENSACIÓN DEL DISPARO');
+    await expect(page.locator('#debug .debug-box.on')).toHaveCount(1);
+    await expect(page.locator('#debug-feel')).toBeVisible();
+    // La respuesta entera y una de sus partes se quitan (y se recuerdan)
+    await page.locator('#dbg-feel').click();
+    await page.locator('#dbg-feel-fov').click();
+    expect(await page.evaluate(() => { const S = JSON.parse(localStorage.getItem('cofd.settings')); return [S.feel, S.feelFov, game.sniper.debug.feelOn('feelFov')]; })).toEqual([false, false, false]);
+    // La ampliación del pueblo (con el pueblo terminado), de paso en paso
+    await page.evaluate(() => { game.state.village = game.allDecor.slice(); game.syncMerchantLife(false); });
+    await tab(page, 'PUEBLO');
+    await page.locator('#dbg-town-row [data-d="1"]').click();
+    await page.locator('#dbg-town-row [data-d="1"]').click();
+    expect(await page.evaluate(() => [game.state.town, game.farm.village.planItems[1].built])).toEqual([2, true]);
+    // Se recuerda el apartado al volver a abrir
+    await page.locator('#btn-debug-close').click();
+    await page.locator('#btn-debug').click();
+    await expect(page.locator('#debug-village')).toBeVisible();
     expect(errors).toEqual([]);
 });

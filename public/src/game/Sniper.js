@@ -480,16 +480,16 @@ export class Sniper {
         if (this.special) {
             // (sin balas: la tira y vuelve el fusil; con la pistola de rayos, al acabar su rayo)
             if (--this.ammo <= 0) this.dropT = this.special.mode === 'beam' ? this.special.beam + 0.3 : 0.45;
-        } else if (!this.unlocking && --this.ammo <= 0) setTimeout(() => this.reload(), 1000 * Math.min(0.3, this.stats.bolt));
+        } else if (!this.unlocking && !Settings.infAmmo && --this.ammo <= 0) setTimeout(() => this.reload(), 1000 * Math.min(0.3, this.stats.bolt)); // (balas infinitas: DEBUG)
         // Retroceso: la vista salta hacia arriba (y un poco de lado) y vuelve con un muelle
         this.kickV += S.recoil * this.stats.recoil * (this.scoped ? 30 : 22);
         this.kickYaw = (Math.random() - 0.5) * S.recoil * this.stats.recoil * 0.5;
         this.trauma = Math.min(1, this.trauma + (this.scoped ? 0.2 : 0.35));
         // Golpe de zoom (el campo de visión se abre un instante) y la mirilla que se abre
         const heavy = this.stats.recoil >= 1.5;
-        this.fovPunch += (this.scoped ? 0.6 * this.stats.recoil : 2.5) * (heavy ? 1.8 : 1);
-        this.bloom = 1;
-        this.shakeUp = 1; // (la sacudida del disparo, hacia arriba)
+        if (Settings.feelOn('feelFov')) this.fovPunch += (this.scoped ? 0.6 * this.stats.recoil : 2.5) * (heavy ? 1.8 : 1);
+        if (Settings.feelOn('feelBloom')) this.bloom = 1;
+        if (Settings.feelOn('feelShake')) this.shakeUp = 1; // (la sacudida del disparo, hacia arriba)
         // (el cerrojo se mueve y suena al ritmo de su mejora)
         this.rifle.fire(this.special ? 1 : S.boltTime / this.stats.bolt);
         sfx.play(this.special ? this.special.sfx : 'snipe');
@@ -499,7 +499,7 @@ export class Sniper {
             if (Settings.fxPlus) this.boltSfxT = 0.32 * (this.stats.bolt / S.boltTime);
             else setTimeout(() => sfx.play('bolt'), 320 * (this.stats.bolt / S.boltTime));
         }
-        vibrate(heavy ? 'shotHeavy' : 'shot');
+        vibrate(Settings.feelOn('feelHaptic') ? (heavy ? 'shotHeavy' : 'shot') : 'crate');
 
         // El disparo sale justo por la mirilla: el centro de lo que se ve ahora
         this.camera.updateMatrixWorld();
@@ -588,7 +588,7 @@ export class Sniper {
             this.hitStop = S.hitStop * Math.min(3, hits.length);
             this.trauma = Math.min(1, this.trauma + 0.2 * hits.length);
             if (this.hooks.onHitMarker) this.hooks.onHitMarker(hits.length >= 3 ? 'big' : 'harvest'); // (con 3 o más, la grande y roja)
-            if (hits.length >= 3) vibrate('collateral');
+            if (hits.length >= 3 && Settings.feelOn('feelHaptic')) vibrate('collateral');
             // Colateral: varias de una bala
             if (hits.length > 1 && this.hooks.onMedal) this.hooks.onMedal({ collateral: hits.length });
             this.harvest(hits.map((h) => h.sheaf));
@@ -677,7 +677,7 @@ export class Sniper {
             this.waves.spawn(s.x, s.z, 0xffe9a0, 1.8, 0.35);
             _v.set(s.x, s.y, s.z).project(this.camera);
             this.hooks.onHit(s, _v.x, _v.y);
-            if (k && k < 6) setTimeout(() => sfx.play('harvest', 0, { rate: 2 ** (k / 12) }), k * 90); // (cada pieza del colateral, un semitono más arriba)
+            if (k && k < 6) setTimeout(() => sfx.play('harvest', 0, Settings.feelOn('feelSound') ? { rate: 2 ** (k / 12) } : null), k * 90); // (cada pieza del colateral, un semitono más arriba)
         });
         sfx.play('harvest');
         if (!auto) {
@@ -925,12 +925,14 @@ export class Sniper {
         const jitter = this.adsK >= S.adsReady ? S.settleSway * this.settle * this.settle * this.stats.steady : 0;
         const fovK = this.fov / S.fov;
         // (la sacudida, con ondas en vez de ruido: marea menos; la del disparo, hacia arriba)
-        const rt = this.realT = (this.realT || 0) + rawDt, nx = Math.sin(rt * 37) * 0.6 + Math.sin(rt * 53 + 1.3) * 0.4, ny = Math.sin(rt * 41 + 2.1) * 0.6 + Math.sin(rt * 59 + 0.4) * 0.4;
+        // (sin la respuesta «sacudida», el ruido al azar de antes)
+        const smooth = Settings.feelOn('feelShake'), rt = this.realT = (this.realT || 0) + rawDt;
+        const nx = smooth ? Math.sin(rt * 37) * 0.6 + Math.sin(rt * 53 + 1.3) * 0.4 : Math.random() * 2 - 1, ny = smooth ? Math.sin(rt * 41 + 2.1) * 0.6 + Math.sin(rt * 59 + 0.4) * 0.4 : Math.random() * 2 - 1;
         this.yaw = this.lookYaw + Math.sin(time * 0.9) * sw + Math.sin(time * 11) * jitter + this.kickYaw * this.kickP * 10 + nx * shake;
         this.pitch = clamp(this.lookPitch + Math.sin(time * 1.8) * sw * 0.6 + Math.cos(time * 13) * jitter * 0.8 + this.kickP * fovK + ny * shake * (1 - this.shakeUp) + Math.abs(ny) * shake * this.shakeUp, -1.5, 1.5);
         this.camera.position.copy(this.pos);
         this.camera.position.y += this.dipP * 0.12 + (this.move ? 0 : Math.sin(time * 1.6) * 0.008 * (1 - this.adsK));
-        this.camera.rotation.set(this.pitch, this.yaw, this.roll + tr * 0.012 * Math.sin(rt * 29));
+        this.camera.rotation.set(this.pitch, this.yaw, this.roll + (smooth ? tr * 0.012 * Math.sin(rt * 29) : 0));
 
         const bob = this.move ? -Math.sin(this.move.t * Math.PI * 2) * 0.03 : Math.sin(time * 1.6) * 0.004 + this.dipP * 0.05;
         this.rifle.update(rawDt, wrapAngle(this.yaw - this.prevYaw), this.pitch - this.prevPitch, bob, this.adsK);

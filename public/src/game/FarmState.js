@@ -1,3 +1,4 @@
+import { Settings } from '../core/Settings.js';
 import { CROPS } from '../content/crops.js';
 import { FARM, FIELD_BY_ID, LAND_BY_ID, TURRETS } from '../content/farm.js';
 import { SHOP_ITEMS, DEFAULT_LOOK } from '../content/ufo.js';
@@ -348,7 +349,7 @@ export class FarmState {
 
     // ---------- El pozo de los deseos ----------
     wishCost() {
-        return this.freeCosts ? 0 : this.perks.tech ? Math.round(WELL.cost * TOWN_PERKS.tech.wish) : WELL.cost; // (con el barrio tecnológico, más barato)
+        return this.freeCosts || Settings.freeWish ? 0 : this.perks.tech ? Math.round(WELL.cost * TOWN_PERKS.tech.wish) : WELL.cost; // (con el barrio tecnológico, más barato)
     }
 
     // Lo que aún puede salir
@@ -361,7 +362,9 @@ export class FarmState {
     wish(rnd = Math.random) {
         const pool = this.wishPool(), cost = this.wishCost();
         if (!pool.length || this.items.gold < cost) return false;
-        const p = wishPick(pool, rnd), dup = this.ownsGear(p.kind, p.id), refund = dup ? Math.ceil(cost * WELL.refund) : 0;
+        // (DEBUG: lo que sale, forzado: una rareza o una repetida)
+        const F = Settings.wishForce, forced = F === 'dup' ? pool.filter((q) => this.ownsGear(q.kind, q.id)) : F ? pool.filter((q) => q.tier.id === F) : pool;
+        const p = wishPick(forced.length ? forced : pool, rnd), dup = this.ownsGear(p.kind, p.id), refund = dup ? Math.ceil(cost * WELL.refund) : 0;
         this.items.gold -= cost - refund;
         if (!dup) this.arsenal.owned.push(`${p.kind}:${p.id}`);
         this.arsenal.wishes = (this.arsenal.wishes | 0) + 1;

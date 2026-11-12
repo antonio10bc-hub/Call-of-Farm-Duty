@@ -275,6 +275,7 @@ const sniper = new Sniper(THEME, {
     // Marca de acierto en tres niveles: hit (un golpe que no recoge: calabaza), harvest (recoge;
     // amarilla), big (colateral de 3 o más: roja y grande, y más grave)
     onHitMarker(kind = 'hit') {
+        if (!Settings.feelOn('feelMarks')) kind = 'hit'; // (sin «marcas por niveles», siempre la misma)
         const el = $('hitmarker');
         el.classList.remove('on', 'hit', 'harvest', 'big');
         void el.offsetWidth;
@@ -2834,36 +2835,38 @@ function refreshDebug() {
     refreshFieldRows();
     refreshSnipeDbg();
 }
-// En las pantallas estrechas, una columna cada vez: pestañas con el título de cada una
+// A la izquierda, un botón por apartado (con el título de cada uno); a la derecha, solo el elegido.
+// Al abrir, ninguno (o el último que se abrió: se recuerda por su clave, también al recargar)
 {
-    // (la de la casa, aparcada con ella: ni se ve ni tiene pestaña)
+    // (la de la casa, aparcada con ella: ni se ve ni tiene botón)
     if (FARM.house.hidden) $('debug-home').classList.add('parked');
     const boxes = [...document.querySelectorAll('#debug .debug-box:not(.parked)')];
-    // (la pestaña abierta se recuerda, también al recargar desde el debug)
-    const show = (i) => {
+    const show = (key) => {
         boxes.forEach((b, k) => {
-            b.classList.toggle('on', k === i);
-            tabs[k].classList.toggle('on', k === i);
+            b.classList.toggle('on', b.dataset.sec === key);
+            tabs[k].classList.toggle('on', b.dataset.sec === key);
         });
+        $('debug-empty').classList.toggle('hidden', !!key);
         try {
-            sessionStorage.setItem('cofd.debugTab', String(i));
+            sessionStorage.setItem('cofd.debugTab', key || '');
         } catch { /* sin almacenamiento */ }
     };
-    const tabs = boxes.map((b, i) => {
+    const tabs = boxes.map((b) => {
         const t = document.createElement('button');
         t.className = 'debug-tab';
         t.textContent = b.querySelector('.debug-box-title').textContent;
         t.addEventListener('click', (e) => {
             e.stopPropagation();
             sfx.play('ui');
-            show(i);
+            show(b.dataset.sec);
         });
         $('debug-tabs').appendChild(t);
         return t;
     });
-    let first = 0;
+    let first = null;
     try {
-        first = Math.min(boxes.length - 1, Number(sessionStorage.getItem('cofd.debugTab')) || 0);
+        const k = sessionStorage.getItem('cofd.debugTab');
+        first = boxes.some((b) => b.dataset.sec === k) ? k : null; // (lo de antes, guardado por número: ninguno)
     } catch { /* sin almacenamiento */ }
     show(first);
 }
@@ -2927,6 +2930,10 @@ function refreshMerchantLifeDbg() {
     $('dbg-mood').textContent = MOODS[M.mood];
     $('dbg-party').textContent = triName(FORCE.party);
     $('dbg-coll').textContent = `${state.village.length}/${ALL_DECOR.length}`;
+    // (la ampliación: solo con el pueblo terminado; lo que hay: fase, vecinos y ventajas)
+    const total = townPhase(state.village.length) >= 3 ? farm.village.planCount : 0;
+    $('dbg-town').textContent = `${state.town}/${total || '-'}`;
+    $('dbg-town-info').textContent = `${L('PHASE', 'FASE')} ${farm.townPhase || 1} · ${L('NEIGHBOURS', 'VECINOS')} ${farm.village.residents.filter((r) => r.on).length} · ${Object.keys(state.perks).map((k) => PERK_CHIP[k]).join(' ') || L('NO PERKS', 'SIN VENTAJAS')}`;
     $('dbg-market').textContent = triName(MARKET_FORCE.on);
 }
 function dbgMerchant(fn, renew = false) {
@@ -2998,6 +3005,22 @@ tapBtn('dbg-well-reset', () => {
     if (!$('well').classList.contains('hidden')) renderWell();
 });
 tapBtn('dbg-village-all', () => dbgMerchant(() => (state.village = ALL_DECOR.map((d) => d.id))));
+// La ampliación del pueblo: un paso más o menos, toda o nada (sin cinemática); y lo que hay
+stepRow('dbg-town-row', (d) => dbgMerchant(() => (state.town = Math.max(0, Math.min(farm.village.planCount, state.town + d)))));
+tapBtn('dbg-town-all', () => dbgMerchant(() => (state.town = farm.village.planCount)));
+tapBtn('dbg-town-none', () => dbgMerchant(() => (state.town = 0)));
+// El pozo: deseos gratis, lo que sale (al azar, una rareza o una repetida) y la velocidad de las cinemáticas
+const WISH_FORCES = [null, 'common', 'rare', 'epic', 'dup'];
+const CINE_SPEEDS = [1, 3, 6];
+tapBtn('dbg-well-free', () => { Settings.set('freeWish', !Settings.freeWish); refreshSnipeDbg(); if (!$('well').classList.contains('hidden')) renderWell(); sfx.play('ui'); });
+tapBtn('dbg-well-force', () => { Settings.set('wishForce', cycle(WISH_FORCES, Settings.wishForce)); refreshSnipeDbg(); sfx.play('ui'); });
+tapBtn('dbg-cine-speed', () => { CINE_SPEED = cycle(CINE_SPEEDS, CINE_SPEED); refreshSnipeDbg(); sfx.play('ui'); });
+// El campo de tiro: ir al campo de pruebas
+tapBtn('dbg-range', () => { $('debug').classList.add('hidden'); goRange(); });
+// Oro de 100 en 100, y cosechas a 0 (para probar costes)
+tapBtn('dbg-gold-minus', () => { state.items.gold = Math.max(0, state.items.gold - 100); state.save(); updateCounts(); refreshMerchantDbg(); sfx.play('coin'); });
+tapBtn('dbg-gold-plus', () => { state.items.gold = Math.min(99999, state.items.gold + 100); state.save(); updateCounts(); refreshMerchantDbg(); sfx.play('coin'); });
+tapBtn('btn-crops-zero', () => { for (const c of Object.keys(CROPS)) state.items[c] = 0; state.save(); updateCounts(); refreshPanel(); sfx.play('ui'); });
 // Día de mercado (AUTO, SÍ o NO), la sombra que anuncia al elegido y comprobar los logros y el nivel del pueblo
 tapBtn('dbg-market', () => dbgMerchant(() => (MARKET_FORCE.on = TRI[(TRI.indexOf(MARKET_FORCE.on) + 1) % 3])));
 tapBtn('dbg-herald', () => dbgMerchant((M, id) => (dbgHerald = dbgHerald === id ? null : id)));
@@ -3086,6 +3109,20 @@ function refreshSnipeDbg() {
     $('dbg-start-wonder').textContent = wonderName(Settings.startWonder) || L('RIFLE', 'FUSIL');
     $('dbg-cows').textContent = Settings.cowsFull ? L('FULL UDDERS', 'UBRES LLENAS') : L('NORMAL', 'NORMAL');
     $('dbg-fxplus').textContent = Settings.fxPlus ? L('ON', 'SÍ') : L('OFF', 'NO');
+    $('dbg-feel').textContent = Settings.feel ? L('ON', 'SÍ') : L('OFF', 'NO');
+    $('dbg-feel').classList.toggle('set', !Settings.feel);
+    for (const b of document.querySelectorAll('.dbg-feel-sub')) {
+        b.textContent = Settings[b.dataset.flag] ? L('ON', 'SÍ') : L('OFF', 'NO');
+        b.classList.toggle('set', !Settings[b.dataset.flag]);
+        b.closest('.ks-row').classList.toggle('off', !Settings.feel); // (sin la respuesta entera, sus partes no cuentan)
+    }
+    $('dbg-ammo-inf').textContent = Settings.infAmmo ? L('YES', 'SÍ') : L('NO', 'NO');
+    $('dbg-ammo-inf').classList.toggle('set', Settings.infAmmo);
+    $('dbg-well-free').textContent = Settings.freeWish ? L('YES', 'SÍ') : L('NO', 'NO');
+    $('dbg-well-free').classList.toggle('set', Settings.freeWish);
+    $('dbg-well-force').textContent = { common: L('COMMON', 'COMÚN'), rare: L('RARE', 'RARA'), epic: L('EPIC', 'ÉPICA'), dup: L('DUPLICATE', 'REPETIDA') }[Settings.wishForce] || L('RANDOM', 'AL AZAR');
+    $('dbg-well-force').classList.toggle('set', !!Settings.wishForce);
+    $('dbg-cine-speed').textContent = `x${CINE_SPEED}`;
     $('dbg-aliens').textContent = Settings.noAliens ? L('NO', 'NO') : L('YES', 'SÍ');
     for (const [id, on] of [['dbg-box-rate', Settings.boxFast], ['dbg-box-pick', Settings.boxPick], ['dbg-start-wonder', Settings.startWonder], ['dbg-cows', Settings.cowsFull], ['dbg-aliens', Settings.noAliens], ['dbg-fxplus', !Settings.fxPlus]]) $(id).classList.toggle('set', !!on);
 }
@@ -3096,6 +3133,9 @@ for (const [id, step] of [
     ['dbg-start-wonder', () => Settings.set('startWonder', cycle(WONDER_IDS, Settings.startWonder))],
     ['dbg-cows', () => Settings.set('cowsFull', !Settings.cowsFull)],
     ['dbg-fxplus', () => Settings.set('fxPlus', !Settings.fxPlus)],
+    ['dbg-feel', () => Settings.set('feel', !Settings.feel)],
+    ['dbg-ammo-inf', () => Settings.set('infAmmo', !Settings.infAmmo)],
+    ...[...document.querySelectorAll('.dbg-feel-sub')].map((b) => [b.id, () => Settings.set(b.dataset.flag, !Settings[b.dataset.flag])]),
     ['dbg-aliens', () => Settings.set('noAliens', !Settings.noAliens)],
 ]) {
     tapBtn(id, () => {
