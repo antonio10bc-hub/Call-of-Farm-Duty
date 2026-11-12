@@ -170,7 +170,7 @@ Con el reloj de verdad: 4 min de día y 2 de noche, con amanecer y atardecer de 
 
 ### Ajustes y depuración
 - **Ajustes:** música, sonido, vibración e idioma.
-- **Debug** (botón discreto abajo a la derecha de la granja; cada ajuste en su tarjeta, con su nombre y su botón juntos): a la izquierda, una lista de botones, uno por apartado; al abrirlo no hay ninguno a la vista y tocar uno enseña solo lo suyo, con toda la pantalla para él (en varias columnas; en el móvil, una). Se recuerda el último apartado abierto. VOLVER arriba a la izquierda.
+- **Debug** (botón discreto abajo a la derecha, siempre a mano: en la granja, el mapa y el campo de tiro, donde suelta el ratón; cada ajuste en su tarjeta, con su nombre y su botón juntos): a la izquierda, una lista de botones, uno por apartado; al abrirlo no hay ninguno a la vista y tocar uno enseña solo lo suyo, con toda la pantalla para él (en varias columnas; en el móvil, una). Se recuerda el último apartado abierto. VOLVER arriba a la izquierda.
   - **PROGRESO:** COSTES 0, MONEDAS DE ORO (de 10 en 10, y de 100 en 100), +100 DE CADA COSECHA, COSECHAS A 0, VER EL PRÓLOGO y BORRAR PROGRESO (dos toques; no borra los ajustes).
   - **DESBLOQUEAR:** de uno en uno (cada terreno, toda la armería y la torreta de cada campo) y DESBLOQUEAR TODO.
   - **CAMPOS:** el nivel de cada campo con - / + (lo desbloquea si hace falta; enseña nivel·blancos del campo de tiro), MADURAR TODO y la munición de todas las torretas (VACIAR o LLENAR).

@@ -2824,6 +2824,11 @@ tapBtn('btn-streaks-close', () => {
 tapBtn('btn-lang', switchLang);
 tapBtn('btn-debug', () => {
     sfx.play('ui');
+    // (desde el campo de tiro: suelta el ratón y baja la mira)
+    if (mode === 'snipe') {
+        sniper.release(false);
+        if (document.exitPointerLock && locked()) document.exitPointerLock();
+    }
     refreshDebug();
     $('debug').classList.remove('hidden');
 });

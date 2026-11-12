@@ -199,7 +199,8 @@ html, body {
 .debug-box { display: flex; flex-direction: column; gap: 12px; width: min(270px, 100%); padding: 14px 10px 12px; border: 3px dashed #a8957a; }
 /* Botón de depuración: discreto, abajo a la derecha de la granja */
 .debug-btn {
-    position: absolute;
+    position: fixed;
+    z-index: 19; /* (encima de todo lo del juego, debajo de las pantallas) */
     right: 10px;
     bottom: max(8px, env(safe-area-inset-bottom));
     padding: 5px 6px;
@@ -1819,3 +1820,4 @@ body.practice .left-badge { display: none; }
 .debug-screen .debug-box .feel-main { grid-column: 1 / -1; max-width: 740px; border-color: var(--yellow); }
 .debug-screen .debug-box .ks-row.off { opacity: .35; }
 .debug-screen .debug-box .ks-row > span { align-items: flex-start; } .debug-screen .debug-box .ks-row > span b, .debug-screen .debug-box .ks-row > span small { text-align: left; }
+body.photo .debug-btn { visibility: hidden; }

@@ -73,7 +73,6 @@
             <div id="farm-gold" class="coins-badge static gold-badge hidden"><span class="ico gold-ico"></span><span id="gold-count">0</span></div>
         </div>
         <button id="btn-settings" class="corner-btn gear-btn" aria-label="Settings" data-es-aria="Ajustes"><i class="gear-ico"></i></button>
-        <button id="btn-debug" class="debug-btn">DEBUG</button>
         <!-- Vista global: toda la cuadrícula de parcelas de un vistazo (y otra vez, de vuelta) -->
         <button id="btn-map" class="map-btn"><span class="ico map-ico"></span><span data-es="MAPA">MAP</span></button>
         <!-- Foto: sin la interfaz, se guarda una captura del mapa -->
@@ -266,6 +265,8 @@
     <!-- Depuración: columnas una al lado de otra que caben en la pantalla sin desplazar (en las
          estrechas, pestañas). VOLVER arriba a la izquierda. Las filas que dependen del contenido
          (campos, rachas, desbloqueos) las rellena main.js -->
+    <!-- El botón del debug: siempre a mano (en la granja, el mapa, el campo de tiro...) -->
+    <button id="btn-debug" class="debug-btn">DEBUG</button>
     <div id="debug" class="screen settings debug-screen hidden">
         <h2 class="end-title">DEBUG</h2>
         <button id="btn-debug-close" class="btn home-btn"><span class="home-icon"></span><span data-es="VOLVER">BACK</span></button>
