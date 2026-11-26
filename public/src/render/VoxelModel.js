@@ -30,7 +30,8 @@ export class VoxelModel {
     part(parent, w, h, d, color, x, y, z, outlined = true) {
         const m = new THREE.Mesh(box(w, h, d), typeof color === 'number' ? this.mat(color) : color);
         m.position.set(x, y, z);
-        if (outlined) m.add(new THREE.Mesh(box(w + OUTLINE * 2, h + OUTLINE * 2, d + OUTLINE * 2), this.outlineMat));
+        const o = this.outlineW ?? OUTLINE; // (el arma en primera persona, más fino: va pegada a la cara)
+        if (outlined) m.add(new THREE.Mesh(box(w + o * 2, h + o * 2, d + o * 2), this.outlineMat));
         parent.add(m);
         return m;
     }

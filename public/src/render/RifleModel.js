@@ -65,22 +65,23 @@ export function buildGun(model, g, loadout = DEFAULT_LOADOUT, only = null) {
         // hueco (se mira a través); la nocturna, con su caja
         const sl = S.len, sr = S.r;
         if (S.open) {
+            // (el marco, sin contorno: que no tape lo que se ve a través)
             model.part(g, 0.12, 0.03, 0.16, S.body, 0, 0.08, -0.06);
-            for (const x of [-0.055, 0.055]) model.part(g, 0.02, 0.13, 0.03, S.body, x, 0.145, -0.1);
-            model.part(g, 0.13, 0.02, 0.03, S.body, 0, 0.205, -0.1);
-            model.part(g, 0.02, 0.02, 0.02, S.glass, 0, 0.1, -0.05, false); // (el diodo que enciende el punto)
+            for (const x of [-0.055, 0.055]) model.part(g, 0.02, 0.13, 0.03, S.body, x, 0.145, -0.1, false);
+            model.part(g, 0.13, 0.02, 0.03, S.body, 0, 0.205, -0.1, false);
+            if (only) model.part(g, 0.06, 0.06, 0.01, S.glass, 0, 0.145, -0.1, false); // (en su dibujo, el cristal rojo)
         } else if (S.acog) {
-            const zc = -0.08, w = 0.018;
+            const zc = -0.08, w = 0.018, cy = 0.18; // (alto: que el cajón del arma no asome dentro)
             for (const s of [-1, 1]) {
-                model.part(g, sr * 2, w, sl, S.body, 0, 0.13 + s * (sr - w / 2), zc);
-                model.part(g, w, sr * 2, sl, S.body, s * (sr - w / 2), 0.13, zc);
+                model.part(g, sr * 2, w, sl, S.body, 0, cy + s * (sr - w / 2), zc, !!only);
+                model.part(g, w, sr * 2, sl, S.body, s * (sr - w / 2), cy, zc, !!only);
             }
             for (const z of [zc - sl / 2 + 0.02, zc + sl / 2 - 0.02]) for (const s of [-1, 1]) {
-                model.part(g, sr * 2.3, 0.03, 0.04, S.ring, 0, 0.13 + s * (sr + 0.01), z, false);
-                model.part(g, 0.03, sr * 2.3, 0.04, S.ring, s * (sr + 0.01), 0.13, z, false);
+                model.part(g, sr * 2.3, 0.03, 0.04, S.ring, 0, cy + s * (sr + 0.01), z, false);
+                model.part(g, 0.03, sr * 2.3, 0.04, S.ring, s * (sr + 0.01), cy, z, false);
             }
-            model.part(g, 0.04, 0.04, 0.06, S.glass, 0, 0.13 + sr + 0.04, zc + 0.04, false); // (la fibra que ilumina la retícula)
-            for (const z of [-0.16, 0.04]) model.part(g, 0.04, 0.04, 0.04, METAL, 0, 0.065, z, false);
+            model.part(g, 0.04, 0.04, 0.06, S.glass, 0, cy + sr + 0.04, zc + 0.04, false); // (la fibra que ilumina la retícula)
+            for (const z of [-0.16, 0.04]) model.part(g, 0.04, 0.04, 0.04, METAL, 0, 0.07, z, false);
         } else {
             model.part(g, sr, sr, sl, S.body, 0, 0.13, -0.08);
             for (const z of [-0.08 - sl / 2 + 0.04, -0.08 + sl / 2 - 0.04]) model.part(g, sr * 1.35, sr * 1.35, 0.06, S.ring, 0, 0.13, z);
@@ -89,6 +90,7 @@ export function buildGun(model, g, loadout = DEFAULT_LOADOUT, only = null) {
             for (const z of [-0.16, 0.04]) model.part(g, 0.04, 0.06, 0.04, METAL, 0, 0.08, z, false);
         }
         if (S.open) sight = 0.145;
+        if (S.acog) sight = 0.18;
     }
     // Cargador: caja, curvo (ampliado), tambor o célula que brilla
     const mag = new THREE.Group();
@@ -117,6 +119,7 @@ export class RifleModel extends VoxelModel {
         super(outlineColor);
         this.rest = new THREE.Vector3(0.24, -0.2, -0.6);
         this.root.scale.setScalar(0.38);
+        this.outlineW = 0.022; // (contorno fino: pegada a la cara, el grueso tapaba la mirilla)
         this.root.position.copy(this.rest);
         this.gun = new THREE.Group();
         this.root.add(this.gun);
