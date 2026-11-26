@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { THEME } from './content/theme.js';
+import { THEMES, themeOf } from './content/music.js';
 import { CROPS } from './content/crops.js';
 import { FARM, FIELD_BY_ID, INFO, TURRETS, toWorld, worldToPlace, PLACES } from './content/farm.js';
 import { KILLSTREAKS, setStreakCounts } from './content/killstreaks.js';
@@ -250,7 +251,7 @@ const sniper = new Sniper(THEME, {
         for (let k = 0; k < n; k++) state.lose(snipeField);
         killPop((nx * 0.5 + 0.5) * innerWidth, (-ny * 0.5 + 0.5) * innerHeight, cropOf(snipeField).icon, 'stolen-pop', `-${n}`);
         medal(L('STOLEN!', '¡ROBADO!'), 'stolen');
-        sfx.play('miss');
+        sfx.play('stolen');
         $('left-count').textContent = sniper.field.remaining;
     },
     // Bala que da a un alienígena (a pie o en ovni): aspa en el centro y su chasquido
@@ -352,7 +353,10 @@ const prologueHooks = {
         return true;
     },
     // Silencio dramático (la música se corta antes de la nuclear)
-    silence: () => music.stop(),
+    silence: () => {
+        hushed = true;
+        music.stop();
+    },
     // Aviso grande de qué hacer: recolectar a mano o apuntar y disparar (null lo quita)
     prompt(kind) {
         const el = $('pro-prompt');
@@ -385,7 +389,7 @@ const prologueHooks = {
         snipeStart = time;
         document.body.classList.add('sniping');
         $('snipe-ui').classList.remove('hidden');
-        startMusic(THEME.sniperMusic);
+        startMusic();
     },
     // Al mapa: la granja de verdad, con todo por hacer
     toMap() {
@@ -403,7 +407,7 @@ const prologueHooks = {
         goHome();
         rig.zoomTarget = 1.6; // algo más lejos: se ve la zona y el trigo hablando
         rig.snap();
-        startMusic(THEME.music);
+        startMusic();
     },
     done() {
         rig.zoomTarget = 1.6;
@@ -793,7 +797,7 @@ function toggleFieldsPop(open = fieldsPop.classList.contains('hidden')) {
         fieldsPop.insertAdjacentHTML('beforeend', '<i class="dock-pop-sep"></i>');
         const r = uiButton(`dock-btn dock-pop-btn reload-all${need ? ' alert' : ''}`, () => {
             const n = state.reloadAllTurrets();
-            if (!n) return sfx.play('miss'), medal(need ? L('NOT ENOUGH GOLD', 'NO HAY ORO SUFICIENTE') : L('ALL TURRETS ARE FULL', 'TODAS LAS TORRETAS ESTÁN LLENAS'));
+            if (!n) return sfx.play('deny'), medal(need ? L('NOT ENOUGH GOLD', 'NO HAY ORO SUFICIENTE') : L('ALL TURRETS ARE FULL', 'TODAS LAS TORRETAS ESTÁN LLENAS'));
             sfx.play('coin');
             setTimeout(() => sfx.play('reloaded'), 160);
             vibrate('pickup');
@@ -992,7 +996,7 @@ function placeBubbles() {
 // lo dice
 const SOON_LANDS = FARM.lands.filter((l) => l.soon).map((l) => {
     const sign = uiButton('field-sign locked hidden', () => {
-        sfx.play('miss');
+        sfx.play('deny');
         medal(L('LOCKED: COMING SOON', 'BLOQUEADA: PRÓXIMAMENTE'));
     });
     sign.id = `sign-land-${l.id}`;
@@ -1135,19 +1139,34 @@ function refreshPanel() {
 
 // Comprar la parcela de un campo con oro: ya es tuya (la sombra se retira desde su poste, que
 // salta, y se iza tu bandera) y queda lista para volar su barril
-// Ambiente según la zona que se mira: pájaros en los bosques (sobre todo el del mercader), el agua
-// cerca del río y del lago, y viento en lo alto del monte
 let ambT = 0;
+// La voz de cada granja en el ambiente del mapa (las que están cerca de la cámara)
+const FIELD_VOICE = { milk: 'moo', egg: 'cluck', wool: 'baa', truffle: 'oink', pumpkin: 'bleat', honey: 'buzz', fish: 'water', sunflower: 'water' };
+// Ambiente del mapa, alrededor de la cámara: viento en lo alto, agua cerca del río y del lago,
+// pájaros de día (grillos y algún búho de noche) y los animales de las granjas cercanas
 function updateAmbient(dt) {
     if ((ambT -= dt) > 0) return;
     ambT = 0.5 + Math.random() * 0.8;
-    const x = rig.fx, z = rig.fz, r = regionAt(x, z), merchant = PLACES.find((P) => P.id === 'merchant');
+    const x = rig.fx, z = rig.fz, r = regionAt(x, z), merchant = PLACES.find((P) => P.id === 'merchant'), night = dayNight.night;
     let water = false;
     for (let k = 0; k < 8 && !water; k++) water = isWater(x + Math.cos(k) * 9, z + Math.sin(k) * 9);
     const pan = (Math.random() - 0.5) * 1.2;
     if (groundAt(x, z) > 14 || r === -1) { if (Math.random() < 0.5) sfx.ambient('wind', 1, pan); }
     else if (water && Math.random() < 0.6) sfx.ambient('water', 1, pan);
-    if (r === merchant.ri ? Math.random() < 0.7 : r < 0 ? Math.random() < 0.35 : Math.random() < 0.15) sfx.ambient('bird', r === merchant.ri ? 1 : 0.7, pan);
+    if (night) {
+        if (Math.random() < 0.45) sfx.ambient('cricket', 0.8, pan);
+        if (Math.random() < 0.03) sfx.ambient('owl', 0.8, pan);
+    } else if (r === merchant.ri ? Math.random() < 0.7 : r < 0 ? Math.random() < 0.35 : Math.random() < 0.15) sfx.ambient('bird', r === merchant.ri ? 1 : 0.7, pan);
+    // La granja más cercana con animales (a menos de 18 casillas), de vez en cuando, por su lado
+    if (Math.random() < 0.22) {
+        let best = null, bd = 18;
+        for (const v of farm.views) {
+            if (v.locked || !FIELD_VOICE[v.crop]) continue;
+            const w = farm.world(v.rect.cx, 0, v.rect.cz), d = Math.hypot(w.x - x, w.z - z);
+            if (d < bd) { bd = d; best = { v, w }; }
+        }
+        if (best && !(night && best.v.crop === 'honey')) sfx.ambient(FIELD_VOICE[best.v.crop], 0.9 * (1 - bd / 22), Math.max(-0.8, Math.min(0.8, (best.w.x - x) / 14)));
+    }
 }
 
 let landTour = null;
@@ -1160,7 +1179,7 @@ function updateLandTour(dt) {
 }
 function buyLand(id) {
     const land = state.landOf(id);
-    if (!land || !state.buyLand(land.id)) return sfx.play('miss');
+    if (!land || !state.buyLand(land.id)) return sfx.play('deny');
     select(null);
     farm.ownLand(land.id);
     // Un vuelo por la parcela mientras se retira la sombra: de lejos, toda; luego, hacia su poste
@@ -1169,8 +1188,7 @@ function buyLand(id) {
     rigFocus(a.x, a.z, a.y);
     rig.zoomTarget = 2.6;
     rig.shake(0.12);
-    sfx.play('power');
-    setTimeout(() => sfx.play('achievement'), 350);
+    sfx.play('land');
     vibrate('pickup');
     updateCounts();
     stage(L('IT IS YOURS!', '¡AHORA ES TUYA!'), L('IT IS FILTHY: BLOW UP ITS BARREL TO CLEAR IT', 'ESTÁ SUCIA: VUELA SU BARRIL PARA LIMPIARLA'));
@@ -1245,7 +1263,7 @@ function turretShot(id) {
 
 // Recargar la torreta de un campo con oro: las monedas vuelan del contador y se pone en marcha
 function reloadTurret(id) {
-    if (mode !== 'farm' || !state.reloadTurret(id)) return sfx.play('miss');
+    if (mode !== 'farm' || !state.reloadTurret(id)) return sfx.play('deny');
     sfx.play('coin');
     setTimeout(() => sfx.play('reloaded'), 160);
     vibrate('pickup');
@@ -1262,7 +1280,7 @@ function upgradeField(id) {
     rig.focus(f.cx, f.cz + 1);
     rig.shake(0.14);
     for (let k = 0; k < 6; k++) farmFx.burst(f.x + Math.random() * f.w, 0.2, f.z + Math.random() * f.d, 6, [THEME.dust, 0xd9b77a, 0xffe03a], { speed: 2, up: 1.6, size: 0.12, ttl: 0.5 });
-    sfx.play('power');
+    sfx.play('upgrade');
     vibrate('pickup');
     updateCounts();
     stage(L('FIELD UPGRADED!', '¡CAMPO MEJORADO!'), `${CROPS[FIELD_BY_ID[id].crop].unit}: ${state.sheaves(id)}`);
@@ -1342,8 +1360,28 @@ function updatePredator() {
     if (p) $('pred-alt').textContent = `${L('ALT', 'ALT')} ${Math.max(0, Math.round(p.y))}M`;
 }
 
-function startMusic(cfg) {
-    if (Settings.music) music.start(cfg, 7);
+// La música del sitio: la granja (o, con su menú abierto, el pueblo o el pozo) o el campo de tiro
+// de lo que se recoge. Se mira en cada fotograma: si cambia, el tema nuevo entra al compás
+// siguiente (core/Music.js), sin cortes. hushed: el silencio del prólogo antes de la nuclear
+let hushed = false, wasNight = null;
+function wantedTheme() {
+    if (mode === 'toSnipe') return themeOf(goSnipe.unlock || goSnipe.practice ? 'range' : snipeField ? FIELD_BY_ID[snipeField].crop : 'wheat');
+    if (mode === 'snipe') return themeOf(sniper.unlocking || sniper.practice ? 'range' : sniper.crop);
+    if (wellCine || !$('well').classList.contains('hidden')) return THEMES.well;
+    if (townCine || !$('merchant').classList.contains('hidden')) return THEMES.village;
+    return THEMES.farm;
+}
+function startMusic() {
+    hushed = false;
+    syncMusic();
+}
+function syncMusic() {
+    music.night = dayNight.night;
+    // Al hacerse de día o de noche: el gallo, o las campanas y los grillos
+    if (wasNight !== null && dayNight.night !== wasNight && mode !== 'prologue' && !prologue.active) sfx.play(dayNight.night ? 'dusk' : 'dawn');
+    wasNight = dayNight.night;
+    if (hushed || !Settings.music || !sfx.ctx) return;
+    music.start(wantedTheme());
 }
 
 // ---------- Transiciones ----------
@@ -1443,7 +1481,7 @@ function enterSnipe() {
     $('left-count').textContent = sniper.field.remaining;
     showCorner(0);
     updateCounts();
-    startMusic(THEME.sniperMusic);
+    startMusic();
     $('nuke-count').classList.add('hidden');
     const msg = unlock ? L('SHOOT THE RED BARREL!', '¡DISPARA AL BARRIL ROJO!') : L('HARVEST!', '¡A COSECHAR!');
     setTimeout(() => mode === 'snipe' && banner(msg, 'go'), 450);
@@ -1470,7 +1508,7 @@ function enterRange() {
     $('left-count').textContent = sniper.field.remaining;
     showCorner(0);
     updateCounts();
-    startMusic(THEME.sniperMusic);
+    startMusic();
     $('nuke-count').classList.add('hidden');
     setTimeout(() => mode === 'snipe' && banner(L('TEST RANGE', 'CAMPO DE PRUEBAS'), 'go'), 450);
 }
@@ -1506,7 +1544,7 @@ function enterFarm() {
     const id = snipeField;
     snipeField = null;
     updateCounts();
-    startMusic(THEME.music);
+    startMusic();
     if (practice) return; // (del campo de pruebas: nada que contar)
     if (revealUnlocked()) return;
     if (goFarm.done && !unlocking) {
@@ -1588,7 +1626,7 @@ document.addEventListener('pointerlockchange', () => document.body.classList.tog
 
 addEventListener('pointerdown', (e) => {
     sfx.unlock();
-    if (!music.playing && Settings.music && sfx.ctx) startMusic(mode === 'snipe' ? THEME.sniperMusic : THEME.music);
+    syncMusic();
     if (mode === 'prologue') return prologue.tap();
     // Con el trigo mágico hablando, tocar pasa el texto
     if (prologue.talking) return prologue.next();
@@ -1914,11 +1952,11 @@ tapBtn('btn-map', () => {
     } else enterMap();
 });
 tapBtn('btn-settings', () => {
-    sfx.play('ui');
+    sfx.play('open');
     $('settings').classList.remove('hidden');
 });
 tapBtn('btn-settings-close', () => {
-    sfx.play('ui');
+    sfx.play('close');
     $('settings').classList.add('hidden');
 });
 
@@ -1983,7 +2021,7 @@ function openShop() {
         refreshUfoSign();
     }
     select(null);
-    sfx.play('ui');
+    sfx.play('open');
     const h = farm.byId.house;
     if (shop.tab === 'house') frameShop(h.def.x, h.def.z, 0.72);
     else frameShop(15, -15, 1.5);
@@ -2033,16 +2071,16 @@ $('ufo-shop').addEventListener('click', (e) => {
         return renderShop();
     }
     const it = SHOP_ITEMS[t.dataset.id];
-    if (it.cat.soon) return sfx.play('miss'), say(ZORG.soon, true);
+    if (it.cat.soon) return sfx.play('deny'), say(ZORG.soon, true);
     const had = state.owns(it.id);
-    if (!state.buyOrWear(it.id)) return sfx.play('miss'), say(ZORG.poor, true);
+    if (!state.buyOrWear(it.id)) return sfx.play('deny'), say(ZORG.poor, true);
     applyLook();
     // Lo de la parcela: la cámara va a su hueco para verlo aparecer
     if (it.at) {
         frameShop(it.at.x, it.at.z, 0.9);
         if (state.home.placed.includes(it.id)) for (let k = 0; k < 4; k++) farmFx.burst(it.at.x + (Math.random() - 0.5) * 2, 0.3, it.at.z + (Math.random() - 0.5) * 2, 8, [THEME.dust, 0x7dff4a, 0xffffff], { speed: 2.4, up: 2.4, size: 0.14, ttl: 0.6 });
     } else farm.byId.house.select();
-    sfx.play(had ? 'ui' : 'shieldGet');
+    sfx.play(had ? 'tab' : 'buy');
     if (!had) {
         say(ZORG.thanks);
         merchantDeal($('ufo-shop'), $('ufo-coins'));
@@ -2052,7 +2090,7 @@ $('ufo-shop').addEventListener('click', (e) => {
 });
 $('ufo-shop').addEventListener('pointerdown', (e) => e.stopPropagation());
 tapBtn('ufo-close', () => {
-    sfx.play('ui');
+    sfx.play('close');
     $('ufo-shop').classList.add('hidden');
     rig.zoomTarget = 1;
 });
@@ -2081,7 +2119,7 @@ function updateMerchant(dt) {
         if (mode === 'farm' && farm.introT > 2) {
             stage(here ? `${d.name}: ${L('HERE!', '¡HA LLEGADO!')}` : `${d.name}: ${L('LEFT', 'SE HA IDO')}`,
                 rare ? L('PARTYING: PAYS MORE GOLD!', 'VIENE DE FIESTA: ¡PAGA MÁS ORO!') : here && state.merchants[d.id].gift !== null ? L('BROUGHT YOU A GIFT', 'TE HA TRAÍDO UN REGALO') : here ? `${L('WANTS', 'QUIERE')} ${CROPS[d.fav].name}` : L('WILL BE BACK', 'VOLVERÁ'), true);
-            sfx.play(here ? 'bounceGet' : 'ui');
+            sfx.vehicle(d.vehicle, here);
         }
         if (!here && curM === d.id && !$('merchant').classList.contains('hidden')) renderMerchant();
         updateCounts();
@@ -2098,7 +2136,7 @@ function updateMerchant(dt) {
         farm.village.setMarket(mk);
         if (mk && mode === 'farm' && farm.introT > 2) {
             stage(L('MARKET DAY!', '¡DÍA DE MERCADO!'), L('ALL THE MERCHANTS, PAYING MORE', 'TODOS LOS MERCADERES, PAGANDO MÁS'));
-            sfx.play('achievement');
+            sfx.play('market');
         }
     }
     merchantArrived = Math.max(0, merchantArrived - dt);
@@ -2128,7 +2166,7 @@ function openMerchant(id = curM) {
     if (mode !== 'farm' || inCine()) return;
     curM = id;
     select(null);
-    sfx.play('ui');
+    sfx.play('open');
     const v = farm.village.byId[id], was = !$('merchant').classList.contains('hidden');
     rig.zoomTarget = 0.85;
     merchantSay(v.open ? merchantHello(id) : MERCHANT.lines.away);
@@ -2196,7 +2234,7 @@ function merchantNews2() {
     const up = state.checkVillage();
     if (up) {
         stage(`${L('YOUR VILLAGE IS NOW', 'TU PUEBLO YA ES')}: ${VILLAGE_LEVELS[up.lv].name}`, up.gold ? `+${up.gold} ${L('GOLD', 'DE ORO')}` : '');
-        sfx.play('achievement');
+        sfx.play('village');
         updateCounts(true);
     }
 }
@@ -2324,7 +2362,7 @@ $('merchant').addEventListener('click', (e) => {
     if (tb) return openMerchant(tb.dataset.tab);
     if (e.target.closest('button[data-expand]')) {
         const it = farm.village.planItems[state.town];
-        if (!it || townCine || !state.expandTown(farm.village.planCount)) return sfx.play('miss');
+        if (!it || townCine || !state.expandTown(farm.village.planCount)) return sfx.play('deny');
         sfx.play('coin');
         updateCounts(true);
         // De cine: se cierra el menú, la cámara se aleja hasta la pieza nueva (sin tocar nada), la
@@ -2339,7 +2377,7 @@ $('merchant').addEventListener('click', (e) => {
     if (gb) {
         const g = state.claimGift(id);
         if (g === null) return;
-        sfx.play('bounceGet');
+        sfx.play('gift');
         merchantSay(L('ENJOY IT, FRIEND!', '¡QUE LO DISFRUTES, AMIGO!'));
         if (typeof g !== 'number') stage(L('NEW IN YOUR VILLAGE', 'NUEVO EN TU PUEBLO'), name(g));
         merchantDeal($('merchant'));
@@ -2349,8 +2387,8 @@ $('merchant').addEventListener('click', (e) => {
         return renderMerchant();
     }
     if (bb) {
-        if (!state.buy(visit, bb.dataset.buy, id)) return sfx.play('miss'), merchantSay(MERCHANT.lines.short, true);
-        sfx.play('coin');
+        if (!state.buy(visit, bb.dataset.buy, id)) return sfx.play('deny'), merchantSay(MERCHANT.lines.short, true);
+        sfx.play('buy');
         merchantSay(L('GOOD CHOICE! IT IS ALREADY IN THE VILLAGE.', '¡BUENA ELECCIÓN! YA ESTÁ EN EL PUEBLO.'));
         stage(L('NEW IN YOUR VILLAGE', 'NUEVO EN TU PUEBLO'), name(bb.dataset.buy));
         merchantDeal($('merchant'), $('gold-count'));
@@ -2362,9 +2400,8 @@ $('merchant').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-i]');
     if (!b) return;
     const res = state.deliver(visit, Number(b.dataset.i), id);
-    if (!res) return sfx.play('miss'), merchantSay(MERCHANT.lines.short, true);
-    sfx.play('coin');
-    setTimeout(() => sfx.play('coin'), 120);
+    if (!res) return sfx.play('deny'), merchantSay(MERCHANT.lines.short, true);
+    sfx.play('sell');
     vibrate('pickup');
     merchantSay(res.all ? MERCHANT.lines.done : MERCHANT.lines.thanks);
     const r = b.getBoundingClientRect();
@@ -2393,7 +2430,7 @@ let wellResult = null;
 function openWell() {
     if (mode !== 'farm' || inCine()) return;
     select(null);
-    sfx.play('ui');
+    sfx.play('open');
     rig.focus(135, 17);
     rig.zoomTarget = 0.8;
     $('well-line').textContent = WELL_LINES[(Math.random() * WELL_LINES.length) | 0];
@@ -2432,8 +2469,8 @@ let CINE_SPEED = CONFIG.test ? 6 : 1; // (game.cineSpeed: para verla a velocidad
 tapBtn('well-wish', () => {
     if (farm.well.busy || wellCine) return;
     const p = state.wish();
-    if (!p) return sfx.play('miss');
-    sfx.play('coin');
+    if (!p) return sfx.play('deny');
+    sfx.play('wishCoin');
     updateCounts(true);
     wellResult = null;
     $('well').classList.add('hidden');
@@ -2462,7 +2499,7 @@ function updateTownCine(dt) {
     if (at(0.7, 'build')) {
         syncMerchantLife(); // (sale la pieza nueva, con su bote)
         stage(L('NEW IN YOUR VILLAGE', 'NUEVO EN TU PUEBLO'), PLAN_NAMES[c.it.kind], true);
-        sfx.play('achievement');
+        sfx.play('village');
         rig.shake(0.2);
         const w = vWorld(c.it.x, c.it.z, 0.4);
         if (!CONFIG.test) farmParticles.burst(w.x, w.y, w.z, 40, [0xd8c8a0, 0xffffff, 0xffd23f], { speed: 3, up: 3, size: 0.14, ttl: 0.9 });
@@ -2487,12 +2524,12 @@ function updateWellCine(dt) {
         const q = w(0.8);
         if (!CONFIG.test) farmParticles.burst(q.x, q.y, q.z, 4, [p.tier.color, 0xffffff], { speed: 1.2, up: 1.5, size: 0.08, ttl: 0.5 });
     }
-    if (at(1.2, 'charge')) sfx.play('bounceGet');
+    if (at(1.2, 'charge')) sfx.play('charge');
     if (at(2.8, 'beam')) {
         rig.zoomTarget = 1.25;
         rig.shake(0.5);
         renderer.flash(p.tier.color, 0.75);
-        sfx.play(p.tier.id === 'epic' ? 'achievement' : 'bounceGet');
+        sfx.play({ common: 'tierCommon', rare: 'tierRare', epic: 'tierEpic' }[p.tier.id] || 'tierCommon');
         vibrate('pickup');
         const q = w(1);
         farmParticles.burst(q.x, q.y, q.z, 50, [p.tier.color, 0xffffff, 0xffd23f], { speed: 4, up: 7, size: 0.14, ttl: 1.2, grav: 5 });
@@ -2503,7 +2540,7 @@ function updateWellCine(dt) {
         el.style.setProperty('--tier', '#' + p.tier.color.toString(16).padStart(6, '0'));
         el.innerHTML = `<div class="rays"></div><img alt="" src="${c.art}"><b>${p.it.name}</b><em>${p.tier.name}</em>${p.dup ? `<strong class="dup">${L('DUPLICATE', 'REPETIDA')} +${p.refund} ${ico('gold')}</strong>` : ''}`;
         el.className = 'well-reveal in';
-        sfx.play('ui');
+        sfx.play(p.dup ? 'coin' : 'itemPick');
     }
     if (at(5.3, 'out')) $('well-reveal').className = 'well-reveal out';
     // Se abre el menú y su hueco se enciende; vuelve el control
@@ -2525,18 +2562,18 @@ function updateWellCine(dt) {
             slot.classList.add('just');
             slot.scrollIntoView({ block: 'center' });
         }
-        sfx.play('achievement');
+        sfx.play('open');
     }
 }
 $('well').addEventListener('click', (e) => e.stopPropagation());
 $('well').addEventListener('pointerdown', (e) => e.stopPropagation());
 tapBtn('well-close', () => {
-    sfx.play('ui');
+    sfx.play('close');
     $('well').classList.add('hidden');
     rig.zoomTarget = 1;
 });
 tapBtn('merchant-close', () => {
-    sfx.play('ui');
+    sfx.play('close');
     $('merchant').classList.add('hidden');
     rig.zoomTarget = 1;
 });
@@ -2577,7 +2614,7 @@ function upgradeHouse() {
     rig.focus(h.def.x, h.def.z + 1);
     rig.shake(0.3);
     houseFx(h.def.x, h.def.z, c);
-    sfx.play('power');
+    sfx.play('upgrade');
     vibrate('pickup');
     updateCounts();
     stage(state.house.level === 1 ? L('HOUSE FIXED!', '¡CASA ARREGLADA!') : L('PLOT CLEARED!', '¡PARCELA LIMPIA!'), `${L('FARMHOUSE', 'CASA')} ${L('LV', 'NV')}.${state.house.level}`);
@@ -2617,7 +2654,7 @@ function houseFx(x, z, c) {
 }
 
 function openStreaks() {
-    sfx.play('ui');
+    sfx.play('open');
     loEdit = state.arsenal.active;
     refreshRifle();
     $('gear-picker').classList.add('hidden');
@@ -2649,7 +2686,7 @@ CLASSES.forEach((c, i) => {
         // Bloqueada: se desbloquea con oro (si llega; si no, bota)
         if (!state.classOpen(i)) {
             if (!state.buyClass(i)) {
-                sfx.play('miss');
+                sfx.play('deny');
                 b.classList.remove('bump');
                 void b.offsetWidth;
                 b.classList.add('bump');
@@ -2691,7 +2728,7 @@ for (const track of ['crop', 'alien']) {
         b.innerHTML = `<i class="ks-ico" style="--ico: var(--px-${k.icon})"></i><span class="kc-n"><b>${k.at}</b><small>${track === 'alien' ? L('ALIENS', 'ALIENÍGENAS') : L('IN A ROW', 'SEGUIDAS')}</small></span><span class="kc-name">${k.short}</span><em></em>`;
         b.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (!state.open(track === 'alien' ? 'aliens' : 'grenades')) return sfx.play('miss'); // (aún bloqueadas)
+            if (!state.open(track === 'alien' ? 'aliens' : 'grenades')) return sfx.play('deny'); // (aún bloqueadas)
             state.toggleStreak(loEdit, k.id);
             sfx.play(cls().ks.includes(k.id) ? 'reloaded' : 'ui');
             refreshRifle();
@@ -2701,7 +2738,7 @@ for (const track of ['crop', 'alien']) {
     }
 }
 tapBtn('class-equip', () => {
-    if (!state.useClass(loEdit)) return sfx.play('miss');
+    if (!state.useClass(loEdit)) return sfx.play('deny');
     sfx.play('reloaded');
     vibrate('pickup');
     refreshRifle();
@@ -2725,13 +2762,13 @@ for (const kind of ARSENAL_KINDS) {
             if (cls()[kind] === it.id) return $('gear-picker').classList.add('hidden');
             const had = state.ownsGear(kind, it.id);
             if (!state.equipGear(kind, it.id, loEdit)) {
-                sfx.play('miss');
+                sfx.play('deny');
                 card.classList.remove('bump');
                 void card.offsetWidth;
                 card.classList.add('bump');
                 return;
             }
-            sfx.play(had ? 'reloaded' : 'coin');
+            sfx.play(had ? 'reloaded' : 'buy');
             vibrate('pickup');
             updateCounts();
             $('gear-picker').classList.add('hidden');
@@ -2748,7 +2785,7 @@ function openPicker(kind) {
     $('gear-picker').classList.remove('hidden');
 }
 tapBtn('picker-close', () => {
-    sfx.play('ui');
+    sfx.play('close');
     $('gear-picker').classList.add('hidden');
 });
 function refreshRifle() {
@@ -2820,7 +2857,7 @@ function updateAmmo() {
 tapBtn('ammo', () => sniper.reload());
 
 tapBtn('btn-streaks-close', () => {
-    sfx.play('ui');
+    sfx.play('close');
     $('streaks').classList.add('hidden');
 });
 tapBtn('btn-lang', switchLang);
@@ -3072,7 +3109,7 @@ function setFieldLevel(id, n) {
         state.unlock(id, Date.now(), true);
         while (revealUnlocked());
     }
-    if (n === st.level && st.unlocked) return sfx.play('miss');
+    if (n === st.level && st.unlocked) return sfx.play('deny');
     st.level = n;
     st.left = state.sheaves(id);
     state.save();
@@ -3285,7 +3322,7 @@ function refreshHomeRows() {
 // La casa directamente al nivel n (subir se ve en el mapa; bajar recarga)
 function setHomeLevel(n) {
     n = Math.min(FARM.house.levels.length - 1, Math.max(0, n));
-    if (n === state.house.level) return sfx.play('miss');
+    if (n === state.house.level) return sfx.play('deny');
     const down = n < state.house.level;
     state.setHouseLevel(n);
     if (down) return reloadToDebug();
@@ -3370,7 +3407,7 @@ for (const el of document.querySelectorAll('.toggle')) {
         }
         if (key === 'music') {
             music.enabled = on;
-            if (on) startMusic(mode === 'snipe' ? THEME.sniperMusic : THEME.music);
+            if (on) startMusic();
             else music.stop();
         }
         sfx.play('ui');
@@ -3507,7 +3544,7 @@ function updateCall(dt) {
     if ($('call').classList.contains('hidden') || callAt >= 0) return;
     if ((ringT -= dt) <= 0) {
         ringT = 1.1;
-        sfx.play('radar');
+        sfx.play('ring');
         vibrate('pickup');
     }
 }
@@ -3555,6 +3592,7 @@ function frame(now) {
     last = now;
     time += dt;
     applyNight(dt);
+    syncMusic();
     if ((clockT -= dt) <= 0) {
         clockT = 0.25;
         updateClock();

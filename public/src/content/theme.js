@@ -20,6 +20,4 @@ export const THEME = {
     // Amanecer y atardecer: sol naranja y bajo, luz cálida
     dusk: { sun: 0xffb070, sunIntensity: 1.9, hemiSky: 0xffd2b0, hemiGround: 0x5a5a3a, hemiIntensity: 1.0 },
     ambient: { kind: 'leaves', colors: [0xb6e070, 0xffe680], rate: 2 },
-    music: { root: 60, scale: 'major', tempo: 118, lead: 'triangle', swing: 0.18 },
-    sniperMusic: { root: 57, scale: 'dorian', tempo: 100, lead: 'triangle', arp: 'stab' },
 };

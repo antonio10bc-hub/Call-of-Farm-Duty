@@ -1,73 +1,83 @@
-// Música chiptune generada al vuelo: bajo, arpegio, melodía y batería sobre una progresión
-// de 4 compases. Cada tema elige raíz, escala, tempo y timbre; la melodía se genera con una
-// semilla, así que cada escenario suena distinto pero siempre igual dentro de una partida.
-// "intensity" (0..1) acelera y añade capas cuando la cosa se pone fea.
+// Música generada al vuelo con WebAudio (sin archivos). No es chiptune: instrumentos cálidos
+// sintetizados (pad, bajo redondo, piano eléctrico, marimba, guitarra, flauta, acordeón...),
+// mezclados bajitos para que acompañe sin llamar la atención.
 //
-// Opcional, para temas con personalidad propia (los jefes de la campaña):
-//   prog      progresión de 4 compases (grados de la escala)
-//   bass      patrón de 16 pasos: '1' raíz, '3' tercera, '5' quinta, '8' octava, '.' silencio
-//   bassType  timbre del bajo
-//   drums     { k, s, h }: bombo, caja y charles en 16 pasos ('x' golpe, 'o' charles abierto)
-//   arp       'chord' (por defecto), 'up' (arpegio rápido), 'stab' (acordes a contratiempo), 'none'
-//   motif     melodía escrita a mano: un carácter por paso ('.' silencio, '0'-'9' grado, 'a' -1, 'b' -2)
-//   harmony   segunda voz de la melodía, una tercera por debajo
-//   swing     retraso de las semicorcheas impares (0..0.35)
-//   octave    octava de la melodía (1 por defecto)
-const SCALES = {
-    major: [0, 2, 4, 5, 7, 9, 11],
-    minor: [0, 2, 3, 5, 7, 8, 10],
-    dorian: [0, 2, 3, 5, 7, 9, 10],
-    phrygian: [0, 1, 3, 5, 7, 8, 10],
-    mixolydian: [0, 2, 4, 5, 7, 9, 10],
-    lydian: [0, 2, 4, 6, 7, 9, 11],
-    harmonic: [0, 2, 3, 5, 7, 8, 11],     // menor armónica
-    hijaz: [0, 1, 4, 5, 7, 8, 10],        // frigio dominante: suena a desierto
-    wholetone: [0, 2, 4, 6, 8, 10],       // tonos enteros: suena a ciencia ficción
-};
-const PROGRESSIONS = {
-    major: [0, 5, 3, 4],
-    minor: [0, 5, 2, 6],
-    dorian: [0, 3, 0, 6],
-    phrygian: [0, 1, 0, 6],
-    mixolydian: [0, 6, 3, 0],
-    lydian: [0, 1, 0, 4],
-    harmonic: [0, 3, 5, 4],
-    hijaz: [0, 1, 0, 6],
-    wholetone: [0, 1, 2, 1],
-};
-const DEFAULT_BASS = '1..1..1.1..1..1.';
-const DEFAULT_DRUMS = { k: 'x.......x.......', s: '....x.......x...', h: '.x.x.x.x.x.x.x.x' };
+// Es UNA sola canción que no se corta: la base es común a todo el juego (fa mayor, la progresión
+// I-vi-IV-V con séptimas, el mismo tempo y el mismo bajo), y cada sitio (content/music.js) cambia
+// solo una capa: su instrumento con su motivo, su percusión y el carácter del bajo. Al cambiar de
+// sitio (set), el cambio entra al empezar el compás siguiente, así que se pasa de una granja a
+// otra sin saltos. De noche (night), todo más oscuro y sin percusión fuerte.
+//
+// Un tema (THEMES en content/music.js):
+//   keys    acompañamiento del piano eléctrico: 'chords' (acorde largo), 'stab' (a contratiempo),
+//           'arp' (arpegio lento) o 'none'
+//   bass    'soft' (raíz larga), 'walk' (raíz y quinta), 'bounce' (saltarín), 'oompah' (a dos)
+//   bassInst  timbre del bajo: 'round' (por defecto) o 'tuba'
+//   perc    'none', 'shaker', 'groove' (bombo blando, aro y shaker), 'brush', 'hooves' (cascos de
+//           madera), 'tick' (picoteo)
+//   sig     { inst, motif, oct, vol }: la capa propia. inst: 'pluck', 'mallet', 'bell', 'flute',
+//           'accordion', 'keys', 'koto', 'buzz', 'pizz'; motif: 32 pasos (dos compases), un
+//           carácter por semicorchea: '.' silencio, '0'-'9' grado sobre el acorde, 'a' -1, 'b' -2
+//   drops   gotas de agua sueltas (las de la laguna y la piscifactoría)
+//   dark    siempre como de noche (las luciérnagas)
+const SCALE = [0, 2, 4, 5, 7, 9, 11];
+const PROG = [0, 5, 3, 4]; // I - vi - IV - V
+const ROOT = 53; // fa
+const TEMPO = 88;
+const SWING = 0.14;
 const MOTIF = { '.': null, a: -1, b: -2 };
-const midiToHz = (m) => 440 * Math.pow(2, (m - 69) / 12);
+const hz = (m) => 440 * Math.pow(2, (m - 69) / 12);
+const parse = (s) => (s ? [...s].map((c) => (c in MOTIF ? MOTIF[c] : +c)) : null);
 
 export class Music {
     constructor(sfx) {
         this.sfx = sfx;
         this.timer = null;
-        this.intensity = 0;
         this.enabled = true;
+        this.night = false;
+        this.theme = null;
+        this.pending = null;
     }
 
-    start(cfg, seed = 1) {
-        this.stop();
+    get playing() {
+        return !!this.timer;
+    }
+
+    // Empieza (o, si ya suena, cambia de tema al compás siguiente)
+    start(theme) {
+        if (!theme) return;
+        if (this.playing) return this.set(theme);
         const ctx = this.sfx.ctx;
         if (!ctx || !this.enabled) return;
-        this.cfg = { root: 57, scale: 'minor', tempo: 120, lead: 'square', ...cfg };
-        this.scale = SCALES[this.cfg.scale] || SCALES.minor;
-        this.prog = this.cfg.prog || PROGRESSIONS[this.cfg.scale] || PROGRESSIONS.minor;
-        this.melody = this.cfg.motif ? [...this.cfg.motif].map((c) => (c in MOTIF ? MOTIF[c] : +c)) : makeMelody(seed);
-        this.bassLine = this.cfg.bass || DEFAULT_BASS;
-        this.drums = { ...DEFAULT_DRUMS, ...this.cfg.drums };
+        this.use(theme);
+        this.pending = null;
+        // Bus: un filtro (el día abierto, la noche oscura), el volumen y algo de reverb
         this.bus = ctx.createGain();
         this.bus.gain.setValueAtTime(0, ctx.currentTime);
-        this.bus.gain.linearRampToValueAtTime(0.42, ctx.currentTime + 0.6);
-        this.bus.connect(this.sfx.master);
+        this.bus.gain.linearRampToValueAtTime(0.42, ctx.currentTime + 2.5);
+        this.tone = ctx.createBiquadFilter();
+        this.tone.type = 'lowpass';
+        this.tone.frequency.value = this.cutoff();
+        this.bus.connect(this.tone).connect(this.sfx.master);
+        this.send = ctx.createGain();
+        this.send.gain.value = 0.35;
+        this.tone.connect(this.send).connect(this.sfx.verbIn);
         this.step = 0;
-        this.next = ctx.currentTime + 0.08;
+        this.next = ctx.currentTime + 0.1;
         this.timer = setInterval(() => this.tick(), 25);
     }
 
-    stop(fade = 0.4) {
+    // Cambia de tema (entra al empezar el compás siguiente)
+    set(theme) {
+        if (theme && theme !== this.theme && theme !== this.pending) this.pending = theme;
+    }
+
+    use(theme) {
+        this.theme = theme;
+        this.motif = parse(theme.sig && theme.sig.motif);
+    }
+
+    stop(fade = 0.8) {
         if (!this.timer) return;
         clearInterval(this.timer);
         this.timer = null;
@@ -76,10 +86,15 @@ export class Music {
         bus.gain.setValueAtTime(bus.gain.value, ctx.currentTime);
         bus.gain.linearRampToValueAtTime(0, ctx.currentTime + fade);
         setTimeout(() => bus.disconnect(), (fade + 0.3) * 1000);
+        this.theme = this.pending = null;
     }
 
-    get playing() {
-        return !!this.timer;
+    dark() {
+        return this.night || (this.theme && this.theme.dark);
+    }
+
+    cutoff() {
+        return this.dark() ? 1500 : 5200;
     }
 
     tick() {
@@ -88,115 +103,190 @@ export class Music {
             this.next = ctx.currentTime + 0.05;
             return;
         }
-        const sixteenth = 60 / (this.cfg.tempo * (1 + 0.14 * this.intensity)) / 4;
-        while (this.next < ctx.currentTime + 0.12) {
-            const swing = this.step % 2 ? (this.cfg.swing || 0) * sixteenth : 0;
-            this.schedule(this.step, this.next + swing, sixteenth);
-            this.next += sixteenth;
+        // (de día a noche y al revés: el filtro se abre o se cierra poco a poco)
+        this.tone.frequency.setTargetAtTime(this.cutoff(), ctx.currentTime, 1.5);
+        this.fill(ctx.currentTime + 0.15);
+    }
+
+    // Programa las notas hasta el segundo until (el juego, poco a poco; scripts/audio.mjs, de golpe
+    // para escucharla en un archivo)
+    fill(until) {
+        const six = 60 / TEMPO / 4;
+        while (this.next < until) {
+            if (this.step % 16 === 0 && this.pending) {
+                this.use(this.pending);
+                this.pending = null;
+            }
+            const swing = this.step % 2 ? SWING * six : 0;
+            this.schedule(this.step, this.next + swing, six);
+            this.next += six;
             this.step++;
         }
     }
 
-    note(deg, octave) {
-        const s = this.scale, n = s.length;
-        const o = Math.floor(deg / n);
-        return this.cfg.root + 12 * (octave + o) + s[((deg % n) + n) % n];
+    note(deg, oct) {
+        const n = SCALE.length, o = Math.floor(deg / n);
+        return ROOT + 12 * (oct + o) + SCALE[((deg % n) + n) % n];
     }
 
-    schedule(step, t, len) {
-        const s = step % 16, bar = Math.floor(step / 16) % 4;
-        const deg = this.prog[bar];
-        const chord = [deg, deg + 2, deg + 4];
-        const hot = this.intensity > 0.5;
+    schedule(step, t, six) {
+        const th = this.theme, s = step % 16, bar = Math.floor(step / 16) % 4, deg = PROG[bar], night = this.dark();
+        const chord = [deg, deg + 2, deg + 4, deg + 6], barLen = six * 16;
 
-        const c = this.cfg;
+        // Pad: el acorde entero, largo y suave (la cama de todo)
+        if (s === 0) for (const d of chord.slice(0, 3)) this.pad(this.note(d, 1), t, barLen * 1.05, 0.018);
 
-        // Bajo
-        const b = this.bassLine[s];
-        if (b && b !== '.') {
-            const type = c.bassType || 'triangle';
-            const vol = type === 'triangle' ? 0.28 : type === 'sine' ? 0.3 : 0.1;
-            const midi = b === '8' ? this.note(deg, -1) + 12 : this.note(deg + (b === '3' ? 2 : b === '5' ? 4 : 0), -1);
-            this.voice(type, midi, t, len * (type === 'triangle' ? 2.2 : 1.4), vol);
+        // Bajo (el mismo en todas partes; cambia solo su carácter)
+        const B = th.bass || 'walk', root = this.note(deg, -1), fifth = this.note(deg + 4, -1);
+        const bn = B === 'soft' ? { 0: root }
+            : B === 'bounce' ? { 0: root, 6: root, 8: fifth, 12: root + 12, 14: fifth }
+            : B === 'oompah' ? { 0: root, 8: fifth }
+            : { 0: root, 10: fifth };
+        if (bn[s] !== undefined) this.bass(bn[s], t, B === 'soft' ? barLen : B === 'bounce' ? six * 1.6 : six * 6, th.bassInst);
+
+        // Piano eléctrico
+        const K = th.keys || 'chords';
+        if (K === 'chords' && s === 0) for (const d of chord) this.keys(this.note(d, 1), t, barLen * 0.9, 0.022);
+        else if (K === 'stab' && (s === 4 || s === 12)) for (const d of chord.slice(0, 3)) this.keys(this.note(d, 1), t, six * 2, 0.026);
+        else if (K === 'arp' && s % 4 === 0) this.keys(this.note(chord[(s / 4) % 4], 1), t, six * 6, 0.03);
+
+        // La capa propia del sitio
+        const sig = th.sig;
+        if (sig && this.motif) {
+            const m = this.motif[step % this.motif.length];
+            if (m !== null) this.inst(sig.inst, this.note(deg + m, sig.oct ?? 1), t, six, (sig.vol ?? 1) * (night ? 0.85 : 1));
         }
+        if (th.drops && Math.random() < 0.06) this.drop(t);
 
-        // Acompañamiento
-        const arp = c.arp || 'chord';
-        if (arp === 'chord' && (s % 2 === 0 || hot)) this.voice('square', this.note(chord[(s >> (hot ? 0 : 1)) % 3], 1), t, len * 0.9, hot ? 0.05 : 0.04);
-        else if (arp === 'up') this.voice('square', this.note(chord[s % 3] + (s % 6 >= 3 ? 7 : 0), 1), t, len * 0.7, 0.035);
-        else if (arp === 'stab' && (s % 4 === 2 || (hot && s % 4 === 3))) for (const d of chord) this.voice('square', this.note(d, 1), t, len * 1.2, 0.03);
-
-        // Melodía (y su segunda voz)
-        const m = this.melody[step % this.melody.length];
-        if (m !== null) {
-            const oct = c.octave ?? 1;
-            this.voice(c.lead, this.note(deg + m, oct), t, len * 1.8, 0.07);
-            if (c.harmony) this.voice(c.harmonyLead || 'triangle', this.note(deg + m - 2, oct), t, len * 1.8, 0.05);
+        // Percusión (de noche, solo lo más suave)
+        const P = night && th.perc !== 'none' ? 'shaker' : th.perc || 'none';
+        if (P === 'shaker' && s % 2 === 0) this.shaker(t, s % 4 === 0 ? 0.012 : 0.007);
+        if (P === 'groove') {
+            if (s === 0 || s === 10) this.kick(t, 0.22);
+            if (s === 4 || s === 12) this.rim(t, 0.05);
+            if (s % 2 === 0) this.shaker(t, s % 4 === 2 ? 0.014 : 0.008);
         }
-
-        // Batería
-        const d = this.drums;
-        if (d.k[s] === 'x') this.kick(t);
-        if (d.s[s] === 'x') this.hiss(t, 0.12, 0.16, 1800);
-        if (d.h[s] === 'x') this.hiss(t, 0.03, hot ? 0.06 : 0.035, 7000);
-        else if (d.h[s] === 'o') this.hiss(t, 0.12, 0.05, 6000);
+        if (P === 'brush') {
+            if (s === 0) this.kick(t, 0.14);
+            if (s === 4 || s === 12) this.brush(t, 0.03);
+            if (s % 4 === 2) this.shaker(t, 0.008);
+        }
+        if (P === 'hooves' && 'x.x...x.x.x...x.'[s] === 'x') this.block(t, s % 4 === 0 ? 900 : 700, 0.05);
+        if (P === 'tick' && s % 2 === 1) this.block(t, 2400, 0.022);
+        if ((P === 'hooves' || P === 'tick') && s === 0) this.kick(t, 0.16);
     }
 
-    voice(type, midi, t, dur, vol) {
-        const ctx = this.sfx.ctx;
-        const o = ctx.createOscillator(), g = ctx.createGain();
-        o.type = type;
-        o.frequency.setValueAtTime(midiToHz(midi), t);
-        g.gain.setValueAtTime(vol, t);
+    // ---------- Instrumentos ----------
+    osc(type, midi, t, dur, vol, o = {}) {
+        const ctx = this.sfx.ctx, f = hz(midi);
+        const v = ctx.createOscillator(), g = ctx.createGain();
+        v.type = type;
+        v.frequency.setValueAtTime(f * (o.bend ? 0.97 : 1), t);
+        if (o.bend) v.frequency.exponentialRampToValueAtTime(f, t + 0.06);
+        if (o.detune) v.detune.value = o.detune;
+        if (o.vib) {
+            const l = ctx.createOscillator(), lg = ctx.createGain();
+            l.frequency.value = o.vib[0];
+            lg.gain.value = f * o.vib[1];
+            l.connect(lg).connect(v.frequency);
+            l.start(t);
+            l.stop(t + dur + 0.1);
+        }
+        const a = o.attack ?? 0.005, r = o.release ?? dur;
+        g.gain.value = 0;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(vol, t + a);
+        if (o.sustain) g.gain.setValueAtTime(vol, t + Math.max(a, dur - r));
         g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-        o.connect(g).connect(this.bus);
-        o.start(t);
-        o.stop(t + dur + 0.02);
+        let node = v;
+        if (o.lp) {
+            const fl = ctx.createBiquadFilter();
+            fl.type = 'lowpass';
+            fl.frequency.setValueAtTime(o.lp, t);
+            if (o.lp1) fl.frequency.exponentialRampToValueAtTime(o.lp1, t + dur);
+            fl.Q.value = o.q ?? 0.7;
+            node = node.connect(fl);
+        }
+        node.connect(g).connect(this.bus);
+        v.start(t);
+        v.stop(t + dur + 0.1);
     }
 
-    kick(t) {
-        const ctx = this.sfx.ctx;
-        const o = ctx.createOscillator(), g = ctx.createGain();
-        o.frequency.setValueAtTime(150, t);
-        o.frequency.exponentialRampToValueAtTime(40, t + 0.12);
-        g.gain.setValueAtTime(0.5, t);
-        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
-        o.connect(g).connect(this.bus);
-        o.start(t);
-        o.stop(t + 0.16);
+    pad(m, t, dur, vol) {
+        for (const d of [-7, 7]) this.osc('sawtooth', m, t, dur, vol, { attack: dur * 0.35, sustain: true, release: dur * 0.4, detune: d, lp: 900 });
     }
 
-    hiss(t, dur, vol, freq) {
-        const ctx = this.sfx.ctx;
-        const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
-        src.buffer = this.sfx.noiseBuf;
-        f.type = 'highpass';
-        f.frequency.value = freq;
+    bass(m, t, dur, inst) {
+        if (inst === 'tuba') return this.osc('sawtooth', m, t, dur, 0.11, { attack: 0.03, lp: 420, q: 1 });
+        this.osc('sine', m, t, dur, 0.16, { attack: 0.01 });
+        this.osc('triangle', m, t, dur * 0.6, 0.05, { attack: 0.01 });
+    }
+
+    // Piano eléctrico: redondo, con un poco de brillo al tocar
+    keys(m, t, dur, vol) {
+        this.osc('sine', m, t, dur, vol, { attack: 0.004 });
+        this.osc('sine', m + 12, t, dur * 0.3, vol * 0.25, { attack: 0.003 });
+    }
+
+    inst(kind, m, t, six, k) {
+        switch (kind) {
+            case 'pluck': this.osc('sawtooth', m, t, six * 3, 0.03 * k, { attack: 0.002, lp: 3500, lp1: 500 }); this.osc('triangle', m, t, six * 3, 0.03 * k, { attack: 0.002 }); break; // guitarra
+            case 'koto': this.osc('triangle', m, t, six * 5, 0.05 * k, { attack: 0.002, bend: true }); this.osc('sine', m + 12, t, six * 1.5, 0.012 * k); break;
+            case 'mallet': this.osc('sine', m, t, six * 3, 0.06 * k, { attack: 0.002 }); this.osc('sine', m + 24, t, six * 0.6, 0.012 * k, { attack: 0.002 }); break; // marimba
+            case 'bell': this.osc('sine', m, t, six * 10, 0.035 * k, { attack: 0.002 }); this.osc('sine', m + 17.6, t, six * 3, 0.01 * k, { attack: 0.002 }); break; // celesta
+            case 'flute': this.osc('sine', m, t, six * 3.5, 0.045 * k, { attack: 0.06, sustain: true, release: six, vib: [5, 0.006] }); break;
+            case 'accordion': for (const d of [-6, 6]) this.osc('sawtooth', m, t, six * 3.5, 0.016 * k, { attack: 0.04, sustain: true, release: six, detune: d, lp: 1500 }); break;
+            case 'keys': this.keys(m, t, six * 5, 0.04 * k); break;
+            case 'buzz': this.osc('sawtooth', m, t, six * 5, 0.02 * k, { attack: 0.08, sustain: true, release: six * 2, lp: 1100, vib: [6, 0.012] }); break; // abejorro
+            case 'pizz': this.osc('triangle', m, t, six * 0.9, 0.05 * k, { attack: 0.002 }); break;
+        }
+    }
+
+    kick(t, vol) {
+        const ctx = this.sfx.ctx, o = ctx.createOscillator(), g = ctx.createGain();
+        o.frequency.setValueAtTime(110, t);
+        o.frequency.exponentialRampToValueAtTime(45, t + 0.16);
+        g.gain.value = 0;
         g.gain.setValueAtTime(vol, t);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+        o.connect(g).connect(this.bus);
+        o.start(t);
+        o.stop(t + 0.25);
+    }
+
+    hiss(t, dur, vol, freq, type = 'highpass', q = 0.7) {
+        const ctx = this.sfx.ctx, src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+        src.buffer = this.sfx.noiseBuf;
+        f.type = type;
+        f.frequency.value = freq;
+        f.Q.value = q;
+        g.gain.value = 0;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(vol, t + Math.min(0.01, dur * 0.3));
         g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
         src.connect(f).connect(g).connect(this.bus);
         src.start(t, Math.random() * 0.5);
-        src.stop(t + dur + 0.02);
+        src.stop(t + dur + 0.05);
     }
-}
 
-// 64 pasos de melodía: grados relativos al acorde o silencio, con un paseo aleatorio suave.
-function makeMelody(seed) {
-    let a = seed >>> 0;
-    const rnd = () => {
-        a = (a + 0x6d2b79f5) >>> 0;
-        let t = Math.imul(a ^ (a >>> 15), a | 1);
-        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-    const out = [];
-    let deg = 2;
-    for (let i = 0; i < 64; i++) {
-        const strong = i % 4 === 0;
-        if (rnd() < (strong ? 0.75 : 0.3)) {
-            deg = Math.max(-2, Math.min(7, deg + Math.floor(rnd() * 5) - 2));
-            out.push(deg);
-        } else out.push(null);
+    shaker(t, vol) {
+        this.hiss(t, 0.05, vol, 7500);
     }
-    return out;
+
+    brush(t, vol) {
+        this.hiss(t, 0.18, vol, 3000, 'bandpass', 0.8);
+    }
+
+    rim(t, vol) {
+        this.hiss(t, 0.03, vol, 1700, 'bandpass', 5);
+    }
+
+    block(t, f, vol) {
+        this.hiss(t, 0.04, vol, f, 'bandpass', 7);
+    }
+
+    drop(t) {
+        const m = this.note(7 + ((Math.random() * 5) | 0), 2);
+        this.osc('sine', m, t, 0.12, 0.025, { attack: 0.002 });
+    }
 }

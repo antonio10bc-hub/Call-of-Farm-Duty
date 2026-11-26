@@ -169,8 +169,9 @@ export class Sniper {
     // Lo que avisa el campo: a una vaca se le ha llenado la ubre (muge, a veces) y cada bote de
     // una vaca sobre su ubre gigante (¡boing!, de vez en cuando, y un poco de polvo)
     wireField() {
-        this.field.onFull = () => {
-            if (Math.random() < 0.5) this.hooks.sfx.play('moo');
+        // (cada animal con su voz: la vaca muge, la oveja bala, el cerdo gruñe al encontrar su trufa)
+        this.field.onFull = (s) => {
+            if (Math.random() < 0.5) this.hooks.sfx.play({ sheep: 'baa', pig: 'oink' }[s && s.kind] || 'moo');
         };
         // Gallinas: cacarea al lanzar el huevo (a veces); el que cae sin que le den se casca: yema,
         // trozos de cáscara y un chof
@@ -198,10 +199,11 @@ export class Sniper {
         this.field.onBubble = (x, z, big) => {
             this.particles.burst(x, 0.3, z, big ? 8 : 4, [0xffffff, 0xd8f0ff, 0x9fdcff], { speed: 0.5, up: 2.2, size: 0.07, ttl: 0.6, grav: -1 });
             if (big) this.waves.spawn(x, z, 0xc0e4f8, 0.6, 0.4);
+            if (Math.random() < (big ? 0.5 : 0.15)) this.hooks.sfx.play('bubble');
         };
         // Una cabra que aterriza de una voltereta: a veces bala
         this.field.onBleat = () => {
-            if (Math.random() < 0.4) this.hooks.sfx.play('moo', 0, { rate: 2.2 });
+            if (Math.random() < 0.4) this.hooks.sfx.play('bleat');
         };
         // Un cerdo deslizándose de barriga: salpica barro por detrás
         this.field.onSplash = (s) => {
@@ -702,9 +704,9 @@ export class Sniper {
             if (chunks) this.particles.burst(s.x, s.y, s.z, 7, C.burst, { speed: 2.6, up: 3.4, size: 0.22, ttl: 1.3, grav: 16 }); // (trozos grandes)
             _v.set(s.x, s.y, s.z).project(this.camera);
             this.hooks.onHit(s, _v.x, _v.y);
-            if (k && k < 6) setTimeout(() => sfx.play('harvest', 0, Settings.feelOn('feelSound') ? { rate: 2 ** (k / 12) } : null), k * 90); // (cada pieza del colateral, un semitono más arriba)
+            if (k && k < 6) setTimeout(() => sfx.play('harvest', 0, { crop: this.crop, rate: Settings.feelOn('feelSound') ? 2 ** (k / 12) : 1 }), k * 90); // (cada pieza del colateral, un semitono más arriba)
         });
-        sfx.play('harvest');
+        sfx.play('harvest', 0, { crop: this.crop });
         if (!auto) {
             vibrate('pickup');
             this.addStreak(list.length);

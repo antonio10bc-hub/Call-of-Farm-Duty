@@ -240,7 +240,7 @@ export class Prologue {
                 // La mata, a la mano
                 R.grabbed = true;
                 this.camera.attach(R.target);
-                this.hooks.sfx.play('harvest');
+                this.hooks.sfx.play('harvest', 0, { crop: 'wheat' });
                 vibrate('pickup');
                 const p = R.target.getWorldPosition(new THREE.Vector3());
                 this.particles.burst(p.x, 1, p.z, 18, [0xf6cf4a, 0xffe9a0, 0xd9a42e], { speed: 1.4, up: 1.6, size: 0.04, ttl: 0.7 });

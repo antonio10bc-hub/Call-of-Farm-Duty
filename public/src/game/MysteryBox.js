@@ -222,7 +222,7 @@ export class MysteryBox {
                 this.state = 'give';
                 this.t = 0;
                 this.burst(34, GOLD, 5);
-                sn.hooks.sfx.play('achievement');
+                sn.hooks.sfx.play('tierRare'); // (¡el arma que toca!)
             }
             return;
         }
