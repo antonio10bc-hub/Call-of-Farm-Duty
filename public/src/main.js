@@ -722,6 +722,7 @@ const PM = PLACES.find((P) => P.id === 'merchant');
 const vParcel = (x, z) => { const w = vWorld(x, z); return worldToPlace(PM, w.x, w.z); };
 // El mercader cuya hoja se ve (o se vio la última vez)
 let curM = 'm0';
+let mView = 'orders'; // la pestaña del mercader: sus encargos o sus cosas raras
 // ¿Tiene algo que se le pueda entregar ahora?
 const merchantCan = (id) => farm.village.byId[id].open && state.ordersFor(clocks[id].visit, id).some((o) => state.canDeliver(o));
 // ---------- Dock (abajo, en el centro) ----------
@@ -1425,14 +1426,22 @@ function goRange() {
     const p = farm.compoundPieces.find((c, i) => FARM.compound[i].kind === 'range');
     if (p) rigFocus(...(() => { const w = new THREE.Vector3(); p.g.getWorldPosition(w); return [w.x, w.z, w.y]; })());
 }
+// El menú del campo de pruebas: cuatro pestañas (arma, blancos, rachas, enemigos); en la del arma,
+// un selector de qué pieza (arma, mirilla, cargador o las de la caja) y su rejilla
+const rgView = { tab: 'gear', sub: 'rifle' };
 function renderRange() {
     const lo = sniper.loadout || range.loadout, btn = (attrs, on, inner, title = '') => `<button ${attrs} class="rg-btn${on ? ' on' : ''}" title="${title}">${inner}</button>`;
-    const row = (title, html) => `<div class="merchant-sub">${title}</div><div class="rg-row">${html}</div>`;
-    $('range-body').innerHTML = row(L('TARGETS', 'BLANCOS'), RANGE_TARGETS.map(([id, name]) => btn(`data-target="${id}"`, id === range.mode, `<span class="rg-target t-${id}"></span><i>${name}</i>`)).join(''))
-        + ARSENAL_KINDS.map((k) => row(GEAR[k].title, ARSENAL[k].map((it) => btn(`data-gear="${k}:${it.id}"`, !sniper.special && lo[k] === it.id, `<img alt="" src="${gearArt(k, it)}"><i>${it.name}</i>`, it.desc)).join(''))).join('')
-        + row(L('MYSTERY BOX WEAPONS', 'ARMAS DE LA CAJA'), WONDER.map((w) => btn(`data-wonder="${w.id}"`, sniper.special && sniper.special.id === w.id, `<i>${w.name}</i>`)).join(''))
-        + row(L('KILLSTREAKS', 'RACHAS'), KILLSTREAKS.map((k) => btn(`data-ks="${k.id}"`, false, `<span class="ico ${k.icon}-ico"></span><i>${k.short}</i>`, k.desc)).join(''))
-        + row(L('ENEMIES', 'ENEMIGOS'), btn('data-toggle="aliens"', range.aliens, `<i>${L('ALIENS ON FOOT', 'ALIENS A PIE')}</i>`) + btn('data-toggle="ufos"', range.ufos, `<i>${L('UFOS', 'OVNIS')}</i>`));
+    const tabs = [['gear', L('WEAPON', 'ARMA')], ['targets', L('TARGETS', 'BLANCOS')], ['ks', L('STREAKS', 'RACHAS')], ['enemies', L('ENEMIES', 'ENEMIGOS')]];
+    const subs = [...ARSENAL_KINDS.map((k) => [k, GEAR[k].title]), ['box', L('BOX', 'CAJA')]];
+    let body = '';
+    if (rgView.tab === 'gear') {
+        body = `<div class="nb-seg">${subs.map(([id, n]) => `<button data-rsub="${id}" class="${rgView.sub === id ? 'on' : ''}">${n}</button>`).join('')}</div><div class="rg-row">`
+            + (rgView.sub === 'box' ? WONDER.map((w) => btn(`data-wonder="${w.id}"`, sniper.special && sniper.special.id === w.id, `<i>${w.name}</i>`)).join('')
+                : ARSENAL[rgView.sub].map((it) => btn(`data-gear="${rgView.sub}:${it.id}"`, !sniper.special && lo[rgView.sub] === it.id, `<img alt="" src="${gearArt(rgView.sub, it)}"><i>${it.name}</i>`, it.desc)).join('')) + '</div>';
+    } else if (rgView.tab === 'targets') body = `<div class="rg-row">${RANGE_TARGETS.map(([id, name]) => btn(`data-target="${id}"`, id === range.mode, `<span class="rg-target t-${id}"></span><i>${name}</i>`)).join('')}</div>`;
+    else if (rgView.tab === 'ks') body = `<div class="rg-row">${KILLSTREAKS.map((k) => btn(`data-ks="${k.id}"`, false, `<span class="ico ${k.icon}-ico"></span><i>${k.short}</i>`, k.desc)).join('')}</div>`;
+    else body = `<div class="rg-row">${btn('data-toggle="aliens"', range.aliens, `<i>${L('ALIENS ON FOOT', 'ALIENS A PIE')}</i>`) + btn('data-toggle="ufos"', range.ufos, `<i>${L('UFOS', 'OVNIS')}</i>`)}</div>`;
+    $('range-body').innerHTML = `<div class="nb-tabs">${tabs.map(([id, n]) => `<button data-rtab="${id}" class="nb-tab${rgView.tab === id ? ' on' : ''}">${n}</button>`).join('')}</div>` + body;
 }
 function openRange(on = $('range-menu').classList.contains('hidden')) {
     if (!sniper.practice) return;
@@ -1903,6 +1912,13 @@ tapBtn('range-close', () => openRange(false));
 $('range-menu').addEventListener('pointerdown', (e) => e.stopPropagation());
 $('range-menu').addEventListener('click', (e) => {
     e.stopPropagation();
+    const v = e.target.closest('button[data-rtab], button[data-rsub]');
+    if (v) {
+        if (v.dataset.rtab) rgView.tab = v.dataset.rtab;
+        else rgView.sub = v.dataset.rsub;
+        sfx.play('ui');
+        return renderRange();
+    }
     const b = e.target.closest('button[data-target], button[data-gear], button[data-wonder], button[data-ks], button[data-toggle]');
     if (!b || !sniper.practice) return;
     const d = b.dataset;
@@ -1960,7 +1976,7 @@ tapBtn('btn-settings', () => {
     sfx.play('open');
     $('settings').classList.remove('hidden');
 });
-tapBtn('btn-settings-close', () => {
+for (const id of ['btn-settings-close', 'btn-settings-x']) tapBtn(id, () => {
     sfx.play('close');
     $('settings').classList.add('hidden');
 });
@@ -2173,6 +2189,7 @@ function openMerchant(id = curM) {
     select(null);
     sfx.play('open');
     const v = farm.village.byId[id], was = !$('merchant').classList.contains('hidden');
+    if (!was) mView = 'orders';
     rig.zoomTarget = 0.85;
     merchantSay(v.open ? merchantHello(id) : MERCHANT.lines.away);
     renderMerchant();
@@ -2263,10 +2280,11 @@ function renderMerchant() {
     $('merchant-name').textContent = def.name;
     document.querySelector('#merchant .merchant-portrait').style.filter = `hue-rotate(${hueOf(def.skin)}deg)`;
     // La lista: cada uno con su favorito y cuándo se va (si está) o cuándo vuelve (si no)
+    // (un retrato por mercader, con su color; el tiempo, debajo, solo en minutos para que no cambie cada segundo)
     setHtml($('merchant-tabs'), MERCHANTS.map((d) => {
         const here = farm.village.byId[d.id].open, left = clocks[d.id].left;
-        const when = left === null ? '-' : `${here ? L('LEAVES', 'SE VA') : L('BACK', 'VUELVE')} ${fmt(left)}`;
-        return `<button data-tab="${d.id}" class="m-tab${d.id === id ? ' on' : ''}${here ? ' here' : ''}${merchantCan(d.id) ? ' can' : ''}"><i class="m-dot" style="background:#${new THREE.Color(d.skin).getHexString()}"></i><b class="m-name">${d.name}</b>${ico(CROPS[d.fav].icon)}<span class="m-when">${when}</span></button>`;
+        const when = left === null ? '' : `${here ? L('LEAVES', 'SE VA') : L('BACK', 'VUELVE')} ${fmt(left)}`;
+        return `<button data-tab="${d.id}" class="m-tab${d.id === id ? ' on' : ''}${here ? ' here' : ''}${merchantCan(d.id) ? ' can' : ''}" title="${d.name}${when ? ` · ${when}` : ''}" aria-label="${d.name}"><i class="m-face" style="filter:hue-rotate(${hueOf(d.skin)}deg)"></i>${ico(CROPS[d.fav].icon)}</button>`;
     }).join(''));
     const here = v.open, M = state.merchants[id], lv = state.trustOf(id);
     // Su amistad (nivel, puntos y barra hasta el siguiente, racha hacia el regalo) y su felicidad
@@ -2277,17 +2295,19 @@ function renderMerchant() {
         + `<span class="trust-bar"><i style="width:${Math.round(k * 100)}%"></i></span></div>`
         + `<div class="t-row"><span class="mood"><i class="ico ${FACES[mood + 2]}-ico on"></i>${MOOD_WORDS[mood + 2]}</span>`
         + `<span class="t-streak">${L('GIFT IN', 'REGALO EN')} <span class="pips">${Array.from({ length: GIFT_EVERY }, (_, i) => `<i class="pip${i < st ? ' on' : ''}"></i>`).join('')}</span></span></div>`);
+    const stock = state.stock(clock.visit, id), mine = stock.filter((d) => state.collects(d)).length;
+    const orders = here ? state.ordersFor(clock.visit, id).map((o, i) => ({ o, i })) : [];
+    setHtml($('merchant-view'), `<button data-view="orders" class="nb-tab${mView === 'orders' ? ' on' : ''}">${L('ORDERS', 'ENCARGOS')} ${here ? `${orders.filter(({ o }) => o.done).length}/${orders.length}` : ''}</button>`
+        + `<button data-view="rare" class="nb-tab${mView === 'rare' ? ' on' : ''}">${L('RARE THINGS', 'COSAS RARAS')} ${mine}/${stock.length}</button>`);
+    if (mView === 'rare') return setHtml($('merchant-orders'), shopHtml(id, here));
     if (!here) {
-        setHtml($('merchant-orders'), `<div class="merchant-away">${L('NOT HERE RIGHT NOW. EACH MERCHANT COMES WHEN THEY PLEASE, WITH NEW ORDERS.', 'AHORA NO ESTÁ. CADA MERCADER VIENE CUANDO QUIERE, CON ENCARGOS NUEVOS.')}</div>` + shopHtml(id, false));
+        setHtml($('merchant-orders'), `<div class="merchant-away">${L('NOT HERE RIGHT NOW. EACH MERCHANT COMES WHEN THEY PLEASE, WITH NEW ORDERS.', 'AHORA NO ESTÁ. CADA MERCADER VIENE CUANDO QUIERE, CON ENCARGOS NUEVOS.')}</div>`);
         return;
     }
-    const visit = clock.visit;
     let html = M.jealous || M.market ? `<div class="merchant-sub">${M.market ? `${L('MARKET DAY', 'DÍA DE MERCADO')} x${MARKET.pay}` : ''}${M.market && M.jealous ? ' · ' : ''}${M.jealous ? L('JEALOUS: PAYS MORE TO WIN YOU BACK', 'CELOSO: PAGA MÁS PARA RECUPERARTE') : ''}</div>` : '';
     html += M.gift === null ? '' : `<div class="order card gift ready"><span class="o-badge"><i class="o-chip">?</i></span><span class="o-want">${typeof M.gift === 'number' ? `${ico('gold')}<b>+${M.gift}</b>` : `<b>${DECOR_BY_ID[M.gift].name}</b>`}</span><span class="o-act"><button data-gift="1">${L('OPEN GIFT', 'ABRIR REGALO')}</button></span></div>`;
     // Los encargos, como tarjetas de tres columnas (tipo | qué pide, con lo que tienes | pago y
     // botón): todas iguales; las hechas, finas y al final
-    const orders = state.ordersFor(visit, id).map((o, i) => ({ o, i }));
-    html += `<div class="merchant-sub">${L('ORDERS', 'ENCARGOS')} ${orders.filter(({ o }) => o.done).length}/${orders.length}</div>`;
     html += [...orders.filter(({ o }) => !o.done), ...orders.filter(({ o }) => o.done)].map(({ o, i }) => {
         const can = state.canDeliver(o), want = orderWants(o), need = Math.max(...Object.entries(want).map(([c, n]) => n - state.items[c]));
         const label = o.done ? L('DONE', 'HECHO') : can ? L('DELIVER', 'ENTREGAR') : `${L('NEED', 'FALTAN')} ${need}`;
@@ -2299,7 +2319,7 @@ function renderMerchant() {
             + `<span class="o-want">${Object.entries(want).map(([c, n]) => `<span class="o-crop">${ico(CROPS[c].icon)}<b>${n}</b><small class="${state.items[c] >= n ? 'ok' : 'short'}">${Math.min(state.items[c], 9999)}/${n}</small></span>`).join('')}</span>`
             + `<span class="o-act"><span class="order-pay">${ico('gold')}<b>+${pay}</b>${mult}${o.reward ? `<small class="o-reward">+ ${DECOR_BY_ID[o.reward].name}</small>` : ''}</span><button data-i="${i}"${!can ? ' disabled' : ''}>${label}</button></span></div>`;
     }).join('');
-    setHtml($('merchant-orders'), html + shopHtml(id, true));
+    setHtml($('merchant-orders'), html);
 }
 // Mientras se tiene pulsado algo del menú no se rehace (si no, el botón cambiaría bajo el dedo y el
 // clic se perdería); al soltar, lo pendiente, justo después del clic
@@ -2328,11 +2348,11 @@ function wantsHtml() {
 function shopHtml(id, open) {
     // (en su vitrina: un panel morado con borde dorado y su brillo)
     // (plegada si ya lo tienes todo)
-    const stock = state.stock(clocks[id].visit, id), mine = stock.filter((d) => state.collects(d)).length;
-    return `<details class="rare-shop"${mine < stock.length ? ' open' : ''}><summary class="rare-head"><i class="rare-star"></i>${L('RARE THINGS', 'COSAS RARAS')} ${mine}/${stock.length}<i class="rare-star"></i></summary>` + stock.map((d) => {
+    const stock = state.stock(clocks[id].visit, id);
+    return `<div class="rare-shop">${open ? '' : `<div class="merchant-away">${L('ONLY SOLD WHILE THEY ARE HERE.', 'SOLO LAS VENDE MIENTRAS ESTÁ AQUÍ.')}</div>`}` + stock.map((d) => {
         const it = DECOR_BY_ID[d], have = state.collects(it.id), short = state.items.gold < it.gold;
         return `<div class="order shop${have ? ' done' : ''}${it.exclusive ? ' party' : ''}">${it.exclusive ? `<em class="order-tag">${L('TODAY ONLY', 'SOLO HOY')}</em>` : ''}<span class="order-want"><b>${it.name}</b></span><span class="order-pay">${ico('gold')}<b>${it.gold}</b></span><button data-buy="${it.id}"${have || short || !open ? ' disabled' : ''}>${have ? L('YOURS', 'TUYO') : L('BUY', 'COMPRAR')}</button></div>`;
-    }).join('') + '</details>';
+    }).join('') + '</div>';
 }
 
 // Arriba del todo, el pueblo: su nivel, cuánto tiene y la barra hasta el siguiente
@@ -2365,6 +2385,12 @@ $('merchant').addEventListener('click', (e) => {
     e.stopPropagation();
     const id = curM, visit = clocks[id].visit, tb = e.target.closest('button[data-tab]'), gb = e.target.closest('button[data-gift]'), bb = e.target.closest('button[data-buy]');
     if (tb) return openMerchant(tb.dataset.tab);
+    const vb = e.target.closest('button[data-view]');
+    if (vb) {
+        mView = vb.dataset.view;
+        sfx.play('ui');
+        return renderMerchant();
+    }
     if (e.target.closest('button[data-expand]')) {
         const it = farm.village.planItems[state.town];
         if (!it || townCine || !state.expandTown(farm.village.planCount)) return sfx.play('deny');
@@ -2452,17 +2478,26 @@ function renderWell() {
     $('well-gold').textContent = state.items.gold;
     const b = $('well-wish');
     b.disabled = busy || !pool.length || state.items.gold < cost;
-    b.innerHTML = pool.length ? `${L('THROW A COIN', 'ECHAR UNA MONEDA')} ${ico('gold')}${cost}` : L('NOTHING LEFT TO WISH FOR', 'YA NO QUEDA NADA QUE PEDIR');
+    b.innerHTML = pool.length ? `${L('MAKE A WISH', 'PEDIR UN DESEO')} <span class="cost">${ico('gold')}${cost}</span>` : L('NOTHING LEFT TO WISH FOR', 'YA NO QUEDA NADA QUE PEDIR');
     const r = wellResult;
-    $('well-result').innerHTML = r ? `<div class="well-card${r.dup ? ' dup' : ''}" data-tier="${r.tier.id}"><img alt="" src="${gearArt(r.kind, r.it)}"><b>${r.it.name}</b><em>${r.tier.name}</em><small>${r.dup ? `${L('DUPLICATE', 'REPETIDA')}: +${r.refund} ${L('GOLD BACK', 'DE ORO DE VUELTA')}` : r.it.desc}</small></div>` : '';
-    // Lo que queda, por rarezas (con lo que pesa cada una)
-    $('well-list').innerHTML = TIERS.map((t) => {
+    const hex = (t) => '#' + t.color.toString(16).padStart(6, '0');
+    // Debajo, la colección: una barra por rareza; todas las piezas, plegadas
+    const tiers = TIERS.map((t) => {
         const all = ARSENAL_KINDS.flatMap((k) => ARSENAL[k].filter((it) => it.price && tierOf(it) === t).map((it) => ({ k, it })));
-        return `<div class="merchant-sub">${t.name} · ${all.filter(({ k, it }) => state.ownsGear(k, it.id)).length}/${all.length}</div><div class="well-grid">${all.map(({ k, it }) => {
+        return { t, all, have: all.filter(({ k, it }) => state.ownsGear(k, it.id)).length };
+    });
+    const got = tiers.reduce((n, x) => n + x.have, 0), total = tiers.reduce((n, x) => n + x.all.length, 0);
+    // Arriba, en grande: lo último que ha salido (o el pozo, con lo que queda por salir)
+    $('well-result').innerHTML = r ? `<div class="well-card${r.dup ? ' dup' : ''}" data-tier="${r.tier.id}" style="--tier:${hex(r.tier)}"><img alt="" src="${gearArt(r.kind, r.it)}"><b>${r.it.name}</b><em>${r.tier.name}</em><small>${r.dup ? `${L('DUPLICATE', 'REPETIDA')}: +${r.refund} ${L('GOLD BACK', 'DE ORO DE VUELTA')}` : r.it.desc}</small></div>`
+        : `<div class="well-hero"><i class="ico well-ico"></i><span>${total > got ? L(`${total - got} NEW PIECES STILL DOWN THERE`, `QUEDAN ${total - got} PIEZAS NUEVAS AHÍ ABAJO`) : L('YOU HAVE THEM ALL!', '¡LAS TIENES TODAS!')}</span></div>`;
+    const was = $('well-list').querySelector('details');
+    $('well-list').innerHTML = `<div class="nb-lbl">${L('YOUR COLLECTION', 'TU COLECCIÓN')} · ${got}/${total}</div>`
+        + tiers.map(({ t, all, have }) => `<div class="well-bar" style="--tier:${hex(t)}"><span>${t.name}</span><i><b style="width:${Math.round(have / all.length * 100)}%"></b></i><em>${have}/${all.length}</em></div>`).join('')
+        + `<details class="well-all"${was && was.open ? ' open' : ''}><summary>${L(`SEE ALL ${total} PIECES`, `VER LAS ${total} PIEZAS`)}</summary>`
+        + tiers.map(({ t, all }) => `<div class="well-grid">${all.map(({ k, it }) => {
             const have = state.ownsGear(k, it.id);
-            return `<span class="well-item${have ? ' on' : ''}" data-tier="${t.id}" data-id="${k}:${it.id}" title="${it.desc}"><img alt="" src="${gearArt(k, it)}"><i>${have ? it.name : '?'}</i></span>`;
-        }).join('')}</div>`;
-    }).join('');
+            return `<span class="well-item${have ? ' on' : ''}" data-tier="${t.id}" style="--tier:${hex(t)}" data-id="${k}:${it.id}" title="${it.desc}"><img alt="" src="${gearArt(k, it)}"><i>${have ? it.name : '?'}</i></span>`;
+        }).join('')}</div>`).join('') + '</details>';
 }
 
 // El deseo, de cine: sin tocar nada, la moneda vuela al pozo, la cámara se acerca, el pozo se
@@ -2564,6 +2599,7 @@ function updateWellCine(dt) {
         el.classList.add('in');
         const slot = $('well-list').querySelector(`.well-item[data-id="${p.kind}:${p.it.id}"]`);
         if (slot) {
+            slot.closest('details').open = true;
             slot.classList.add('just');
             slot.scrollIntoView({ block: 'center' });
         }
@@ -2760,31 +2796,56 @@ for (const kind of ARSENAL_KINDS) {
         const card = document.createElement('button');
         card.className = 'gear';
         card.id = `gear-${kind}-${it.id}`;
-        card.innerHTML = `<img alt="" src="${gearArt(kind, it)}"><b>${it.name}</b><span class="gear-stats">${GEAR[kind].stats(it).map(([n, v]) => `<span class="gear-stat"><span>${n}</span><span class="pips">${pips(v)}</span></span>`).join('')}</span><em></em>`;
+        card.innerHTML = `<img alt="" src="${gearArt(kind, it)}"><b>${it.name}</b><em></em>`;
         card.title = it.desc;
+        // Tocarla la elige (su ficha, a la derecha); USAR la monta
         card.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (cls()[kind] === it.id) return $('gear-picker').classList.add('hidden');
-            const had = state.ownsGear(kind, it.id);
-            if (!state.equipGear(kind, it.id, loEdit)) {
-                sfx.play('deny');
-                card.classList.remove('bump');
-                void card.offsetWidth;
-                card.classList.add('bump');
-                return;
-            }
-            sfx.play(had ? 'reloaded' : 'buy');
-            vibrate('pickup');
-            updateCounts();
-            $('gear-picker').classList.add('hidden');
+            sfx.play('ui');
+            pickSel = it.id;
             refreshRifle();
         });
         $(`gear-${kind}`).appendChild(card);
         gearCards[`${kind}:${it.id}`] = card;
     }
 }
+// La ficha de la pieza elegida: su dibujo, qué es y sus cifras frente a la montada (+/-)
+let pickSel = null;
+function renderGearDetail() {
+    const kind = pickKind, c = cls(), it = ARSENAL[kind].find((x) => x.id === pickSel) || ARSENAL[kind].find((x) => x.id === c[kind]);
+    const cur = ARSENAL[kind].find((x) => x.id === c[kind]), on = it.id === cur.id, owned = state.ownsGear(kind, it.id);
+    const mine = GEAR[kind].stats(cur), st = GEAR[kind].stats(it);
+    const rows = st.map(([n, v], k) => {
+        const d = v - mine[k][1], lo = Math.min(v, mine[k][1]);
+        return `<div class="gd-stat"><span>${n}</span><i><b style="width:${lo * 20}%"></b>${d ? `<u class="${d > 0 ? 'up' : 'dn'}" style="left:${lo * 20}%;width:${Math.abs(d) * 20}%"></u>` : ''}</i><em class="${d > 0 ? 'up' : d < 0 ? 'dn' : ''}">${d > 0 ? '+' + d : d < 0 ? d : '='}</em></div>`;
+    }).join('');
+    const tier = owned || !it.price ? '' : `<span class="gd-tier" style="--tier:#${tierOf(it).color.toString(16).padStart(6, '0')}">${tierOf(it).name}</span>`;
+    const btn = on ? `<button id="gear-use" class="btn" disabled>${L('EQUIPPED', 'MONTADO')}</button>`
+        : owned ? `<button id="gear-use" class="btn">${L('USE', 'USAR')}</button>`
+            : `<button id="gear-use" class="btn" disabled>${ico('lock')}${L('FROM THE WELL', 'SALE DEL POZO')}</button>`;
+    setHtml($('gear-detail'), `<img alt="" src="${gearArt(kind, it)}"><div class="gd-name"><b>${it.name}</b>${tier}</div><p>${it.desc}</p>`
+        + `<small>${on ? L('MOUNTED NOW', 'MONTADO AHORA') : `${L('VS', 'FRENTE A')} ${cur.name}`}</small>${rows}${btn}`);
+}
+$('gear-detail').addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!e.target.closest('#gear-use')) return;
+    const kind = pickKind, card = gearCards[`${kind}:${pickSel}`];
+    if (!state.equipGear(kind, pickSel, loEdit)) {
+        sfx.play('deny');
+        card.classList.remove('bump');
+        void card.offsetWidth;
+        card.classList.add('bump');
+        return;
+    }
+    sfx.play('reloaded');
+    vibrate('pickup');
+    updateCounts();
+    $('gear-picker').classList.add('hidden');
+    refreshRifle();
+});
 function openPicker(kind) {
     pickKind = kind;
+    pickSel = cls()[kind];
     $('picker-title').textContent = GEAR[kind].title;
     refreshRifle();
     $('gear-picker').classList.remove('hidden');
@@ -2830,15 +2891,17 @@ function refreshRifle() {
         ksBtns[k.id].querySelector('em').textContent = on ? L('ON', 'PUESTA') : L('OFF', 'QUITADA');
     }
     for (const row of document.querySelectorAll('.gear-row')) row.classList.toggle('hidden', row.dataset.kind !== pickKind);
+    if (!$('gear-picker').classList.contains('hidden') || pickSel) renderGearDetail();
     for (const kind of ARSENAL_KINDS) {
         for (const it of ARSENAL[kind]) {
             const card = gearCards[`${kind}:${it.id}`], on = c[kind] === it.id, owned = state.ownsGear(kind, it.id), price = state.gearPrice(kind, it.id);
             card.classList.toggle('on', on);
+            card.classList.toggle('sel', kind === pickKind && it.id === (pickSel || c[kind]));
             card.classList.toggle('owned', owned && !on);
             card.classList.toggle('short', false);
             card.dataset.tier = owned || !price ? '' : tierOf(it).id;
             card.classList.toggle('empty', !owned);
-            const em = on ? L('EQUIPPED', 'MONTADO') : owned ? L('USE', 'USAR') : `${ico('lock')}${L('WELL', 'POZO')}`; // (bloqueada: sale del pozo de los deseos)
+            const em = on ? L('MOUNTED', 'MONTADO') : owned ? '' : `${ico('lock')}${L('WELL', 'POZO')}`; // (bloqueada: sale del pozo de los deseos)
             if (card.querySelector('em').innerHTML !== em) card.querySelector('em').innerHTML = em;
         }
     }
@@ -2890,25 +2953,27 @@ function refreshDebug() {
 {
     // (la de la casa, aparcada con ella: ni se ve ni tiene botón)
     if (FARM.house.hidden) $('debug-home').classList.add('parked');
+    // Cuatro apartados, cada uno con sus cajas una al lado de otra
+    const GROUPS = [['game', L('GAME', 'PARTIDA'), ['farm', 'unlock', 'fields']], ['world', L('WORLD', 'MUNDO'), ['time', 'snipe', 'box']],
+        ['shot', L('SHOOTING', 'DISPARO'), ['feel', 'streaks']], ['village', L('VILLAGE', 'PUEBLO'), ['merchant', 'village', 'well', 'home']]];
     const boxes = [...document.querySelectorAll('#debug .debug-box:not(.parked)')];
     const show = (key) => {
-        boxes.forEach((b, k) => {
-            b.classList.toggle('on', b.dataset.sec === key);
-            tabs[k].classList.toggle('on', b.dataset.sec === key);
-        });
-        $('debug-empty').classList.toggle('hidden', !!key);
+        const g = GROUPS.find((x) => x[0] === key);
+        boxes.forEach((b) => b.classList.toggle('on', !!g && g[2].includes(b.dataset.sec)));
+        tabs.forEach((t, k) => t.classList.toggle('on', GROUPS[k][0] === key));
+        $('debug-empty').classList.toggle('hidden', !!g);
         try {
             sessionStorage.setItem('cofd.debugTab', key || '');
         } catch { /* sin almacenamiento */ }
     };
-    const tabs = boxes.map((b) => {
+    const tabs = GROUPS.map(([key, name]) => {
         const t = document.createElement('button');
         t.className = 'debug-tab';
-        t.textContent = b.querySelector('.debug-box-title').textContent;
+        t.textContent = name;
         t.addEventListener('click', (e) => {
             e.stopPropagation();
             sfx.play('ui');
-            show(b.dataset.sec);
+            show(key);
         });
         $('debug-tabs').appendChild(t);
         return t;
@@ -2916,7 +2981,7 @@ function refreshDebug() {
     let first = null;
     try {
         const k = sessionStorage.getItem('cofd.debugTab');
-        first = boxes.some((b) => b.dataset.sec === k) ? k : null; // (lo de antes, guardado por número: ninguno)
+        first = GROUPS.some((g) => g[0] === k) ? k : null;
     } catch { /* sin almacenamiento */ }
     show(first);
 }
@@ -3785,20 +3850,19 @@ function showWelcome() {
     welcomeFrom = 0;
     markSeen();
     if (away < AWAY || mode !== 'farm' || inCine()) return;
-    const items = [];
-    for (const def of FARM.fields) {
-        const f = state.fields[def.id];
-        if (!f.unlocked) continue;
-        const crop = CROPS[def.crop];
-        if (state.isReady(def.id)) items.push(`${ico(crop.icon)}<span>${L(`${def.name}: READY, ${f.left} ${crop.unit} TO HARVEST`, `${def.name}: LISTO, ${f.left} ${crop.unit} PARA RECOGER`)}</span>`);
-        else items.push(`${ico(crop.icon)}<span>${L(`${def.name}: READY IN ${fmt((1 - state.progress(def.id)) * crop.growTime)}`, `${def.name}: LISTO EN ${fmt((1 - state.progress(def.id)) * crop.growTime)}`)}</span>`);
-    }
+    // Tres líneas como mucho: cuántas cosechas están listas, la siguiente que madura y los
+    // mercaderes que hay en el pueblo (el detalle, en el mapa)
+    const items = [], open = FARM.fields.filter((def) => state.fields[def.id].unlocked);
+    const ready = open.filter((def) => state.isReady(def.id));
+    if (ready.length) items.push(`${ico(CROPS[ready[0].crop].icon)}<span>${ready.length === 1 ? L(`${ready[0].name}: READY`, `${ready[0].name}: LISTO`) : L(`${ready.length} CROPS READY`, `${ready.length} COSECHAS LISTAS`)}</span>`);
+    const next = open.filter((def) => !state.isReady(def.id)).map((def) => ({ def, left: (1 - state.progress(def.id)) * CROPS[def.crop].growTime })).sort((x, y) => x.left - y.left)[0];
+    if (next) items.push(`${ico(CROPS[next.def.crop].icon)}<span>${L(`${next.def.name}: IN ${fmt(next.left)}`, `${next.def.name}: EN ${fmt(next.left)}`)}</span>`);
     const hereNow = MERCHANTS.filter((d) => clocks[d.id].here);
-    if (hereNow.length) items.push(`${ico('merchant')}<span>${L(`MERCHANTS IN THE VILLAGE: ${hereNow.map((d) => d.name).join(', ')}`, `MERCADERES EN EL PUEBLO: ${hereNow.map((d) => d.name).join(', ')}`)}</span>`);
+    if (hereNow.length) items.push(`${ico('merchant')}<span>${hereNow.length === 1 ? hereNow[0].name : L(`${hereNow.length} MERCHANTS IN THE VILLAGE`, `${hereNow.length} MERCADERES EN EL PUEBLO`)}</span>`);
     if (!items.length) return;
     const m = Math.round(away / 60000), h = Math.floor(m / 60);
     const t = h ? `${h} H ${m % 60} MIN` : `${m} MIN`;
-    $('welcome-title').textContent = L(`WELCOME BACK! YOU WERE AWAY ${t}`, `¡HOLA DE NUEVO! HAS ESTADO FUERA ${t}`);
+    $('welcome-title').innerHTML = `${L('WELCOME BACK!', '¡HOLA DE NUEVO!')}<small>${L(`YOU WERE AWAY ${t}`, `HAS ESTADO FUERA ${t}`)}</small>`;
     $('welcome-list').innerHTML = items.map((x) => `<li>${x}</li>`).join('');
     $('welcome').classList.remove('hidden');
     sfx.play('achievement');

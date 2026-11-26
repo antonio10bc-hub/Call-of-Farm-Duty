@@ -31,7 +31,7 @@ test('debug: con COSTES 0 se mejora sin gastar nada', { tag: '@full' }, async ({
     await page.evaluate(() => game.select({ field: 'wheat' }));
     await expect(page.locator('#panel-upgrade')).toBeDisabled();
     await page.locator('#btn-debug').click();
-    await tab(page, 'PROGRESO'); // (al abrir no hay ningún apartado a la vista)
+    await tab(page, 'PARTIDA'); // (al abrir no hay ningún apartado a la vista)
     await page.locator('#toggle-free').click();
     await expect(page.locator('#toggle-free')).not.toHaveClass(/off/);
     await page.locator('#btn-debug-close').click();
@@ -51,7 +51,7 @@ test('debug: se elige cuántas bajas pide cada racha', { tag: '@full' }, async (
     await page.locator('#btn-home').click();
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('farm');
     await page.locator('#btn-debug').click();
-    await tab(page, 'RACHAS');
+    await tab(page, 'DISPARO');
     // La de fragmentación, de 5 a 1 bajas (cuatro veces -)
     const row = (id) => page.locator('.ks-row', { has: page.locator(`#ks-${id}`) });
     await expect(page.locator('#ks-frag')).toHaveText('5');
@@ -74,7 +74,7 @@ test('debug: se elige cuántas bajas pide cada racha', { tag: '@full' }, async (
     await page.reload();
     await expect(page.locator('#ks-frag')).toHaveText('1');
     await page.locator('#btn-debug').click();
-    await tab(page, 'RACHAS');
+    await tab(page, 'DISPARO');
     await page.locator('#ks-default').click();
     await expect(page.locator('#ks-frag')).toHaveText('5');
     await expect(page.locator('#ks-nuke')).toHaveText('10');
@@ -87,7 +87,7 @@ test('debug: DESBLOQUEAR TODO limpia todos los terrenos sin requisitos', { tag: 
     await expect(page.locator('#sign-wheat')).toHaveText('¡DESBLOQUEAR!', { timeout: 30_000 });
     await expect(page.locator('#sign-tomato')).toHaveText('BLOQUEADO');
     await page.locator('#btn-debug').click();
-    await tab(page, 'DESBLOQUEAR');
+    await tab(page, 'PARTIDA');
     await page.locator('#btn-unlock-all').click();
     await expect(page.locator('#debug')).toBeHidden();
     expect(await page.evaluate(() => [game.state.fields.wheat.unlocked, game.state.fields.tomato.unlocked])).toEqual([true, true]);
@@ -106,7 +106,7 @@ test('debug: desbloquear de uno en uno los terrenos y la armería', { tag: '@ful
     await page.goto('/?test');
     await expect(page.locator('#sign-wheat')).toHaveText('¡DESBLOQUEAR!', { timeout: 30_000 });
     await page.locator('#btn-debug').click();
-    await tab(page, 'DESBLOQUEAR');
+    await tab(page, 'PARTIDA');
     // Solo los tomates: el trigo sigue con su chatarra
     await expect(page.locator('#unlock-field-tomato')).toHaveText('DESBLOQUEAR');
     await page.locator('#unlock-field-tomato').click();
@@ -132,7 +132,7 @@ test.skip('debug de la casa: costes 0, nivel, monedas, el ovni y la tienda enter
     await page.goto('/?test');
     await expect.poll(() => page.evaluate(() => window.game && game.farm.introT > 0), { timeout: 30_000 }).toBe(true);
     await page.locator('#btn-debug').click();
-    await tab(page, 'CASA');
+    await tab(page, 'PUEBLO');
     await expect(page.locator('#debug-home')).toBeVisible();
     // Costes 0 solo para la casa y la tienda (los campos siguen costando)
     await page.locator('#toggle-free-home').click();
@@ -165,18 +165,18 @@ test('debug: nivel de cada campo, munición de las torretas y el campo de tiro (
     await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
     await page.locator('#btn-debug').click();
     // El trigo al nivel 5 a golpe de + (con sus 240 matas)
-    await tab(page, 'CAMPOS');
+    await tab(page, 'PARTIDA');
     const plus = page.locator('#field-rows .ks-row').first().locator('[data-d="1"]');
     for (let i = 0; i < 4; i++) await plus.click();
     expect(await page.evaluate(() => [game.state.fields.wheat.level, game.state.fields.wheat.left])).toEqual([4, 240]);
     await expect(page.locator('#field-rows .ks-row').first().locator('b')).toHaveText('5·240');
     // Campo de tiro: empezar con la bazuca, la caja enseguida y sin alienígenas
-    await tab(page, 'CAJA SORPRESA');
+    await tab(page, 'MUNDO');
     await page.locator('#dbg-start-wonder').click();
     await expect(page.locator('#dbg-start-wonder')).toHaveText('BAZUCA');
     await page.locator('#dbg-box-rate').click();
     await expect(page.locator('#dbg-box-rate')).toHaveText('ENSEGUIDA');
-    await tab(page, 'CAMPO DE TIRO');
+    await tab(page, 'MUNDO');
     await page.locator('#dbg-aliens').click();
     await expect(page.locator('#dbg-aliens')).toHaveText('NO');
     await page.locator('#btn-debug-close').click();
@@ -193,7 +193,7 @@ test('debug: nivel de cada campo, munición de las torretas y el campo de tiro (
     expect(errors).toEqual([]);
 });
 
-test('debug por apartados: botones a la izquierda, ninguno abierto al entrar, uno cada vez; la respuesta del disparo y sus partes se quitan, y la ampliación del pueblo', { tag: '@full' }, async ({ page }) => {
+test('debug en cuatro apartados: botones a la izquierda, ninguno abierto al entrar, uno cada vez; la respuesta del disparo y sus partes se quitan, y la ampliación del pueblo', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await openFarm(page);
     await page.evaluate(() => { try { sessionStorage.removeItem('cofd.debugTab'); } catch {} });
@@ -203,8 +203,8 @@ test('debug por apartados: botones a la izquierda, ninguno abierto al entrar, un
     // (los botones, en columna a la izquierda del contenido)
     const [t0, t1, cols] = await Promise.all([page.locator('.debug-tab').nth(0).boundingBox(), page.locator('.debug-tab').nth(1).boundingBox(), page.locator('.debug-cols').boundingBox()]);
     expect(t1.y > t0.y && Math.abs(t1.x - t0.x) < 2 && t0.x + t0.width <= cols.x + 1).toBe(true);
-    await tab(page, 'SENSACIÓN DEL DISPARO');
-    await expect(page.locator('#debug .debug-box.on')).toHaveCount(1);
+    await tab(page, 'DISPARO');
+    await expect(page.locator('#debug .debug-box.on')).toHaveCount(2);
     await expect(page.locator('#debug-feel')).toBeVisible();
     // La respuesta entera y una de sus partes se quitan (y se recuerdan)
     await page.locator('#dbg-feel').click();

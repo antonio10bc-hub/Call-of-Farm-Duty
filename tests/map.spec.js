@@ -137,10 +137,11 @@ test('armería: en el granero se montan las mirillas, rifles y cargadores, cada 
     // se monta (y la lista se cierra)
     await page.evaluate(() => { game.state.items.gold = 40; });
     await page.locator('#gear-rifle-semi').click();
+    await expect(page.locator('#gear-use')).toBeDisabled(); // (su ficha: sale del pozo)
     expect(await page.evaluate(() => [game.state.arsenal.loadout.rifle, game.state.items.gold])).toEqual(['bolt', 40]);
     await expect(page.locator('#gear-rifle-semi em')).toContainText('POZO');
     await page.evaluate(() => { game.state.arsenal.owned.push('rifle:semi', 'scope:dot', 'mag:ext'); game.select({ structure: 'barn' }); });
-    const pick = async (kind, id) => { await page.locator(`#slot-${kind}`).click(); await page.locator(`#gear-${kind}-${id}`).click(); await expect(page.locator('#gear-picker')).toBeHidden(); };
+    const pick = async (kind, id) => { await page.locator(`#slot-${kind}`).click(); await page.locator(`#gear-${kind}-${id}`).click(); await page.locator('#gear-use').click(); await expect(page.locator('#gear-picker')).toBeHidden(); };
     await pick('rifle', 'semi');
     await expect(page.locator('#slot-rifle')).toContainText('SEMIAUTOM');
     await pick('scope', 'dot');
@@ -377,6 +378,7 @@ test('vida de los mercaderes (con DEBUG): confianza por niveles, racha con regal
     await expect(page.locator('#merchant-trust')).toContainText('AMIGO DEL ALMA');
     await expect(page.locator('#merchant-tabs .m-tab')).toHaveCount(8);
     await page.locator('button[data-gift]').click();
+    await page.locator('button[data-view="rare"]').click(); // (las cosas raras, en su pestaña)
     await page.locator('button[data-buy="trophy"]').click();
     expect(await page.evaluate(() => game.state.village)).toEqual(['gnome', 'trophy']);
     await expect.poll(() => page.evaluate(() => ['gnome', 'trophy', 'flamingo'].map((i) => game.farm.village.decor[i].g.visible))).toEqual([true, true, false]);

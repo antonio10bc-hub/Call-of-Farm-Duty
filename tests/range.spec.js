@@ -34,11 +34,15 @@ test('campo de pruebas: se entra desde el recinto, nada cuenta, los blancos vuel
     expect(await page.evaluate(() => game.sniper.loadout.rifle)).toBe('semi');
     expect(await page.evaluate(() => game.sniper.stats.bolt)).not.toBe(bolt);
     expect(await page.evaluate(() => game.state.ownsGear('rifle', 'semi'))).toBe(false); // (probarlo no lo da)
+    await page.locator('#range-body [data-rtab="targets"]').click();
     await page.locator('#range-body [data-target="steel"]').click();
     expect(await page.evaluate(() => game.sniper.field.sheaves.every((s) => s.range === 'plate'))).toBe(true);
+    await page.locator('#range-body [data-rtab="gear"]').click();
+    await page.locator('#range-body [data-rsub="box"]').click();
     await page.locator('#range-body [data-wonder="rpg"]').click();
     expect(await page.evaluate(() => game.sniper.special && game.sniper.special.id)).toBe('rpg');
     // Una racha: se cierra el menú y se lanza
+    await page.locator('#range-body [data-rtab="ks"]').click();
     await page.locator('#range-body [data-ks="frag"]').click();
     await expect(page.locator('#range-menu')).toBeHidden();
     // Se vuelve a la granja sin nada nuevo

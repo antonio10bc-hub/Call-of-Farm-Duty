@@ -13,6 +13,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Farm Duty">
     <link rel="preload" href="fonts/press-start-2p.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="fonts/silkscreen.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="fonts/pixelify-sans.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="style.css">
     <script type="importmap">
         { "imports": { "three": "./vendor/three.module.min.js" } }
@@ -22,6 +24,8 @@
     <!-- Pantalla de carga: solo HTML y CSS (y este script) para que salga al instante. Un haz
          de trigo salta sobre la barra; la termina main.js cuando todo está listo. -->
     <div id="loader" class="loader">
+        <!-- La escena de fondo: cielo, surcos, granero con silo y el ovni con su rayo -->
+        <div class="ld-scene" aria-hidden="true"><i class="ld-rows"></i><i class="ld-barn"></i><i class="ld-silo"></i><i class="ld-ufo"></i></div>
         <div class="title-sign" aria-label="Call of Farm Duty">
             <div class="ts-top"><span>C</span><span>A</span><span>L</span><span>L</span>&nbsp;<i class="ts-scope"></i><span>F</span></div>
             <div class="ts-main"><span>F</span><span>A</span><span>R</span><span>M</span>&nbsp;<span>D</span><span>U</span><span>T</span><span>Y</span></div>
@@ -115,7 +119,7 @@
         <!-- Campo de pruebas: su menú (cualquier arma, racha o blanco) -->
         <button id="btn-range" class="btn range-btn" data-es="PROBAR (T)">TEST (T)</button>
         <div id="range-menu" class="panel range-menu hidden">
-            <div class="range-head"><b data-es="CAMPO DE PRUEBAS · NADA CUENTA">TEST RANGE · NOTHING COUNTS</b><button id="range-close" class="panel-x" aria-label="Close" data-es-aria="Cerrar">X</button></div>
+            <div class="range-head"><b data-es="CAMPO DE PRUEBAS">TEST RANGE</b><small data-es="AQUÍ NADA CUENTA">NOTHING COUNTS HERE</small><button id="range-close" class="panel-x" aria-label="Close" data-es-aria="Cerrar">X</button></div>
             <div id="range-body" class="range-body"></div>
         </div>
         <button id="btn-home" class="corner-btn corner-left home-corner" aria-label="Farm" data-es-aria="Granja"><span class="home-icon"></span><span data-es="GRANJA">FARM</span></button>
@@ -190,18 +194,21 @@
          arriba abajo, con el mercader elegido en el centro de lo que queda a la derecha. De arriba
          abajo: el pueblo (su nivel), elegir mercader, y lo de ese mercader -->
     <div id="merchant" class="ufo-shop merchant-sheet merchant-dock hidden">
-        <div class="dock-top">
-            <div id="merchant-village" class="merchant-village"></div>
-            <button id="merchant-close" class="panel-x" aria-label="Close" data-es-aria="Cerrar">X</button>
-        </div>
-        <!-- Una ficha por mercader (los que están, en color; los demás, lo que les falta) -->
+        <!-- A la izquierda, un retrato por mercader (los que están, en color; los demás, apagados) -->
         <div id="merchant-tabs" class="merchant-tabs"></div>
-        <div class="ufo-head">
-            <i class="merchant-portrait"></i>
-            <!-- Su nombre, lo que dice, su amistad (nivel, racha hacia el regalo) y su felicidad -->
-            <div class="ufo-talk merchant-talk"><b id="merchant-name">MERCHANT</b><span id="merchant-line"></span><div id="merchant-trust" class="merchant-trust"></div></div>
+        <div class="m-main">
+            <div class="ufo-head">
+                <i class="merchant-portrait"></i>
+                <!-- Su nombre, lo que dice, su amistad (nivel, racha hacia el regalo) y su felicidad -->
+                <div class="ufo-talk merchant-talk"><b id="merchant-name">MERCHANT</b><span id="merchant-line"></span><div id="merchant-trust" class="merchant-trust"></div></div>
+                <button id="merchant-close" class="panel-x" aria-label="Close" data-es-aria="Cerrar">X</button>
+            </div>
+            <!-- Dos pestañas: sus encargos y sus cosas raras -->
+            <div id="merchant-view" class="nb-tabs"></div>
+            <div id="merchant-orders" class="merchant-orders"></div>
+            <!-- Abajo, el pueblo: su nivel y la ampliación -->
+            <div id="merchant-village" class="merchant-village"></div>
         </div>
-        <div id="merchant-orders" class="merchant-orders"></div>
     </div>
 
     <!-- El pozo de los deseos: se echa una moneda de oro y sale una pieza de la armería -->
@@ -265,7 +272,11 @@
         <!-- Lista de un tipo de pieza para la clase (se compra con oro) -->
         <div id="gear-picker" class="gear-picker hidden">
             <div class="picker-head"><b id="picker-title"></b><button id="picker-close" class="panel-x" aria-label="Close" data-es-aria="Cerrar">X</button></div>
-            <div id="gear-rows" class="gear-rows"></div>
+            <!-- A la izquierda, la rejilla de piezas; a la derecha, la elegida comparada con la montada -->
+            <div class="picker-body">
+                <div id="gear-rows" class="gear-rows"></div>
+                <div id="gear-detail" class="gear-detail"></div>
+            </div>
         </div>
         <button id="btn-streaks-close" class="btn home-btn"><span class="home-icon"></span><span data-es="VOLVER">BACK</span></button>
     </div>
@@ -415,17 +426,17 @@
     </div>
 
     <div id="settings" class="screen settings hidden">
-        <h2 class="end-title" data-es="AJUSTES">SETTINGS</h2>
-        <div class="toggles toggles-col">
+        <div class="nb-card set-card">
+            <div class="nb-head"><h2 class="nb-title" data-es="AJUSTES">SETTINGS</h2><button id="btn-settings-x" class="panel-x" aria-label="Close" data-es-aria="Cerrar">X</button></div>
+            <div class="nb-lbl">AUDIO</div>
             <!-- El volumen de la música y de los efectos (a 0, apagados) -->
             <label class="vol-row"><span data-es="MÚSICA">MUSIC</span><input id="vol-music" class="vol" type="range" min="0" max="10" step="1" aria-label="Music volume" data-es-aria="Volumen de la música"><b id="vol-music-n"></b></label>
             <label class="vol-row"><span data-es="SONIDO">SOUND</span><input id="vol-sfx" class="vol" type="range" min="0" max="10" step="1" aria-label="Sound volume" data-es-aria="Volumen del sonido"><b id="vol-sfx-n"></b></label>
+            <div class="nb-lbl" data-es="JUEGO">GAME</div>
             <button class="toggle" data-key="vibration" data-es="VIBRACIÓN">VIBRATION</button>
-        </div>
-        <div class="set-col">
             <button id="btn-lang" class="btn btn-small set-btn" data-es="IDIOMA: ESPAÑOL">LANGUAGE: ENGLISH</button>
+            <button id="btn-settings-close" class="btn home-btn"><span data-es="VOLVER">BACK</span></button>
         </div>
-        <button id="btn-settings-close" class="btn home-btn"><span class="home-icon"></span><span data-es="VOLVER">BACK</span></button>
     </div>
 
     <script type="module" src="src/main.js"></script>
