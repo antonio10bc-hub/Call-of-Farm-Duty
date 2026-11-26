@@ -51,19 +51,20 @@ const SPRITES = {
         rows: ['.K..K..K.', 'KYKKWKKYK', 'KYYKYKYYK', '.KYYYYYK.', '..KYYOK..', '..KRRRK..', '..KYYOK..', '.KYOYOYK.', 'KYOKYKOYK', 'KKK.K.KKK'],
         pal: { K: INK, Y: '#ffd23f', O: '#e6a400', W: '#fff4b0', R: '#ff3e5e' },
     },
-    // Tomate (contador), barril rojo (desbloqueo) y candado (terreno bloqueado)
+    // Capullo de seda colgando de su hebra (el contador de la seda)
     tomato: {
-        rows: ['...KK....', '..KGGK...', '.KKGGKKK.', 'KRRKGKRRK', 'KRWRRRRRK', 'KRWRRRRDK', 'KRRRRRRDK', 'KRRRRRDDK', '.KRRDDDK.', '..KKKKK..'],
-        pal: { K: INK, G: '#4caf3c', R: '#e8352a', D: '#c0281e', W: '#ffb0a0' },
+        rows: ['....K.....', '....W.....', '...KKKK...', '..KWWWWK..', '.KWLWWWCK.', '.KWLWWWCK.', '.KWWWWWCK.', '.KWWWWCCK.', '..KWCCCK..', '...KKKK...'],
+        pal: { K: INK, W: '#fffdf6', L: '#ffffff', C: '#e8dcc0' },
     },
+    // Barril rojo (desbloqueo) y candado (terreno bloqueado)
     barrel: {
         rows: ['.KKKKKK.', 'KRRRRRRK', 'KKKKKKKK', 'KRWRRRRK', 'KYYYYYYK', 'KRWRRRRK', 'KKKKKKKK', 'KRRRRRDK', '.KKKKKK.'],
         pal: { K: INK, R: '#d8302a', D: '#a8201a', W: '#ff9a8a', Y: '#ffcc33' },
     },
-    // Cultivos de las parcelas que se compran: calabaza y mazorca
+    // Cuña de queso con sus agujeros
     pumpkin: {
-        rows: ['....KK....', '....KGK...', '..KKKKKK..', '.KOOYOOOK.', 'KOOYOOOODK', 'KOYOOOOODK', 'KOOOOOODDK', 'KOOOOODDDK', '.KODODDDK.', '..KKKKKK..'],
-        pal: { K: INK, G: '#5a7a2a', O: '#f08a1e', D: '#d06a10', Y: '#ffc070' },
+        rows: ['......KK..', '....KKLYK.', '..KKLYYYYK', 'KKLYYYOYYK', 'KYYYYYYYDK', 'KYOYYYYYDK', 'KYYYYOYYDK', 'KYYYYYYDDK', 'KDDDDDDDDK', 'KKKKKKKKKK'],
+        pal: { K: INK, Y: '#ffd23f', L: '#fff3a0', O: '#e8b830', D: '#d9a42e' },
     },
     // Cubo de leche: de chapa con su asa y la leche asomando
     milk: {
@@ -95,14 +96,15 @@ const SPRITES = {
         rows: ['..KKKKKK..', '.KRRRRRRK.', '..KKKKKK..', '.KHHHHHHK.', 'KHLHHHHHDK', 'KHLHHHHHDK', 'KHHHHHHDDK', 'KHHHHHDDDK', '.KHHHDDDK.', '..KKKKKK..'],
         pal: { K: INK, R: '#c8402e', H: '#ffb020', L: '#ffe08a', D: '#e08a10' },
     },
-    // Girasol: pétalos amarillos alrededor del centro marrón, con su tallo
+    // Almeja abierta con su perla
     sunflower: {
-        rows: ['...Y..Y...', '.YYKKKKYY.', '.YKBBBBKY.', 'YKBDBBDBKY', '.KBBDDBBK.', 'YKBDBBDBKY', '.YKBBBBKY.', '.YYKKKKYY.', '...Y.GG...', '....GG....'],
-        pal: { K: INK, Y: '#ffd23f', B: '#8a5a2a', D: '#5a3a1a', G: '#5aa83a' },
+        rows: ['..KKKKKK..', '.KSSSSSSK.', 'KSDSSDSSDK', 'KKPPPPPPKK', 'KPPKWWKPPK', 'KPKWLWWKPK', 'KPKWWWWKPK', 'KKSSKKSSKK', '.KSDSSDSK.', '..KKKKKK..'],
+        pal: { K: INK, S: '#9aa8b8', D: '#6a7a90', P: '#f2c8d0', W: '#fffdf6', L: '#ffffff' },
     },
+    // Luciérnaga: alas, cuerpo oscuro y la cola encendida
     corn: {
-        rows: ['....KK....', '...KYYK...', '..KYWYYK..', '..KYYYYK..', '..KYYYOK..', '.GKYYYYKG.', 'GGKYYYOKGG', '.GGKYOKGG.', '..GGKKGG..', '...GGGG...'],
-        pal: { K: INK, Y: '#ffd23f', O: '#e8b830', W: '#fff3a0', G: '#7ab83a' },
+        rows: ['...K..K...', '....KK....', '...KBBK...', '..WKBBKW..', '.WWKBBKWW.', '..WKBBKW..', '.Y.KGGK.Y.', '..KGLGGK..', 'Y.KGGGGK.Y', '...KKKK...'],
+        pal: { K: INK, B: '#3a3a2a', W: '#d8f0ff', G: '#d8ff5a', L: '#f6ffb0', Y: '#f6ffb0' },
     },
     // El trigo mágico del prólogo: espigas de todos los colores con su atadura dorada
     magic: {

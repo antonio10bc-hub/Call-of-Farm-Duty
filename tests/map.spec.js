@@ -483,7 +483,7 @@ test('dock: CAMPOS abre encima otra barra con los cultivos desbloqueados y tocar
     await page.evaluate(() => { game.state.unlock('tomato', Date.now(), true); while (game.revealUnlocked()); game.rig.focus(15, -15); });
     await page.locator('#dock-fields').click();
     await expect(page.locator('#fields-pop')).toBeVisible();
-    await expect(page.locator('.dock-pop-btn')).toHaveText([/TRIGO/, /TOMATES/]);
+    await expect(page.locator('.dock-pop-btn')).toHaveText([/TRIGO/, /SEDA/]);
     await page.locator('#pop-tomato').click();
     await expect(page.locator('#fields-pop')).toBeHidden();
     // (la cámara va al centro del campo, en su sitio del valle)

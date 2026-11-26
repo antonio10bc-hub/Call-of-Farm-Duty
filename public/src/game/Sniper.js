@@ -194,6 +194,15 @@ export class Sniper {
             this.waves.spawn(x, z, 0xc0e4f8, 0.9 * k, 0.5);
             if (Math.random() < 0.3) this.hooks.sfx.play('pop');
         };
+        // Una almeja que se abre o nada a palmadas: burbujas que suben y su onda en el agua
+        this.field.onBubble = (x, z, big) => {
+            this.particles.burst(x, 0.3, z, big ? 8 : 4, [0xffffff, 0xd8f0ff, 0x9fdcff], { speed: 0.5, up: 2.2, size: 0.07, ttl: 0.6, grav: -1 });
+            if (big) this.waves.spawn(x, z, 0xc0e4f8, 0.6, 0.4);
+        };
+        // Una cabra que aterriza de una voltereta: a veces bala
+        this.field.onBleat = () => {
+            if (Math.random() < 0.4) this.hooks.sfx.play('moo', 0, { rate: 2.2 });
+        };
         // Un cerdo deslizándose de barriga: salpica barro por detrás
         this.field.onSplash = (s) => {
             this.particles.burst(s.cx - s.vx * 0.08, 0.15, s.cz - s.vz * 0.08, 4, [0x7a5232, 0x5a3a22, 0x8a5e38], { speed: 1.6, up: 1.6, size: 0.1, ttl: 0.45 });
@@ -251,7 +260,10 @@ export class Sniper {
         // la caja
         const D = this.debug || {};
         if (this.crop) {
-            if (D.cowsFull) for (const s of this.field.targets) if (s.kind === 'cow' || s.kind === 'sheep' || s.kind === 'hen' || s.kind === 'pig' || s.kind === 'fish') s.swell = 1;
+            if (D.cowsFull) for (const s of this.field.targets) {
+                if (s.kind === 'cow' || s.kind === 'sheep' || s.kind === 'hen' || s.kind === 'pig' || s.kind === 'fish') s.swell = 1;
+                if (s.kind === 'clam') s.t = 0; // (las almejas, a abrirse ya)
+            }
             const w = D.startWonder && WONDER.find((x) => x.id === D.startWonder);
             if (w) this.giveSpecial(w);
         }
@@ -553,9 +565,11 @@ export class Sniper {
         hits.length = Math.min(hits.length, this.stats.pierce); // lo que atraviesa este rifle
         // Un alienígena (a pie o en ovni pequeño) en la línea de tiro para la bala: cae él y lo
         // que la bala haya atravesado antes (colateral)
-        const ufo = this.flyers.hit(origin, dir), alien = this.walkers.hit(origin, dir);
+        const ufo = this.flyers.hit(origin, dir), alien = this.walkers.hit(origin, dir), wallT = this.field.wallT ?? Infinity;
         let stop = ufo && (!alien || ufo.t < alien.t) ? ufo : alien;
-        // (una calabaza por delante para la bala: no llega al alienígena)
+        // (una roca por delante también: no llega al alienígena)
+        if (stop && wallT < stop.t) stop = null;
+        // (algo que aguanta varios tiros por delante para la bala: no llega al alienígena)
         const wall = hits.find((h) => h.sheaf.hp > 0);
         if (stop && wall && wall.t < stop.t) stop = null;
         if (stop) {
@@ -571,7 +585,7 @@ export class Sniper {
             return true;
         }
         let end;
-        // Lo que aguanta varios tiros (calabazas) para la bala: se lleva un tiro y, si era el
+        // Lo que aguanta varios tiros (las placas del campo de pruebas) para la bala: se lleva un tiro y, si era el
         // último, se recoge con lo que la bala haya atravesado antes
         const solid = hits.findIndex((h) => h.sheaf.hp > 0);
         if (solid >= 0) {
@@ -583,7 +597,7 @@ export class Sniper {
         }
         if (hits.length) {
             // La bala sigue tras la última mata hasta el suelo
-            const tEnd = dir.y < -1e-3 ? Math.min(80, -origin.y / dir.y) : hits[hits.length - 1].t;
+            const tEnd = Math.min(wallT, dir.y < -1e-3 ? Math.min(80, -origin.y / dir.y) : hits[hits.length - 1].t);
             end = end || origin.clone().addScaledVector(dir, tEnd);
             this.hitStop = S.hitStop * Math.min(3, hits.length);
             this.trauma = Math.min(1, this.trauma + 0.2 * hits.length);
@@ -595,6 +609,11 @@ export class Sniper {
         } else if (solid >= 0) {
             this.hitStop = S.hitStop;
             this.trauma = Math.min(1, this.trauma + 0.15);
+        } else if (wallT < 80) {
+            // Contra una roca: esquirlas de piedra y polvo
+            end = origin.clone().addScaledVector(dir, wallT);
+            this.particles.burst(end.x, end.y, end.z, 16, CROPS.pumpkin.rocks, { speed: 2.2, up: 2.6, size: 0.09, ttl: 0.6 });
+            this.hooks.sfx.play('crateHit');
         } else {
             const t = dir.y < -1e-3 ? -origin.y / dir.y : 80;
             end = origin.clone().addScaledVector(dir, Math.min(t, 80));
@@ -649,7 +668,7 @@ export class Sniper {
         this.slowCool = 6;
     }
 
-    // Un tiro a algo que aguanta más (calabaza): se resquebraja, salta un trozo y el hitmarker
+    // Un tiro a algo que aguanta más (una placa): se resquebraja, salta un trozo y el hitmarker
     damage(s) {
         const C = fxOf(this.crop);
         s.flash = 1;

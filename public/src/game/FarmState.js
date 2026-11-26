@@ -766,8 +766,15 @@ export class FarmState {
         return Math.min(1, Math.max(0, (now - f.plantedAt) / growMs(id)));
     }
 
+    // Listo para recoger: maduro y con algo que recoger (las luciérnagas, además, solo de noche:
+    // night lo pone main.js con el ciclo de día y noche; sin ponerlo, vale siempre)
     isReady(id, now) {
-        return this.fields[id].unlocked && this.progress(id, now) >= 1 && this.fields[id].left > 0;
+        return this.fields[id].unlocked && this.progress(id, now) >= 1 && this.fields[id].left > 0 && !this.waitsNight(id);
+    }
+
+    // ¿Maduro pero esperando a la noche? (el campo de un cultivo que solo sale de noche, de día)
+    waitsNight(id) {
+        return !!CROPS[FIELD_BY_ID[id].crop].night && this.night === false;
     }
 
     // Mejora el campo: más grande y con más blancos (los nuevos se suman a los que quedan)

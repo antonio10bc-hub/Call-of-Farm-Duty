@@ -107,29 +107,64 @@ test('colateral: una bala que atraviesa dos matas recoge las dos', { tag: '@smok
     expect(errors).toEqual([]);
 });
 
-test('calabazas: aguantan 3 tiros (cada uno las resquebraja) y paran la bala', { tag: '@full' }, async ({ page }) => {
+test('cabras: saltan de montículo en montículo; las rocas paran la bala y, a la vista, un tiro da un queso', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await enterCrop(page, 'pumpkin');
-    // (a la más cercana a la torre: así no hay otra delante que se lleve el tiro)
-    const first = await page.evaluate(() => { const f = game.sniper.field, p = game.sniper.pos; let best = 0; f.sheaves.forEach((s, i) => { const b = f.sheaves[best]; if (Math.hypot(s.x - p.x, s.z - p.z) < Math.hypot(b.x - p.x, b.z - p.z)) best = i; }); return best; });
-    const at = `(() => { const s = game.sniper.field.sheaves[${first}]; return { x: s.x, y: s.size * 0.4, z: s.z }; })()`;
-    await aimAndShoot(page, at);
-    await expect.poll(() => page.evaluate((i) => game.sniper.field.sheaves[i].hp, first)).toBe(2);
-    expect(await page.evaluate((i) => [game.sniper.field.sheaves[i].alive, game.state.items.pumpkin], first)).toEqual([true, 0]);
-    await aimAndShoot(page, at);
-    await expect.poll(() => page.evaluate((i) => game.sniper.field.sheaves[i].hp, first)).toBe(1);
-    await aimAndShoot(page, at);
-    await expect.poll(() => page.evaluate(() => game.state.items.pumpkin)).toBe(1);
-    expect(await page.evaluate((i) => game.sniper.field.sheaves[i].alive, first)).toBe(false);
+    const f0 = await page.evaluate(() => { const f = game.sniper.field; return [f.targets.length, f.targets.every((s) => s.kind === 'goat'), f.mods.pumpkin.boxes.length > 0]; });
+    expect(f0).toEqual([await page.evaluate(() => game.state.sheaves('pumpkin')), true, true]);
+    // No paran de saltar: al poco, alguna ya está en otro montículo
+    await page.evaluate(() => { window.__at0 = game.sniper.field.targets.map((s) => s.perch); });
+    await expect.poll(() => page.evaluate(() => game.sniper.field.targets.some((s, i) => s.perch !== window.__at0[i])), { timeout: 15_000 }).toBe(true);
+    // Todas quietas. Una, en el suelo justo detrás de la roca más alta (vista desde la torre): la roca para
+    // la bala y no se la lleva
+    const hidden = await page.evaluate(() => {
+        const sn = game.sniper, f = sn.field, G = f.mods.pumpkin, o = sn.pos;
+        for (const s of f.targets) { s.wait = 1e9; s.jump = null; }
+        const b = G.boxes.reduce((m, x) => (x[4] > m[4] ? x : m)), cx = (b[0] + b[3]) / 2, cz = (b[2] + b[5]) / 2, dx = cx - o.x, dz = cz - o.z, d = Math.hypot(dx, dz);
+        const s = f.targets[0];
+        s.perch = { x: cx + (dx / d) * 2.2, y: 0, z: cz + (dz / d) * 2.2 };
+        return [s.perch.x, s.perch.z];
+    });
+    await frames(page, 3);
+    const r = await page.evaluate(([x, z]) => {
+        const sn = game.sniper, f = sn.field, o = sn.pos.clone(), s = f.targets[0];
+        const dir = new o.constructor(x - o.x, (s.y - 0.3) - o.y, z - o.z).normalize();
+        const hits = f.raycast(o, dir);
+        return [f.wallT < Infinity, hits.some((h) => h.sheaf === s)];
+    }, hidden);
+    expect(r).toEqual([true, false]);
+    // Otra, en lo alto de un montículo y a la vista: un tiro y suelta su queso
+    const free = await page.evaluate(() => {
+        const sn = game.sniper, f = sn.field, o = sn.pos.clone();
+        return f.targets.findIndex((s, i) => i > 0 && (() => { const dir = new o.constructor(s.x - o.x, s.y - o.y, s.z - o.z).normalize(); const h = f.raycast(o, dir); return h.length && h[0].sheaf === s; })());
+    });
+    expect(free).toBeGreaterThan(0);
+    await page.evaluate((i) => { game.sniper.field.targets[i].hb = [0.6, 0.6, 0.6]; }, free);
+    await aimAndShoot(page, `(() => { const s = game.sniper.field.targets[${free}]; return { x: s.x, y: s.y, z: s.z }; })()`);
+    await expect.poll(() => page.evaluate(() => game.state.items.pumpkin)).toBeGreaterThan(0);
     expect(errors).toEqual([]);
 });
 
-test('maíz: matas altas en hileras con sus mazorcas arriba', { tag: '@full' }, async ({ page }) => {
+test('luciérnagas: de día no salen (el campo espera a la noche); de noche revolotean y un tiro da una', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
-    await enterCrop(page, 'corn');
-    // Dos mazorcas por mata, a media altura de unas matas de más de 2 m
-    expect(await page.evaluate(() => { const f = game.sniper.field; return [f.targets.length, f.plants.every((p) => p.h > 2), f.targets.every((s) => s.y > 1)]; })).toEqual([16, true, true]);
-    await aimAndShoot(page, '(() => { const s = game.sniper.field.sheaves.find((x) => x.alive); return s && { x: s.x, y: s.y, z: s.z }; })()');
+    await openFarm(page);
+    await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
+    // De día: maduro, pero no se puede recoger
+    await page.evaluate(() => { game.state.unlock('corn', Date.now(), true); while (game.revealUnlocked()); });
+    expect(await page.evaluate(() => [game.state.isReady('corn'), game.state.waitsNight('corn')])).toEqual([false, true]);
+    // De noche, sí
+    await page.evaluate(() => { game.dayNight.force = 'night'; });
+    await expect.poll(() => page.evaluate(() => game.state.isReady('corn'))).toBe(true);
+    await page.evaluate(() => game.harvest('corn'));
+    await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
+    await expect.poll(() => page.evaluate(() => game.sniper.field.sheaves.every((s) => s.landed)), { timeout: 20_000 }).toBe(true);
+    await page.evaluate(() => { game.sniper.flyers.next = Infinity; game.sniper.walkers.reset(); game.sniper.walkers.next = Infinity; });
+    expect(await page.evaluate(() => game.sniper.field.targets.every((s) => s.kind === 'firefly'))).toBe(true);
+    await page.evaluate(() => { window.__p = game.sniper.field.targets.map((s) => [s.x, s.y, s.z]); });
+    await expect.poll(() => page.evaluate(() => game.sniper.field.targets.every((s, i) => Math.hypot(s.x - window.__p[i][0], s.y - window.__p[i][1], s.z - window.__p[i][2]) > 0.05))).toBe(true);
+    // Una quieta (y con la caja algo mayor, que no se escape de la mira): un tiro
+    await page.evaluate(() => { const s = game.sniper.field.targets[0]; s.w = [0, 0, 0]; s.hb = [0.6, 0.6, 0.6]; });
+    await aimAndShoot(page, '(() => { const s = game.sniper.field.targets[0]; return { x: s.x, y: s.y, z: s.z }; })()');
     await expect.poll(() => page.evaluate(() => game.state.items.corn)).toBeGreaterThan(0);
     expect(errors).toEqual([]);
 });
@@ -300,25 +335,31 @@ test('caja sorpresa: sale en otra torre; desde lejos no se abre, desde su torre 
     expect(errors).toEqual([]);
 });
 
-test('abejas y girasoles: se le dispara a la gota de miel de la abeja; al girasol, solo cuando te mira', { tag: '@full' }, async ({ page }) => {
+test('abejas y almejas: se le dispara a la gota de miel de la abeja; a la perla, solo con la almeja abierta y de cara', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await enterCrop(page, 'honey');
     expect(await page.evaluate(() => game.sniper.field.sheaves.every((s) => s.bee))).toBe(true);
     await page.evaluate(() => game.sniper.field.sheaves.forEach((s) => { s.w = 0; s.hb = [0.6, 0.8, 0.6]; })); // (quietas y con la gota más grande: que no se escapen de la mira con la máquina cargada)
     await aimAndShoot(page, '(() => { const s = game.sniper.field.sheaves.find((x) => x.alive); return s && { x: s.x, y: s.y, z: s.z }; })()');
     await expect.poll(() => page.evaluate(() => game.state.items.honey)).toBeGreaterThan(0);
-    // Girasoles: de espaldas no se les puede dar; de cara, sí
+    // Almejas: cerradas no se les puede dar; abiertas, solo de cara a la torre
     await page.evaluate(() => game.goFarm());
     await expect.poll(() => page.evaluate(() => game.mode), { timeout: 20_000 }).toBe('farm');
     await enterCrop(page, 'sunflower');
     const r = await page.evaluate(() => {
         const f = game.sniper.field, s = f.sheaves.find((x) => x.alive), eye = game.sniper.pos;
-        const yaw = Math.atan2(eye.x - s.x, eye.z - s.z);
-        s.head.rotation.y = yaw + Math.PI;
+        s.mode = 'open';
+        s.t = 1e9;
+        const yaw = Math.atan2(eye.x - s.cx, eye.z - s.cz);
+        s.open = 0;
+        s.ry = yaw;
+        const closed = f.hittable(s);
+        s.open = 1;
+        s.ry = yaw + Math.PI;
         const back = f.hittable(s);
-        s.head.rotation.y = yaw;
-        return [back, f.hittable(s)];
+        s.ry = yaw;
+        return [closed, back, f.hittable(s), f.inPond(s.cx, s.cz)];
     });
-    expect(r).toEqual([false, true]);
+    expect(r).toEqual([false, false, true, true]);
     expect(errors).toEqual([]);
 });

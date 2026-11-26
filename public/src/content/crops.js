@@ -22,60 +22,67 @@ export const CROPS = {
         unit: L('BUNDLES', 'MATAS'),
         loot: 0xf6cf4a,
     },
-    // Tomates: matas verdes con tutor y tomates gigantes (verdes mientras crecen)
+    // Seda: moreras (las matas, con su tronquito) con capullos de gusanos de seda colgando de su
+    // hebra; dentro, el gusano se revuelve y el capullo da tirones. Por las hojas trepan gusanos.
+    // Cada capullo es un blanco (el id sigue siendo 'tomato': así valen las partidas guardadas)
     tomato: {
-        name: L('TOMATOES', 'TOMATES'),
+        name: L('SILK', 'SEDA'),
         icon: 'tomato',
         growTime: 45,
         stages: [0x6fbf3a, 0x4caf3c, 0x3d9a34, 0x3d9a34],
-        leaves: [0x4caf3c, 0x3d9a34, 0x2f8a2c],
-        fruit: 0xe8352a,
-        fruitDark: 0xc0281e,
-        unripe: 0x9ad04a,
-        calyx: 0x2f8a2c,
-        stake: 0xb07a44,
-        burst: [0xe8352a, 0xff6a4a, 0xc0281e, 0xffd23f],
-        chaff: [0xff8a6a, 0x4caf3c, 0xfff3d6],
-        unit: L('TOMATOES', 'TOMATES'),
-        loot: 0xe8352a,
+        leaves: [0x3d9a34, 0x2f8a2c, 0x4caf3c],
+        fruit: 0xfaf6ec, // (el capullo)
+        fruitDark: 0xf0e2c0,
+        unripe: 0xe8f0c8,
+        calyx: 0xfffdf6, // (la hebra de la que cuelga)
+        stake: 0x8a5a34, // (el tronco de la morera)
+        worm: [0xf3ead2, 0xe8dcc0], // (los gusanos: cuerpo y cabeza)
+        burst: [0xfffdf6, 0xfaf6ec, 0xf0e2c0, 0xffffff],
+        chaff: [0xfffdf6, 0x4caf3c, 0xe8dcc0],
+        unit: L('COCOONS', 'CAPULLOS'),
+        loot: 0xfaf6ec,
     },
-    // Calabazas gigantes tumbadas entre sus hojas: aguantan hp disparos (y paran la bala); cada
-    // tiro las va resquebrajando
+    // Queso: cabras que no paran de saltar de montículo en montículo de rocas (y alguna voltereta);
+    // las rocas tapan la vista y paran la bala, así que hay que ir cambiando de torre. Cuanto más
+    // nivel, más montículos. Cada cabra, un queso (el id sigue siendo 'pumpkin')
     pumpkin: {
-        name: L('PUMPKINS', 'CALABAZAS'),
+        name: L('CHEESE', 'QUESO'),
         icon: 'pumpkin',
         growTime: 60,
-        hp: 3,
-        stages: [0x6fbf3a, 0x5aa83a, 0x4a9a34, 0x3d8a2c],
-        leaves: [0x4a9a34, 0x3d8a2c, 0x5aa83a],
-        fruit: 0xf08a1e,
-        fruitDark: 0xd06a10,
-        unripe: 0x9ad04a,
-        calyx: 0x5a7a2a,
-        burst: [0xf08a1e, 0xffb04a, 0xd06a10, 0xfff3d6],
-        chaff: [0xffe9a0, 0x4a9a34, 0xd06a10],
-        unit: L('PUMPKINS', 'CALABAZAS'),
-        loot: 0xf08a1e,
-        stub: [0x4a9a34, 0x3d8a2c, 0x8a7a4a],
+        pasture: true,
+        rocks: [0x9a948a, 0x8a847a, 0xb0aa9e, 0x7a746a],
+        moss: 0x6a9a3a,
+        coat: [0xf6f3ea, 0xe8dcc0, 0xc8a878], // (blancas, crema y canela)
+        horn: 0xd8c8a0,
+        dark: 0x3a2e2a,
+        hop: [0.5, 1.4], // segundos quieta en lo alto de un montículo entre salto y salto
+        flip: 0.35, // de cada salto, los que llevan voltereta
+        fruit: 0xffd23f,
+        burst: [0xffd23f, 0xffe9a0, 0xe8b830, 0xfff6dc],
+        chaff: [0xfff6dc, 0xf6f3ea, 0xb0aa9e],
+        unit: L('CHEESES', 'QUESOS'),
+        loot: 0xffd23f,
+        stub: [0x8fb85a, 0x7fa84e, 0x9a948a],
     },
-    // Maíz: matas muy altas en hileras con las mazorcas arriba (las hileras dan colaterales
-    // largos); las matas tapan la vista
+    // Luciérnagas: solo salen de noche (de día el campo no se puede recoger). Revolotean por un
+    // prado de hierba alta, encendiéndose y apagándose; cada una es un blanco (el id sigue siendo
+    // 'corn')
     corn: {
-        name: L('CORN', 'MAÍZ'),
+        name: L('FIREFLIES', 'LUCIÉRNAGAS'),
         icon: 'corn',
         growTime: 50,
-        stages: [0x6fbf3a, 0x8fcc40, 0x9ac040, 0xa8b048],
-        leaves: [0x7ab83a, 0x6aa832, 0x8ac04a],
-        fruit: 0xffd23f,
-        fruitDark: 0xe8b830,
-        unripe: 0xc8e070,
-        calyx: 0x9ac04a,
-        stalk: 0x8ab83a,
-        burst: [0xffd23f, 0xfff3a0, 0xe8b830, 0xfff6dc],
-        chaff: [0xc8e070, 0x9ac04a, 0xfff3d6],
-        unit: L('COBS', 'MAZORCAS'),
-        loot: 0xffd23f,
-        stub: [0x9ac04a, 0x8a7a4a, 0x7ab83a],
+        meadow: true,
+        night: true, // (solo de noche)
+        glow: 0xd8ff5a,
+        glowDark: 0x9ae03a,
+        body: 0x2a2a1e,
+        leaves: [0x4a8a3a, 0x3d7a32, 0x5a9a42],
+        fruit: 0xd8ff5a,
+        burst: [0xd8ff5a, 0xf6ffb0, 0x9ae03a, 0xffffff],
+        chaff: [0xd8ff5a, 0x9ae03a, 0x3d7a32],
+        unit: L('FIREFLIES', 'LUCIÉRNAGAS'),
+        loot: 0xd8ff5a,
+        stub: [0x3d7a32, 0x4a8a3a, 0x5a9a42],
     },
     // Leche: vacas que corren por su prado; cada poco se les hincha la ubre y, llena, un tiro a la
     // ubre da un cubo de leche (cada vaca, uno por partida). Su campo es un prado, no tierra arada
@@ -175,21 +182,27 @@ export const CROPS = {
         loot: 0xffb020,
         stub: [0x6a9a3a, 0xff7ae0, 0xffe03a, 0x5a8a32],
     },
-    // Girasoles: altos, con la cabeza que va girando; solo se le puede dar a una cabeza cuando te
-    // mira (cambiar de torre importa)
+    // Perlas: una piscifactoría (una piscina en medio del campo, con su borde de hormigón) con
+    // almejas en el fondo. Están cerradas y, de vez en cuando, se abren hacia un lado: solo se le
+    // puede dar a la perla con la almeja abierta y de cara a tu torre (cambiar de torre importa).
+    // A ratos nadan a otro sitio dando palmadas con la concha (el id sigue siendo 'sunflower')
     sunflower: {
-        name: L('SUNFLOWERS', 'GIRASOLES'),
+        name: L('PEARLS', 'PERLAS'),
         icon: 'sunflower',
         growTime: 55,
-        stages: [0x6fbf3a, 0x5aa83a, 0x4a9a34, 0x3d8a2c],
-        leaves: [0x5aa83a, 0x4a9a34, 0x3d8a2c],
-        fruit: 0xffd23f,
-        center: 0x6a4020,
-        unripe: 0x9ad04a,
-        burst: [0xffd23f, 0xffe03a, 0x6a4020, 0xfff3d6],
-        chaff: [0xffd23f, 0x3d8a2c, 0x2a1a0e],
-        unit: L('FLOWERS', 'FLORES'),
-        loot: 0xffd23f,
-        stub: [0x4a9a34, 0x3d8a2c, 0x8a7a4a],
+        pond: 3, // (la piscina: a este tanto de la valla)
+        pool: true, // (con borde de hormigón, recta)
+        shell: [0x8a9ab0, 0x7a8aa0, 0x9aa8b8],
+        shellDark: 0x5a6a80,
+        inside: 0xf2c8d0,
+        pearl: 0xfffdf6,
+        closed: [2, 5], // segundos cerrada
+        open: [2.2, 3.8], // segundos abierta
+        swim: 0.3, // de cada vez que se cierra, las que se van nadando a otro sitio
+        fruit: 0xfffdf6,
+        burst: [0xfffdf6, 0xffffff, 0xf2c8d0, 0xc0e4f8],
+        chaff: [0xffffff, 0x9fdcff, 0x5ab4ff],
+        unit: L('PEARLS', 'PERLAS'),
+        loot: 0xfffdf6,
     },
 };

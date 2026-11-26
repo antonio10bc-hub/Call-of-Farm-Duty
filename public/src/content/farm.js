@@ -28,7 +28,7 @@ export const FARM = {
         { id: 'west', rect: [-30, 0, 0, 30], price: 50, field: 'egg', name: L('HEN RUN', 'CORRAL DE GALLINAS') },
         { id: 'east', rect: [30, 0, 60, 30], price: 25, field: 'corn', name: L('EAST PLOT', 'PARCELA ESTE') },
         { id: 'nw', rect: [-30, -30, 0, 0], price: 40, field: 'milk', name: L('NORTH-WEST PLOT', 'PARCELA NOROESTE') },
-        { id: 'sw', rect: [-30, 30, 0, 60], price: 15, field: 'pumpkin', name: L('PUMPKIN PLOT', 'PARCELA DE CALABAZAS') },
+        { id: 'sw', rect: [-30, 30, 0, 60], price: 15, field: 'pumpkin', name: L('GOAT PLOT', 'PARCELA DE LAS CABRAS') },
         // (el desagüe del lago, a la derecha de los cerdos: la laguna del pescador)
         { id: 'south', rect: [0, 30, 30, 60], price: 45, field: 'fish', name: L('FISHING POND', 'LAGUNA DEL PESCADOR') },
         { id: 'se', rect: [30, 30, 60, 60], soon: true },
@@ -38,7 +38,7 @@ export const FARM = {
         // La de la casa (aparcada de momento, la casa personalizable: ver house.hidden) es ahora la
         // pocilga de los cerdos
         { id: 'house', rect: [0, -30, 30, 0], price: 35, field: 'truffle', name: L('PIGSTY', 'POCILGA') },
-        { id: 'east2', rect: [60, 30, 90, 60], price: 55, field: 'sunflower', name: L('SUNFLOWER FIELD', 'CAMPO DE GIRASOLES') },
+        { id: 'east2', rect: [60, 30, 90, 60], price: 55, field: 'sunflower', name: L('POOL PLOT', 'PARCELA DE LA PISCINA') },
     ],
     bounds: { x0: -30, z0: -30, x1: 120, z1: 60 }, // todas las parcelas (en sus coordenadas de siempre)
     // El granero (armamento: rachas de bajas y mejoras del rifle) y su recinto militar, que llena
@@ -132,7 +132,7 @@ export const FARM = {
         {
             id: 'tomato',
             crop: 'tomato',
-            name: L('TOMATO FIELD', 'CAMPO DE TOMATES'),
+            name: L('SILKWORM GROVE', 'GUSANOS DE SEDA'),
             corner: { x: 105, z: 45, center: true }, // crece desde el centro de su parcela
             cost: { wheat: 5, tomato: 3 },
             turrets: { wheat: 40, tomato: 25 },
@@ -152,7 +152,7 @@ export const FARM = {
         {
             id: 'pumpkin',
             crop: 'pumpkin',
-            name: L('PUMPKIN PATCH', 'CAMPO DE CALABAZAS'),
+            name: L('GOAT ROCKS', 'RISCO DE LAS CABRAS'),
             corner: { x: -15, z: 45, center: true }, // crece desde el centro de su parcela (la de abajo de la cañada)
             cost: { wheat: 8, pumpkin: 2 },
             turrets: { wheat: 40, pumpkin: 10 },
@@ -182,11 +182,11 @@ export const FARM = {
                 { w: 28, d: 28, sheaves: 34, arena: 2.4, sign: 0xc8402e },
             ],
         },
-        // Girasoles: debajo de los tomates
+        // Piscifactoría de perlas: debajo de los gusanos de seda
         {
             id: 'sunflower',
             crop: 'sunflower',
-            name: L('SUNFLOWER FIELD', 'CAMPO DE GIRASOLES'),
+            name: L('PEARL FARM', 'PISCIFACTORÍA'),
             corner: { x: 75, z: 45, center: true },
             cost: { wheat: 8, sunflower: 4 },
             turrets: { wheat: 40, sunflower: 16 },
@@ -202,7 +202,7 @@ export const FARM = {
         {
             id: 'corn',
             crop: 'corn',
-            name: L('CORN FIELD', 'CAMPO DE MAÍZ'),
+            name: L('FIREFLY MEADOW', 'PRADO DE LUCIÉRNAGAS'),
             corner: { x: 45, z: 15, center: true },
             cost: { wheat: 6, corn: 5 },
             turrets: { wheat: 40, corn: 30 },

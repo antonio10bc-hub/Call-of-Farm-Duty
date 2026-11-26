@@ -315,7 +315,7 @@ export class MysteryBox {
 
     // ---------- La pistola de rayos: un rayo continuo ----------
     // Sale de la boca hacia donde se apunta (sigue a la mirilla mientras dura) y cada tick s recoge
-    // lo que atraviesa (hasta 3 blancos; las calabazas, golpe a golpe) y abate al alienígena u ovni
+    // lo que atraviesa (hasta 3 blancos; lo que aguanta varios tiros, golpe a golpe) y abate al alienígena u ovni
     // en el que se para. Al acabar, el arma se sobrecalienta (sniper.overheat)
     startBeam(w) {
         this.ray = { w, t: 0, tick: 0, sfx: 0 };
@@ -371,7 +371,7 @@ export class MysteryBox {
             const s = h.sheaf;
             if (s.hp > 0 && (s.hp -= 1) > 0) {
                 sn.damage(s);
-                break; // (la calabaza aún aguanta: para el rayo)
+                break; // (aún aguanta: para el rayo)
             }
             caught.push(s);
         }

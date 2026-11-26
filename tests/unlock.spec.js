@@ -102,7 +102,7 @@ test('parcelas en venta: se compran con el oro del comerciante, se desbloquean c
     await expect(page.locator('#sign-egg')).toHaveText('50');
     await expect(page.locator('#sign-egg')).toHaveClass(/for-sale/);
     await page.evaluate(() => game.select({ field: 'pumpkin' }));
-    await expect(page.locator('#panel-title')).toHaveText('PARCELA DE CALABAZAS');
+    await expect(page.locator('#panel-title')).toHaveText('PARCELA DE LAS CABRAS');
     await expect(page.locator('#action-label')).toHaveText('COMPRAR 15');
     await expect(page.locator('#panel-action')).toBeDisabled();
     await page.evaluate(() => { game.state.items.gold = 20; });

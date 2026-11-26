@@ -19,6 +19,7 @@ import { buildSheep, animateSheep } from '../render/sheep.js';
 import { buildPig, animatePig } from '../render/pig.js';
 import { buildFish, animateFish } from '../render/fish.js';
 import { buildChicken, animateChicken } from '../render/chicken.js';
+import { buildGoat, animateGoat } from '../render/goat.js';
 import { BARNYARD, SLOTS, BarnPiece } from '../render/barnyard.js';
 import { reachAt, FARM, TURRETS, PLACES, toWorld, worldToPlace, inShapeOf, inFieldShape, stretchLocal, floorPlace, worldRect, worldToLocal } from '../content/farm.js';
 
@@ -56,6 +57,7 @@ const rectOf = ([x0, z0, x1, z1]) => ({ x: x0, z: z0, w: x1 - x0, d: z1 - z0 });
 const PASTURE = [0xa8e070, 0x9ad962, 0xb4e67a]; // hierba fresca del prado de las vacas
 const MUD = [0x7a5232, 0x6a4628, 0x8a5e38]; // el barro de la pocilga
 const POND = [0x4aa8e0, 0x3f98d4], SAND = [0xd9c48a, 0xccb67a]; // la laguna del pescador y su orilla
+const POOL = [0x2f88c0, 0x2a7eb4], POOL_RIM = [0xc8c4b8, 0xb8b4a8]; // la piscina de las perlas y su borde
 // La parcela en venta en la que cae un punto (o ninguna)
 const landAt = (x, z) => FARM.lands.find(({ rect: [x0, z0, x1, z1] }) => x >= x0 && x < x1 && z >= z0 && z < z1);
 // Parcela sin comprar: todo más oscuro y frío, como en sombra (se multiplica por esto)
@@ -451,7 +453,9 @@ export class Farm {
 
     // ¿Cae en la laguna del campo v (o en su orilla, m)? En casillas de sus coordenadas de siempre
     inPond(v, x, z, m = 0) {
-        const f = v.rect, R = Math.min(f.w, f.d) * 0.42; // (casi todo el campo)
+        const f = v.rect;
+        if (CROPS[v.crop].pool) return Math.abs(x - f.cx) < f.w * 0.36 + m && Math.abs(z - f.cz) < f.d * 0.36 + m; // (la piscina: recta)
+        const R = Math.min(f.w, f.d) * 0.42; // (casi todo el campo)
         return Math.hypot(x - f.cx, (z - f.cz) * 1.1) + Math.sin(x * 1.3 + z * 0.7) * 0.4 < R + m;
     }
 
@@ -460,7 +464,7 @@ export class Farm {
         const pond = k && k.field && !k.locked && CROPS[this.fields[k.field].crop].pond ? this.fields[k.field] : null;
         const col = k && k.field
             ? (k.locked ? JUNK.ground[mod(c * 7 + r * 5 + mod(c * r, 3), JUNK.ground.length)]
-                : pond && this.inPond(pond, t.c + 0.5, t.r + 0.5) ? POND[(c + r) & 1] : pond && this.inPond(pond, t.c + 0.5, t.r + 0.5, 1) ? SAND[(c + r) & 1] // (la laguna en el centro)
+                : pond && this.inPond(pond, t.c + 0.5, t.r + 0.5) ? (CROPS[pond.crop].pool ? POOL : POND)[(c + r) & 1] : pond && this.inPond(pond, t.c + 0.5, t.r + 0.5, 1) ? (CROPS[pond.crop].pool ? POOL_RIM : SAND)[(c + r) & 1] // (la laguna en el centro, o la piscina)
                 : CROPS[this.fields[k.field].crop].mud ? MUD[mod(c * 3 + r * 5, 3)] : CROPS[this.fields[k.field].crop].pasture || CROPS[this.fields[k.field].crop].meadow ? PASTURE[mod(c * 3 + r * 5, 3)]
                 // (el trigo grande, sobre rastrojo de paja: se lee lleno con menos tallos)
                 : this.fields[k.field].crop === 'wheat' && this.fields[k.field].level >= 2 ? STRAW[(r & 1) + 2 * mod(c * 3 + r, 2)] : theme.soil[r & 1]) // (el prado, de hierba)
@@ -796,7 +800,7 @@ export class Farm {
     }
 
     // Adelantos: en cada terreno aún bloqueado asoman, entre la porquería, unas cuantas plantas de lo
-    // que tendrá (espigas, tomateras, calabazas, maíz). Se van al desbloquearlo
+    // que tendrá (espigas, moreras, rocas con su cabra, luciérnagas...). Se van al desbloquearlo
     // Dónde van las plantas de muestra (antes que lo abandonado, que les deja un claro alrededor
     // para que se vean)
     pickHints() {
@@ -806,8 +810,8 @@ export class Farm {
             if (!v.locked) continue;
             // Bastantes (según el tamaño de la zona) y grandes, para que se vea bien lo que vendrá
             const Z = v.zone, spots = [], want = Math.min(34, Math.max(12, Math.round(Z.w * Z.d * 0.07)));
-            // (la laguna: una sola, grande, en el centro)
-            if (v.crop === 'fish') {
+            // (la laguna o la piscina: una sola, grande, en el centro)
+            if (v.crop === 'fish' || v.crop === 'sunflower') {
                 this.hintBy[v.id] = [[Z.x + Z.w / 2, Z.z + Z.d / 2, 6]];
                 this.hintSpots.push(...this.hintBy[v.id]);
                 continue;
@@ -850,14 +854,22 @@ export class Farm {
                 add(thin, Math.sin(a) * d, h + 0.12, Math.cos(a) * d, 0.1, 0.24, 0.1, 0xf6cf4a);
             }
         } else if (crop === 'tomato') {
-            add(thin, 0.18, 0.5, 0, 0.05, 1.0, 0.05, 0xb07a44);
-            add(solid, 0, 0.28, 0, 0.6, 0.56, 0.55, 0x3d9a34, r);
-            for (const [dx, y, dz] of [[-0.2, 0.42, 0.22], [0.15, 0.55, 0.2], [0.24, 0.3, -0.12]]) add(solid, dx, y, dz, 0.2, 0.2, 0.2, 0xe8352a);
+            // Una morera de muestra con dos capullos de seda colgando
+            add(thin, 0.0, 0.4, 0, 0.08, 0.8, 0.08, 0x8a5a34);
+            add(solid, 0, 0.62, 0, 0.66, 0.4, 0.6, 0x3d9a34, r);
+            for (const [dx, dz] of [[-0.26, 0.24], [0.28, -0.1]]) {
+                add(thin, dx, 0.36, dz, 0.02, 0.14, 0.02, 0xfffdf6);
+                add(solid, dx, 0.18, dz, 0.14, 0.24, 0.14, 0xfaf6ec);
+            }
         } else if (crop === 'pumpkin') {
-            add(solid, 0.3, 0.04, 0.2, 0.6, 0.08, 0.45, 0x4a9a34, r);
-            add(solid, -0.25, 0.04, -0.2, 0.5, 0.08, 0.4, 0x3d8a2c, r + 1);
-            add(solid, 0, 0.24, 0, 0.75, 0.48, 0.64, 0xf08a1e, r);
-            add(solid, 0, 0.53, 0, 0.09, 0.16, 0.09, 0x5a7a2a);
+            // Un montículo de rocas de muestra con su cabra encima
+            const C = CROPS.pumpkin, rx = Math.sin(r), rz = Math.cos(r);
+            add(solid, 0, 0.2, 0, 1.1, 0.4, 0.9, C.rocks[0]);
+            add(solid, 0.1, 0.55, -0.05, 0.7, 0.3, 0.6, C.rocks[2]);
+            add(solid, 0, 0.98, 0, 0.26, 0.24, 0.44, C.coat[0], r);
+            add(solid, rx * 0.26, 1.2, rz * 0.26, 0.16, 0.18, 0.2, C.coat[0], r);
+            add(solid, rx * 0.22, 1.36, rz * 0.22, 0.04, 0.14, 0.04, C.horn, r);
+            for (const [a, b] of [[0.08, 0.14], [-0.08, 0.14], [0.08, -0.14], [-0.08, -0.14]]) add(thin, rx * b + rz * a, 0.78, rz * b - rx * a, 0.06, 0.24, 0.06, C.coat[0]);
         } else if (crop === 'milk') {
             // Una vaca de muestra: cuerpo con su mancha, cabeza, patas y la ubre rosa
             const rx = Math.sin(r), rz = Math.cos(r);
@@ -920,16 +932,26 @@ export class Farm {
             add(solid, 0.4, 1.0, 0.1, 0.16, 0.12, 0.12, 0xffd23f);
             add(solid, 0.4, 0.86, 0.1, 0.1, 0.12, 0.1, 0xffb020);
         } else if (crop === 'sunflower') {
-            add(thin, 0, 1.0, 0, 0.1, 2.0, 0.1, 0x4a9a34);
-            add(solid, 0, 0.9, 0, 0.5, 0.06, 0.14, 0x5aa83a, r);
-            add(solid, 0, 2.05, 0.04, 0.6, 0.6, 0.1, 0xffd23f);
-            add(solid, 0, 2.05, 0.09, 0.3, 0.3, 0.06, 0x6a4020);
+            // La piscina de muestra (una sola, grande): agua honda con su borde de hormigón, una
+            // almeja abierta con su perla y un par de boyas
+            const R = 3;
+            for (let a = -4; a <= 4; a++) for (let b = -3; b <= 3; b++) {
+                const edge = Math.abs(a) > R || Math.abs(b) > R - 1;
+                add(solid, a, edge ? 0.18 : 0.02, b, 1, edge ? 0.36 : 0.04, 1, edge ? POOL_RIM[(a + b) & 1] : POOL[(a + b) & 1]);
+            }
+            const C = CROPS.sunflower;
+            add(solid, 0, 0.1, 0, 0.6, 0.12, 0.5, C.shell[0]);
+            add(solid, 0, 0.32, -0.18, 0.6, 0.12, 0.5, C.shell[1]);
+            add(solid, 0, 0.22, 0.05, 0.18, 0.18, 0.18, C.pearl);
+            for (const [dx, c] of [[-2, 0xe8352a], [1.6, 0xfaf6ec]]) add(solid, dx, 0.16, 1.4, 0.26, 0.22, 0.26, c);
         } else if (crop === 'corn') {
-            add(thin, 0, 0.9, 0, 0.12, 1.8, 0.12, 0x8ab83a);
-            add(thin, 0.35, 0.7, 0.1, 0.1, 1.4, 0.1, 0x7ab83a);
-            add(solid, 0.1, 1.25, 0.08, 0.17, 0.42, 0.17, 0xffd23f);
-            add(solid, 0, 0.95, 0, 0.6, 0.06, 0.14, 0x7ab83a, r);
-            add(solid, 0, 1.4, 0, 0.5, 0.06, 0.12, 0x6aa832, r + 1.4);
+            // Hierba alta de muestra con un par de luciérnagas encima
+            const C = CROPS.corn;
+            for (const [dx, dz, h] of [[0, 0, 0.9], [0.3, 0.2, 0.7], [-0.25, 0.15, 0.6]]) add(thin, dx, h / 2, dz, 0.06, h, 0.12, C.leaves[0]);
+            for (const [dx, y, dz] of [[0.3, 1.1, -0.1], [-0.35, 0.8, 0.3]]) {
+                add(solid, dx, y, dz, 0.12, 0.1, 0.18, C.body);
+                add(solid, dx, y, dz - 0.14, 0.12, 0.12, 0.12, C.glow);
+            }
         }
     }
 
@@ -944,12 +966,13 @@ export class Farm {
 
     // Plantas del campo v. Se conservan las que ya había (por su sitio) y las nuevas brotan.
     //   Trigo: tallos finos (sin contorno, para que se lean a píxel fino) con su espiga.
-    //   Tomate: una mata por casilla con su tutor de madera y dos tomates (verdes hasta madurar).
-    //   Calabaza: una por casilla, tumbada entre dos hojas grandes.
-    //   Maíz: dos por casilla, altas, con su hoja y la mazorca.
+    //   Seda: una morera por casilla con su tronco y dos capullos colgando (blancos al madurar).
+    //   Perlas: almejas en el fondo de la piscina, que se abren y se cierran.
+    //   Luciérnagas: matas de hierba alta y, de noche, las luciérnagas encima.
+    //   (las cabras, como los demás animales: buildHerd)
     buildPlants(v, old = null, fromCenter = false) {
         if (CROPS[v.crop].pasture) return this.buildHerd(v);
-        const f = v.rect, wheat = v.crop === 'wheat', n0 = { wheat: v.level >= 2 ? 1.5 : PER_TILE, corn: 1.4, tomato: 1.3, pumpkin: 1.2, honey: 1.3, sunflower: 1.1 }[v.crop] || 1;
+        const f = v.rect, wheat = v.crop === 'wheat', n0 = { wheat: v.level >= 2 ? 1.5 : PER_TILE, corn: 1.2, tomato: 1.3, honey: 1.3, sunflower: 0.55 }[v.crop] || 1;
         const prev = new Map(v.plants.map((s) => [s.key, s]));
         v.plants = [];
         for (let tx = f.x; tx < f.x + f.w; tx++) for (let tz = f.z; tz < f.z + f.d; tz++) {
@@ -984,6 +1007,8 @@ export class Farm {
                 });
             }
         }
+        // (las almejas, solo dentro de la piscina)
+        if (v.crop === 'sunflower') v.plants = v.plants.filter((p) => this.inPond(v, p.x, p.z, -0.5));
         for (const m of v.meshes) {
             if (m.parent) m.parent.remove(m);
             m.dispose();
@@ -994,18 +1019,6 @@ export class Farm {
             // Tallos y espigas. Las espigas no cambian de color: maduras doradas, con dos tonos
             v.meshes = [this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[0], count)), this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[1], count))];
             v.plants.forEach((s, i) => v.meshes[1].setColorAt(i, _c.setHex(s.tone < 0.5 ? CROPS.wheat.ear : CROPS.wheat.earDark)));
-        } else if (v.crop === 'pumpkin') {
-            // Hojas (2 por planta), la calabaza y su rabo
-            v.meshes = [
-                this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[0], count * 2)),
-                this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[1], count)),
-                this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[2], count)),
-            ];
-            const P = CROPS.pumpkin;
-            v.plants.forEach((s, i) => {
-                for (let k = 0; k < 2; k++) v.meshes[0].setColorAt(i * 2 + k, _c.setHex(P.leaves[(k + i) % 3]).offsetHSL(0, 0, (s.tone - 0.5) * 0.06));
-                v.meshes[2].setColorAt(i, _c.setHex(P.calyx));
-            });
         } else if (v.crop === 'honey') {
             // Colmenas (una de cada tres plantas; las demás, matas de flores): caja, tejadillo y
             // dos flores por planta
@@ -1027,26 +1040,28 @@ export class Farm {
                 }
             });
         } else if (v.crop === 'sunflower') {
-            // Tallo, hojas (2), la cabeza amarilla y su centro
-            v.meshes = [
-                this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[0], count)),
-                this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[1], count * 2)),
-                this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[2], count)),
-                this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[3], count)),
-            ];
+            // Almejas: la concha de abajo, la de arriba (que se abre), su interior rosa y la perla
+            v.meshes = [0, 1, 2, 3].map((k) => this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[k], count)));
+            const C = CROPS.sunflower;
             v.plants.forEach((s, i) => {
-                for (let k = 0; k < 2; k++) v.meshes[1].setColorAt(i * 2 + k, _c.setHex(CROPS.sunflower.leaves[(k + i) % 3]).offsetHSL(0, 0, (s.tone - 0.5) * 0.06));
-                v.meshes[3].setColorAt(i, _c.setHex(CROPS.sunflower.center));
+                for (const k of [0, 1]) v.meshes[k].setColorAt(i, _c.setHex(C.shell[i % C.shell.length]));
+                v.meshes[2].setColorAt(i, _c.setHex(C.inside));
+                v.meshes[3].setColorAt(i, _c.setHex(C.pearl));
             });
         } else if (v.crop === 'corn') {
-            // Caña, hojas (2) y mazorca
+            // Matas de hierba (una por planta y dos briznas largas) y la luciérnaga (que brilla:
+            // sin luz)
+            if (!v.glowMat) v.glowMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
             v.meshes = [
                 this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[0], count)),
                 this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[1], count * 2)),
-                this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[2], count)),
+                this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.glowMat, count)),
             ];
+            const C = CROPS.corn;
             v.plants.forEach((s, i) => {
-                for (let k = 0; k < 2; k++) v.meshes[1].setColorAt(i * 2 + k, _c.setHex(CROPS.corn.leaves[(k + i) % 3]).offsetHSL(0, 0, (s.tone - 0.5) * 0.06));
+                v.meshes[0].setColorAt(i, _c.setHex(C.leaves[i % 3]).offsetHSL(0, 0, (s.tone - 0.5) * 0.06));
+                for (let k = 0; k < 2; k++) v.meshes[1].setColorAt(i * 2 + k, _c.setHex(C.leaves[(k + i + 1) % 3]).offsetHSL(0, 0, (s.tone - 0.5) * 0.06));
+                v.meshes[2].setColorAt(i, _c.setHex(C.glow));
             });
         } else {
             // Hojas (3 bloques por mata), tomates (2) y tutores (1)
@@ -1558,7 +1573,6 @@ export class Farm {
             v.key = key;
             v.fresh = false;
             if (v.crop === 'wheat') this.updateWheat(v, time, p);
-            else if (v.crop === 'pumpkin') this.updatePumpkin(v, time, p);
             else if (v.crop === 'corn') this.updateCorn(v, time, p);
             else if (v.crop === 'honey') this.updateHoney(v, time, p);
             else if (v.crop === 'sunflower') this.updateSunflower(v, time, p);
@@ -1603,8 +1617,8 @@ export class Farm {
         });
     }
 
-    // Matas de tomate: tres bloques de hojas, el tutor y dos tomates que salen verdes y se
-    // ponen rojos al madurar (entonces se ven bien gordos)
+    // Moreras: tres bloques de hojas, el tronco y dos capullos de seda colgando, que salen
+    // verdosos y se ponen blancos al madurar (y dan tirones: el gusano se revuelve dentro)
     updateTomato(v, time, p) {
         const T = CROPS.tomato, [leafMesh, fruitMesh, stakeMesh] = v.meshes;
         const ripe = Math.min(1, Math.max(0, (p - 0.6) / 0.4));
@@ -1619,19 +1633,19 @@ export class Farm {
                 _d.updateMatrix();
                 leafMesh.setMatrixAt(i * 3 + k, _d.matrix);
             });
-            _d.position.set(s.wx - 0.18, 0.6 * h, s.wz - 0.18);
+            _d.position.set(s.wx, 0.3 * h, s.wz);
             _d.rotation.set(0, 0, 0);
-            _d.scale.set(0.05, Math.max(0.0001, 1.2 * h), 0.05);
+            _d.scale.set(0.09, Math.max(0.0001, 0.6 * h), 0.09);
             _d.updateMatrix();
             stakeMesh.setMatrixAt(i, _d.matrix);
-            // Tomates: aparecen al 40% y engordan al madurar
+            // Capullos: aparecen al 40% y engordan al madurar, colgando por debajo de las hojas
             const e = p < 0.4 ? 0.0001 : Math.min(1, (p - 0.4) / 0.2) * (0.6 + 0.4 * ripe) * g;
             _c.setHex(T.unripe).lerp(_c2.setHex(s.tone < 0.5 ? T.fruit : T.fruitDark), ripe);
             for (let k = 0; k < 2; k++) {
-                const a = s.ry + k * Math.PI, y = (0.38 + k * 0.22) * h;
-                _d.position.set(s.wx + Math.sin(a) * 0.24 + Math.sin(sway) * y, y, s.wz + Math.cos(a) * 0.24);
-                _d.rotation.set(0, a, 0);
-                _d.scale.setScalar(Math.max(0.0001, 0.26 * e));
+                const a = s.ry + k * Math.PI, y = (0.2 + k * 0.12) * h, tw = Math.max(0, Math.sin(time * 0.8 + s.ph * 3 + k * 2)) ** 8 * Math.sin(time * 20) * 0.3;
+                _d.position.set(s.wx + Math.sin(a) * 0.34 + Math.sin(sway) * y, y, s.wz + Math.cos(a) * 0.34);
+                _d.rotation.set(0, a, tw);
+                _d.scale.set(Math.max(0.0001, 0.2 * e), Math.max(0.0001, 0.34 * e), Math.max(0.0001, 0.2 * e));
                 _d.updateMatrix();
                 fruitMesh.setMatrixAt(i * 2 + k, _d.matrix);
                 fruitMesh.setColorAt(i * 2 + k, _c);
@@ -1651,13 +1665,98 @@ export class Farm {
         }
         const ink = outline(this.theme.outline);
         while (v.plants.length < n) {
-            const c = v.crop === 'wool' ? buildSheep(ink) : v.crop === 'egg' ? buildChicken(ink) : v.crop === 'truffle' ? buildPig(ink) : buildCow(ink);
+            const c = v.crop === 'wool' ? buildSheep(ink) : v.crop === 'egg' ? buildChicken(ink) : v.crop === 'truffle' ? buildPig(ink) : v.crop === 'pumpkin' ? buildGoat(ink) : buildCow(ink);
             bakeRigid(c.g); // (sus piezas juntas por grupo: se anima igual con muchas menos llamadas)
             c.g.scale.setScalar(0.0001);
             v.herd.add(c.g);
             v.plants.push({ cow: c, x: f.x + 1 + Math.random() * (f.w - 2), z: f.z + 1 + Math.random() * (f.d - 2), ry: Math.random() * 6, goal: null, speed: 0, wait: Math.random() * 3, t0: this.clock + 0.3 + v.plants.length * 0.12 });
         }
+        if (v.crop === 'pumpkin') this.buildRocks(v);
         this.placeBarnyard(v);
+    }
+
+    // El risco de las cabras: montículos de rocas por el campo (más cuanto más grande es) y, en
+    // v.perches, lo alto de cada uno: de ahí a otro saltan las cabras. Se rehace al crecer
+    buildRocks(v) {
+        const f = v.rect, R = CROPS.pumpkin, stones = [];
+        if (v.rocks) for (const m of v.rocks) {
+            m.removeFromParent();
+            m.dispose();
+        }
+        v.perches = [];
+        const n = Math.max(3, Math.min(26, Math.round((f.w * f.d) / 18)));
+        for (let i = 0, tries = 0; v.perches.length < n && tries < 400; tries++) {
+            const x = f.x + 1 + Math.random() * (f.w - 2), z = f.z + 1 + Math.random() * (f.d - 2);
+            if (!this.inField(v, x, z) || v.perches.some((p) => Math.hypot(p.x - x, p.z - z) < 2.2)) continue;
+            let y = 0, w = 0.9 + Math.random() * 0.7, d = 0.8 + Math.random() * 0.7;
+            for (let k = 0, layers = 1 + ((Math.random() * 3) | 0); k < layers; k++) {
+                const h = 0.3 + Math.random() * 0.35;
+                stones.push({ x, z, y: y + h / 2, w, h, d, color: R.rocks[(i + k) % R.rocks.length] });
+                y += h;
+                w *= 0.65;
+                d *= 0.65;
+            }
+            if (Math.random() < 0.4) stones.push({ x, z, y: y + 0.03, w: w * 1.1, h: 0.06, d: d * 1.1, color: R.moss });
+            v.perches.push({ x, z, y });
+            i++;
+        }
+        // (de las piedras, una malla con su contorno; en el mundo, como todo lo de la parcela)
+        const mesh = new THREE.InstancedMesh(box(1, 1, 1), v.rockMat || (v.rockMat = toon(0xffffff)), Math.max(1, stones.length)), hull = new THREE.InstancedMesh(box(1, 1, 1), outline(this.theme.outline), Math.max(1, stones.length));
+        stones.forEach((p, i) => {
+            const w = stretchLocal(p.x, p.z);
+            _d.position.set(w.x, p.y, w.z);
+            _d.rotation.set(0, 0, 0);
+            _d.scale.set(p.w, p.h, p.d);
+            _d.updateMatrix();
+            mesh.setMatrixAt(i, _d.matrix);
+            mesh.setColorAt(i, _c.setHex(p.color));
+            _d.scale.set(p.w + OUTLINE * 2, p.h + OUTLINE * 2, p.d + OUTLINE * 2);
+            _d.updateMatrix();
+            hull.setMatrixAt(i, _d.matrix);
+        });
+        v.rocks = [mesh, hull];
+        v.herd.add(mesh, hull);
+        // (las cabras, cada una a un montículo)
+        v.plants.forEach((s, i) => {
+            s.perch = v.perches[i % v.perches.length];
+            s.jump = null;
+        });
+    }
+
+    // Las cabras del mapa: en lo alto de su montículo dan botes y, cada poco, saltan a otro (a
+    // veces con voltereta)
+    updateGoats(v, dt, time) {
+        for (const s of v.plants) {
+            if (!s.perch) continue;
+            if (!s.jump && (s.wait -= dt) <= 0) {
+                const near = v.perches.filter((p) => p !== s.perch && Math.hypot(p.x - s.perch.x, p.z - s.perch.z) < 6);
+                const to = Math.random() < 0.3 || !near.length ? s.perch : near[(Math.random() * near.length) | 0];
+                const d = Math.hypot(to.x - s.perch.x, to.z - s.perch.z);
+                s.jump = { from: s.perch, to, t: 0, T: 0.4 + d * 0.08, h: 0.5 + d * 0.15, flip: Math.random() < 0.3 ? (Math.random() < 0.5 ? -1 : 1) * Math.PI * 2 : 0 };
+                if (to !== s.perch) s.ry = Math.atan2(to.x - s.perch.x, to.z - s.perch.z);
+            }
+            let x = s.perch.x, y = s.perch.y, z = s.perch.z, air = 0, flip = 0;
+            const J = s.jump;
+            if (J) {
+                J.t += dt;
+                const k = Math.min(1, J.t / J.T);
+                x = J.from.x + (J.to.x - J.from.x) * k;
+                z = J.from.z + (J.to.z - J.from.z) * k;
+                y = J.from.y + (J.to.y - J.from.y) * k + 4 * J.h * k * (1 - k);
+                air = Math.min(1, k * 5, (1 - k) * 5);
+                flip = J.flip * k * k * (3 - 2 * k);
+                if (k >= 1) {
+                    s.perch = J.to;
+                    s.jump = null;
+                    s.wait = 0.6 + Math.random() * 1.4;
+                }
+            }
+            const g = s.cow.g, intro = Math.min(1, Math.max(0, (this.clock - s.t0) / 0.4)), w = stretchLocal(x, z);
+            g.position.set(w.x, y, w.z);
+            g.rotation.y = s.ry;
+            g.scale.setScalar(intro <= 0 ? 0.0001 : 0.7 * easeOutBack(intro));
+            animateGoat(s.cow, dt, time, air, flip);
+        }
     }
 
     // Los edificios del prado (render/barnyard.js): los de su nivel y los de antes, cada uno en su
@@ -1752,6 +1851,7 @@ export class Farm {
 
     updateHerd(v, dt, time, p) {
         if (v.crop === 'fish') return this.updateFishes(v, dt, p >= 1);
+        if (v.crop === 'pumpkin') return this.updateGoats(v, dt, time);
         const f = v.rect;
         for (const s of v.plants) {
             if ((s.wait -= dt) <= 0 && !s.goal) {
@@ -1791,63 +1891,38 @@ export class Farm {
         }
     }
 
-    // Calabazas: dos hojas grandes en el suelo y la calabaza, que sale verde y se pone naranja
-    updatePumpkin(v, time, p) {
-        const P = CROPS.pumpkin, [leafMesh, fruitMesh, stemMesh] = v.meshes;
-        const ripe = Math.min(1, Math.max(0, (p - 0.5) / 0.5));
-        v.plants.forEach((s, i) => {
-            const g = this.grow(s, p), sway = Math.sin(time * 1.2 - s.x * 0.4 + s.ph) * 0.05;
-            for (let k = 0; k < 2; k++) {
-                const a = s.ry + k * 2.2;
-                _d.position.set(s.wx + Math.sin(a) * 0.25 * g, 0.06 * g, s.wz + Math.cos(a) * 0.25 * g);
-                _d.rotation.set(sway, a, 0);
-                _d.scale.set(0.45 * g, Math.max(0.0001, 0.06 * g), 0.4 * g);
-                _d.updateMatrix();
-                leafMesh.setMatrixAt(i * 2 + k, _d.matrix);
-            }
-            const e = p < 0.25 ? 0.0001 : Math.min(1, (p - 0.25) / 0.4) * (0.5 + 0.5 * ripe) * g;
-            _d.position.set(s.wx, 0.22 * e, s.wz);
-            _d.rotation.set(0, s.ry, 0);
-            _d.scale.set(0.62 * e, Math.max(0.0001, 0.44 * e), 0.62 * e);
-            _d.updateMatrix();
-            fruitMesh.setMatrixAt(i, _d.matrix);
-            fruitMesh.setColorAt(i, _c.setHex(P.unripe).lerp(_c2.setHex(s.tone < 0.5 ? P.fruit : P.fruitDark), ripe));
-            _d.position.set(s.wx, 0.46 * e + 0.04, s.wz);
-            _d.scale.set(0.08 * e, Math.max(0.0001, 0.14 * e), 0.08 * e);
-            _d.updateMatrix();
-            stemMesh.setMatrixAt(i, _d.matrix);
-        });
-    }
-
-    // Maíz: cañas altas que se mecen, una hoja y la mazorca (amarilla al madurar)
+    // Prado de luciérnagas: matas de hierba alta que se mecen y, de noche (según madura el campo),
+    // las luciérnagas revoloteando por encima de una de cada tres, encendiéndose y apagándose. De
+    // día no salen
     updateCorn(v, time, p) {
-        const C = CROPS.corn, [stalkMesh, leafMesh, cobMesh] = v.meshes;
-        const ripe = p >= 1, st = ripe ? 3 : p < 0.35 ? 0 : p < 0.7 ? 1 : 2;
+        const C = CROPS.corn, [tuftMesh, bladeMesh, glowMesh] = v.meshes;
+        const dark = Math.min(1, Math.max(0, ((this.nightK || 0) - 0.35) / 0.3)), out = dark * Math.min(1, p * 1.2);
         v.plants.forEach((s, i) => {
-            const h = s.h * 1.7 * this.grow(s, p);
-            const sway = Math.sin(time * 1.3 - s.x * 0.4 - s.z * 0.2 + s.ph * 0.3) * 0.07;
-            _d.position.set(s.wx - Math.sin(sway) * h / 2, Math.cos(sway) * h / 2, s.wz);
-            _d.rotation.set(0, 0, sway);
-            _d.scale.set(0.08, Math.max(0.0001, h), 0.08);
+            const g = this.grow(s, p), h = s.h * 0.8 * g, sway = Math.sin(time * 1.3 - s.x * 0.4 - s.z * 0.2 + s.ph * 0.3) * 0.1;
+            _d.position.set(s.wx, h * 0.2, s.wz);
+            _d.rotation.set(0, s.ry, 0);
+            _d.scale.set(0.32 * g, Math.max(0.0001, h * 0.4), 0.3 * g);
             _d.updateMatrix();
-            stalkMesh.setMatrixAt(i, _d.matrix);
-            stalkMesh.setColorAt(i, _c.setHex(C.stages[st]).offsetHSL(0, 0, (s.tone - 0.5) * 0.08));
+            tuftMesh.setMatrixAt(i, _d.matrix);
             for (let k = 0; k < 2; k++) {
-                const a = s.ry + k * Math.PI, y = h * (0.4 + k * 0.25);
-                _d.position.set(s.wx + Math.sin(a) * 0.14 - Math.sin(sway) * y, y, s.wz + Math.cos(a) * 0.14);
-                _d.rotation.set(0, a, 0.7 * (k ? -1 : 1));
-                _d.scale.set(0.05, Math.max(0.0001, 0.38 * h / 1.6), 0.12);
+                const a = s.ry + k * 2.4, tilt = (k ? -1 : 1) * 0.35 + sway;
+                _d.position.set(s.wx + Math.sin(a) * 0.08 + Math.sin(tilt) * h * 0.4, h * 0.45, s.wz + Math.cos(a) * 0.08);
+                _d.rotation.set(0, a, tilt);
+                _d.scale.set(0.04, Math.max(0.0001, h * 0.9), 0.1);
                 _d.updateMatrix();
-                leafMesh.setMatrixAt(i * 2 + k, _d.matrix);
+                bladeMesh.setMatrixAt(i * 2 + k, _d.matrix);
             }
-            const e = p < 0.6 ? 0.0001 : Math.min(1, (p - 0.6) / 0.4);
-            _d.position.set(s.wx + Math.sin(s.ry) * 0.08 - Math.sin(sway) * h * 0.65, h * 0.65, s.wz + Math.cos(s.ry) * 0.08);
-            _d.rotation.set(0, s.ry, 0.3);
-            _d.scale.set(0.1 * e, Math.max(0.0001, 0.24 * e), 0.1 * e);
+            // La luciérnaga: lazos sobre su mata, a su altura, parpadeando
+            const on = i % 3 === 0 && out > 0.01, blink = Math.max(0, Math.min(1, Math.sin(time * (1.4 + s.tone) + s.ph * 5) * 2 + 1));
+            const e = on ? out * (0.6 + 0.4 * blink) : 0.0001;
+            _d.position.set(s.wx + Math.sin(time * 0.7 + s.ph) * 0.5, 0.9 + s.tone * 0.8 + Math.sin(time * 1.1 + s.ph * 2) * 0.25, s.wz + Math.cos(time * 0.6 + s.ph * 1.3) * 0.5);
+            _d.rotation.set(0, 0, 0);
+            _d.scale.setScalar(Math.max(0.0001, 0.14 * e));
             _d.updateMatrix();
-            cobMesh.setMatrixAt(i, _d.matrix);
-            cobMesh.setColorAt(i, _c.setHex(ripe ? C.fruit : C.unripe));
+            glowMesh.setMatrixAt(i, _d.matrix);
+            glowMesh.setColorAt(i, _c.setHex(C.glowDark).lerp(_c2.setHex(C.glow), blink));
         });
+        if (glowMesh.instanceColor) glowMesh.instanceColor.needsUpdate = true; // (parpadean: cambian de color a cada paso)
     }
 
     // Colmenar: las colmenas (cajas claras con su tejadillo, más llenas de miel al madurar: se
@@ -1885,39 +1960,37 @@ export class Farm {
         });
     }
 
-    // Girasoles: tallos altos con dos hojas y la cabeza (verde al crecer, amarilla madura) que va
-    // girando despacio, siguiendo al sol
+    // Almejas: en el fondo de la piscina, cada una se abre y se cierra a su ritmo hacia su lado;
+    // maduras, con la perla dentro
     updateSunflower(v, time, p) {
-        const C = CROPS.sunflower, [stalkMesh, leafMesh, headMesh, centerMesh] = v.meshes;
-        const ripe = p >= 1, st = ripe ? 3 : p < 0.35 ? 0 : p < 0.7 ? 1 : 2;
+        const [shellMesh, lidMesh, insideMesh, pearlMesh] = v.meshes, ripe = Math.min(1, Math.max(0, (p - 0.6) / 0.4));
         v.plants.forEach((s, i) => {
-            const h = s.h * 1.9 * this.grow(s, p);
-            const sway = Math.sin(time * 1.1 - s.x * 0.3 + s.ph * 0.3) * 0.05;
-            _d.position.set(s.wx - Math.sin(sway) * h / 2, Math.cos(sway) * h / 2, s.wz);
-            _d.rotation.set(0, 0, sway);
-            _d.scale.set(0.09, Math.max(0.0001, h), 0.09);
+            const g = this.grow(s, p), open = Math.max(0, Math.sin(time * (0.5 + s.tone * 0.4) + s.ph * 3)) ** 2 * Math.min(1, p * 1.5), ry = s.ry * 2;
+            _d.position.set(s.wx, 0.06 * g, s.wz);
+            _d.rotation.set(0, ry, 0);
+            _d.scale.set(0.42 * g, Math.max(0.0001, 0.08 * g), 0.36 * g);
             _d.updateMatrix();
-            stalkMesh.setMatrixAt(i, _d.matrix);
-            stalkMesh.setColorAt(i, _c.setHex(C.stages[st]));
-            for (let k = 0; k < 2; k++) {
-                const a = s.ry + k * Math.PI, y = h * (0.35 + k * 0.2);
-                _d.position.set(s.wx + Math.sin(a) * 0.16, y, s.wz + Math.cos(a) * 0.16);
-                _d.rotation.set(0, a, 0.6 * (k ? -1 : 1));
-                _d.scale.set(0.05, Math.max(0.0001, 0.3 * h / 1.8), 0.16);
-                _d.updateMatrix();
-                leafMesh.setMatrixAt(i * 2 + k, _d.matrix);
-            }
-            const e = p < 0.4 ? 0.0001 : Math.min(1, (p - 0.4) / 0.5), yaw = s.ry + time * 0.15;
-            _d.position.set(s.wx - Math.sin(sway) * h, h + 0.05, s.wz);
-            _d.rotation.set(-0.3, yaw, 0);
-            _d.scale.set(0.5 * e, Math.max(0.0001, 0.5 * e), 0.08);
+            shellMesh.setMatrixAt(i, _d.matrix);
+            _d.position.y = 0.105 * g;
+            _d.scale.set(0.34 * g, Math.max(0.0001, 0.02 * g), 0.28 * g);
             _d.updateMatrix();
-            headMesh.setMatrixAt(i, _d.matrix);
-            headMesh.setColorAt(i, _c.setHex(ripe ? C.fruit : C.unripe));
-            _d.translateZ(0.05);
-            _d.scale.set(0.24 * e, Math.max(0.0001, 0.24 * e), 0.06);
+            insideMesh.setMatrixAt(i, _d.matrix);
+            // La de arriba: gira sobre la bisagra de atrás
+            _d.position.set(s.wx, 0.12 * g, s.wz);
+            _d.rotation.set(0, ry, 0);
+            _d.translateZ(-0.18 * g);
+            _d.rotateX(-open * 1.0);
+            _d.translateZ(0.18 * g);
+            _d.translateY(0.035 * g);
+            _d.scale.set(0.43 * g, Math.max(0.0001, 0.07 * g), 0.37 * g);
             _d.updateMatrix();
-            centerMesh.setMatrixAt(i, _d.matrix);
+            lidMesh.setMatrixAt(i, _d.matrix);
+            const e = ripe * Math.min(1, open * 3) * g;
+            _d.position.set(s.wx, 0.17 * g, s.wz);
+            _d.rotation.set(0, ry, 0);
+            _d.scale.setScalar(Math.max(0.0001, 0.12 * e));
+            _d.updateMatrix();
+            pearlMesh.setMatrixAt(i, _d.matrix);
         });
     }
 

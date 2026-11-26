@@ -25,11 +25,11 @@ export const MERCHANTS = [
     { id: 'm3', name: L('THE ICE CREAM MAN', 'EL HELADERO'), fav: 'milk', fav2: 'honey', vehicle: 'icecream', len: 5.4, skin: 0xffb07a, coat: 0xf3ead2, hat: 0xff8ab8, angle: 65, slot: 420, p: 0.55, stay: 210, pay: 1,
         intro: L('ICE CREAM! MADE WITH MILK. FROM COWS. NOT FROM SPACE.', '¡HELADOS! HECHOS CON LECHE. DE VACA. NO DEL ESPACIO.') },
     { id: 'm4', name: L('THE TRUCKER', 'LA CAMIONERA'), fav: 'corn', vehicle: 'truck', len: 6.6, skin: 0xff7ae0, coat: 0x5a6a3a, hat: 0xc8402e, angle: 135, slot: 420, p: 0.55, stay: 210, pay: 1,
-        intro: L('TEN TONS OF CORN, PLEASE. FOR... HUMAN POPCORN.', 'DIEZ TONELADAS DE MAÍZ, POR FAVOR. PARA... PALOMITAS HUMANAS.') },
+        intro: L('TEN JARS OF FIREFLIES, PLEASE. FOR... HUMAN NIGHT LIGHTS.', 'DIEZ TARROS DE LUCIÉRNAGAS, POR FAVOR. PARA... LAMPARITAS HUMANAS.') },
     { id: 'm5', name: L('THE CAMPER', 'EL CAMPISTA'), fav: 'fish', fav2: 'sunflower', vehicle: 'camper', len: 6.0, skin: 0xffe07a, coat: 0x4a8a6a, hat: 0x6a4a2a, angle: -40, slot: 420, p: 0.55, stay: 210, pay: 1,
         intro: L('I LOVE NATURE. AND FISH. RAW FISH. LIKE EVERY HUMAN.', 'ME ENCANTA LA NATURALEZA. Y EL PESCADO. CRUDO. COMO A TODO HUMANO.') },
     { id: 'm6', name: L('THE FAKE FARMER', 'EL FALSO GRANJERO'), fav: 'pumpkin', vehicle: 'tractor', len: 4.4, skin: 0x5ae8c8, coat: 0x8a4a2a, hat: 0xe8c050, angle: 170, slot: 420, p: 0.55, stay: 210, pay: 1,
-        intro: L('HOWDY, FELLOW FARMER! I ALSO FARM. PUMPKINS. ON EARTH.', '¡BUENAS, COLEGA! YO TAMBIÉN SOY GRANJERO. DE CALABAZAS. EN LA TIERRA.') },
+        intro: L('HOWDY, FELLOW FARMER! I ALSO FARM. GOATS. ON EARTH.', '¡BUENAS, COLEGA! YO TAMBIÉN SOY GRANJERO. DE CABRAS. EN LA TIERRA.') },
     { id: 'mother', name: L('THE MOTHERSHIP', 'LA NAVE MADRE'), fav: 'truffle', vehicle: 'mother', len: 0, skin: 0xc8a0ff, coat: 0x4a3a6a, hat: 0x8a5ad8, angle: -115, slot: 1200, p: 0.4, stay: 300, pay: 1.6, mother: true,
         intro: L('GREETINGS FROM... THE VILLAGE. A NORMAL FLOATING VILLAGE.', 'SALUDOS DESDE... EL PUEBLO. UN PUEBLO FLOTANTE NORMAL.') },
 ];

@@ -7,7 +7,7 @@ import { box, toon, outline, OUTLINE } from '../render/materials.js';
 //   board  diana fija sobre dos patas (cerca, medio y lejos)
 //   slide  diana que corre de lado a lado por su raíl
 //   pop    silueta de alien que se levanta y se tumba (solo se le puede dar levantada)
-//   plate  placa de acero: aguanta 3 tiros (como las calabazas)
+//   plate  placa de acero: aguanta 3 tiros (y para la bala)
 // Al darle, la diana cae hacia atrás. mode: 'mix' (de todo), 'fixed', 'moving', 'popup', 'steel'.
 export const RANGE_FX = { burst: [0xfff3d6, 0xe8402e, 0x8a5a2a], chaff: [0xd8c08a, 0xfff3d6] };
 // La línea de tiro: dónde se pone el tirador (de pie: ojo a 1.6 m) y hacia dónde mira

@@ -93,6 +93,7 @@ function applyNight(dt = 1) {
     const nv = mode === 'snipe' && sniper.stats.lens === 'night' && sniper.adsK > 0.6;
     const k = kSmooth * (nv ? 0.15 : 1), d = dSmooth * (nv ? 0.3 : 1), { light, night, dusk } = THEME;
     sniper.nightK = farm.nightK = kSmooth; // (los alienígenas brillan igual)
+    state.night = dayNight.night; // (las luciérnagas solo se recogen de noche)
     if (Math.abs(k - nightApplied) < 0.002 && Math.abs(d - duskApplied) < 0.002) return;
     nightApplied = k;
     duskApplied = d;
@@ -1098,6 +1099,7 @@ function refreshPanel() {
     const what = crop.unit;
     text.textContent = (ready
         ? L(`RIPE! ${f.left} ${what} TO HARVEST.`, `¡MADURO! ${f.left} ${what} PARA RECOGER.`)
+        : p >= 1 && state.waitsNight(id) ? L('THEY ONLY COME OUT AT NIGHT: COME BACK WHEN IT GETS DARK.', 'SOLO SALEN DE NOCHE: VUELVE CUANDO OSCUREZCA.')
         : `${L('GROWING... READY IN', 'CRECIENDO... LISTO EN')} ${fmt((1 - p) * crop.growTime)}`)
         + (!f.turrets ? '' : f.ammo > 0
             ? ` ${L(`THE TURRET HARVESTS IT BY ITSELF (AMMO ${f.ammo}/${TURRETS.ammo}).`, `LA TORRETA LO RECOGE SOLA (MUNICIÓN ${f.ammo}/${TURRETS.ammo}).`)}`
@@ -3486,7 +3488,7 @@ function magicVisit(step) {
 // La llamada del mercader: suena hasta que se contesta; habla, cuelga y viene por primera vez
 const CALL = [
     L('HELLO, NEIGHBOUR! I AM THE MERCHANT. A HUMAN, LIKE YOU. VERY NORMAL.', '¡HOLA, VECINO! SOY EL MERCADER. UN HUMANO, COMO TÚ. MUY NORMAL.'),
-    L('WORD IS YOU GROW SPLENDID TOMATOES.', 'ME HAN DICHO QUE TIENES UNOS TOMATES ESTUPENDOS.'),
+    L('WORD IS YOUR SILKWORMS SPIN SPLENDID SILK.', 'ME HAN DICHO QUE TUS GUSANOS HILAN UNA SEDA ESTUPENDA.'),
     L('I BUY CROPS AT A GOOD PRICE: IN GOLD COINS. REAL GOLD.', 'TE COMPRO LA COSECHA A BUEN PRECIO: EN MONEDAS DE ORO. DE ORO DE VERDAD.'),
     L("I'M ON MY WAY, BY CAR. DROP BY MY STALL WHENEVER YOU LIKE.", 'VOY PARA ALLÁ, EN MI COCHE. PÁSATE POR MI PUESTO CUANDO QUIERAS.'),
 ];

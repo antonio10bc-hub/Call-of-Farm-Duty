@@ -94,7 +94,8 @@ test('debug: DESBLOQUEAR TODO limpia todos los terrenos sin requisitos', { tag: 
     expect(await page.evaluate(() => [game.farm.fields.wheat.locked, game.farm.fields.tomato.locked])).toEqual([false, false]);
     await expect(page.locator('#sign-wheat')).toHaveText('NV.1');
     await expect(page.locator('#sign-tomato')).toHaveText('NV.1');
-    await expect(page.locator('#bubbles .field-sign.ready')).toHaveCount(11); // trigo, tomates, calabazas, maíz, leche, lana, trufas, pescado, huevos, miel y girasoles
+    await expect(page.locator('#bubbles .field-sign.ready')).toHaveCount(10); // trigo, seda, queso, leche, lana, trufas, pescado, huevos, miel y perlas (las luciérnagas, solo de noche: las pruebas van de día)
+    expect(await page.evaluate(() => game.state.waitsNight('corn'))).toBe(true);
     expect(await page.evaluate(() => game.state.lands)).toEqual({ west: true, east: true, nw: true, sw: true, south: true, nw2: true, west2: true, house: true, east2: true });
     await expect(page.locator('#farm-tomato')).toBeVisible();
     expect(errors).toEqual([]);
