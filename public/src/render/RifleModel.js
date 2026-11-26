@@ -13,22 +13,39 @@ export function buildGun(model, g, loadout = DEFAULT_LOADOUT, only = null) {
     const R = arsenalItem('rifle', loadout.rifle).look, S = arsenalItem('scope', loadout.scope).look, M = arsenalItem('mag', loadout.mag).look;
     const len = R.barrel, end = -0.27 - len;
     let bolt = new THREE.Object3D();
+    const type = R.type || 'rifle';
     if (!only || only === 'rifle') {
-        // Culata y empuñadura
-        model.part(g, 0.13, 0.15, 0.36, R.wood, 0, -0.03, 0.26);
-        model.part(g, 0.11, 0.08, 0.18, R.wood2, 0, -0.13, 0.36);
-        // Cajón de los mecanismos y guardamonte
-        model.part(g, 0.12, 0.12, 0.3, R.metal, 0, 0, -0.02);
-        model.part(g, 0.05, 0.08, 0.1, METAL_DARK, 0, -0.1, 0.04, false);
-        if (R.rail) model.part(g, 0.08, 0.03, 0.5, METAL_DARK, 0, 0.075, -0.1, false);
-        // Guardamanos y cañón (largo y grueso según el rifle), con su freno o su brillo
-        model.part(g, 0.11, 0.09, Math.min(0.42, len * 0.6), R.wood, 0, -0.02, -0.17 - Math.min(0.42, len * 0.6) / 2);
-        model.part(g, R.thick, R.thick, len, METAL_DARK, 0, 0.03, -0.27 - len / 2);
-        model.part(g, R.thick * 1.5, R.thick * 1.5, 0.08, R.brake ? METAL : R.metal, 0, 0.03, end);
-        if (R.brake) for (const dz of [0.05, 0.12]) model.part(g, R.thick * 1.9, 0.03, 0.03, METAL_DARK, 0, 0.03, end + dz, false);
-        if (R.glow) for (const dz of [0.15, 0.3, 0.45]) model.part(g, R.thick * 1.25, R.thick * 1.25, 0.04, R.glow, 0, 0.03, -0.27 - dz, false);
-        // Cerrojo con su palanca
-        bolt = model.part(g, 0.14, 0.04, 0.04, BRASS, 0.08, 0.04, 0.06, false);
+        if (type === 'pistol') {
+            // Pistola: corredera, empuñadura y cañón corto (el revólver, con su tambor)
+            model.part(g, 0.1, 0.1, 0.38, R.metal, 0, 0.02, -0.1);
+            model.part(g, 0.09, 0.22, 0.11, R.wood, 0, -0.13, 0.06).rotation.x = -0.18;
+            model.part(g, 0.05, 0.06, 0.08, METAL_DARK, 0, -0.07, -0.04, false);
+            if (R.cylinder) model.part(g, 0.13, 0.12, 0.12, R.wood2, 0, 0.01, -0.02);
+            model.part(g, R.thick, R.thick, len, METAL_DARK, 0, 0.03, -0.29 - len / 2);
+            model.part(g, 0.03, 0.04, 0.03, R.wood2, 0, 0.09, -0.27, false);
+        } else {
+            // Culata (corta en el subfusil) y empuñadura
+            model.part(g, 0.13, 0.15, R.short ? 0.18 : 0.36, R.wood, 0, -0.03, R.short ? 0.17 : 0.26);
+            model.part(g, 0.11, 0.08, 0.18, R.wood2, 0, -0.13, 0.36);
+            // Cajón de los mecanismos y guardamonte
+            model.part(g, 0.12, 0.12, 0.3, R.metal, 0, 0, -0.02);
+            model.part(g, 0.05, 0.08, 0.1, METAL_DARK, 0, -0.1, 0.04, false);
+            if (R.rail) model.part(g, 0.08, 0.03, 0.5, METAL_DARK, 0, 0.075, -0.1, false);
+            if (R.handle) for (const z of [-0.12, 0.08]) model.part(g, 0.04, 0.08, 0.04, METAL_DARK, 0, 0.1, z, false);
+            // Guardamanos y cañón (largo y grueso según el arma), con su freno o su brillo
+            const hg = Math.min(0.42, len * 0.6);
+            if (R.pump) model.part(g, 0.1, 0.08, 0.24, R.wood, 0, -0.06, -0.3 - len * 0.3);
+            else model.part(g, 0.11, 0.09, hg, R.wood, 0, -0.02, -0.17 - hg / 2);
+            for (const x of R.double ? [-R.thick * 0.6, R.thick * 0.6] : [0]) model.part(g, R.thick, R.thick, len, METAL_DARK, x, 0.03, -0.27 - len / 2);
+            if (R.pump) model.part(g, R.thick * 0.8, R.thick * 0.8, len * 0.8, METAL, 0, -0.03, -0.27 - len * 0.4, false); // (el tubo de los cartuchos)
+            if (!R.double) model.part(g, R.thick * 1.5, R.thick * 1.5, 0.08, R.brake ? METAL : R.metal, 0, 0.03, end);
+            if (R.brake) for (const dz of [0.05, 0.12]) model.part(g, R.thick * 1.9, 0.03, 0.03, METAL_DARK, 0, 0.03, end + dz, false);
+            if (R.glow) for (const dz of [0.15, 0.3, 0.45]) model.part(g, R.thick * 1.25, R.thick * 1.25, 0.04, R.glow, 0, 0.03, -0.27 - dz, false);
+            // (el bípode de la ametralladora, abierto bajo el cañón)
+            if (R.bipod) for (const s of [-1, 1]) model.part(g, 0.025, 0.2, 0.025, METAL_DARK, s * 0.05, -0.08, end + 0.12, false).rotation.z = s * 0.3;
+        }
+        // Cerrojo con su palanca (la corredera, en la pistola)
+        bolt = model.part(g, 0.14, 0.04, 0.04, BRASS, type === 'pistol' ? 0.06 : 0.08, 0.04, 0.06, false);
     }
     if (!only || only === 'scope') {
         // Mirilla: tubo con sus anillos (o el punto rojo abierto, o la caja de la nocturna)
@@ -47,7 +64,8 @@ export function buildGun(model, g, loadout = DEFAULT_LOADOUT, only = null) {
     }
     // Cargador: caja, curvo (ampliado), tambor o célula que brilla
     const mag = new THREE.Group();
-    mag.position.set(0, -0.08, -0.06);
+    if (type === 'pistol') mag.position.set(0, -0.12, 0.08);
+    else mag.position.set(0, -0.08, -0.06);
     if (!only || only === 'mag') {
         if (M.drum) {
             model.part(mag, M.w, M.h, M.d, M.color, 0, -M.h / 2, 0);

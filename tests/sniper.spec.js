@@ -363,3 +363,19 @@ test('abejas y almejas: se le dispara a la gota de miel de la abeja; a la perla,
     expect(r).toEqual([false, false, true, true]);
     expect(errors).toEqual([]);
 });
+
+test('armas nuevas: el subfusil dispara solo mientras se mantiene; la escopeta suelta varios perdigones', { tag: '@smoke' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await enterField(page);
+    // Subfusil: mientras se mantiene el gatillo gasta balas; al soltar, no tira otra
+    await page.evaluate(() => { game.sniper.setLoadout({ scope: 'dot', rifle: 'smg', mag: 'drum' }); game.sniper.setAds(true); });
+    await expect.poll(() => page.evaluate(() => game.sniper.stats.size - game.sniper.ammo)).toBeGreaterThanOrEqual(4);
+    const shots = await page.evaluate(() => { game.sniper.release(true); return game.sniper.ammo; });
+    await frames(page, 10);
+    expect(await page.evaluate(() => game.sniper.ammo)).toBe(shots);
+    // Escopeta: un tiro, varias trazadoras (una por perdigón)
+    await page.evaluate(() => game.sniper.setLoadout({ scope: 'std', rifle: 'pump', mag: 'std' }));
+    const n = await page.evaluate(() => { const sn = game.sniper; sn.fire(); return [sn.tracer, ...(sn.pelletTr || [])].filter((t) => t.visible).length; });
+    expect(n).toBe(8);
+    expect(errors).toEqual([]);
+});

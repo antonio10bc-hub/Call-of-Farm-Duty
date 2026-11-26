@@ -300,7 +300,7 @@ export class Sniper {
     giveSpecial(w) {
         this.base = this.base || this.stats;
         this.special = w;
-        this.stats = { ...this.base, zoom: WONDER_ZOOM, ads: 0.15, steady: 0.3, lens: null, bolt: w.rate, size: w.ammo, reload: 0, regen: 0, recoil: w.mode === 'rocket' ? 1.6 : 0.45 };
+        this.stats = { ...this.base, zoom: WONDER_ZOOM, ads: 0.15, steady: 0.3, lens: null, bolt: w.rate, size: w.ammo, reload: 0, regen: 0, auto: false, pellets: 1, range: 80, recoil: w.mode === 'rocket' ? 1.6 : 0.45 };
         this.ammo = w.ammo;
         this.reloadT = this.bolt = 0;
         this.dropT = this.swapT = this.overheat = 0;
@@ -435,6 +435,7 @@ export class Sniper {
         if (this.ks.predator) return on && this.ks.boost(); // el gatillo acelera el misil
         if (on === this.scoped || (on && this.ending >= 0)) return;
         this.scoped = on;
+        this.autoShots = 0;
         this.hooks.sfx.play(on ? 'scopeIn' : 'scopeOut');
     }
 
@@ -444,6 +445,8 @@ export class Sniper {
     release(fire = true) {
         if (this.ks.predator) return false;
         if (!this.scoped) return false;
+        // (las automáticas disparan mientras se mantiene: al soltar, si ya han tirado, solo bajan)
+        if (fire && this.stats.auto && !this.special && this.autoShots > 0) fire = false;
         if (fire && (this.bolt > 0 || this.reloadT > 0 || this.ammo <= 0) && this.ending < 0) {
             this.pending = true;
             return false;
@@ -491,25 +494,27 @@ export class Sniper {
         }
         const { sfx } = this.hooks;
         this.bolt = this.stats.bolt;
+        const auto = this.stats.auto && !this.special, k = auto ? 0.35 : 1; // (las automáticas sacuden menos cada tiro)
+        if (auto) this.autoShots = (this.autoShots || 0) + 1;
         if (this.special) {
             // (sin balas: la tira y vuelve el fusil; con la pistola de rayos, al acabar su rayo)
             if (--this.ammo <= 0) this.dropT = this.special.mode === 'beam' ? this.special.beam + 0.3 : 0.45;
         } else if (!this.unlocking && !Settings.infAmmo && --this.ammo <= 0) setTimeout(() => this.reload(), 1000 * Math.min(0.3, this.stats.bolt)); // (balas infinitas: DEBUG)
         // Retroceso: la vista salta hacia arriba (y un poco de lado) y vuelve con un muelle
-        this.kickV += S.recoil * this.stats.recoil * (this.scoped ? 30 : 22);
+        this.kickV += S.recoil * this.stats.recoil * (this.scoped ? 30 : 22) * (auto ? 0.6 : 1);
         this.kickYaw = (Math.random() - 0.5) * S.recoil * this.stats.recoil * 0.5;
-        this.trauma = Math.min(1, this.trauma + (this.scoped ? 0.2 : 0.35));
+        this.trauma = Math.min(1, this.trauma + (this.scoped ? 0.2 : 0.35) * k);
         // Golpe de zoom (el campo de visión se abre un instante) y la mirilla que se abre
         const heavy = this.stats.recoil >= 1.5;
-        if (Settings.feelOn('feelFov')) this.fovPunch += (this.scoped ? 0.6 * this.stats.recoil : 2.5) * (heavy ? 1.8 : 1);
+        if (Settings.feelOn('feelFov')) this.fovPunch += (this.scoped ? 0.6 * this.stats.recoil : 2.5) * (heavy ? 1.8 : 1) * k;
         if (Settings.feelOn('feelBloom')) this.bloom = 1;
         if (Settings.feelOn('feelShake')) this.shakeUp = 1; // (la sacudida del disparo, hacia arriba)
         // (el cerrojo se mueve y suena al ritmo de su mejora)
         this.rifle.fire(this.special ? 1 : S.boltTime / this.stats.bolt);
-        sfx.play(this.special ? this.special.sfx : 'snipe');
+        sfx.play(this.special ? this.special.sfx : this.stats.sfx || 'snipe');
         // (con los efectos extra, el cerrojo suena en tiempo de juego: va a la par con la pausa del
         // acierto y la cámara lenta; si no, como antes)
-        if (!this.special) {
+        if (!this.special && !auto) {
             if (Settings.fxPlus) this.boltSfxT = 0.32 * (this.stats.bolt / S.boltTime);
             else setTimeout(() => sfx.play('bolt'), 320 * (this.stats.bolt / S.boltTime));
         }
@@ -563,12 +568,33 @@ export class Sniper {
             this.box.launch(this.special, origin, dir, muzzle);
             return true;
         }
-        const hits = this.field.raycast(origin, dir);
+        // Escopeta: varios perdigones, cada uno por su lado del cono (solo suena un fallo)
+        const n = this.stats.pellets || 1;
+        if (n <= 1) return this.shot(origin, dir, muzzle);
+        let any = false;
+        _v.set(1, 0, 0).applyQuaternion(this.camera.quaternion);
+        const right = _v.clone(), up = new THREE.Vector3(0, 1, 0).applyQuaternion(this.camera.quaternion);
+        for (let i = 0; i < n; i++) {
+            const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * Math.tan(this.stats.cone);
+            const d = dir.clone().addScaledVector(right, Math.cos(a) * r).addScaledVector(up, Math.sin(a) * r).normalize();
+            this.quiet = i > 0;
+            any = this.shot(origin, d, muzzle) || any;
+        }
+        this.quiet = false;
+        return any;
+    }
+
+    // Una bala (o un perdigón) desde origin en la dirección dir: lo que atraviesa, lo que la para
+    // y su trazadora. Llega hasta el alcance del arma (range)
+    shot(origin, dir, muzzle) {
+        const { sfx } = this.hooks, R = this.stats.range || 80;
+        const hits = this.field.raycast(origin, dir).filter((h) => h.t <= R);
         hits.length = Math.min(hits.length, this.stats.pierce); // lo que atraviesa este rifle
         // Un alienígena (a pie o en ovni pequeño) en la línea de tiro para la bala: cae él y lo
         // que la bala haya atravesado antes (colateral)
         const ufo = this.flyers.hit(origin, dir), alien = this.walkers.hit(origin, dir), wallT = this.field.wallT ?? Infinity;
         let stop = ufo && (!alien || ufo.t < alien.t) ? ufo : alien;
+        if (stop && stop.t > R) stop = null; // (fuera del alcance)
         // (una roca por delante también: no llega al alienígena)
         if (stop && wallT < stop.t) stop = null;
         // (algo que aguanta varios tiros por delante para la bala: no llega al alienígena)
@@ -599,7 +625,7 @@ export class Sniper {
         }
         if (hits.length) {
             // La bala sigue tras la última mata hasta el suelo
-            const tEnd = Math.min(wallT, dir.y < -1e-3 ? Math.min(80, -origin.y / dir.y) : hits[hits.length - 1].t);
+            const tEnd = Math.min(wallT, dir.y < -1e-3 ? Math.min(R, -origin.y / dir.y) : hits[hits.length - 1].t);
             end = end || origin.clone().addScaledVector(dir, tEnd);
             this.hitStop = S.hitStop * Math.min(3, hits.length);
             this.trauma = Math.min(1, this.trauma + 0.2 * hits.length);
@@ -611,19 +637,19 @@ export class Sniper {
         } else if (solid >= 0) {
             this.hitStop = S.hitStop;
             this.trauma = Math.min(1, this.trauma + 0.15);
-        } else if (wallT < 80) {
+        } else if (wallT < R) {
             // Contra una roca: esquirlas de piedra y polvo
             end = origin.clone().addScaledVector(dir, wallT);
             this.particles.burst(end.x, end.y, end.z, 16, CROPS.pumpkin.rocks, { speed: 2.2, up: 2.6, size: 0.09, ttl: 0.6 });
-            this.hooks.sfx.play('crateHit');
+            if (!this.quiet) this.hooks.sfx.play('crateHit');
         } else {
-            const t = dir.y < -1e-3 ? -origin.y / dir.y : 80;
-            end = origin.clone().addScaledVector(dir, Math.min(t, 80));
-            if (dir.y < -1e-3 && t < 80) {
+            const t = dir.y < -1e-3 ? -origin.y / dir.y : R;
+            end = origin.clone().addScaledVector(dir, Math.min(t, R));
+            if (dir.y < -1e-3 && t < R) {
                 this.particles.burst(end.x, 0.05, end.z, 14, [0x8a5a34, 0xc8c84a, this.theme.dust], { speed: 1.6, up: 2.2, size: 0.08, ttl: 0.5 });
                 this.waves.spawn(end.x, end.z, 0xffffff, 0.7, 0.25);
             }
-            setTimeout(() => sfx.play('miss'), 60);
+            if (!this.quiet) setTimeout(() => sfx.play('miss'), 60);
         }
         this.drawTracer(origin, dir, muzzle, end);
         return hits.length > 0 || solid >= 0;
@@ -778,10 +804,21 @@ export class Sniper {
 
     drawTracer(origin, dir, muzzle, end) {
         const from = this.scoped ? origin.clone().addScaledVector(dir, 1.5).add(_v.set(0, -0.15, 0)) : muzzle;
-        this.tracer.position.copy(from).lerp(end, 0.5);
-        this.tracer.lookAt(end);
-        this.tracer.scale.set(0.03, 0.03, from.distanceTo(end));
-        this.tracer.visible = true;
+        // (los perdigones de la escopeta: cada uno con su trazadora, que comparten material)
+        let tr = this.tracer;
+        if (this.quiet) {
+            this.pelletTr = this.pelletTr || [];
+            tr = this.pelletTr.find((p) => !p.visible);
+            if (!tr) {
+                tr = new THREE.Mesh(this.tracer.geometry, this.tracer.material);
+                this.tracer.parent.add(tr);
+                this.pelletTr.push(tr);
+            }
+        }
+        tr.position.copy(from).lerp(end, 0.5);
+        tr.lookAt(end);
+        tr.scale.set(0.03, 0.03, from.distanceTo(end));
+        tr.visible = true;
         this.tracerT = 0.06;
     }
 
@@ -938,6 +975,8 @@ export class Sniper {
             this.ammo++;
         }
         if (this.pending && this.canFire) this.release(true);
+        // Las automáticas: mientras se mantiene el gatillo, disparan solas al ritmo de su cadencia
+        if (this.stats.auto && !this.special && this.scoped && this.canFire && !this.unlocking && !this.ks.predator && !this.move) this.fire();
 
         // Muelles del retroceso y del aterrizaje
         this.kickV += (-170 * this.kickP - 20 * this.kickV) * rawDt;
@@ -983,7 +1022,10 @@ export class Sniper {
         });
         if (this.tracerT > 0) {
             this.tracerT -= rawDt;
-            if (this.tracerT <= 0) this.tracer.visible = false;
+            if (this.tracerT <= 0) {
+                this.tracer.visible = false;
+                if (this.pelletTr) for (const p of this.pelletTr) p.visible = false;
+            }
         }
         this.particles.update(dt);
         this.particles.sync();

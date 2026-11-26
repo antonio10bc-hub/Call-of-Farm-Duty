@@ -2671,7 +2671,7 @@ const pips = (n) => Array.from({ length: 5 }, (_, i) => `<i class="pip${i < n ? 
 const clampPip = (v) => Math.max(1, Math.min(5, Math.round(v)));
 const GEAR = {
     scope: { title: L('SCOPE', 'MIRILLA'), stats: (x) => [[L('ZOOM', 'ZOOM'), clampPip(S.fov / x.fov / 2.5)], [L('SPEED', 'RAPIDEZ'), clampPip((0.42 - x.ads) / 0.065)], [L('STEADY', 'PULSO'), clampPip((1.35 - x.sway) / 0.18)]] },
-    rifle: { title: L('RIFLE', 'RIFLE'), stats: (x) => [[L('FIRE RATE', 'CADENCIA'), clampPip(1.2 / x.bolt)], [L('PIERCE', 'PERFORA'), [1, 2, 4, 6, 99].indexOf(x.pierce) + 1], [L('DAMAGE', 'DAÑO'), clampPip(x.damage * 2 - 1)]] },
+    rifle: { title: L('WEAPON', 'ARMA'), stats: (x) => [[L('FIRE RATE', 'CADENCIA'), clampPip(1.2 / x.bolt)], [L('PIERCE', 'PERFORA'), x.pierce >= 99 ? 5 : x.pierce >= 6 ? 4 : x.pierce >= 3 ? 3 : x.pierce], [L('DAMAGE', 'DAÑO'), clampPip(x.damage * 2 - 1 + (x.pellets ? 2 : 0))]] },
     mag: { title: L('MAGAZINE', 'CARGADOR'), stats: (x) => [[L('ROUNDS', 'BALAS'), x.size <= 6 ? 1 : x.size <= 10 ? 2 : x.size <= 18 ? 3 : 5], [L('RELOAD', 'RECARGA'), x.regen ? 5 : clampPip((4.1 - x.reload) / 0.75)]] },
 };
 let loEdit = 0;          // la clase que se está editando

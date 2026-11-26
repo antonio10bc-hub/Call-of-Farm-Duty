@@ -12,7 +12,7 @@
 // reverb y el compresor de salida.
 import { Settings } from './Settings.js';
 // Cuánto varía cada sonido al azar (±): los que se repiten mucho
-const VARY = { tink: 0.12, snipe: 0.05, harvest: 0.04, hitmark: 0.05, bolt: 0.04, pop: 0.08, splat: 0.08, wall: 0.06, ui: 0.03, miss: 0.08, turret: 0.06, cluck: 0.1, bleat: 0.12, oink: 0.1, moo: 0.08 };
+const VARY = { tink: 0.12, snipe: 0.05, pistol: 0.06, smg: 0.08, shotgun: 0.05, harvest: 0.04, hitmark: 0.05, bolt: 0.04, pop: 0.08, splat: 0.08, wall: 0.06, ui: 0.03, miss: 0.08, turret: 0.06, cluck: 0.1, bleat: 0.12, oink: 0.1, moo: 0.08 };
 // Notas (Hz) de la escala de la casa: fa mayor (la de la música), para que todo encaje con ella
 const N = { C4: 261.6, D4: 293.7, E4: 329.6, F4: 349.2, G4: 392, A4: 440, Bb4: 466.2, C5: 523.3, D5: 587.3, E5: 659.3, F5: 698.5, G5: 784, A5: 880, Bb5: 932.3, C6: 1046.5, D6: 1174.7, E6: 1318.5, F6: 1396.9, G6: 1568, A6: 1760, C7: 2093 };
 
@@ -370,6 +370,11 @@ export class Sfx {
             // ----- Francotirador -----
             // Disparo: chasquido seco, cuerpo grave y la cola por el valle
             case 'snipe': this.noise(0.08, 0.7, 6000, pan, 0, { type: 'highpass', attack: 0.001 }); this.thud(0.55, pan, 0, 140, 0.32); this.noise(0.4, 0.3, 2200, pan, 0, { attack: 0.002, to: 300 }); if (Settings.feelOn('feelSound')) this.noise(1.1, 0.08, 700, pan, 0.1, { attack: 0.05, to: 200 }); break;
+            // Las otras armas: la pistola (seca y corta), el subfusil (un chasquido rápido, para
+            // repetirlo muchas veces) y la escopeta (estampido grave y ancho, y su corredera)
+            case 'pistol': this.noise(0.05, 0.5, 5500, pan, 0, { type: 'highpass', attack: 0.001 }); this.thud(0.32, pan, 0, 200, 0.18); this.noise(0.2, 0.14, 2500, pan, 0, { attack: 0.002, to: 400 }); break;
+            case 'smg': this.noise(0.035, 0.38, 5000, pan, 0, { type: 'highpass', attack: 0.001 }); this.thud(0.22, pan, 0, 180, 0.1); break;
+            case 'shotgun': this.noise(0.12, 0.8, 4000, pan, 0, { type: 'highpass', attack: 0.001 }); this.thud(0.7, pan, 0, 90, 0.42); this.noise(0.55, 0.32, 1500, pan, 0, { attack: 0.002, to: 200 }); this.noise(0.05, 0.16, 1400, pan, 0.38, { type: 'bandpass', q: 4 }); this.noise(0.05, 0.16, 1000, pan, 0.5, { type: 'bandpass', q: 4 }); break;
             case 'bolt': this.noise(0.03, 0.18, 2600, pan, 0, { type: 'bandpass', q: 5 }); this.noise(0.04, 0.2, 1900, pan, 0.12, { type: 'bandpass', q: 5 }); this.tone('sine', 900, 700, 0.05, 0.04, pan, 0.12); break; // cerrojo: atrás y adelante
             case 'scopeIn': this.swish(0.12, 0.08, 1500, 4000, 0); this.wood(3000, 0.03, 0, 0.1); break;
             case 'scopeOut': this.swish(0.1, 0.06, 3500, 1200, 0); break;
