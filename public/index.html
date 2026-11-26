@@ -31,6 +31,7 @@
             <div class="ld-bar"><i id="ld-fill"></i></div>
         </div>
         <div class="ld-dots"><i></i><i></i><i></i></div>
+        <button id="ld-retry" class="btn ld-retry hidden"></button>
     </div>
     <script>
         (function () {
@@ -49,6 +50,17 @@
                 else document.getElementById('loader').classList.add('done');
             }
             requestAnimationFrame(step);
+            // Si el juego no arranca (p. ej. el navegador guardó una copia rota), al rato sale un
+            // botón que borra las copias guardadas del juego (no la partida) y recarga
+            var retry = document.getElementById('ld-retry');
+            retry.textContent = /^es/i.test(navigator.language || '') ? 'NO CARGA? REINTENTAR' : 'STUCK? RETRY';
+            setTimeout(function () { if (!window.__loaded) retry.classList.remove('hidden'); }, 15000);
+            retry.onclick = function () {
+                var jobs = [];
+                if (window.caches) jobs.push(caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }));
+                if (navigator.serviceWorker) jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); }));
+                Promise.all(jobs).catch(function () {}).then(function () { location.replace(location.pathname + '?r=' + Date.now()); });
+            };
         })();
     </script>
     <canvas id="view"></canvas>

@@ -3739,7 +3739,8 @@ requestAnimationFrame(frame);
 setTimeout(() => (window.__loaded = true), 900);
 
 if ('serviceWorker' in navigator && !/^(localhost|127\.)/.test(location.hostname)) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    // (updateViaCache: el navegador comprueba siempre si hay uno nuevo, sin fiarse de su caché)
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {});
 }
 
 // Para las pruebas (Playwright)

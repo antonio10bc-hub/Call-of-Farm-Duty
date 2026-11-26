@@ -44,12 +44,15 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(fixed ? cacheFirst(req) : networkFirst(req));
 });
 
+// (una página HTML en lugar de un .js o un .css no vale: ni se guarda ni se usa la guardada)
+const isHtml = (res) => (res.headers.get('content-type') || '').includes('text/html');
+
 async function cacheFirst(req) {
     const cache = await caches.open(CACHE);
     const hit = await cache.match(req);
-    if (hit) return hit;
-    const res = await fetch(req);
-    if (res.ok) cache.put(req, res.clone());
+    if (hit && !isHtml(hit)) return hit;
+    const res = await fetch(req, { cache: 'reload' });
+    if (res.ok && !isHtml(res)) cache.put(req, res.clone());
     return res;
 }
 

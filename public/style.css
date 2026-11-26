@@ -415,6 +415,7 @@ html[lang="en"] .toggle.off::after { content: ' OFF'; }
 .ld-dots i:nth-child(2) { animation-delay: .3s; }
 .ld-dots i:nth-child(3) { animation-delay: .6s; }
 @keyframes ldDot { 0%, 60% { opacity: 1; } 61%, 100% { opacity: .15; } }
+.ld-retry { margin-top: 18px; }
 
 /* =====================================================================
    CALL OF FARM DUTY: piezas propias, con el mismo lenguaje que Tank-less
