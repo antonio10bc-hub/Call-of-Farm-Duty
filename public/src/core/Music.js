@@ -20,6 +20,10 @@
 //           carácter por semicorchea: '.' silencio, '0'-'9' grado sobre el acorde, 'a' -1, 'b' -2
 //   drops   gotas de agua sueltas (las de la laguna y la piscifactoría)
 //   dark    siempre como de noche (las luciérnagas)
+//   action  los campos de tiro (con el fusil en la mano): más rápido (tempo), la base del menú muy
+//           por detrás (base: su volumen), la capa propia delante y una batería de acción encima
+//           (bombo, caja, charles y redoble de toms); 1 entera, menos sin bombo ni toms
+//   tempo   pulsos por minuto (la granja, TEMPO); base: volumen del pad y del piano (1 = entero)
 const SCALE = [0, 2, 4, 5, 7, 9, 11];
 const PROG = [0, 5, 3, 4]; // I - vi - IV - V
 const ROOT = 53; // fa
@@ -34,6 +38,7 @@ export class Music {
         this.sfx = sfx;
         this.timer = null;
         this.enabled = true;
+        this.level = 1; // el volumen de la música (Ajustes), 0..1
         this.night = false;
         this.theme = null;
         this.pending = null;
@@ -54,7 +59,7 @@ export class Music {
         // Bus: un filtro (el día abierto, la noche oscura), el volumen y algo de reverb
         this.bus = ctx.createGain();
         this.bus.gain.setValueAtTime(0, ctx.currentTime);
-        this.bus.gain.linearRampToValueAtTime(0.42, ctx.currentTime + 2.5);
+        this.bus.gain.linearRampToValueAtTime(0.42 * this.level, ctx.currentTime + 2.5);
         this.tone = ctx.createBiquadFilter();
         this.tone.type = 'lowpass';
         this.tone.frequency.value = this.cutoff();
@@ -65,6 +70,12 @@ export class Music {
         this.step = 0;
         this.next = ctx.currentTime + 0.1;
         this.timer = setInterval(() => this.tick(), 25);
+    }
+
+    // El volumen de la música (el de Ajustes), suave
+    setLevel(v) {
+        this.level = v;
+        if (this.playing) this.bus.gain.setTargetAtTime(0.42 * v, this.sfx.ctx.currentTime, 0.05);
     }
 
     // Cambia de tema (entra al empezar el compás siguiente)
@@ -111,12 +122,12 @@ export class Music {
     // Programa las notas hasta el segundo until (el juego, poco a poco; scripts/audio.mjs, de golpe
     // para escucharla en un archivo)
     fill(until) {
-        const six = 60 / TEMPO / 4;
         while (this.next < until) {
             if (this.step % 16 === 0 && this.pending) {
                 this.use(this.pending);
                 this.pending = null;
             }
+            const six = 60 / (this.theme.tempo || TEMPO) / 4;
             const swing = this.step % 2 ? SWING * six : 0;
             this.schedule(this.step, this.next + swing, six);
             this.next += six;
@@ -131,35 +142,47 @@ export class Music {
 
     schedule(step, t, six) {
         const th = this.theme, s = step % 16, bar = Math.floor(step / 16) % 4, deg = PROG[bar], night = this.dark();
-        const chord = [deg, deg + 2, deg + 4, deg + 6], barLen = six * 16;
+        const chord = [deg, deg + 2, deg + 4, deg + 6], barLen = six * 16, base = th.base ?? 1, act = th.action || 0;
 
         // Pad: el acorde entero, largo y suave (la cama de todo)
-        if (s === 0) for (const d of chord.slice(0, 3)) this.pad(this.note(d, 1), t, barLen * 1.05, 0.018);
+        if (s === 0) for (const d of chord.slice(0, 3)) this.pad(this.note(d, 1), t, barLen * 1.05, 0.018 * base);
 
         // Bajo (el mismo en todas partes; cambia solo su carácter)
         const B = th.bass || 'walk', root = this.note(deg, -1), fifth = this.note(deg + 4, -1);
         const bn = B === 'soft' ? { 0: root }
             : B === 'bounce' ? { 0: root, 6: root, 8: fifth, 12: root + 12, 14: fifth }
             : B === 'oompah' ? { 0: root, 8: fifth }
+            : B === 'drive' ? { 0: root, 2: root, 4: root, 6: fifth, 8: root, 10: root, 12: root + 12, 14: fifth } // (a corcheas: empuja)
             : { 0: root, 10: fifth };
-        if (bn[s] !== undefined) this.bass(bn[s], t, B === 'soft' ? barLen : B === 'bounce' ? six * 1.6 : six * 6, th.bassInst);
+        if (bn[s] !== undefined) this.bass(bn[s], t, B === 'soft' ? barLen : B === 'bounce' || B === 'drive' ? six * 1.6 : six * 6, th.bassInst);
 
         // Piano eléctrico
         const K = th.keys || 'chords';
-        if (K === 'chords' && s === 0) for (const d of chord) this.keys(this.note(d, 1), t, barLen * 0.9, 0.022);
-        else if (K === 'stab' && (s === 4 || s === 12)) for (const d of chord.slice(0, 3)) this.keys(this.note(d, 1), t, six * 2, 0.026);
-        else if (K === 'arp' && s % 4 === 0) this.keys(this.note(chord[(s / 4) % 4], 1), t, six * 6, 0.03);
+        if (K === 'chords' && s === 0) for (const d of chord) this.keys(this.note(d, 1), t, barLen * 0.9, 0.022 * base);
+        else if (K === 'stab' && (s === 4 || s === 12)) for (const d of chord.slice(0, 3)) this.keys(this.note(d, 1), t, six * 2, 0.026 * base);
+        else if (K === 'arp' && s % 4 === 0) this.keys(this.note(chord[(s / 4) % 4], 1), t, six * 6, 0.03 * base);
 
         // La capa propia del sitio
         const sig = th.sig;
         if (sig && this.motif) {
             const m = this.motif[step % this.motif.length];
-            if (m !== null) this.inst(sig.inst, this.note(deg + m, sig.oct ?? 1), t, six, (sig.vol ?? 1) * (night ? 0.85 : 1));
+            if (m !== null) this.inst(sig.inst, this.note(deg + m, sig.oct ?? 1), t, six, (sig.vol ?? 1) * (night ? 0.85 : 1) * (act ? 1.5 : 1));
         }
         if (th.drops && Math.random() < 0.06) this.drop(t);
 
-        // Percusión (de noche, solo lo más suave)
-        const P = night && th.perc !== 'none' ? 'shaker' : th.perc || 'none';
+        // Batería de acción (los campos de tiro): bombo sincopado, caja en el 2 y el 4, charles a
+        // semicorcheas y, al final de cada vuelta de cuatro compases, un redoble de toms. De noche,
+        // algo más suave (sin quitarla: es la parte de acción)
+        if (act) {
+            const k = (night ? 0.75 : 1) * act, full = act >= 1;
+            if (full && (s === 0 || s === 8 || s === 11)) this.kick(t, 0.2 * k);
+            if (s === 4 || s === 12) this.snare(t, 0.05 * k);
+            this.hiss(t, 0.03, (s % 4 === 2 ? 0.016 : 0.008) * k, 8500);
+            if (full && bar === 3 && s >= 12) this.tom(t, [230, 200, 170, 140][s - 12], 0.1 * k);
+        }
+
+        // Percusión propia del sitio (de noche, solo lo más suave; en los campos de tiro sigue)
+        const P = night && th.perc !== 'none' && !act ? 'shaker' : th.perc || 'none';
         if (P === 'shaker' && s % 2 === 0) this.shaker(t, s % 4 === 0 ? 0.012 : 0.007);
         if (P === 'groove') {
             if (s === 0 || s === 10) this.kick(t, 0.22);
@@ -267,6 +290,25 @@ export class Music {
         src.connect(f).connect(g).connect(this.bus);
         src.start(t, Math.random() * 0.5);
         src.stop(t + dur + 0.05);
+    }
+
+    // Caja: un chasquido con cuerpo (ruido de banda y un golpecito grave)
+    snare(t, vol) {
+        this.hiss(t, 0.14, vol, 1900, 'bandpass', 0.9);
+        this.hiss(t, 0.06, vol * 0.6, 5000);
+        this.tom(t, 190, vol * 1.2, 0.07);
+    }
+
+    tom(t, f, vol, dur = 0.22) {
+        const ctx = this.sfx.ctx, o = ctx.createOscillator(), g = ctx.createGain();
+        o.frequency.setValueAtTime(f, t);
+        o.frequency.exponentialRampToValueAtTime(f * 0.6, t + dur);
+        g.gain.value = 0;
+        g.gain.setValueAtTime(vol, t);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.connect(g).connect(this.bus);
+        o.start(t);
+        o.stop(t + dur + 0.05);
     }
 
     shaker(t, vol) {

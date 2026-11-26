@@ -189,6 +189,29 @@ html, body {
     box-shadow: inset 0 -3px 0 #0e9a40;
 }
 .toggles-col .toggle.off { text-decoration: none; color: #a8957a; background: #e8e4f4; }
+/* Volumen (música y sonido): el nombre, la barra de bloques y el número, en una tarjeta como los
+   interruptores. La barra: un carril de tinta y un tirador cuadrado amarillo */
+.vol-row {
+    display: grid;
+    grid-template-columns: auto 1fr 2.2em;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font);
+    font-size: 13px;
+    padding: 11px 12px 11px 16px;
+    color: var(--ink);
+    background: #fff;
+    border: 3px solid var(--ink);
+    box-shadow: 0 4px 0 var(--ink);
+}
+.vol-row b { text-align: right; font-size: 11px; }
+.vol-row.off { color: #a8957a; background: #e8e4f4; }
+.vol { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; margin: 0; background: transparent; cursor: pointer; touch-action: none; }
+.vol::-webkit-slider-runnable-track { height: 10px; background: linear-gradient(90deg, var(--cyan) var(--k, 50%), #e8e4f4 var(--k, 50%)); border: 3px solid var(--ink); }
+.vol::-moz-range-track { height: 10px; background: #e8e4f4; border: 3px solid var(--ink); }
+.vol::-moz-range-progress { height: 10px; background: var(--cyan); }
+.vol::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 22px; margin-top: -9px; background: var(--yellow); border: 3px solid var(--ink); border-radius: 0; box-shadow: 0 3px 0 var(--ink); }
+.vol::-moz-range-thumb { width: 12px; height: 18px; background: var(--yellow); border: 3px solid var(--ink); border-radius: 0; }
 .toggles-col .toggle.off::after { background: #a8957a; box-shadow: inset 0 -3px 0 #5a5478; }
 .set-col { display: flex; flex-direction: column; gap: 12px; width: min(270px, 100%); }
 .set-col .set-btn { width: 100%; font-size: 11px; }

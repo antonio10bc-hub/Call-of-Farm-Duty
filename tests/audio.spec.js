@@ -55,3 +55,23 @@ test('sonido: cada efecto y cada tema de música suenan sin errores y sin satura
     expect(r.music.filter(([, p, switched]) => !(p > 0.003 && p < 1) || !switched).map(([n]) => n)).toEqual([]);
     expect(errors.filter((e) => !e.includes('404'))).toEqual([]); // (el icono de la pestaña, que esta página no tiene)
 });
+
+test('ajustes: la música y el sonido se ajustan con su barra (a 0, apagados) y se recuerdan', { tag: '@full' }, async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto('/?test');
+    await expect.poll(() => page.evaluate(() => !!window.game)).toBe(true);
+    await page.locator('#btn-settings').click();
+    await expect(page.locator('#settings')).toBeVisible();
+    const set = (id, v) => page.locator(`#${id}`).evaluate((el, v) => { el.value = v; el.dispatchEvent(new Event('input')); }, v);
+    await set('vol-music', 4);
+    await set('vol-sfx', 0);
+    await expect(page.locator('#vol-music-n')).toHaveText('4');
+    await expect(page.locator('#vol-sfx').locator('..')).toHaveClass(/off/);
+    const saved = () => page.evaluate(() => { const s = JSON.parse(localStorage.getItem('cofd.settings')); return [s.music, s.musicVol, s.sfx]; });
+    expect(await saved()).toEqual([true, 0.4, false]);
+    // Se recuerdan al volver
+    await page.reload();
+    await expect.poll(() => page.evaluate(() => !!window.game)).toBe(true);
+    expect(await page.evaluate(() => [document.getElementById('vol-music').value, document.getElementById('vol-sfx').value])).toEqual(['4', '0']);
+    expect(errors).toEqual([]);
+});

@@ -415,8 +415,9 @@
     <div id="settings" class="screen settings hidden">
         <h2 class="end-title" data-es="AJUSTES">SETTINGS</h2>
         <div class="toggles toggles-col">
-            <button class="toggle" data-key="music" data-es="MÚSICA">MUSIC</button>
-            <button class="toggle" data-key="sfx" data-es="SONIDO">SOUND</button>
+            <!-- El volumen de la música y de los efectos (a 0, apagados) -->
+            <label class="vol-row"><span data-es="MÚSICA">MUSIC</span><input id="vol-music" class="vol" type="range" min="0" max="10" step="1" aria-label="Music volume" data-es-aria="Volumen de la música"><b id="vol-music-n"></b></label>
+            <label class="vol-row"><span data-es="SONIDO">SOUND</span><input id="vol-sfx" class="vol" type="range" min="0" max="10" step="1" aria-label="Sound volume" data-es-aria="Volumen del sonido"><b id="vol-sfx-n"></b></label>
             <button class="toggle" data-key="vibration" data-es="VIBRACIÓN">VIBRATION</button>
         </div>
         <div class="set-col">

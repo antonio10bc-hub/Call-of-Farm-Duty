@@ -11,7 +11,8 @@ const KEY = 'cofd.settings';
 // startWonder: depuración, se empieza el campo de tiro con esa arma de la caja (null = el fusil)
 // cowsFull: depuración, las vacas salen con la ubre llena (gigantes y botando)
 // noAliens: depuración, sin alienígenas a pie ni ovnis en el campo de tiro
-const DEFAULTS = { music: true, sfx: true, vibration: true, freeCosts: false, freeHome: false, streaks: null, daytime: null, merchant: null, boxFast: false, boxPick: null, startWonder: null, cowsFull: false, noAliens: false, fxPlus: true,
+// musicVol, sfxVol: el volumen de la música y de los efectos (0..1; a 0, apagados: music y sfx)
+const DEFAULTS = { music: true, sfx: true, musicVol: 0.8, sfxVol: 1, vibration: true, freeCosts: false, freeHome: false, streaks: null, daytime: null, merchant: null, boxFast: false, boxPick: null, startWonder: null, cowsFull: false, noAliens: false, fxPlus: true,
     // La sensación del disparo: feel (RESPUESTA DEL DISPARO, todo junto) y cada parte (sonido variado y eco,
     // golpe de zoom, mirilla que se abre, marcas por niveles, vibración, sacudida suave hacia arriba);
     // fxPlus (EFECTOS VISIBLES: fogonazo, casquillo, trozos, cámara lenta)

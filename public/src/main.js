@@ -44,7 +44,8 @@ installPixelSprites();
 
 const sfx = new Sfx();
 const music = new Music(sfx);
-sfx.enabled = Settings.sfx;
+sfx.setLevel(Settings.sfx ? Settings.sfxVol : 0);
+music.setLevel(Settings.musicVol);
 music.enabled = Settings.music;
 
 const canvas = $('view');
@@ -3393,6 +3394,36 @@ tapBtn('btn-reset', () => {
     state.save = () => {};
     location.reload();
 });
+// Volumen de la música y del sonido (Ajustes): de 0 a 10; a 0, apagados. Se oye al moverlo
+for (const [key, vol] of [['music', 'musicVol'], ['sfx', 'sfxVol']]) {
+    const el = $(`vol-${key}`), row = el.parentElement;
+    const show = () => {
+        const n = Number(el.value);
+        $(`vol-${key}-n`).textContent = n;
+        el.style.setProperty('--k', `${n * 10}%`);
+        row.classList.toggle('off', n === 0);
+    };
+    el.value = Settings[key] ? Math.round(Settings[vol] * 10) : 0;
+    show();
+    el.addEventListener('input', () => {
+        const n = Number(el.value), on = n > 0;
+        show();
+        if (on) Settings.set(vol, n / 10);
+        Settings.set(key, on);
+        sfx.unlock();
+        if (key === 'sfx') {
+            sfx.setLevel(on ? n / 10 : 0);
+            sfx.play('tab');
+        } else {
+            music.setLevel(n / 10);
+            music.enabled = on;
+            if (on) startMusic();
+            else music.stop();
+        }
+    });
+    // (que tocarlo no cuente como tocar el mapa)
+    for (const ev of ['pointerdown', 'click']) el.addEventListener(ev, (e) => e.stopPropagation());
+}
 for (const el of document.querySelectorAll('.toggle')) {
     const key = el.dataset.key;
     el.classList.toggle('off', !Settings[key]);

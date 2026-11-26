@@ -21,6 +21,14 @@ export class Sfx {
         this.ctx = null;
         this.volume = volume;
         this.enabled = true; // efectos (la música va aparte, en core/Music.js)
+        this.level = 1; // el volumen de los efectos (Ajustes), 0..1
+    }
+
+    // El volumen de los efectos (el de Ajustes; a 0 no suenan)
+    setLevel(v) {
+        this.level = v;
+        this.enabled = v > 0;
+        if (this.fx) this.fx.gain.setTargetAtTime(v, this.ctx.currentTime, 0.03);
     }
 
     // Los navegadores exigen un gesto del usuario para arrancar el audio. Se llama en cada
@@ -68,6 +76,7 @@ export class Sfx {
         this.verbIn.connect(this.verb).connect(this.master);
         // Los efectos pasan por su propio bus (la música va aparte)
         this.fx = c.createGain();
+        this.fx.gain.value = this.level;
         this.fx.connect(this.master);
         this.fxSend = c.createGain();
         this.fxSend.gain.value = 0.22;
