@@ -14,8 +14,9 @@ const field = (o) => ({ ...ACTION, bass: 'drive', ...o });
 export const THEMES = {
     // La granja: de fondo, sin protagonismo
     farm: t({ keys: 'chords', bass: 'soft', perc: 'shaker', sig: { inst: 'mallet', motif: '4.......2...0...........b.......', oct: 1, vol: 0.7 } }),
-    village: t({ keys: 'stab', bass: 'oompah', perc: 'brush', sig: { inst: 'accordion', motif: '4...4.5.4...2.......2...2.4.2...', oct: 1 } }),
-    well: t({ keys: 'arp', bass: 'soft', perc: 'none', sig: { inst: 'bell', motif: '7.......4.......9...........4...', oct: 2, vol: 0.8 } }),
+    // El pueblo y el pozo: la base del menú por detrás y lo suyo delante (como en los campos)
+    village: t({ base: 0.35, lead: 1.7, keys: 'stab', bass: 'oompah', perc: 'brush', sig: { inst: 'accordion', motif: '4...4.5.4...2.......2...2.4.2...', oct: 1 } }),
+    well: t({ base: 0.4, lead: 1.5, keys: 'arp', bass: 'soft', perc: 'none', sig: { inst: 'bell', motif: '7.......4.......9...........4...', oct: 2, vol: 0.8 } }),
     // Los campos de tiro (por cultivo)
     // Trigo: guitarra arpegiada (el del principio: el más «de granja»)
     wheat: field({ keys: 'none', perc: 'groove', sig: { inst: 'pluck', motif: '0.2.4.2.7.4.2.4.0.2.4.2.7.4.9.7.', oct: 1 } }),

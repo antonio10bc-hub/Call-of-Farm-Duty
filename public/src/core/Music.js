@@ -23,7 +23,8 @@
 //   action  los campos de tiro (con el fusil en la mano): más rápido (tempo), la base del menú muy
 //           por detrás (base: su volumen), la capa propia delante y una batería de acción encima
 //           (bombo, caja, charles y redoble de toms); 1 entera, menos sin bombo ni toms
-//   tempo   pulsos por minuto (la granja, TEMPO); base: volumen del pad y del piano (1 = entero)
+//   tempo   pulsos por minuto (la granja, TEMPO); base: volumen del pad y del piano (1 = entero);
+//           lead: volumen de la capa propia (1 = el de la granja; los campos de tiro, 1.5)
 const SCALE = [0, 2, 4, 5, 7, 9, 11];
 const PROG = [0, 5, 3, 4]; // I - vi - IV - V
 const ROOT = 53; // fa
@@ -166,7 +167,7 @@ export class Music {
         const sig = th.sig;
         if (sig && this.motif) {
             const m = this.motif[step % this.motif.length];
-            if (m !== null) this.inst(sig.inst, this.note(deg + m, sig.oct ?? 1), t, six, (sig.vol ?? 1) * (night ? 0.85 : 1) * (act ? 1.5 : 1));
+            if (m !== null) this.inst(sig.inst, this.note(deg + m, sig.oct ?? 1), t, six, (sig.vol ?? 1) * (night ? 0.85 : 1) * (th.lead ?? (act ? 1.5 : 1)));
         }
         if (th.drops && Math.random() < 0.06) this.drop(t);
 
