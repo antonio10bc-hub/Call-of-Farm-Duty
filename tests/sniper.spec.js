@@ -377,6 +377,15 @@ test('armas nuevas: el subfusil dispara solo mientras se mantiene; la escopeta s
     await page.evaluate(() => { const sn = game.sniper; sn.ammo = sn.stats.size; sn.fire(); sn.trigger = true; });
     await expect.poll(() => page.evaluate(() => game.sniper.stats.size - game.sniper.ammo)).toBeGreaterThanOrEqual(4);
     await page.evaluate(() => (game.sniper.trigger = false));
+    // Punto rojo y sin mirilla: al apuntar no sale el visor de francotirador; se mira a través del arma
+    for (const scope of ['dot', 'none']) {
+        await page.evaluate((scope) => { const sn = game.sniper; sn.release(false); sn.setLoadout({ scope, rifle: 'bolt', mag: 'std' }); sn.setAds(true); }, scope);
+        await expect.poll(() => page.evaluate(() => game.sniper.adsK)).toBe(1);
+        await frames(page, 3);
+        expect(await page.evaluate(() => [game.sniper.tube, game.sniper.rifle.root.visible, document.body.classList.contains('scoped')])).toEqual([false, true, false]);
+        await expect(page.locator('#optic')).toHaveAttribute('data-optic', scope === 'dot' ? 'reflex' : '');
+    }
+    await page.evaluate(() => game.sniper.release(false));
     // Escopeta: un tiro, varias trazadoras (una por perdigón)
     await page.evaluate(() => game.sniper.setLoadout({ scope: 'std', rifle: 'pump', mag: 'std' }));
     const n = await page.evaluate(() => { const sn = game.sniper; sn.fire(); return [sn.tracer, ...(sn.pelletTr || [])].filter((t) => t.visible).length; });

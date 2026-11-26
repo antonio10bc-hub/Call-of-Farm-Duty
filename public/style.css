@@ -1031,6 +1031,15 @@ body.mapview #bubbles .field-sign > span.sign-level:not(.ico):not(.pips) { displ
 .reticle i:nth-child(4) { top: -1px; left: var(--spread); width: 8px; height: 2px; }
 
 body.sniping:not(.scoped) .reticle { display: block; }
+/* La retícula del punto rojo y del ACOG: solo ella, en el centro (el arma hace de marco) */
+.optic { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; display: none; }
+.optic[data-optic='reflex'], .optic[data-optic='acog'] { display: block; }
+body.optic-on .reticle { display: none !important; }
+.optic b { position: absolute; left: -3px; top: -3px; width: 6px; height: 6px; background: #ff3a2a; box-shadow: 0 0 6px 1px rgba(255, 58, 42, 0.7); }
+.optic[data-optic='acog'] b { left: -1px; top: 0; width: 2px; height: 14px; background: #ffa23a; box-shadow: 0 0 4px rgba(255, 162, 58, 0.7); }
+.optic[data-optic='acog'] b::before, .optic[data-optic='acog'] b::after { content: ''; position: absolute; top: -1px; width: 8px; height: 2px; background: #ffa23a; }
+.optic[data-optic='acog'] b::before { right: 1px; transform: rotate(-40deg); transform-origin: right center; }
+.optic[data-optic='acog'] b::after { left: 1px; transform: rotate(40deg); transform-origin: left center; }
 /* Desbloqueo: una sola torre y un solo blanco (el barril) */
 body.unlocking .arrow-btn, body.unlocking .corners, body.unlocking .left-badge { display: none; }
 

@@ -131,7 +131,7 @@ test('armería: en el granero se montan las mirillas, rifles y cargadores, cada 
     await page.locator('#slot-rifle').click();
     await expect(page.locator('#gear-picker')).toBeVisible();
     await expect(page.locator('.gear-row')).toHaveCount(3);
-    await expect(page.locator('.gear')).toHaveCount(15);
+    await expect(page.locator('.gear')).toHaveCount(25);
     for (const id of ['scope-std', 'rifle-bolt', 'mag-std']) await expect(page.locator(`#gear-${id}`)).toHaveClass(/on/);
     // Lo que no es tuyo no se compra (ni con oro: sale del pozo de los deseos); lo que ya tienes
     // se monta (y la lista se cierra)

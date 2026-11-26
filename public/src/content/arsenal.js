@@ -11,6 +11,9 @@ import { L } from '../core/I18n.js';
 //   ads     segundos que tarda en subirse al ojo
 //   sway    vaivén y temblor de la mira (1 = el de antes; menos = más firme)
 //   lens    cómo es la retícula (cross, dot, chevron, mil o night: verde y se ve de noche)
+//   optic   cómo se apunta: tube (de francotirador: el visor tapa la pantalla), reflex (punto
+//           rojo) o acog (visor corto): se mira a través del arma y solo se ve su retícula; iron
+//           (sin mirilla): con el alza y el punto de mira del arma, como las de la caja
 // Rifles:
 //   bolt    segundos entre disparo y disparo
 //   pierce  cuántos blancos atraviesa una bala (colateral)
@@ -28,12 +31,14 @@ import { L } from '../core/I18n.js';
 //   regen   (célula alienígena) sin recargar: una bala nueva cada regen s
 export const ARSENAL = {
     scope: [
+        { id: 'none', price: 0, optic: 'iron', fov: 46, ads: 0.14, sway: 0.5, lens: null, name: L('NO SCOPE', 'SIN MIRILLA'), desc: L('JUST THE GUN: AIM DOWN ITS IRON SIGHTS.', 'SOLO EL ARMA: SE APUNTA CON SU ALZA.'),
+            look: { none: true } },
         { id: 'std', price: 0, fov: 10.5, ads: 0.22, sway: 0.85, lens: 'cross', name: L('STANDARD', 'ESTÁNDAR'), desc: L('A GOOD ALL-ROUNDER.', 'BUENA PARA TODO.'),
             look: { len: 0.44, r: 0.09, body: 0x34373e, ring: 0xd9b04a, glass: 0x9fdcff } },
-        { id: 'dot', price: 8, fov: 24, ads: 0.1, sway: 0.45, lens: 'dot', name: L('RED DOT', 'PUNTO ROJO'), desc: L('LITTLE ZOOM, BUT UP IN A FLASH.', 'POCO ZOOM, PERO SE SUBE AL INSTANTE.'),
+        { id: 'dot', price: 8, optic: 'reflex', fov: 40, ads: 0.1, sway: 0.4, lens: 'dot', name: L('RED DOT', 'PUNTO ROJO'), desc: L('NO ZOOM: JUST A RED DOT. UP IN A FLASH.', 'SIN ZOOM: SOLO UN PUNTO ROJO. SE SUBE AL INSTANTE.'),
             look: { len: 0.16, r: 0.1, body: 0x2a2a2a, ring: 0x2a2a2a, glass: 0xff3a2a, open: true } },
-        { id: 'tac', price: 15, fov: 8.5, ads: 0.18, sway: 0.6, lens: 'chevron', name: L('TACTICAL', 'TÁCTICA'), desc: L('MORE ZOOM AND VERY STEADY.', 'MÁS ZOOM Y MUY FIRME.'),
-            look: { len: 0.36, r: 0.11, body: 0x5a6a3a, ring: 0x3a4a2a, glass: 0x7dff4a } },
+        { id: 'tac', price: 15, optic: 'acog', fov: 24, ads: 0.18, sway: 0.55, lens: 'chevron', name: L('ACOG', 'ACOG'), desc: L('A SHORT SCOPE: SOME ZOOM AND YOU STILL SEE AROUND.', 'VISOR CORTO: ALGO DE ZOOM Y SE SIGUE VIENDO ALREDEDOR.'),
+            look: { len: 0.3, r: 0.11, body: 0x5a6a3a, ring: 0x3a4a2a, glass: 0xffa23a, acog: true } },
         { id: 'long', price: 25, fov: 5.2, ads: 0.36, sway: 1.15, lens: 'mil', name: L('LONG RANGE', 'LARGO ALCANCE'), desc: L('HUGE ZOOM; SLOW AND SHAKY.', 'ZOOM ENORME; LENTA Y TEMBLONA.'),
             look: { len: 0.7, r: 0.12, body: 0x1e2a33, ring: 0xc8c0b0, glass: 0x5aa8ff } },
         { id: 'night', price: 40, fov: 8, ads: 0.24, sway: 0.7, lens: 'night', name: L('NIGHT VISION', 'VISIÓN NOCTURNA'), desc: L('SEES AT NIGHT AS IF IT WERE DAY.', 'DE NOCHE VE COMO SI FUERA DE DÍA.'),
@@ -105,7 +110,7 @@ export const arsenalItem = (kind, id) => ARSENAL[kind].find((x) => x.id === id) 
 export function loadoutStats(loadout = DEFAULT_LOADOUT) {
     const s = arsenalItem('scope', loadout.scope), r = arsenalItem('rifle', loadout.rifle), m = arsenalItem('mag', loadout.mag);
     return {
-        zoom: s.fov, ads: s.ads, steady: s.sway, lens: s.lens,
+        zoom: s.fov, ads: s.ads, steady: s.sway, lens: s.lens, optic: s.optic || 'tube',
         bolt: r.bolt, pierce: r.pierce, damage: r.damage, recoil: r.recoil, hip: r.hip, tracer: r.tracer || 0xfff6dc,
         auto: !!r.auto, pellets: r.pellets || 1, cone: r.cone || 0, range: r.range || 80, sfx: r.sfx || 'snipe',
         size: m.size, reload: m.reload || 0, regen: m.regen || 0,

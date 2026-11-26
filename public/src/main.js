@@ -3070,6 +3070,11 @@ tapBtn('dbg-range', () => { $('debug').classList.add('hidden'); goRange(); });
 // Oro de 100 en 100, y cosechas a 0 (para probar costes)
 tapBtn('dbg-gold-minus', () => { state.items.gold = Math.max(0, state.items.gold - 100); state.save(); updateCounts(); refreshMerchantDbg(); sfx.play('coin'); });
 tapBtn('dbg-gold-plus', () => { state.items.gold = Math.min(99999, state.items.gold + 100); state.save(); updateCounts(); refreshMerchantDbg(); sfx.play('coin'); });
+// Toda la armería de golpe (mirillas, armas y cargadores), sin pasar por el pozo
+tapBtn('btn-arsenal-all', () => {
+    for (const k of ARSENAL_KINDS) for (const it of ARSENAL[k]) if (it.price && !state.ownsGear(k, it.id)) state.arsenal.owned.push(`${k}:${it.id}`);
+    state.save(); updateCounts(); refreshArmory(); sfx.play('tierEpic');
+});
 tapBtn('btn-crops-zero', () => { for (const c of Object.keys(CROPS)) state.items[c] = 0; state.save(); updateCounts(); refreshPanel(); sfx.play('ui'); });
 // Día de mercado (AUTO, SÍ o NO), la sombra que anuncia al elegido y comprobar los logros y el nivel del pueblo
 tapBtn('dbg-market', () => dbgMerchant(() => (MARKET_FORCE.on = TRI[(TRI.indexOf(MARKET_FORCE.on) + 1) % 3])));
@@ -3706,10 +3711,14 @@ function frame(now) {
         for (let left = dt; left > 1e-6; left -= 1 / 20) sniper.update(Math.min(left, 1 / 20));
         // (las armas de la caja no llevan mirilla de francotirador: se apunta con la suya y la
         // mirilla de siempre en el centro)
-        const sniperScope = sniper.scoped && !sniper.special;
+        // (el punto rojo y el ACOG: el arma sube al ojo y solo se ve su retícula, en el centro)
+        const sniperScope = sniper.scoped && sniper.tube, optic = !sniper.special && sniper.stats.optic;
         $('snipe-ui').classList.toggle('scoped', sniperScope);
         document.body.classList.toggle('scoped', sniperScope);
-        scope.show(!sniper.special && sniper.fov < (S.fov + sniper.stats.zoom) * 0.5);
+        const lit = sniper.scoped && (optic === 'reflex' || optic === 'acog') && sniper.adsK > 0.8;
+        document.body.classList.toggle('optic-on', lit);
+        $('optic').dataset.optic = lit ? optic : '';
+        scope.show(sniper.tube && sniper.fov < (S.fov + sniper.stats.zoom) * 0.5);
         if (sniper.stats.lens) scope.setLens(sniper.stats.lens);
         scope.setReady(sniper.canFire);
         updateAmmo();

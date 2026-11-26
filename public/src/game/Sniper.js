@@ -473,6 +473,11 @@ export class Sniper {
         return (hip + settle + turning) * (this.move ? 1 + S.moveSpread : 1);
     }
 
+    // ¿Se apunta con un visor de francotirador (el que tapa la pantalla)?
+    get tube() {
+        return !this.special && this.stats.optic === 'tube';
+    }
+
     get canFire() {
         return this.bolt <= 0 && this.reloadT <= 0 && this.ammo > 0 && this.ending < 0;
     }
@@ -1007,7 +1012,9 @@ export class Sniper {
         this.prevYaw = this.yaw;
         this.prevPitch = this.pitch;
         // La mira tapa el arma cuando está pegada al ojo; guiando el misil, la vista es la suya
-        this.rifle.root.visible = (this.adsK < 0.85 || !!this.special) && !this.ks.predator && !this.hideRifle;
+        // (con el visor de francotirador el arma se oculta al llegar al ojo; con el punto rojo, el
+        // ACOG, sin mirilla o con un arma de la caja, se mira a través de ella)
+        this.rifle.root.visible = (this.adsK < 0.85 || !this.tube) && !this.ks.predator && !this.hideRifle;
         if (this.ks.predator) {
             this.ks.aimCamera(this.camera);
             this.fov = this.camera.fov;

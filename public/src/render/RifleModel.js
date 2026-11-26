@@ -47,13 +47,40 @@ export function buildGun(model, g, loadout = DEFAULT_LOADOUT, only = null) {
         // Cerrojo con su palanca (la corredera, en la pistola)
         bolt = model.part(g, 0.14, 0.04, 0.04, BRASS, type === 'pistol' ? 0.06 : 0.08, 0.04, 0.06, false);
     }
-    if (!only || only === 'scope') {
-        // Mirilla: tubo con sus anillos (o el punto rojo abierto, o la caja de la nocturna)
+    // Altura de lo que se mira al apuntar (el centro de la mirilla, o el alza sin ella)
+    const top = type === 'pistol' ? 0.07 : 0.06;
+    let sight = 0.13;
+    if (S.none) {
+        // Sin mirilla: alza (dos postes con su muesca) atrás y punto de mira en la boca
+        sight = top + 0.045;
+        if (!only || only === 'rifle' || only === 'scope') {
+            const rz = type === 'pistol' ? 0.06 : 0.08, fz = type === 'pistol' ? -0.26 : end + 0.06, bt = type === 'pistol' ? top : 0.03 + R.thick / 2;
+            model.part(g, 0.08, 0.02, 0.03, METAL_DARK, 0, top + 0.01, rz, false);
+            for (const x of [-0.028, 0.028]) model.part(g, 0.022, 0.05, 0.03, METAL_DARK, x, top + 0.035, rz, false);
+            model.part(g, 0.018, sight - bt + 0.005, 0.025, METAL_DARK, 0, (sight + bt) / 2, fz, false);
+        }
+    }
+    if (!S.none && (!only || only === 'scope')) {
+        // Mirilla: tubo con sus anillos; el punto rojo, un marco abierto; el ACOG, un tubo corto
+        // hueco (se mira a través); la nocturna, con su caja
         const sl = S.len, sr = S.r;
         if (S.open) {
-            model.part(g, 0.12, 0.03, 0.14, S.body, 0, 0.08, -0.04);
-            model.part(g, 0.12, 0.12, 0.03, S.body, 0, 0.14, -0.1);
-            model.part(g, 0.06, 0.06, 0.02, S.glass, 0, 0.14, -0.08, false);
+            model.part(g, 0.12, 0.03, 0.16, S.body, 0, 0.08, -0.06);
+            for (const x of [-0.055, 0.055]) model.part(g, 0.02, 0.13, 0.03, S.body, x, 0.145, -0.1);
+            model.part(g, 0.13, 0.02, 0.03, S.body, 0, 0.205, -0.1);
+            model.part(g, 0.02, 0.02, 0.02, S.glass, 0, 0.1, -0.05, false); // (el diodo que enciende el punto)
+        } else if (S.acog) {
+            const zc = -0.08, w = 0.018;
+            for (const s of [-1, 1]) {
+                model.part(g, sr * 2, w, sl, S.body, 0, 0.13 + s * (sr - w / 2), zc);
+                model.part(g, w, sr * 2, sl, S.body, s * (sr - w / 2), 0.13, zc);
+            }
+            for (const z of [zc - sl / 2 + 0.02, zc + sl / 2 - 0.02]) for (const s of [-1, 1]) {
+                model.part(g, sr * 2.3, 0.03, 0.04, S.ring, 0, 0.13 + s * (sr + 0.01), z, false);
+                model.part(g, 0.03, sr * 2.3, 0.04, S.ring, s * (sr + 0.01), 0.13, z, false);
+            }
+            model.part(g, 0.04, 0.04, 0.06, S.glass, 0, 0.13 + sr + 0.04, zc + 0.04, false); // (la fibra que ilumina la retícula)
+            for (const z of [-0.16, 0.04]) model.part(g, 0.04, 0.04, 0.04, METAL, 0, 0.065, z, false);
         } else {
             model.part(g, sr, sr, sl, S.body, 0, 0.13, -0.08);
             for (const z of [-0.08 - sl / 2 + 0.04, -0.08 + sl / 2 - 0.04]) model.part(g, sr * 1.35, sr * 1.35, 0.06, S.ring, 0, 0.13, z);
@@ -61,6 +88,7 @@ export function buildGun(model, g, loadout = DEFAULT_LOADOUT, only = null) {
             if (S.box) model.part(g, 0.08, 0.08, 0.12, S.body, 0.08, 0.15, -0.02);
             for (const z of [-0.16, 0.04]) model.part(g, 0.04, 0.06, 0.04, METAL, 0, 0.08, z, false);
         }
+        if (S.open) sight = 0.145;
     }
     // Cargador: caja, curvo (ampliado), tambor o célula que brilla
     const mag = new THREE.Group();
@@ -77,7 +105,7 @@ export function buildGun(model, g, loadout = DEFAULT_LOADOUT, only = null) {
         }
     }
     g.add(mag);
-    return { mag, bolt, end };
+    return { mag, bolt, end, sight, optic: arsenalItem('scope', loadout.scope).optic || 'tube' };
 }
 
 // Rifle de francotirador voxel en primera persona: va pegado a la cámara, abajo a la derecha.
@@ -116,8 +144,10 @@ export class RifleModel extends VoxelModel {
         // Punta del cañón (de aquí salen las chispas); al apuntar, la mirilla a la altura del ojo
         this.muzzle.position.set(0, 0.03, parts.end - 0.06);
         g.add(this.muzzle);
-        this.adsY = -0.055;
-        this.adsZ = -0.36;
+        // (con el visor de francotirador se oculta al llegar; con las demás se mira a través de
+        // la mirilla o por el alza, un poco más lejos de la cara)
+        this.adsY = -parts.sight * this.root.scale.y - (parts.optic === 'iron' ? 0.006 : 0);
+        this.adsZ = parts.optic === 'tube' ? -0.36 : parts.optic === 'iron' ? -0.58 : -0.62;
         this.adsX = 0;
     }
 
