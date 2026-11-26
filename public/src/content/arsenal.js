@@ -20,6 +20,8 @@ import { L } from '../core/I18n.js';
 //   damage  tiros que quita a lo que aguanta varios (calabazas)
 //   recoil  cuánto salta la vista al disparar (1 = el de antes)
 //   hip     dispersión sin mira (1 = la de antes; menos = mejor a la cadera)
+//   (las que no son rifles: además, girar la vista y la mira recién subida las desvían mucho
+//   menos: la dispersión dura es cosa del francotirador)
 //   auto    automática: dispara sola mientras se mantiene el gatillo (subfusiles, ametralladoras)
 //   pellets perdigones por disparo (escopetas), repartidos en un cono de cone radianes
 //   range   alcance en metros (las escopetas no llegan lejos; sin él, 80)
@@ -56,25 +58,25 @@ export const ARSENAL = {
         { id: 'alien', price: 50, bolt: 0.42, pierce: 6, damage: 2, recoil: 0.5, hip: 0.7, tracer: 0x7dff4a, name: L('ALIEN RIFLE', 'RIFLE ALIENÍGENA'), desc: L('GREEN BOLTS. LIGHT AND DEADLY.', 'RAYOS VERDES. LIGERO Y LETAL.'),
             look: { wood: 0x6a4a9a, wood2: 0x3e2a5e, metal: 0x9aa8b8, barrel: 0.62, thick: 0.08, glow: 0x7dff4a } },
         // Pistolas: rápidas y muy buenas sin mira, pero sin colaterales
-        { id: 'pistol', price: 5, bolt: 0.2, pierce: 1, damage: 1, recoil: 0.45, hip: 0.3, sfx: 'pistol', name: L('PISTOL', 'PISTOLA'), desc: L('LIGHT AND QUICK. GREAT FROM THE HIP.', 'LIGERA Y RÁPIDA. MUY BUENA SIN MIRA.'),
+        { id: 'pistol', price: 5, bolt: 0.2, pierce: 1, damage: 1, recoil: 0.45, hip: 0.18, sfx: 'pistol', name: L('PISTOL', 'PISTOLA'), desc: L('LIGHT AND QUICK. GREAT FROM THE HIP.', 'LIGERA Y RÁPIDA. MUY BUENA SIN MIRA.'),
             look: { type: 'pistol', wood: 0x2a2a2a, wood2: 0x3a3a3a, metal: 0x5c6068, barrel: 0.12, thick: 0.05 } },
-        { id: 'revolver', price: 22, bolt: 0.55, pierce: 3, damage: 2, recoil: 1.4, hip: 0.45, sfx: 'pistol', name: L('MAGNUM', 'MAGNUM'), desc: L('A REVOLVER THAT HITS LIKE A RIFLE.', 'UN REVÓLVER QUE PEGA COMO UN RIFLE.'),
+        { id: 'revolver', price: 22, bolt: 0.55, pierce: 3, damage: 2, recoil: 1.4, hip: 0.25, sfx: 'pistol', name: L('MAGNUM', 'MAGNUM'), desc: L('A REVOLVER THAT HITS LIKE A RIFLE.', 'UN REVÓLVER QUE PEGA COMO UN RIFLE.'),
             look: { type: 'pistol', wood: 0x8a5a2a, wood2: 0x5a3a1a, metal: 0x9aa8b8, barrel: 0.24, thick: 0.06, cylinder: true } },
-        { id: 'golden', price: 45, bolt: 0.3, pierce: 6, damage: 3, recoil: 0.9, hip: 0.3, sfx: 'pistol', tracer: 0xffd84a, name: L('GOLDEN GUN', 'PISTOLA DE ORO'), desc: L('ONE SHOT, A WHOLE ROW.', 'UN TIRO, UNA FILA ENTERA.'),
+        { id: 'golden', price: 45, bolt: 0.3, pierce: 6, damage: 3, recoil: 0.9, hip: 0.15, sfx: 'pistol', tracer: 0xffd84a, name: L('GOLDEN GUN', 'PISTOLA DE ORO'), desc: L('ONE SHOT, A WHOLE ROW.', 'UN TIRO, UNA FILA ENTERA.'),
             look: { type: 'pistol', wood: 0xd9b04a, wood2: 0xb08a2a, metal: 0xffd84a, barrel: 0.2, thick: 0.06 } },
         // Subfusiles y ametralladoras: automáticas (se mantiene el gatillo); gastan mucho cargador
-        { id: 'smg', price: 9, auto: true, bolt: 0.09, pierce: 1, damage: 1, recoil: 0.3, hip: 0.55, sfx: 'smg', name: L('SMG', 'SUBFUSIL'), desc: L('AUTOMATIC: HOLD THE TRIGGER.', 'AUTOMÁTICO: MANTÉN EL GATILLO.'),
+        { id: 'smg', price: 9, auto: true, bolt: 0.09, pierce: 1, damage: 1, recoil: 0.3, hip: 0.28, sfx: 'smg', name: L('SMG', 'SUBFUSIL'), desc: L('AUTOMATIC: HOLD THE TRIGGER.', 'AUTOMÁTICO: MANTÉN EL GATILLO.'),
             look: { type: 'mg', wood: 0x34373e, wood2: 0x2a2a2a, metal: 0x5c6068, barrel: 0.22, thick: 0.05, short: true } },
-        { id: 'assault', price: 18, auto: true, bolt: 0.12, pierce: 2, damage: 1, recoil: 0.4, hip: 0.75, sfx: 'smg', name: L('ASSAULT RIFLE', 'FUSIL DE ASALTO'), desc: L('AUTOMATIC, AND EACH ROUND GOES THROUGH TWO.', 'AUTOMÁTICO, Y CADA BALA ATRAVIESA DOS.'),
+        { id: 'assault', price: 18, auto: true, bolt: 0.12, pierce: 2, damage: 1, recoil: 0.4, hip: 0.38, sfx: 'smg', name: L('ASSAULT RIFLE', 'FUSIL DE ASALTO'), desc: L('AUTOMATIC, AND EACH ROUND GOES THROUGH TWO.', 'AUTOMÁTICO, Y CADA BALA ATRAVIESA DOS.'),
             look: { type: 'mg', wood: 0x8a5a2a, wood2: 0x5a3a1a, metal: 0x4a4a42, barrel: 0.45, thick: 0.06, handle: true } },
-        { id: 'lmg', price: 32, auto: true, bolt: 0.07, pierce: 3, damage: 1, recoil: 0.35, hip: 1.2, sfx: 'smg', name: L('MACHINE GUN', 'AMETRALLADORA'), desc: L('A HAIL OF LEAD. BEST WITH A BIG MAG.', 'UNA LLUVIA DE PLOMO. MEJOR CON UN BUEN CARGADOR.'),
+        { id: 'lmg', price: 32, auto: true, bolt: 0.07, pierce: 3, damage: 1, recoil: 0.35, hip: 0.55, sfx: 'smg', name: L('MACHINE GUN', 'AMETRALLADORA'), desc: L('A HAIL OF LEAD. BEST WITH A BIG MAG.', 'UNA LLUVIA DE PLOMO. MEJOR CON UN BUEN CARGADOR.'),
             look: { type: 'mg', wood: 0x5a6a3a, wood2: 0x3a4a2a, metal: 0x34373e, barrel: 0.75, thick: 0.08, bipod: true, rail: true } },
         // Escopetas: varios perdigones de un tiro, pero de corto alcance
-        { id: 'pump', price: 11, bolt: 0.85, pellets: 8, cone: 0.06, range: 26, pierce: 1, damage: 1, recoil: 1.3, hip: 0.5, sfx: 'shotgun', name: L('PUMP SHOTGUN', 'ESCOPETA DE CORREDERA'), desc: L('A FISTFUL OF PELLETS. SHORT RANGE.', 'UN PUÑADO DE PERDIGONES. CORTO ALCANCE.'),
+        { id: 'pump', price: 11, bolt: 0.85, pellets: 8, cone: 0.06, range: 26, pierce: 1, damage: 1, recoil: 1.3, hip: 0.22, sfx: 'shotgun', name: L('PUMP SHOTGUN', 'ESCOPETA DE CORREDERA'), desc: L('A FISTFUL OF PELLETS. SHORT RANGE.', 'UN PUÑADO DE PERDIGONES. CORTO ALCANCE.'),
             look: { type: 'shotgun', wood: 0xb0703a, wood2: 0x7a4824, metal: 0x34373e, barrel: 0.6, thick: 0.06, pump: true } },
-        { id: 'double', price: 16, bolt: 0.35, pellets: 10, cone: 0.08, range: 20, pierce: 1, damage: 1, recoil: 1.6, hip: 0.55, sfx: 'shotgun', name: L('DOUBLE BARREL', 'DE DOS CAÑONES'), desc: L('THE FARMER\'S FAVOURITE. FAST, VERY CLOSE.', 'LA DEL GRANJERO. RÁPIDA, MUY DE CERCA.'),
+        { id: 'double', price: 16, bolt: 0.35, pellets: 10, cone: 0.08, range: 20, pierce: 1, damage: 1, recoil: 1.6, hip: 0.25, sfx: 'shotgun', name: L('DOUBLE BARREL', 'DE DOS CAÑONES'), desc: L('THE FARMER\'S FAVOURITE. FAST, VERY CLOSE.', 'LA DEL GRANJERO. RÁPIDA, MUY DE CERCA.'),
             look: { type: 'shotgun', wood: 0x8a5a2a, wood2: 0x5a3a1a, metal: 0x5c6068, barrel: 0.55, thick: 0.05, double: true } },
-        { id: 'autoshot', price: 38, auto: true, bolt: 0.28, pellets: 7, cone: 0.06, range: 30, pierce: 2, damage: 1, recoil: 1, hip: 0.6, sfx: 'shotgun', name: L('AUTO SHOTGUN', 'ESCOPETA AUTOMÁTICA'), desc: L('SHOTGUN BLASTS, NON-STOP.', 'ESCOPETAZOS SIN PARAR.'),
+        { id: 'autoshot', price: 38, auto: true, bolt: 0.28, pellets: 7, cone: 0.06, range: 30, pierce: 2, damage: 1, recoil: 1, hip: 0.28, sfx: 'shotgun', name: L('AUTO SHOTGUN', 'ESCOPETA AUTOMÁTICA'), desc: L('SHOTGUN BLASTS, NON-STOP.', 'ESCOPETAZOS SIN PARAR.'),
             look: { type: 'shotgun', wood: 0x34373e, wood2: 0x2a2a2a, metal: 0x4a4a42, barrel: 0.5, thick: 0.07, rail: true } },
     ],
     mag: [
@@ -112,7 +114,7 @@ export function loadoutStats(loadout = DEFAULT_LOADOUT) {
     return {
         zoom: s.fov, ads: s.ads, steady: s.sway, lens: s.lens, optic: s.optic || 'tube',
         bolt: r.bolt, pierce: r.pierce, damage: r.damage, recoil: r.recoil, hip: r.hip, tracer: r.tracer || 0xfff6dc,
-        auto: !!r.auto, pellets: r.pellets || 1, cone: r.cone || 0, range: r.range || 80, sfx: r.sfx || 'snipe',
+        auto: !!r.auto, light: !!r.look.type, pellets: r.pellets || 1, cone: r.cone || 0, range: r.range || 80, sfx: r.sfx || 'snipe',
         size: m.size, reload: m.reload || 0, regen: m.regen || 0,
     };
 }

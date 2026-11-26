@@ -467,9 +467,11 @@ export class Sniper {
     get spread() {
         const k = clamp((this.adsK - 0.4) / (S.adsReady - 0.4), 0, 1);
         const hip = S.hipSpread * this.stats.hip * (1 - k * k * (3 - 2 * k));
-        const steady = this.stats.steady;
-        const settle = (this.adsK >= S.adsReady ? S.settleSpread * this.settle : this.adsK > 0.4 ? S.settleSpread : 0) * steady;
-        const turning = Math.min(S.lookSpreadMax, this.turnSpeed * S.lookSpread);
+        // (pistolas, subfusiles, ametralladoras y escopetas: el giro y la mira recién subida casi no
+        // las desvían; eso es del rifle de francotirador)
+        const steady = this.stats.steady, light = this.stats.light && !this.special ? 0.3 : 1;
+        const settle = (this.adsK >= S.adsReady ? S.settleSpread * this.settle : this.adsK > 0.4 ? S.settleSpread : 0) * steady * light;
+        const turning = Math.min(S.lookSpreadMax, this.turnSpeed * S.lookSpread) * light;
         return (hip + settle + turning) * (this.move ? 1 + S.moveSpread : 1);
     }
 
