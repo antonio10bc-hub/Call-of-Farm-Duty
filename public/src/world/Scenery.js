@@ -111,8 +111,9 @@ const bridges = BRIDGES.map(([u, v]) => {
 export function buildScenery(farm) {
     const W = (list) => list.map((p) => ({ ...p, world: true }));
     const theme = farm.theme;
-    const colored = (list, delay, hull = true) => {
-        const m = hull ? farm.addHulled(0xffffff, W(list), delay) : farm.addAnimated(new THREE.InstancedMesh(box(1, 1, 1), toon(0xffffff), Math.max(1, list.length)), W(list), delay).mesh;
+    // still: el terreno (tierra, agua, caminos, orillas): ya en su sitio al cargar, sin caer
+    const colored = (list, delay, hull = true, still = false) => {
+        const m = hull ? farm.addHulled(0xffffff, W(list), delay, still) : farm.addAnimated(new THREE.InstancedMesh(box(1, 1, 1), toon(0xffffff), Math.max(1, list.length)), W(list), delay, still).mesh;
         list.forEach((p, i) => m.setColorAt(i, new THREE.Color(p.c)));
         return m;
     };
@@ -160,9 +161,9 @@ export function buildScenery(farm) {
         }
         caps.push({ x, y: top - 0.2, z, sx: s, sy: 0.4, sz: s, c });
     }
-    colored(caps, 0.4, false);
-    colored(soil, 0.4, false);
-    colored(water, 0.6, false);
+    colored(caps, 0.4, false, true);
+    colored(soil, 0.4, false, true);
+    colored(water, 0.6, false, true);
     const hm = farm.addHulled(0xffffff, W(hedge), 0.7);
     hedge.forEach((_, i) => hm.setColorAt(i, new THREE.Color(theme.leaves[i % 3])));
     colored(rocks, 0.8);
@@ -217,7 +218,7 @@ export function buildScenery(farm) {
         for (const s of [-1, 1]) rails.push({ x: b.x + cx * 1.15 * s, y: b.y + 0.45, z: b.z - sx * 1.15 * s, sx: 0.14, sy: 0.5, sz: b.len - 1, ry: b.ry });
         for (let t = -b.len / 2 + 1; t <= b.len / 2 - 1; t += 2.5) for (const s of [-1, 1]) rails.push({ x: b.x + sx * t + cx * 1.15 * s, y: b.y - 0.6, z: b.z + cx * t - sx * 1.15 * s, sx: 0.25, sy: 1.6, sz: 0.25, ry: b.ry });
     }
-    colored(road, 0.6, false);
+    colored(road, 0.6, false, true);
     farm.addHulled(0x9a6a3a, W(deck), 0.7);
     farm.addHulled(0x7a4f2a, W(rails), 0.75);
 
@@ -298,7 +299,7 @@ export function buildScenery(farm) {
         for (let t = -30; t < VH + 24; t += step) { edge(o, t, k++); edge(VW - o, t, k++); }
         for (let t = -20; t < VW + 20; t += step) edge(t, VH - o, k++);
     }
-    colored(bank, 1.0);
+    colored(bank, 1.0, true, true);
 
     // ---------- Bosque: por las laderas, el monte bajo, el bosque del mercader y las parcelas sin uso ----------
     const spots = [], lampNear = (x, z) => posts.some((p) => Math.hypot(p.x - x, p.z - z) < 1.6);

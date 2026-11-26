@@ -376,7 +376,7 @@ export class Farm {
                 t.i = i;
                 this.paintTile(mesh, t, i);
             });
-            const e = this.addAnimated(mesh, list.map((t) => ({ x: t.wx, y: t.h + this.tileY(t.k), z: t.wz, sx: t.s, sz: t.s, world: true })));
+            const e = this.addAnimated(mesh, list.map((t) => ({ x: t.wx, y: t.h + this.tileY(t.k), z: t.wz, sx: t.s, sz: t.s, world: true })), 0, true);
             this.cullable(e);
             this.floor.entries.push(e);
             if (old) this.layout(e, this.introT);
@@ -1399,19 +1399,21 @@ export class Farm {
         return out.set(w.x, w.y, w.z);
     }
 
-    addHulled(color, pts, delay = 0) {
+    addHulled(color, pts, delay = 0, still = false) {
         const n = Math.max(1, pts.length);
         const mesh = new THREE.InstancedMesh(box(1, 1, 1), toon(color), n);
         const hull = new THREE.InstancedMesh(box(1, 1, 1), outline(this.theme.outline), n);
-        this.addAnimated(mesh, pts, delay);
-        this.addAnimated(hull, pts.map((p) => ({ ...p, sx: (p.sx || 1) + OUTLINE * 2, sy: (p.sy || 1) + OUTLINE * 2, sz: (p.sz || 1) + OUTLINE * 2 })), delay).hull = true;
+        this.addAnimated(mesh, pts, delay, still);
+        this.addAnimated(hull, pts.map((p) => ({ ...p, sx: (p.sx || 1) + OUTLINE * 2, sy: (p.sy || 1) + OUTLINE * 2, sz: (p.sz || 1) + OUTLINE * 2 })), delay, still).hull = true;
         return mesh;
     }
 
-    addAnimated(mesh, positions, extraDelay = 0) {
+    // still: ya en su sitio desde el primer fotograma, sin caer (el terreno: el suelo no se va
+    // pintando a trozos al cargar, con el mar de nubes asomando por debajo)
+    addAnimated(mesh, positions, extraDelay = 0, still = false) {
         mesh.frustumCulled = false;
         mesh.count = positions.length;
-        const delays = positions.map((p) => Math.min(1.4, Math.hypot(p.x - this.cx, p.z - this.cz) * 0.035) + extraDelay);
+        const delays = positions.map((p) => (still ? -2 : Math.min(1.4, Math.hypot(p.x - this.cx, p.z - this.cz) * 0.035) + extraDelay));
         const entry = { mesh, positions, delays };
         this.animated.push(entry);
         this.root.add(mesh);
