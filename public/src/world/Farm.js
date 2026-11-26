@@ -933,7 +933,7 @@ export class Farm {
             add(solid, 0.4, 0.86, 0.1, 0.1, 0.12, 0.1, 0xffb020);
         } else if (crop === 'sunflower') {
             // La piscina de muestra (una sola, grande): agua honda con su borde de hormigón, una
-            // almeja abierta con su perla y un par de boyas
+            // almeja abierta con su perla
             const R = 3;
             for (let a = -4; a <= 4; a++) for (let b = -3; b <= 3; b++) {
                 const edge = Math.abs(a) > R || Math.abs(b) > R - 1;
@@ -943,7 +943,6 @@ export class Farm {
             add(solid, 0, 0.1, 0, 0.6, 0.12, 0.5, C.shell[0]);
             add(solid, 0, 0.32, -0.18, 0.6, 0.12, 0.5, C.shell[1]);
             add(solid, 0, 0.22, 0.05, 0.18, 0.18, 0.18, C.pearl);
-            for (const [dx, c] of [[-2, 0xe8352a], [1.6, 0xfaf6ec]]) add(solid, dx, 0.16, 1.4, 0.26, 0.22, 0.26, c);
         } else if (crop === 'corn') {
             // Hierba alta de muestra con un par de luciérnagas encima
             const C = CROPS.corn;

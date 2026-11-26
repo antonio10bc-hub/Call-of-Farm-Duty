@@ -2,12 +2,11 @@ import * as THREE from 'three';
 import { box, toon, outline, OUTLINE } from '../render/materials.js';
 import { CROPS } from '../content/crops.js';
 
-// La piscifactoría de perlas (el campo de tiro de las perlas): una piscina en medio del campo, con
-// su muro de hormigón y el agua por encima, boyas de las cuerdas del criadero y almejas en el
-// fondo. Cada almeja está cerrada y, de vez en cuando, se abre hacia un lado: solo se le puede dar
-// a la perla abierta y de cara a tu torre (hittable, con el ojo del tirador). A ratos se van
-// nadando a otro sitio a palmadas, soltando burbujas (onBubble). Al darle, la perla salta y la
-// almeja se cierra y se hunde.
+// La piscifactoría de perlas (el campo de tiro de las perlas): una balsa en medio del campo, con
+// su muro de hormigón y el agua por encima, y almejas en el fondo. Cada almeja está cerrada y, de
+// vez en cuando, se abre hacia un lado: solo se le puede dar a la perla abierta y de cara a tu
+// torre (hittable, con el ojo del tirador). A ratos se van nadando a otro sitio a palmadas,
+// soltando burbujas (onBubble). Al darle, la perla salta y la almeja se cierra y se hunde.
 const _d = new THREE.Object3D();
 const _v = new THREE.Vector3();
 const r = (a) => a[0] + Math.random() * (a[1] - a[0]);
@@ -21,7 +20,6 @@ export class Clams {
         this.list = [];
         this.decor = [];
         this.meshes = [];
-        this.buoys = [];
     }
 
     mat(c) {
@@ -94,22 +92,6 @@ export class Clams {
             this.root.add(m);
             this.meshes.push(m);
         }
-        // Las cuerdas del criadero, con sus boyas (rojas y blancas), cruzando la piscina
-        if (water.length) {
-            const zs = water.map((p) => p.z), z0 = Math.min(...zs), z1 = Math.max(...zs), lines = Math.max(1, Math.min(2, Math.round((z1 - z0) / 7)));
-            for (let k = 1; k <= lines; k++) {
-                const z = z0 + ((z1 - z0) * k) / (lines + 1), row = water.filter((p) => Math.abs(p.z - z) < 0.5).map((p) => p.x);
-                if (!row.length) continue;
-                for (let x = Math.min(...row); x <= Math.max(...row); x += 2.6) {
-                    const g = new THREE.Group();
-                    this.part(g, 0.3, 0.26, 0.3, this.buoys.length % 2 ? 0xfaf6ec : 0xe8352a, 0, 0, 0);
-                    g.position.set(x, 0.48, z);
-                    this.root.add(g);
-                    this.decor.push(g);
-                    this.buoys.push({ g, ph: Math.random() * 6.3 });
-                }
-            }
-        }
         for (let i = 0; i < count; i++) {
             const at = this.spot(), c = this.clam(i);
             const s = { kind: 'clam', mod: this, clam: c, cx: at.x, cz: at.z, x: at.x, y: 0.3, z: at.z, hb: [0.3, 0.3, 0.3], ry: Math.random() * Math.PI * 2,
@@ -145,7 +127,6 @@ export class Clams {
 
     update(dt, time) {
         const C = CROPS.sunflower;
-        for (const b of this.buoys) b.g.position.y = 0.48 + Math.sin(time * 1.6 + b.ph) * 0.04;
         for (const s of this.list) {
             const c = s.clam;
             c.g.visible = !s.gone && s.sink < 1;
@@ -220,6 +201,5 @@ export class Clams {
         this.meshes = [];
         this.list.length = 0;
         this.decor.length = 0;
-        this.buoys.length = 0;
     }
 }
