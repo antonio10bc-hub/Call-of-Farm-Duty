@@ -1736,8 +1736,10 @@ addEventListener('mousedown', (e) => {
     lockMouse();
     if (e.button === 2) sniper.setAds(true);
     else if (e.button === 0) {
-        if (locked()) sniper.fire();
-        else touch = { id: 'mouse', mouse: true, lx: e.clientX, ly: e.clientY };
+        if (locked()) {
+            sniper.fire();
+            sniper.trigger = true; // (mantenido: las automáticas siguen disparando desde la cadera)
+        } else touch = { id: 'mouse', mouse: true, lx: e.clientX, ly: e.clientY };
     }
 });
 addEventListener('mousemove', (e) => {
@@ -1748,6 +1750,7 @@ addEventListener('mousemove', (e) => {
     }
 });
 addEventListener('mouseup', (e) => {
+    if (e.button === 0) sniper.trigger = false;
     if (e.button === 0 && touch && touch.mouse) touch = null;
     if (mode === 'snipe' && e.button === 2 && sniper.scoped) sniper.release(true);
 });
@@ -1879,6 +1882,7 @@ function pollPad(dt) {
         if (down(6)) sniper.setAds(true);
         if (up(6)) sniper.release(true);
         if (down(7) || down(0)) sniper.fire();
+        sniper.trigger = !!(pressed(7) || pressed(0));
         if (down(1)) sniper.scoped ? sniper.release(false) : goFarm();
         if (down(4) || down(14)) sniper.goSide(-1);
         if (down(5) || down(15)) sniper.goSide(1);

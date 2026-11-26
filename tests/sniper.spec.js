@@ -373,6 +373,10 @@ test('armas nuevas: el subfusil dispara solo mientras se mantiene; la escopeta s
     const shots = await page.evaluate(() => { game.sniper.release(true); return game.sniper.ammo; });
     await frames(page, 10);
     expect(await page.evaluate(() => game.sniper.ammo)).toBe(shots);
+    // Desde la cadera, con el gatillo mantenido, también sigue disparando
+    await page.evaluate(() => { const sn = game.sniper; sn.ammo = sn.stats.size; sn.fire(); sn.trigger = true; });
+    await expect.poll(() => page.evaluate(() => game.sniper.stats.size - game.sniper.ammo)).toBeGreaterThanOrEqual(4);
+    await page.evaluate(() => (game.sniper.trigger = false));
     // Escopeta: un tiro, varias trazadoras (una por perdigón)
     await page.evaluate(() => game.sniper.setLoadout({ scope: 'std', rifle: 'pump', mag: 'std' }));
     const n = await page.evaluate(() => { const sn = game.sniper; sn.fire(); return [sn.tracer, ...(sn.pelletTr || [])].filter((t) => t.visible).length; });

@@ -219,6 +219,7 @@ export class Sniper {
     enter(what) {
         this.setArena(what.arena || 1);
         this.special = this.base = null;
+        this.trigger = false; // (el gatillo mantenido desde la cadera)
         this.dropT = this.swapT = this.overheat = 0;
         this.practice = !!what.practice;
         this.practiceCount = what.count;
@@ -975,8 +976,9 @@ export class Sniper {
             this.ammo++;
         }
         if (this.pending && this.canFire) this.release(true);
-        // Las automáticas: mientras se mantiene el gatillo, disparan solas al ritmo de su cadencia
-        if (this.stats.auto && !this.special && this.scoped && this.canFire && !this.unlocking && !this.ks.predator && !this.move) this.fire();
+        // Las automáticas: mientras se mantiene el gatillo (con la mira o desde la cadera),
+        // disparan solas al ritmo de su cadencia
+        if (this.stats.auto && !this.special && (this.scoped || this.trigger) && this.canFire && !this.unlocking && !this.ks.predator && !this.move) this.fire();
 
         // Muelles del retroceso y del aterrizaje
         this.kickV += (-170 * this.kickP - 20 * this.kickV) * rawDt;
