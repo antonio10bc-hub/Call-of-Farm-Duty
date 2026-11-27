@@ -8,7 +8,7 @@ import { KILLSTREAKS, setStreakCounts } from './content/killstreaks.js';
 import { SHOP, SHOP_ITEMS } from './content/ufo.js';
 import { ARSENAL, ARSENAL_KINDS, CLASSES, DEFAULT_LOADOUT, WEAPON_CATS, className, weaponCat } from './content/arsenal.js';
 import { gearArt } from './ui/GearArt.js';
-import { TIERS, tierOf } from './content/well.js';
+import { TIERS, tierOf, WELL } from './content/well.js';
 import { MERCHANT, rareVisit } from './content/merchant.js';
 import { MERCHANTS, MERCHANT_BY_ID, VisitClock, ALL_DECOR, DECOR_BY_ID, VILLAGE, VILLAGE_LEVELS, PER_LEVEL, MEDALS, MARKET, MARKET_FORCE, marketNow, TOWN_PERKS, PERK_LEVEL, WHERE, residentsAt } from './content/merchants.js';
 import { regionAt, isWater, groundAt } from './world/valley.js';
@@ -2568,26 +2568,32 @@ function frameWell() {
 addEventListener('resize', () => { if (!$('well').classList.contains('hidden')) frameWell(); });
 
 function renderWell() {
-    const pool = state.wishPool(), cost = state.wishCost(), busy = farm.well.busy;
+    const pool = state.wishPool(), cost = state.wishCost(), busy = farm.well.busy, r = wellResult;
     $('well-gold').textContent = state.items.gold;
-    const b = $('well-wish');
-    b.disabled = busy || !pool.length || state.items.gold < cost;
-    b.innerHTML = pool.length ? `${L('MAKE A WISH', 'PEDIR UN DESEO')} <span class="cost">${ico('gold')}${cost}</span>` : L('NOTHING LEFT TO WISH FOR', 'YA NO QUEDA NADA QUE PEDIR');
-    const r = wellResult;
     const hex = (t) => '#' + t.color.toString(16).padStart(6, '0');
-    // Debajo, la colección: una barra por rareza; todas las piezas, plegadas
+    // Por rareza: las que hay, las que llevas y lo probable que es (su peso entre todo lo que puede salir)
+    const total = pool.reduce((n, p) => n + p.tier.w, 0) || 1;
     const tiers = TIERS.map((t) => {
-        const all = ARSENAL_KINDS.flatMap((k) => ARSENAL[k].filter((it) => it.price && tierOf(it) === t).map((it) => ({ k, it })));
-        return { t, all, have: all.filter(({ k, it }) => state.ownsGear(k, it.id)).length };
+        const all = pool.filter((p) => p.tier === t);
+        return { t, all, have: all.filter((p) => state.ownsGear(p.kind, p.id)).length, odds: all.length * t.w / total };
     });
-    const got = tiers.reduce((n, x) => n + x.have, 0), total = tiers.reduce((n, x) => n + x.all.length, 0);
-    // Arriba, en grande: lo último que ha salido (o el pozo, con lo que queda por salir)
+    const got = tiers.reduce((n, x) => n + x.have, 0), size = pool.length;
+    const fresh = pool.filter((p) => !state.ownsGear(p.kind, p.id)).reduce((n, p) => n + p.tier.w, 0) / total;
+    const pct = (x) => `${Math.round(x * 100)}%`, back = Math.ceil(cost * WELL.refund);
+    const b = $('well-wish');
+    b.disabled = busy || !size || state.items.gold < cost;
+    b.innerHTML = !size ? L('NOTHING LEFT TO WISH FOR', 'YA NO QUEDA NADA QUE PEDIR')
+        : r ? `${L('ANOTHER WISH', 'OTRO DESEO')} <span class="cost">${ico('gold')}${cost}</span>` : `${ico('gold')}${L('THROW THE COIN', 'ECHAR LA MONEDA')}`;
+    // Arriba: lo último que ha salido o, si no, el boleto del próximo deseo (su número, lo que puede
+    // tocar de cada rareza, la letra pequeña y el precio troquelado en la matriz)
     $('well-result').innerHTML = r ? `<div class="well-card${r.dup ? ' dup' : ''}" data-tier="${r.tier.id}" style="--tier:${hex(r.tier)}"><img alt="" src="${gearArt(r.kind, r.it)}"><b>${r.it.name}</b><em>${r.tier.name}</em><small>${r.dup ? `${L('DUPLICATE', 'REPETIDA')}: +${r.refund} ${L('GOLD BACK', 'DE ORO DE VUELTA')}` : r.it.desc}</small></div>`
-        : `<div class="well-hero"><i class="ico well-ico"></i><span>${total > got ? L(`${total - got} NEW PIECES STILL DOWN THERE`, `QUEDAN ${total - got} PIEZAS NUEVAS AHÍ ABAJO`) : L('YOU HAVE THEM ALL!', '¡LAS TIENES TODAS!')}</span></div>`;
-    // Debajo, la colección: un icono grande por rareza con las que llevas de cada una; y al final,
-    // el paso a armamento (para montarlas)
-    $('well-list').innerHTML = `<div class="nb-lbl">${L('YOUR COLLECTION', 'TU COLECCIÓN')} · ${got}/${total}</div>`
-        + `<div class="well-tiers">${tiers.map(({ t, all, have }) => `<div class="well-tier${have === all.length ? ' full' : ''}" data-tier="${t.id}" style="--tier:${hex(t)}"><i class="gem"></i><b>${have}<small>/${all.length}</small></b><span>${t.name}</span></div>`).join('')}</div>`
+        : `<div class="well-ticket"><div class="wt-main"><h3>${L('WISH', 'DESEO')} Nº ${(state.arsenal.wishes | 0) + 1}</h3>`
+        + tiers.map(({ t, odds }) => `<div class="wt-odd" style="--tier:${hex(t)}"><i class="gem"></i><span>${t.name}</span><i class="dots"></i><b>${pct(odds)}</b></div>`).join('')
+        + `<small>${got < size ? L(`NEW PIECE: ${pct(fresh)} · IF REPEATED: ${back} GOLD BACK`, `PIEZA NUEVA: ${pct(fresh)} · SI REPITE: ${back} DE ORO DE VUELTA`) : L(`YOU HAVE THEM ALL: EACH WISH GIVES ${back} GOLD BACK`, `LAS TIENES TODAS: CADA DESEO DEVUELVE ${back} DE ORO`)}</small></div>`
+        + `<div class="wt-stub${state.items.gold < cost ? ' poor' : ''}"><span>${L('PRICE', 'PRECIO')}</span><b>${cost}</b><span>${L('GOLD', 'ORO')}</span></div></div>`;
+    // Debajo, en una línea, los boletos premiados de cada rareza; y el paso a armamento (para montarlas)
+    $('well-list').innerHTML = `<div class="nb-lbl">${L('WINNING TICKETS', 'BOLETOS PREMIADOS')} · ${got}/${size}</div>`
+        + `<div class="well-tiers">${tiers.map(({ t, all, have }) => `<div class="well-tier${have === all.length ? ' full' : ''}" data-tier="${t.id}" style="--tier:${hex(t)}" title="${t.name}"><i class="gem"></i><b>${have}<small>/${all.length}</small></b></div>`).join('')}</div>`
         + `<div class="well-go"><span>${L('PUT THEM ON IN THE ARMORY', 'MÓNTALAS EN EL ARMAMENTO')}</span><button id="well-armory" class="btn btn-small">${L('GO TO ARMORY', 'IR A ARMAMENTO')}</button></div>`;
 }
 

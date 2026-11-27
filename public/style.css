@@ -2126,9 +2126,7 @@ body.photo .debug-btn { visibility: hidden; }
 
 /* ---- El pozo: lo último que salió, el botón y la colección ---- */
 .well-sheet { gap: 12px; }
-.well-hero, .well-card { min-height: 150px; }
-.well-hero { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 14px; text-align: center; font-family: var(--nb-head); font-size: 12px; color: var(--nb-mute); background: var(--nb-paper); border: 2px solid var(--nb-wood); transform: rotate(-.6deg); }
-.well-hero .ico { width: 72px; height: 72px; }
+.well-card { min-height: 150px; }
 .well-card { grid-template-columns: 150px 1fr; padding: 12px; color: var(--nb-ink); background: var(--nb-paper); border: 2px solid var(--nb-wood); box-shadow: inset 0 0 0 4px var(--tier, #9aa8b8), 2px 3px 0 rgba(58, 36, 18, .3); }
 .well-card img { width: 150px; }
 .well-card b { font-family: var(--nb-head); font-size: 16px; font-weight: 400; }
@@ -2337,14 +2335,24 @@ body.photo .debug-btn { visibility: hidden; }
 .rg-btn { padding: 10px 6px; gap: 6px; }
 .rg-btn .ks-ico { width: 34px; height: 34px; }
 .range-body .nb-tabs { margin: 0 -8px; padding-left: 12px; }
-/* El pozo: un icono grande por rareza con las que llevas; y el paso a armamento */
-.well-tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px; }
-.well-tier { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px 10px; font-family: var(--nb-head); text-align: center; background: var(--nb-paper); border: 2px solid var(--nb-wood); box-shadow: inset 0 -5px 0 var(--tier), 2px 3px 0 rgba(58, 36, 18, .3); }
-.well-tier .gem { width: 40px; height: 40px; margin: 6px 0 4px; background: var(--tier); border: 3px solid var(--nb-ink); box-shadow: inset 6px 6px 0 rgba(255, 255, 255, .35), inset -6px -6px 0 rgba(0, 0, 0, .2); transform: rotate(45deg); }
-.well-tier b { font-weight: 400; font-size: 22px; color: var(--nb-ink); }
-.well-tier b small { font-size: 13px; color: var(--nb-mute); }
-.well-tier span { font-size: 11px; color: var(--nb-mute); }
-.well-tier.full { background: #fff; }
+/* El pozo: el boleto de feria del próximo deseo (rarezas con su probabilidad, letra pequeña y el
+   precio en la matriz troquelada); debajo, los premiados de cada rareza en una línea */
+.well-ticket { display: grid; grid-template-columns: 1fr 96px; min-height: 150px; color: var(--nb-ink); background: var(--nb-paper); border: 3px solid var(--nb-ink); box-shadow: 2px 3px 0 rgba(58, 36, 18, .3); transform: rotate(-.6deg); }
+.wt-main { display: flex; flex-direction: column; gap: 7px; padding: 12px; border-right: 3px dashed var(--nb-ink); min-width: 0; }
+.wt-main h3 { margin: 0 0 2px; font-family: var(--nb-head); font-size: 16px; font-weight: 400; }
+.wt-odd { display: grid; grid-template-columns: 14px auto 1fr auto; align-items: center; gap: 8px; font-family: var(--nb-head); font-size: 11px; }
+.wt-odd b { font-weight: 400; font-variant-numeric: tabular-nums; }
+.wt-odd .dots { height: 6px; border-bottom: 2px dotted var(--nb-mute); }
+.well-ticket .gem, .well-tier .gem { width: 11px; height: 11px; background: var(--tier); border: 2px solid var(--nb-ink); transform: rotate(45deg); }
+.wt-main small { margin-top: 2px; font-family: var(--nb-body); font-size: 12px; line-height: 1.35; color: var(--nb-mute); }
+.wt-stub { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-family: var(--nb-head); font-size: 10px; color: var(--nb-mute); background: repeating-linear-gradient(-45deg, transparent 0 6px, rgba(58, 36, 18, .06) 6px 12px); }
+.wt-stub b { font-size: 26px; font-weight: 400; color: var(--nb-red); }
+.wt-stub.poor b { color: var(--nb-mute); text-decoration: line-through; }
+.well-tiers { display: flex; flex-wrap: wrap; gap: 16px; }
+.well-tier { display: flex; align-items: center; gap: 8px; font-family: var(--nb-head); }
+.well-tier b { font-weight: 400; font-size: 15px; color: var(--nb-ink); font-variant-numeric: tabular-nums; }
+.well-tier b small { font-size: 11px; color: var(--nb-mute); }
+.well-tier.full b { color: var(--nb-good); }
 .well-tier.just { animation: wellJust 1.6s steps(8) 2; }
 .well-go { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; padding-top: 10px; border-top: 2px dashed var(--nb-wood); font-family: var(--nb-body); font-size: 13px; color: var(--nb-mute); }
 .well-go .btn { flex: none; font-size: 11px; padding: 7px 10px; }
