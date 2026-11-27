@@ -39,7 +39,8 @@ export function buildGun(model, g, loadout = DEFAULT_LOADOUT, only = null) {
             const hg = Math.min(0.42, len * 0.6);
             if (R.pump) model.part(g, 0.1, 0.08, 0.24, R.wood, 0, -0.06, -0.3 - len * 0.3);
             else model.part(g, 0.11, 0.09, hg, R.wood, 0, -0.02, -0.17 - hg / 2);
-            for (const x of R.double ? [-R.thick * 0.6, R.thick * 0.6] : [0]) model.part(g, R.thick, R.thick, len, METAL_DARK, x, 0.03, -0.27 - len / 2);
+            // (el cañón arranca en el cajón: sin guardamanos, como en las de corredera, no queda hueco)
+            for (const x of R.double ? [-R.thick * 0.6, R.thick * 0.6] : [0]) model.part(g, R.thick, R.thick, len + 0.1, METAL_DARK, x, 0.03, -0.22 - len / 2);
             if (R.pump) model.part(g, R.thick * 0.8, R.thick * 0.8, len * 0.8, METAL, 0, -0.03, -0.27 - len * 0.4, false); // (el tubo de los cartuchos)
             if (!R.double) model.part(g, R.thick * 1.5, R.thick * 1.5, 0.08, R.brake ? METAL : R.metal, 0, 0.03, end);
             if (R.brake) for (const dz of [0.05, 0.12]) model.part(g, R.thick * 1.9, 0.03, 0.03, METAL_DARK, 0, 0.03, end + dz, false);
