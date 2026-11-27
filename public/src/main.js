@@ -2944,7 +2944,7 @@ tapBtn('class-equip', () => {
     refreshRifle();
 });
 // La lista de un tipo de pieza (en esta clase). Las armas, con una primera fila de tipos para
-// filtrar (uno o varios; ninguno: todas)
+// filtrar (uno; ninguno: todas)
 let pickKind = 'rifle';
 const catOn = new Set();
 {
@@ -2957,8 +2957,10 @@ const catOn = new Set();
         const b = e.target.closest('[data-cat]');
         if (!b) return;
         const id = b.dataset.cat;
-        if (catOn.has(id)) catOn.delete(id);
-        else catOn.add(id);
+        // (uno solo a la vez: el que se toca; tocarlo otra vez vuelve a mostrarlas todas)
+        const was = catOn.has(id);
+        catOn.clear();
+        if (!was) catOn.add(id);
         sfx.play('ui');
         refreshRifle();
     });
@@ -3048,6 +3050,7 @@ function refreshRifle() {
             : `<b>${ico('lock')}${className(A.classes[i], i)}</b><em class="${state.items.gold < price ? 'short' : ''}">${ico('gold')}${price} · ${L('UNLOCK', 'DESBLOQUEAR')}</em>`;
         if (b.innerHTML !== html) b.innerHTML = html;
         b.classList.toggle('on', i === loEdit);
+        b.classList.toggle('eq', open && i === A.active);
         b.classList.toggle('lock', !open);
     });
     if (!$('class-name').querySelector('input')) $('class-name').textContent = className(c, loEdit);
