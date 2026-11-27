@@ -235,6 +235,7 @@ html, body {
     cursor: pointer;
 }
 .debug-btn:active { background: rgba(42, 26, 14, .6); }
+.add-decor-btn { right: 66px; } /* (a la izquierda de DEBUG) */
 /* Botón MAPA: abajo a la izquierda (la vista global y vuelta) */
 .map-btn { position: absolute; left: 10px; bottom: max(8px, env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 6px; padding: 7px 10px 6px 7px; font-family: var(--font); font-size: 10px; color: var(--ink); background: var(--cream); border: 3px solid var(--ink); box-shadow: 0 4px 0 var(--ink); cursor: pointer; }
 .map-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }

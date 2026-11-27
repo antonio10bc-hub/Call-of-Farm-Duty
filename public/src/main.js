@@ -2544,7 +2544,7 @@ function townShow(id) {
     $('merchant').classList.add('hidden');
     document.body.classList.add('cine');
     touch = pan = pinch = null;
-    townCine = { id, before, up, view: mView, t: 0, done: new Set() };
+    townCine = { id, before, up, view: mView, menu: !$('merchant').classList.contains('hidden'), t: 0, done: new Set() };
 }
 // (la cámara sobre una caja del mundo: en su centro y con el zoom que la abarca)
 function lookAtBox(box, min = 0.7) {
@@ -2592,6 +2592,7 @@ function updateTownCine(dt) {
         document.body.classList.remove('cine');
         townCine = null;
         syncMerchantLife(false);
+        if (!c.menu) return; // (se añadió sin el menú: botón + OBJETO)
         openMerchant(mTown ? 'town' : curM);
         mView = c.view; // (en la pestaña de antes)
         renderMerchant();
@@ -3055,6 +3056,18 @@ tapBtn('btn-streaks-close', () => {
     $('streaks').classList.add('hidden');
 });
 tapBtn('btn-lang', switchLang);
+// + OBJETO (para probar el pueblo): una cosa al azar de las que faltan, como si se la compraras a
+// su mercader (con su cinemática y, si toca, la subida de nivel)
+tapBtn('btn-add-decor', () => {
+    const left = ALL_DECOR.filter((d) => !state.village.includes(d.id));
+    if (mode !== 'farm' || inCine() || !left.length) return sfx.play('deny');
+    const d = left[(Math.random() * left.length) | 0];
+    select(null);
+    state.village.push(d.id);
+    state.save();
+    sfx.play('buy');
+    townShow(d.id);
+});
 tapBtn('btn-debug', () => {
     sfx.play('ui');
     // (desde el campo de tiro: suelta el ratón y baja la mira)
