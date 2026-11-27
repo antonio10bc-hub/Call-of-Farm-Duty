@@ -1641,7 +1641,7 @@ function zoomBy(k) {
 }
 
 function isUi(e) {
-    return e.target.closest && e.target.closest('button, .panel, .screen, .ufo-shop, .merchant-sheet');
+    return e.target.closest && e.target.closest('button, .panel, .screen, .ufo-shop, .merchant-sheet, .album');
 }
 
 const locked = () => document.pointerLockElement === canvas;
