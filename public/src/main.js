@@ -747,7 +747,8 @@ const dockGo = (x, z, open) => {
     rig.focus(x, z);
     sfx.play('ui');
 };
-const fieldNeeds = (id) => state.isReady(id) || state.canUnlock(id) || state.canUpgrade(id);
+// (cosecha lista: no enciende el punto rojo, ya tiene su línea verde en el desplegable)
+const fieldNeeds = (id) => state.canUnlock(id) || state.canUpgrade(id);
 const DOCK = [
     { id: 'barn', icon: 'ks-grenade', label: L('ARMORY', 'ARMAMENTO'), show: () => state.open('barn'), alert: () => armoryNews(),
         go: () => { const b = farm.byId.barn.def; dockGo(b.x, b.z + 1, () => select({ structure: 'barn' })); } },
