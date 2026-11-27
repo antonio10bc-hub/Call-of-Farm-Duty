@@ -659,11 +659,18 @@ export class Farm {
     // El nivel del pueblo de los mercaderes: lo que se ve (casas, calles, ronda, barrios, objetos:
     // Village.setTown) y el suelo (se rehace si cambia). Devuelve lo que acaba de aparecer
     setTownLevel(lv, owned, pop = true) {
-        const out = this.village.setTown(lv, owned, pop);
-        if (lv !== this.townLv) {
+        const prev = this.townLv, out = this.village.setTown(lv, owned, pop);
+        if (lv !== prev) {
             this.townLv = lv;
-            this.buildFloor();
-            this.refreshGround();
+            // (al subir, de cine: el suelo nuevo se pone cuando ha entrado todo, bajo sus cubos de luz)
+            const t = pop && prev !== undefined && lv > prev ? this.village.floorCubes(prev, lv) : 0;
+            const go = () => {
+                if (this.townLv !== lv) return;
+                this.buildFloor();
+                this.refreshGround();
+            };
+            if (t > 0) setTimeout(go, t * 1000);
+            else go();
         }
         return out;
     }

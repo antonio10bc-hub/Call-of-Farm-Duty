@@ -1405,7 +1405,7 @@ export class Village extends VoxelModel {
             h.visible = false;
             g.add(h);
             this.bake([h], []);
-            this.houses[d.id] = { g: h, pop: 0, lot };
+            this.houses[d.id] = { id: d.id, g: h, pop: 0, lot };
             const road = new THREE.Group(), ca = Math.cos(geo.a), sa = Math.sin(geo.a);
             let n = 0;
             for (let rr = VILLAGE.R + 0.4; rr < geo.endR + 0.4; rr += 0.8, n++) {
@@ -1564,7 +1564,46 @@ export class Village extends VoxelModel {
                 lane(h, p.x, p.z, R0.ux, R0.uz, h.D / 2, R0.d - h.D / 2);
             }
         };
+        // Lo que va por todo el pueblo se aparta aquí, antes de rellenar con más casas (que todo tenga
+        // su sitio): lo grande primero, repartido; si no cabe, con menos margen, pero al menos uno
+        const townSpots = {}, TOWN_FN = {};
+        const toRoad = (p) => { const R0 = nearestRoad(p.x, p.z); return Math.atan2(R0.ux, R0.uz); };
+        const inRing = (p, r, a) => r < wobR(a) - 3, outRing = (p, r, a) => r > wobR(a) + 3;
+        const reserve = (id, n, rad, fn, test = () => true, turn = null) => {
+            const seed = id.split('').reduce((h, ch) => h * 31 + ch.charCodeAt(0), 7) % 997, out = (townSpots[id] = []);
+            TOWN_FN[id] = fn;
+            for (const [sm, tries2, need] of [[1.7, 3000, n], [1.0, 3000, 1]]) {
+                for (let t = 0; t < tries2 && out.length < need; t++) {
+                    const a = rnd(seed * 7.3 + t * 2.9 + sm) * Math.PI * 2, r = 15 + Math.sqrt(rnd(seed * 3.1 + t * 4.3 + sm)) * Math.max(0, this.reach(deg(a)) - 15), p = P(a, r);
+                    if ((sm > 1.5 && !test(p, r, a)) || !free(p.x, p.z, rad, sm, 0.3)) continue;
+                    placed.push({ x: p.x, z: p.z, r: rad });
+                    out.push({ ...p, ry: turn ? turn(p) : rnd(seed + t) * Math.PI * 2, rad });
+                }
+            }
+        };
+        reserve('gas', 1, 3.6, PIECE.gas, (p, r, a) => Math.abs(r - wobR(a)) < 7, toRoad);
+        reserve('mill', 2, 1.5, DECO.mill, outRing);
+        reserve('swings', 3, 1.5, PIECE.swings);
+        reserve('kiosk', 2, 1.4, PIECE.kiosk, (p) => nearestRoad(p.x, p.z).d < 6, toRoad);
+        reserve('parasols', 4, 1.2, PIECE.terrace, inRing);
+        reserve('orchards', 4, 1.7, PIECE.orchard);
+        reserve('gardens', 5, 1.7, PIECE.garden);
+        reserve('pumpkins', 5, 1.1, DECO.pumpkins);
+        reserve('sheds', 4, 1.1, PIECE.shed, () => true, toRoad);
+        reserve('tents', 4, 1.2, PIECE.tent, outRing);
+        reserve('well', 2, 1.2, DECO.well);
+        // (las casas sueltas, después de lo grande y antes de lo pequeño)
         loose(3.7, 5.1, 45, 1.8, 1.6, 0.3, 9);
+        reserve('woods', 32, 0.8, PIECE.tree);
+        reserve('haystacks', 8, 0.7, PIECE.haystack);
+        reserve('scarecrow', 5, 0.5, DECO.scarecrow);
+        reserve('crystal', 6, 0.7, DECO.crystal);
+        reserve('mushrooms', 6, 0.7, DECO.mushrooms);
+        reserve('shrubs', 10, 0.6, DECO.shrubs);
+        reserve('crates', 5, 0.6, PIECE.crates);
+        reserve('gnome', 8, 0.4, DECO.gnome);
+        reserve('flamingo', 8, 0.4, DECO.flamingo);
+        reserve('birdbath', 5, 0.5, PIECE.birdbath);
         loose(2.9, 4.3, 70, 1.4, 1.5, 0.2, 10);
         // Los tres barrios: por distancia al centro (los de cerca, antes)
         const byD = [...homes].sort((p, q) => p.d - q.d);
@@ -1689,13 +1728,14 @@ export class Village extends VoxelModel {
             for (const sd of [-1, 1]) { const p = at(VILLAGE.R + 0.2, sd, -0.4); put('banner', 0, p.x, p.z, look(sd) + (sd > 0 ? 0 : Math.PI), PIECE.flag); }
             const tEnd = q.endR - 1.2, bb = at(q.endR - 2.2, -1, 0.7);
             if (!busy(bb)) put('billboard', 0, bb.x, bb.z, look(-1), PIECE.billboard, streets.indexOf(q));
+            let bus = false; // (la parada: en el primer hueco libre de la derecha)
             for (let j = 0, t = q.parkR + 3.2; t < tEnd; j++, t += 1.5) {
                 for (const sd of [-1, 1]) {
                     if (sd < 0 && t > q.endR - 3.8) continue; // (la valla)
                     const p = at(t, sd);
                     if (busy(p)) continue;
                     const r6 = j % 6, r12 = j % 12, R = sd > 0 ? [0, 2, 4, 10] : [3, 5, 1, 7];
-                    if (sd > 0 && j === 1) { const b = at(t, sd, 0.3); put('busstop', 0, b.x, b.z, look(sd), PIECE.busstop); }
+                    if (sd > 0 && !bus && j % 6 !== 0) { bus = true; const b = at(t, sd, 0.3); put('busstop', 0, b.x, b.z, look(sd), PIECE.busstop); }
                     else if (r6 === R[0]) put('lamps', 0, p.x, p.z, look(sd), PIECE.lamp);
                     else if (r6 === R[1]) put('planters', 0, p.x, p.z, look(sd), PIECE.planter);
                     else if (r12 === R[2]) put('bench', 0, p.x, p.z, look(sd), PIECE.bench);
@@ -1711,43 +1751,9 @@ export class Village extends VoxelModel {
             const p = P(a, R);
             put('lamps', TOWN.ring, p.x, p.z, face(p.x, p.z), PIECE.lamp);
         }
-        // --- Por todo el pueblo: cada cosa en su hueco libre (lo grande primero), repartidas
-        const town = (id, n, rad, fn, test = () => true, turn = null) => {
-            const seed = id.split('').reduce((h, ch) => h * 31 + ch.charCodeAt(0), 7) % 997;
-            const out = [];
-            for (let t = 0, got = 0; t < 2500 && got < n; t++) {
-                const a = rnd(seed * 7.3 + t * 2.9) * Math.PI * 2, r = 15 + Math.sqrt(rnd(seed * 3.1 + t * 4.3)) * Math.max(0, this.reach(deg(a)) - 15), p = P(a, r);
-                if (!test(p, r, a) || !free(p.x, p.z, rad, 3.6, 0.3)) continue;
-                placed.push({ x: p.x, z: p.z, r: rad });
-                const ry = turn ? turn(p) : rnd(seed + t) * Math.PI * 2;
-                put(id, 0, p.x, p.z, ry, fn, got);
-                out.push({ ...p, ry, rad });
-                got++;
-            }
-            return out;
-        };
-        const toRoad = (p) => { const R0 = nearestRoad(p.x, p.z); return Math.atan2(R0.ux, R0.uz); };
-        const inRing = (p, r, a) => r < wobR(a) - 3, outRing = (p, r, a) => r > wobR(a) + 3;
-        town('gas', 1, 3.6, PIECE.gas, (p, r, a) => Math.abs(r - wobR(a)) < 6.5, toRoad);
-        town('mill', 3, 1.5, DECO.mill, outRing);
-        town('swings', 5, 1.5, PIECE.swings);
-        town('kiosk', 3, 1.4, PIECE.kiosk, (p) => nearestRoad(p.x, p.z).d < 5, toRoad);
-        town('parasols', 6, 1.2, PIECE.terrace, inRing);
-        const plots = [...town('orchards', 10, 1.7, PIECE.orchard), ...town('gardens', 10, 1.7, PIECE.garden), ...town('pumpkins', 10, 1.1, DECO.pumpkins)];
-        town('sheds', 8, 1.1, PIECE.shed, () => true, toRoad);
-        town('tents', 8, 1.2, PIECE.tent, outRing);
-        town('well', 3, 1.2, DECO.well);
-        town('woods', 70, 0.8, PIECE.tree);
-        town('haystacks', 14, 0.7, PIECE.haystack);
-        town('scarecrow', 8, 0.5, DECO.scarecrow);
-        town('crystal', 12, 0.7, DECO.crystal);
-        town('mushrooms', 12, 0.7, DECO.mushrooms);
-        town('shrubs', 20, 0.6, DECO.shrubs);
-        town('crates', 10, 0.6, PIECE.crates);
-        town('gnome', 14, 0.4, DECO.gnome);
-        town('flamingo', 14, 0.4, DECO.flamingo);
-        town('birdbath', 10, 0.5, PIECE.birdbath);
-        for (const p of plots) put('fences', 0, p.x, p.z, p.ry, PIECE.fence, p.rad * 2 + 0.2, p.rad * 2 + 0.2);
+        // --- Por todo el pueblo: cada cosa en su sitio apartado (antes que las casas de relleno)
+        for (const [id, spots] of Object.entries(townSpots)) for (const [k, p] of spots.entries()) put(id, 0, p.x, p.z, p.ry, TOWN_FN[id], k);
+        for (const id of ['orchards', 'gardens', 'pumpkins']) for (const p of townSpots[id]) put('fences', 0, p.x, p.z, p.ry, PIECE.fence, p.rad * 2 + 0.2, p.rad * 2 + 0.2);
         // --- En las casas: buzón, jardineras y parabólica (y, en algunas, gnomo, flamenco o bebedero);
         // salen con su casa
         for (const h of homes) {
@@ -1809,7 +1815,8 @@ export class Village extends VoxelModel {
     // ronda, los barrios y los arcos) y lo comprado (owned), en su sitio, si su sitio ya está. Lo
     // nuevo sale con un bote; devuelve lo que acaba de aparecer (para enseñarlo)
     setTown(lv, owned, pop = true) {
-        const shown = [];
+        const shown = [], prev = this.level === undefined ? lv : this.level;
+        this.cubesIn = this.cubesOut = 0;
         // (lo que aparece: crece del suelo, con un rayo de luz en cada sitio; lo construido, en ola
         // desde el centro hacia fuera, cada sitio a su tiempo)
         const wave = (p) => 0.3 + (Math.hypot(p.x - VILLAGE.cx, p.z - VILLAGE.cz) / 55) * 1.8;
@@ -1836,12 +1843,22 @@ export class Village extends VoxelModel {
             const on = paved.includes(id);
             if (on && !H.on) {
                 shown.push(H.g);
-                if (pop) { H.pop = 1; H.wait = this.cube(H.lot.x, H.lot.z, wave(H.lot), 5.5); }
+                if (pop) {
+                    // (su casa y su calle, cada una de su cubo de luz; los árboles tumbados se quitan
+                    // cuando entra la calle)
+                    H.pop = 1;
+                    H.wait = this.cube(H.lot.x, H.lot.z, wave(H.lot), 5.5);
+                    const q = this.geo[id], c = Math.cos(q.a), sn = Math.sin(q.a);
+                    let t0 = Infinity;
+                    for (let t = VILLAGE.R + 2, i = 0; t < q.endR; t += 5.5, i++) { const p = { x: VILLAGE.cx + c * t, z: VILLAGE.cz + sn * t }; t0 = Math.min(t0, this.cube(p.x, p.z, wave(p), 5)); }
+                    H.roadWait = t0;
+                    this.pops.push({ g: H.road, k: 1, wait: t0 });
+                }
             }
             H.on = on;
             H.g.visible = on && H.pop > 0; // (la que bota, aparte; las asentadas, juntas: rebakeTown)
-            H.road.visible = false;
-            if (this.fallen[id]) this.fallen[id].visible = !on;
+            H.road.visible = on && H.pop > 0;
+            if (this.fallen[id]) this.fallen[id].visible = !on || (H.pop > 0 && H.roadWait > 0);
         }
         this.rebakeTown();
         show(this.ringG, lv >= TOWN.ring, this.buildPts.ring, 4.5);
@@ -1863,6 +1880,14 @@ export class Village extends VoxelModel {
             const have = owned.includes(id);
             for (const e of list) {
                 const was = e.g.visible;
+                // (lo que sale porque ahora hay sitio, al subir de nivel: con lo construido, sin rayo)
+                if (pop && have && !was && e.lv > prev && lv >= e.lv) {
+                    e.g.visible = true;
+                    shown.push(e.g);
+                    this.pops.push({ g: e.g, k: 1, wait: Math.min(...e.pts.map((p) => wave(p) + 0.84)) });
+                    (this.lastShown.decor[id] = this.lastShown.decor[id] || []).push(e.g);
+                    continue;
+                }
                 show(e.g, have && lv >= e.lv, e.pts);
                 if (!was && e.g.visible) (this.lastShown.decor[id] = this.lastShown.decor[id] || []).push(e.g);
             }
@@ -1901,8 +1926,11 @@ export class Village extends VoxelModel {
             this.cubeCore = this.own(new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.32, depthWrite: false, blending: THREE.AdditiveBlending }));
             this.cubes = [];
         }
-        const DUR = 1.7, out = delay + DUR * 0.62;
-        if (this.cubes.length > 420) return out;
+        // (lo nuevo entra con el cubo aún entero; luego el cubo se va: cubesOut, cuándo se va el último)
+        const DUR = 2.2, inAt = delay + DUR * 0.38;
+        this.cubesIn = Math.max(this.cubesIn || 0, inAt);
+        this.cubesOut = Math.max(this.cubesOut || 0, delay + DUR * 0.55);
+        if (this.cubes.length > 420) return inAt;
         const g = new THREE.Mesh(this.cubeGeo, this.cubeMat), core = new THREE.Mesh(this.cubeGeo, this.cubeCore);
         core.scale.set(0.55, 0.8, 0.55);
         g.add(core);
@@ -1911,7 +1939,21 @@ export class Village extends VoxelModel {
         g.renderOrder = 5;
         this.root.add(g);
         this.cubes.push({ g, t: -delay, size, dur: DUR, spin: Math.random() * 6 });
-        return out;
+        return inAt;
+    }
+
+    // Los cubos de luz del suelo nuevo de un nivel (la plaza de piedra, la calle de alrededor de la
+    // plaza, la avenida de la nave madre); devuelve cuándo ha entrado todo (s): ahí se rehace el suelo
+    floorCubes(prev, lv) {
+        const wave = (p) => 0.3 + (Math.hypot(p.x - VILLAGE.cx, p.z - VILLAGE.cz) / 55) * 1.8, P = (a, r) => ({ x: VILLAGE.cx + Math.cos(a) * r, z: VILLAGE.cz + Math.sin(a) * r });
+        const passed = (k) => prev < k && lv >= k;
+        if (passed(TOWN.plaza)) this.cube(VILLAGE.cx, VILLAGE.cz, 0.3, 21);
+        if (passed(TOWN.inner)) for (let i = 0; i < 14; i++) { const p = P((i / 14) * Math.PI * 2, 11.9); this.cube(p.x, p.z, wave(p), 4); }
+        if (passed(TOWN.avenue)) {
+            const M = Object.values(this.geo).find((q) => q.def.mother);
+            for (let t = VILLAGE.R + 1; t < M.padR - 5; t += 3) { const p = P(M.a, t); this.cube(p.x, p.z, wave(p), 4.5); }
+        }
+        return this.cubesIn || 0;
     }
 
     // ¿Se ve algo de este objeto? ¿Y desde qué nivel se verá lo primero suyo? (para avisar en la tienda)
@@ -1927,9 +1969,8 @@ export class Village extends VoxelModel {
     rebakeTown() {
         const objs = [];
         for (const H of Object.values(this.houses)) {
-            if (!H.on) continue;
-            objs.push(H.road);
-            if (!(H.pop > 0)) objs.push(H.g);
+            if (!H.on || H.pop > 0) continue; // (la que bota, aparte)
+            objs.push(H.road, H.g);
         }
         this.townMerged = this.mergeInto(this.townG, this.townMerged, objs);
     }
@@ -2033,7 +2074,7 @@ export class Village extends VoxelModel {
             const k = C.t / C.dur;
             if (k >= 1) { C.g.removeFromParent(); this.cubes.splice(i, 1); continue; }
             C.g.visible = true;
-            const grow = ease(Math.min(1, k / 0.3)), gone = Math.max(0, (k - 0.62) / 0.38), puls = 1 + Math.sin(C.t * 18) * 0.05 * (1 - gone);
+            const grow = ease(Math.min(1, k / 0.3)), gone = Math.max(0, (k - 0.55) / 0.45), puls = 1 + Math.sin(C.t * 18) * 0.05 * (1 - gone);
             const w = C.size * grow * puls * (1 - gone * 0.9), h = C.size * 1.3 * grow * puls * (1 + gone * 2.5);
             C.g.scale.set(w, h, w);
             C.g.rotation.y = C.spin + C.t * 1.5;
@@ -2051,13 +2092,14 @@ export class Village extends VoxelModel {
         }
         // Las casas nuevas, con un bote
         if (this.houses) for (const H of Object.values(this.houses)) if (H.pop > 0) {
+            if (H.roadWait > 0 && (H.roadWait -= dt) <= 0 && this.fallen[H.id]) this.fallen[H.id].visible = false;
             if (H.wait > 0) { H.wait -= dt; H.g.scale.set(1, 0.0001, 1); continue; }
             H.pop = Math.max(0, H.pop - dt * 1.4);
             H.g.scale.set(1, Math.max(0.0001, back(Math.min(1, (1 - H.pop) * 1.2))), 1);
-            if (H.pop === 0) {
-                H.g.visible = false;
+            if (H.pop === 0 && !(H.roadWait > 0)) {
+                H.g.visible = H.road.visible = false;
                 this.rebakeTown();
-            }
+            } else if (H.pop === 0) H.pop = 0.0001; // (espera a que entre su calle)
         }
         if (this.marketPop > 0) {
             this.marketPop = Math.max(0, this.marketPop - dt * 1.5);

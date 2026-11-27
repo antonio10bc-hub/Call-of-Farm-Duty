@@ -2607,24 +2607,33 @@ function updateTownCine(dt) {
         stage(D.name, c.none ? L(`YOU WILL SEE IT AT VILLAGE LEVEL ${lv}`, `SE VERÁ CON EL PUEBLO EN NIVEL ${lv}`) : WHERE[D.where], true);
         sfx.play('village');
     }
-    // Si sube de nivel, más despacio y de fiesta: el pueblo entero, lo nuevo saliendo en ola desde
-    // el centro (cada sitio con su rayo de luz), confeti en varias tandas y el cartel del nivel
-    const end = c.up ? 10.5 : 3.2;
+    // Si sube de nivel, más despacio y de fiesta: el pueblo entero; lo nuevo, cada cosa de su cubo de
+    // luz (en ola desde el centro), entra con el cubo aún entero; los cubos se van con fuegos
+    // artificiales; 1,5 s de fuegos y, luego, el cartel del nivel
+    const S = CINE_SPEED;
     if (c.up) {
         if (at(3.0, 'town')) lookAtTown(c.up.lv);
         if (at(4.0, 'level')) {
-            syncMerchantLife(true); // (lo que construye el nivel nuevo, en ola, con sus rayos)
+            syncMerchantLife(true); // (lo que construye el nivel nuevo, con sus cubos)
             sfx.play('village');
-            rig.shake(0.25);
+            c.fwAt = c.t + Math.max(0.5, farm.village.cubesOut) * S;
+            c.stageAt = c.fwAt + 1.5 * S;
+            c.endAt = c.stageAt + 3.2 * S;
         }
-        if (at(5.6, 'party')) {
-            stage(...villageUpText(c.up));
+        if (at(c.fwAt, 'fw')) {
+            launchFireworks(30, 1.4);
+            rig.shake(0.25);
             sfx.play('achievement');
-            launchFireworks(26, 3.8);
+        }
+        if (at(c.fwAt + 0.9 * S, 'fw2')) launchFireworks(22, 1.6);
+        if (at(c.stageAt, 'party')) {
+            stage(...villageUpText(c.up));
+            sfx.play('coin');
+            launchFireworks(16, 2);
             updateCounts(true);
         }
-        if (at(7.0, 'party2')) { launchFireworks(18, 2.4); sfx.play('coin'); }
     }
+    const end = c.up ? (c.endAt || Infinity) : 3.2;
     if (at(end, 'back')) {
         document.body.classList.remove('cine');
         townCine = null;
