@@ -26,6 +26,7 @@ import { L } from '../core/I18n.js';
 //   pellets perdigones por disparo (escopetas), repartidos en un cono de cone radianes
 //   range   alcance en metros (las escopetas no llegan lejos; sin él, 80)
 //   sfx     el sonido del disparo (sin él, el del rifle)
+//   ammo    cuántas veces más balas le caben con cada cargador (las ametralladoras ligeras: 5)
 // Además de los rifles, el «arma» puede ser una pistola, un subfusil, una ametralladora o una
 // escopeta (look.type: cómo se dibuja): mirillas y cargadores valen para todas
 // Cargadores:
@@ -91,14 +92,14 @@ export const ARSENAL = {
             look: { type: 'mg', wood: 0xa0602a, wood2: 0x6a3a1a, metal: 0x4a4a42, barrel: 0.42, thick: 0.06 } },
         { id: 'famas', price: 26, auto: true, bolt: 0.08, pierce: 2, damage: 1, recoil: 0.35, hip: 0.4, sfx: 'smg', name: L('FAMAS', 'FAMAS'), desc: L('FIRES LIKE AN SMG, REACHES LIKE A RIFLE.', 'DISPARA COMO UN SUBFUSIL, LLEGA COMO UN FUSIL.'),
             look: { type: 'mg', wood: 0x34373e, wood2: 0x2a2a2a, metal: 0x4a4a42, barrel: 0.36, thick: 0.055, handle: true, short: true } },
-        { id: 'lmg', price: 32, auto: true, bolt: 0.07, pierce: 3, damage: 1, recoil: 0.35, hip: 0.55, sfx: 'smg', name: L('MACHINE GUN', 'AMETRALLADORA'), desc: L('A HAIL OF LEAD. BEST WITH A BIG MAG.', 'UNA LLUVIA DE PLOMO. MEJOR CON UN BUEN CARGADOR.'),
+        { id: 'lmg', price: 32, ammo: 5, auto: true, bolt: 0.07, pierce: 3, damage: 1, recoil: 0.35, hip: 0.55, sfx: 'smg', name: L('MACHINE GUN', 'AMETRALLADORA'), desc: L('A HAIL OF LEAD: 5 TIMES THE ROUNDS.', 'UNA LLUVIA DE PLOMO: 5 VECES MÁS BALAS.'),
             look: { type: 'mg', wood: 0x5a6a3a, wood2: 0x3a4a2a, metal: 0x34373e, barrel: 0.75, thick: 0.08, bipod: true, rail: true } },
-        { id: 'stoner', price: 35, auto: true, bolt: 0.08, pierce: 3, damage: 1, recoil: 0.28, hip: 0.5, sfx: 'smg', name: L('STONER 63', 'STONER 63'), desc: L('A LIGHT MACHINE GUN THAT HOLDS STEADY.', 'UNA AMETRALLADORA LIGERA QUE NO SE MUEVE.'),
+        { id: 'stoner', price: 35, ammo: 5, auto: true, bolt: 0.08, pierce: 3, damage: 1, recoil: 0.28, hip: 0.5, sfx: 'smg', name: L('STONER 63', 'STONER 63'), desc: L('A LIGHT MACHINE GUN THAT HOLDS STEADY.', 'UNA AMETRALLADORA LIGERA QUE NO SE MUEVE.'),
             look: { type: 'mg', wood: 0x34373e, wood2: 0x2a2a2a, metal: 0x5c6068, barrel: 0.62, thick: 0.07, bipod: true, belt: true } },
         // (las pesadas: balas que pegan doble y atraviesan filas; mejor con la caja de cinta)
-        { id: 'hk21', price: 42, auto: true, bolt: 0.1, pierce: 4, damage: 2, recoil: 0.55, hip: 0.65, sfx: 'smg', name: L('HK21', 'HK21'), desc: L('HEAVY: HITS TWICE AND CHEWS THROUGH ROWS.', 'PESADA: PEGA DOBLE Y SE COME LAS FILAS.'),
+        { id: 'hk21', price: 42, ammo: 5, auto: true, bolt: 0.1, pierce: 4, damage: 2, recoil: 0.55, hip: 0.65, sfx: 'smg', name: L('HK21', 'HK21'), desc: L('HEAVY: HITS TWICE AND CHEWS THROUGH ROWS.', 'PESADA: PEGA DOBLE Y SE COME LAS FILAS.'),
             look: { type: 'mg', wood: 0x2a2a2a, wood2: 0x34373e, metal: 0x34373e, barrel: 0.8, thick: 0.09, bipod: true, belt: true, rail: true } },
-        { id: 'm60', price: 48, auto: true, bolt: 0.12, pierce: 6, damage: 2, recoil: 0.7, hip: 0.75, sfx: 'smg', name: L('M60', 'M60'), desc: L('THE BIG ONE: HEAVY LEAD THROUGH A WHOLE ROW.', 'LA GORDA: PLOMO PESADO A TRAVÉS DE UNA FILA ENTERA.'),
+        { id: 'm60', price: 48, ammo: 5, auto: true, bolt: 0.12, pierce: 6, damage: 2, recoil: 0.7, hip: 0.75, sfx: 'smg', name: L('M60', 'M60'), desc: L('THE BIG ONE: HEAVY LEAD THROUGH A WHOLE ROW.', 'LA GORDA: PLOMO PESADO A TRAVÉS DE UNA FILA ENTERA.'),
             look: { type: 'mg', wood: 0x5a6a3a, wood2: 0x3a4a2a, metal: 0x34373e, barrel: 0.85, thick: 0.1, bipod: true, belt: true, shroud: true, handle: true } },
         // Escopetas: varios perdigones de un tiro, pero de corto alcance
         { id: 'pump', price: 11, bolt: 0.85, pellets: 8, cone: 0.06, range: 26, pierce: 1, damage: 1, recoil: 1.3, hip: 0.22, sfx: 'shotgun', name: L('PUMP SHOTGUN', 'ESCOPETA DE CORREDERA'), desc: L('A FISTFUL OF PELLETS. SHORT RANGE.', 'UN PUÑADO DE PERDIGONES. CORTO ALCANCE.'),
@@ -169,6 +170,6 @@ export function loadoutStats(loadout = DEFAULT_LOADOUT) {
         zoom: s.fov, ads: s.ads, steady: s.sway, lens: s.lens, optic: s.optic || 'tube',
         bolt: r.bolt, pierce: r.pierce, damage: r.damage, recoil: r.recoil, hip: r.hip, tracer: r.tracer || 0xfff6dc,
         auto: !!r.auto, light: !!r.look.type, pellets: r.pellets || 1, cone: r.cone || 0, range: r.range || 80, sfx: r.sfx || 'snipe',
-        size: m.size, reload: m.reload || 0, regen: m.regen || 0,
+        size: m.size * (r.ammo || 1), reload: m.reload || 0, regen: m.regen || 0,
     };
 }
