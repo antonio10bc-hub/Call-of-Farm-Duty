@@ -106,7 +106,8 @@ export const FARM = {
     // los lados que marcan dx, dz (+1 / -1).
     //   climb     lo que cuesta la primera mejora (de trigo y de su propio cultivo: own); cada
     //             mejora siguiente, CLIMB.growth veces la anterior, y la torreta, CLIMB.turret
-    //             veces la última (se calcula abajo: levels[k].cost, turrets, reload)
+    //             veces la última (se calcula abajo: levels[k].cost, turrets, reload); growth,
+    //             si lo lleva, en vez de CLIMB.growth
     //   locked    empieza como un terreno abandonado lleno de chatarra que se desbloquea
     //             disparando al barril rojo; con `after`, solo cuando ese campo está al máximo; con
     //             `land`, cuando se ha comprado esa parcela
@@ -122,7 +123,7 @@ export const FARM = {
             crop: 'wheat',
             name: L('WHEAT FIELD', 'CAMPO DE TRIGO'),
             corner: { x: 105, z: 15, center: true }, // crece desde el centro de su parcela
-            climb: { wheat: 0, own: 18 },
+            climb: { wheat: 0, own: 10, growth: 1.8 }, // (las dos primeras granjas suben más suave: se llega pronto al mercader)
             // Lo primero del juego: limpiar este terreno para poder sembrar trigo
             locked: { barn: true, name: L('JUNKYARD', 'TERRENO ABANDONADO') },
             // El último llena su zona entera
@@ -139,7 +140,7 @@ export const FARM = {
             crop: 'tomato',
             name: L('SILKWORM GROVE', 'GUSANOS DE SEDA'),
             corner: { x: 105, z: 45, center: true }, // crece desde el centro de su parcela
-            climb: { wheat: 40, own: 8 },
+            climb: { wheat: 15, own: 3, growth: 1.8 },
             locked: { after: 'wheat', name: L('JUNKYARD', 'TERRENO ABANDONADO') },
             // El último llena su zona entera
             levels: [
@@ -326,7 +327,7 @@ export const TURRETS = { every: 4, cool: 0.7, burst: 6, rate: 0.075, aim: 0.35, 
 export const CLIMB = { growth: 2.6, turret: 1.5 };
 const nice = (n) => (n < 20 ? Math.round(n) : n < 100 ? Math.round(n / 5) * 5 : n < 1000 ? Math.round(n / 10) * 10 : Math.round(n / 50) * 50);
 const climbCost = (f, k) => {
-    const g = Math.pow(CLIMB.growth, k - 1), c = {};
+    const g = Math.pow(f.climb.growth || CLIMB.growth, k - 1), c = {};
     if (f.climb.wheat && f.crop !== 'wheat') c.wheat = nice(f.climb.wheat * g);
     c[f.crop] = nice(f.climb.own * g);
     return c;
