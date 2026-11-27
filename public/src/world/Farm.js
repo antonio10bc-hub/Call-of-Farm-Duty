@@ -57,7 +57,6 @@ const CLEARING = [0x8fbf54, 0x9ab85a, 0xa8a060, 0xb89a64, 0x86b04e]; // el claro
 const rectOf = ([x0, z0, x1, z1]) => ({ x: x0, z: z0, w: x1 - x0, d: z1 - z0 });
 const PASTURE = [0xa8e070, 0x9ad962, 0xb4e67a]; // hierba fresca del prado de las vacas
 const MUD = [0x7a5232, 0x6a4628, 0x8a5e38]; // el barro de la pocilga
-const ARENA = [0xe0c890, 0xd8c088, 0xe6d09a]; // la arena del rodeo
 const POND = [0x4aa8e0, 0x3f98d4], SAND = [0xd9c48a, 0xccb67a]; // la laguna del pescador y su orilla
 const POOL = [0x2f88c0, 0x2a7eb4], POOL_RIM = [0xc8c4b8, 0xb8b4a8]; // la piscina de las perlas y su borde
 // La parcela en venta en la que cae un punto (o ninguna)
@@ -467,7 +466,7 @@ export class Farm {
         const col = k && k.field
             ? (k.locked ? JUNK.ground[mod(c * 7 + r * 5 + mod(c * r, 3), JUNK.ground.length)]
                 : pond && this.inPond(pond, t.c + 0.5, t.r + 0.5) ? (CROPS[pond.crop].pool ? POOL : POND)[(c + r) & 1] : pond && this.inPond(pond, t.c + 0.5, t.r + 0.5, 1) ? (CROPS[pond.crop].pool ? POOL_RIM : SAND)[(c + r) & 1] // (la laguna en el centro, o la piscina)
-                : CROPS[this.fields[k.field].crop].sand ? ARENA[mod(c * 3 + r * 5, 3)] : CROPS[this.fields[k.field].crop].mud ? MUD[mod(c * 3 + r * 5, 3)] : CROPS[this.fields[k.field].crop].pasture || CROPS[this.fields[k.field].crop].meadow ? PASTURE[mod(c * 3 + r * 5, 3)]
+                : CROPS[this.fields[k.field].crop].mud ? MUD[mod(c * 3 + r * 5, 3)] : CROPS[this.fields[k.field].crop].pasture || CROPS[this.fields[k.field].crop].meadow ? PASTURE[mod(c * 3 + r * 5, 3)]
                 // (el trigo grande, sobre rastrojo de paja: se lee lleno con menos tallos)
                 : this.fields[k.field].crop === 'wheat' && this.fields[k.field].level >= 2 ? STRAW[(r & 1) + 2 * mod(c * 3 + r, 2)] : theme.soil[r & 1]) // (el prado, de hierba)
             : k && k.path ? theme.path[mod(c * 7 + r * 3, 2)]
@@ -1624,31 +1623,44 @@ export class Farm {
         this.placeBarnyard(v);
     }
 
-    // El rodeo: una pista ovalada con su valla blanca por dentro y por fuera y unas cuantas vallas
-    // de salto atravesadas; los caballos dan vueltas por ella (cada uno por su calle) y saltan las
-    // vallas. Se rehace al crecer
+    // El rodeo: una pista casi redonda en el centro del prado (sin llegar a sus bordes, para que se
+    // vea entera), de tierra, con su valla blanca por dentro y por fuera y unas cuantas vallas de
+    // salto atravesadas; los caballos dan vueltas por ella (cada uno por su calle) y saltan las
+    // vallas. Va en las coordenadas de la parcela pero medida en el mundo (la parcela se estira):
+    // así se ve redonda. Se rehace al crecer
     buildRing(v) {
-        const f = v.rect, parts = [];
+        const f = v.rect, parts = [], dirt = [];
         if (v.ring) for (const m of v.ring) {
             m.removeFromParent();
             m.dispose();
         }
-        const rx = Math.max(1.5, f.w / 2 - 1.4), rz = Math.max(1.2, f.d / 2 - 1.4), n = Math.max(16, Math.round((rx + rz) * 3));
-        v.track = { rx, rz, hurdles: Array.from({ length: rx + rz > 14 ? 4 : 3 }, (_, k) => ((k + 0.5) / (rx + rz > 14 ? 4 : 3)) * Math.PI * 2) };
-        const pt = (a, side) => ({ x: f.cx + Math.cos(a) * (rx + side), z: f.cz + Math.sin(a) * (rz + side) });
+        // (cuánto se estira la parcela en su centro: casillas del mundo por casilla suya)
+        const c0 = stretchLocal(f.cx, f.cz), cx1 = stretchLocal(f.cx + 1, f.cz), cz1 = stretchLocal(f.cx, f.cz + 1);
+        const kx = Math.hypot(cx1.x - c0.x, cx1.z - c0.z), kz = Math.hypot(cz1.x - c0.x, cz1.z - c0.z);
+        const R = Math.max(1.6, (Math.min(f.w * kx, f.d * kz) / 2) * 0.62), rx = (R * 1.08) / kx, rz = (R * 0.94) / kz;
+        const n = Math.max(20, Math.round(R * 5)), nh = R > 7 ? 4 : 3;
+        v.track = { rx, rz, kx, kz, hurdles: Array.from({ length: nh }, (_, k) => ((k + 0.5) / nh) * Math.PI * 2) };
+        // (side: hacia fuera, en el mundo; en la parcela, lo que toca en cada eje)
+        const pt = (a, side) => ({ x: f.cx + Math.cos(a) * (rx + side / kx), z: f.cz + Math.sin(a) * (rz + side / kz) });
         for (const side of [-0.95, 0.95]) for (let i = 0; i < n; i++) {
             const p = pt((i / n) * Math.PI * 2, side), q = pt(((i + 1) / n) * Math.PI * 2, side);
             parts.push({ x: p.x, z: p.z, y: 0.25, w: 0.1, h: 0.5, d: 0.1, ry: 0, color: 0x8a5a34 });
             parts.push({ x: (p.x + q.x) / 2, z: (p.z + q.z) / 2, y: 0.4, w: 0.06, h: 0.08, d: Math.hypot(q.x - p.x, q.z - p.z), ry: Math.atan2(q.x - p.x, q.z - p.z), color: 0xfff6e8 });
+        }
+        for (let i = 0; i < n * 2; i++) {
+            const p = pt((i / (n * 2)) * Math.PI * 2, 0), q = pt(((i + 1) / (n * 2)) * Math.PI * 2, 0);
+            dirt.push({ x: (p.x + q.x) / 2, z: (p.z + q.z) / 2, y: 0.02, w: 1.8, h: 0.04, d: Math.hypot(q.x - p.x, q.z - p.z) + 0.15, ry: Math.atan2(q.x - p.x, q.z - p.z), color: i % 2 ? 0xb8925a : 0xc09a62 });
         }
         for (const a of v.track.hurdles) {
             const p = pt(a, -0.75), q = pt(a, 0.75), ry = Math.atan2(q.x - p.x, q.z - p.z);
             for (const e of [p, q]) parts.push({ x: e.x, z: e.z, y: 0.3, w: 0.12, h: 0.6, d: 0.12, ry: 0, color: 0xc8402e });
             for (const [y, color] of [[0.22, 0xffffff], [0.42, 0xc8402e]]) parts.push({ x: (p.x + q.x) / 2, z: (p.z + q.z) / 2, y, w: 0.08, h: 0.08, d: 1.5, ry, color });
         }
-        const mesh = new THREE.InstancedMesh(box(1, 1, 1), v.rockMat || (v.rockMat = toon(0xffffff)), parts.length), hull = new THREE.InstancedMesh(box(1, 1, 1), outline(this.theme.outline), parts.length);
-        parts.forEach((p, i) => {
-            // (en el mundo: la parcela se estira, así que los travesaños van de poste a poste ya estirados)
+        // (de todo, una malla con su contorno; la tierra, sin contorno)
+        const all = [...parts, ...dirt];
+        const mesh = new THREE.InstancedMesh(box(1, 1, 1), v.rockMat || (v.rockMat = toon(0xffffff)), all.length), hull = new THREE.InstancedMesh(box(1, 1, 1), outline(this.theme.outline), parts.length);
+        all.forEach((p, i) => {
+            // (en el mundo: la parcela se estira, así que lo largo va de punta a punta ya estirado)
             const w = stretchLocal(p.x, p.z);
             let ry = p.ry, d = p.d;
             if (p.d > 0.2) {
@@ -1662,6 +1674,7 @@ export class Farm {
             _d.updateMatrix();
             mesh.setMatrixAt(i, _d.matrix);
             mesh.setColorAt(i, _c.setHex(p.color));
+            if (i >= parts.length) return;
             _d.scale.set(p.w + OUTLINE * 2, p.h + OUTLINE * 2, d + OUTLINE * 2);
             _d.updateMatrix();
             hull.setMatrixAt(i, _d.matrix);
@@ -1682,7 +1695,7 @@ export class Farm {
         const f = v.rect, T = v.track;
         if (!T) return;
         for (const s of v.plants) {
-            const rx = T.rx + s.lane, rz = T.rz + s.lane, speed = (1.4 + Math.min(1, p) * 1.4) * s.sp;
+            const rx = T.rx + s.lane / T.kx, rz = T.rz + s.lane / T.kz, speed = (1.4 + Math.min(1, p) * 1.4) * s.sp;
             s.a = (s.a + (speed * dt) / Math.hypot(rx * Math.sin(s.a), rz * Math.cos(s.a))) % (Math.PI * 2);
             let air = 0;
             for (const h of T.hurdles) {

@@ -393,21 +393,23 @@ test('armas nuevas: el subfusil dispara solo mientras se mantiene; la escopeta s
     expect(errors).toEqual([]);
 });
 
-test('rodeo: a caballo por la pista; los obstáculos se disparan (no dan nada), cada vuelta da una ficha y el jinete alienígena que llega se lleva una', { tag: '@smoke' }, async ({ page }) => {
+test('rodeo: a caballo por la pista (con su recorrido y su sentido); las siluetas se despliegan y se disparan (no dan nada), cada vuelta da una ficha y el jinete alienígena que llega se lleva una', { tag: '@smoke' }, async ({ page }) => {
     const errors = watchErrors(page);
     await openFarm(page);
     await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
-    await page.evaluate(() => { game.state.unlock('tomato', Date.now(), true); while (game.revealUnlocked()); game.harvest('tomato'); });
+    // (la gran colina, al revés)
+    await page.evaluate(() => { game.sniper.field.mods.tomato.force = { course: 'hill', reverse: true }; game.state.unlock('tomato', Date.now(), true); while (game.revealUnlocked()); game.harvest('tomato'); });
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
+    expect(await page.evaluate(() => { const T = game.sniper.field.mods.tomato.track; return [T.course.id, T.reverse, Math.max(...T.pts.map((p) => p.y)) > 2]; })).toEqual(['hill', true, true]);
     // Sin torres: a caballo, y el caballo corre solo
     const laps = await page.evaluate(() => game.state.sheaves('tomato'));
     expect(await page.evaluate(() => [game.sniper.riding, game.sniper.field.towers.some((t) => t.model.root.visible), game.sniper.field.remaining])).toEqual([true, false, laps]);
     const x0 = await page.evaluate(() => game.sniper.pos.x + game.sniper.pos.z);
     await expect.poll(() => page.evaluate((x0) => Math.abs(game.sniper.pos.x + game.sniper.pos.z - x0) > 2, x0), { timeout: 15_000 }).toBe(true);
-    // Parado, un obstáculo por delante: un tiro lo quita y no da ninguna ficha
+    // Parado, una silueta por delante: se despliega cortando el paso; un tiro la quita y no da ninguna ficha
     await page.evaluate(() => { const R = game.sniper.field.mods.tomato; R.hold = true; R.R.v = 0; R.list.forEach((o) => (o.alive = false)); });
     await page.evaluate(() => { const R = game.sniper.field.mods.tomato; R.obstacle(R.R.s + 9); });
-    await expect.poll(() => page.evaluate(() => game.sniper.field.mods.tomato.list.some((o) => o.alive && o.landed && !o.rider))).toBe(true);
+    await expect.poll(() => page.evaluate(() => game.sniper.field.mods.tomato.list.some((o) => o.alive && !o.rider && game.sniper.field.hittable(o)))).toBe(true);
     await aimAndShoot(page, `(() => { const o = game.sniper.field.mods.tomato.list.find((o) => o.alive && !o.rider); return o && { x: o.x, y: o.y, z: o.z }; })()`);
     await expect.poll(() => page.evaluate(() => game.sniper.field.mods.tomato.list.some((o) => o.alive && !o.rider))).toBe(false);
     expect(await page.evaluate(() => game.state.items.tomato)).toBe(0);
