@@ -58,8 +58,17 @@ export function gearArt(kind, item) {
     let url = '';
     try {
         if (!gl) setup();
+        // Contorno fino y del mismo grosor en pantalla para todas: la pieza se monta una vez sin
+        // contorno para medirla y otra con uno proporcional a su tamaño (~1 píxel de la foto)
+        const lo = whole ? item : { ...DEFAULT_LOADOUT, [kind]: item.id }, only = whole ? null : kind;
+        const probe = new VoxelModel(THEME.outline);
+        probe.outlineW = 0;
+        buildGun(probe, probe.root, lo, only);
+        const size = new THREE.Box3().setFromObject(probe.root).getSize(new THREE.Vector3());
+        probe.dispose();
         const model = new VoxelModel(THEME.outline);
-        buildGun(model, model.root, whole ? item : { ...DEFAULT_LOADOUT, [kind]: item.id }, whole ? null : kind);
+        model.outlineW = Math.max(size.x, size.z, size.y * (W / H)) * 0.008;
+        buildGun(model, model.root, lo, only);
         scene.add(model.root);
         model.root.updateMatrixWorld(true);
         frame(model.root);

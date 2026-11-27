@@ -125,7 +125,7 @@ test('armería: en el granero se montan las mirillas, rifles y cargadores, cada 
     await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
     await page.evaluate(() => game.select({ structure: 'barn' }));
     // Las clases: 5 (en partida, las dos últimas se abren con el granero), la 1 equipada
-    await expect(page.locator('.lo-class')).toHaveCount(5);
+    await expect(page.locator('.lo-class')).toHaveCount(10);
     await expect(page.locator('#class-0')).toHaveClass(/on/);
     // El arma y sus accesorios abren su lista: tres listas de 5; lo de serie viene montado
     await page.locator('#slot-rifle').click();

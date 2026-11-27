@@ -1981,19 +1981,12 @@ body.photo .debug-btn { visibility: hidden; }
 .nb-seg button.on { color: #fff1d6; background: var(--nb-wood); }
 
 /* ---- Pantalla de carga: escena viva detrás del cartel ---- */
-.loader { background: linear-gradient(#ffb36a, #ffe2a6 62%, #6a9a3a 62%); }
-.ld-scene { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
-.ld-scene i { position: absolute; display: block; }
-.ld-rows { left: -10%; right: -10%; bottom: 0; height: 38%; background: repeating-linear-gradient(90deg, rgba(42, 26, 14, .2) 0 22px, transparent 22px 60px); transform: perspective(300px) rotateX(55deg); transform-origin: bottom; }
-.ld-barn { bottom: 37%; left: 10%; width: 120px; height: 90px; background: #c8402e; clip-path: polygon(0 35%, 50% 0, 100% 35%, 100% 100%, 0 100%); }
-.ld-silo { bottom: 37%; left: calc(10% + 126px); width: 34px; height: 120px; background: #a8341f; border-radius: 17px 17px 0 0; }
-.ld-ufo { top: 13%; right: 14%; width: 110px; height: 26px; border-radius: 50%; background: #c8d0d8; box-shadow: inset 0 -10px 0 -2px #7dff4a; animation: ldUfo 2s steps(4) infinite alternate; }
-.ld-ufo::after { content: ''; position: absolute; left: 30px; top: 24px; width: 50px; height: 240px; background: linear-gradient(rgba(125, 255, 74, .5), transparent); clip-path: polygon(30% 0, 70% 0, 100% 100%, 0 100%); }
-@keyframes ldUfo { to { transform: translateY(10px); } }
+.loader { background: #6a5a3a; }
+/* (la foto del juego, a píxeles, con el centro algo más claro para que se lea el cartel) */
+.ld-scene { position: absolute; inset: 0; overflow: hidden; pointer-events: none; background: radial-gradient(ellipse at 50% 45%, rgba(255, 240, 200, .25), rgba(42, 26, 14, .45) 80%), url('img/loader.webp') 40% 60% / cover no-repeat; image-rendering: pixelated; }
 .loader > :not(.ld-scene) { position: relative; }
 .ld-bar { background: var(--nb-wood2); border-color: var(--nb-wood2); }
 .ld-dots i { background: var(--nb-wood2); }
-@media (prefers-reduced-motion: reduce) { .ld-ufo { animation: none; } }
 
 /* ---- Ajustes: una ficha con dos grupos ---- */
 #settings { justify-content: center; }
@@ -2293,3 +2286,69 @@ body.photo .debug-btn { visibility: hidden; }
 /* (el contenido del debug se desplaza dentro de su columna, sin crecer la libreta) */
 .debug-body { grid-template-rows: minmax(0, 1fr); }
 .debug-screen .debug-cols { min-height: 0; overflow-y: auto; justify-content: flex-start; align-items: stretch; }
+
+/* ===== Ajustes de los menús (2.ª pasada) ===== */
+/* Armamento y debug: a pantalla completa (sin el hueco del mapa alrededor) */
+#streaks, #debug { inset: 0; padding-top: env(safe-area-inset-top); padding-left: max(18px, env(safe-area-inset-left)); padding-right: max(18px, env(safe-area-inset-right)); padding-bottom: max(14px, env(safe-area-inset-bottom)); }
+#debug { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
+/* La X: chincheta cuadrada, como todo lo demás */
+.panel-x { border-radius: 0; }
+/* Lo elegido en una lista: ficha blanca levantada con borde rojo entero (sin la barra a un lado) */
+.lo-class.on, .debug-tab.on { background: #fff; border: 2px solid var(--nb-red); box-shadow: 3px 4px 0 rgba(58, 36, 18, .35); transform: translate(-1px, -2px); }
+/* Las clases: hasta 10, algo más bajas; al final, separado, el paso al pozo */
+.lo-class, .lo-class.on { min-height: 0; padding: 7px 12px; gap: 3px; }
+.lo-classes { gap: 6px; }
+.lo-wish { margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 12px; font-size: 12px; color: #fff1d6; background: var(--nb-wood); border-color: var(--nb-wood2); box-shadow: 0 4px 0 var(--nb-wood2); }
+.lo-wish .ico { width: 22px; height: 22px; flex: none; }
+@media (max-width: 700px) { .lo-wish { flex: none; margin: 0 0 0 8px; } }
+/* El nombre de la clase: se toca para cambiarlo (cuadro de texto con la misma letra) */
+#class-name { cursor: text; border-bottom: 2px dashed transparent; }
+#class-name:hover { border-bottom-color: var(--nb-wood); }
+#class-name.editing { border-bottom-color: transparent; }
+.lo-name-in { width: 15ch; max-width: 100%; padding: 2px 6px; font-family: var(--nb-head); font-size: inherit; text-transform: uppercase; color: var(--nb-wood2); caret-color: var(--nb-red); background: var(--nb-paper); border: 2px solid var(--nb-wood); border-bottom: 3px solid var(--nb-red); border-radius: 0; outline: none; box-shadow: 2px 3px 0 rgba(58, 36, 18, .25); }
+/* El hueco que acaba de cambiar: se enciende y sale el sello */
+.lo-slot { position: relative; }
+.lo-new { display: none; position: absolute; top: -10px; right: 10px; padding: 3px 7px; font-family: var(--nb-head); font-style: normal; font-size: 10px; color: #fff1d6; background: var(--nb-good); border: 2px solid #18440f; transform: rotate(-4deg); pointer-events: none; }
+.lo-slot.just { animation: slotJust 1.6s steps(1) both; }
+.lo-slot.just .lo-new { display: block; animation: stampIn .3s steps(3) both; }
+@keyframes slotJust {
+    0%, 30%, 60% { background: #fff; outline: 3px solid var(--nb-good); outline-offset: 2px; }
+    15%, 45%, 75% { background: #e6f5c8; outline: 3px solid var(--nb-good); outline-offset: 2px; }
+    100% { outline: 3px solid transparent; }
+}
+@keyframes stampIn { from { transform: scale(1.8) rotate(-12deg); opacity: 0; } to { transform: rotate(-4deg); opacity: 1; } }
+/* Fotos de las piezas: sin marco grueso alrededor */
+.lo-slot img { border: 0; background: none; }
+/* El selector de piezas: fondo oscurecido detrás; sitio arriba para las etiquetas de las fichas */
+.gear-picker { box-shadow: 0 0 0 100vmax rgba(30, 18, 8, .62), 0 10px 0 rgba(42, 26, 14, .35); }
+.gear-rows { padding: 14px 10px 8px; display: flex; flex-direction: column; gap: 12px; }
+/* Tipos de arma: la primera fila, se marcan uno o varios */
+.gear-cats { display: flex; flex-wrap: wrap; gap: 6px; }
+.gear-cats button { padding: 6px 9px 5px; font-family: var(--nb-head); font-size: 10px; color: var(--nb-ink); background: #d9bd85; border: 2px solid var(--nb-wood); cursor: pointer; }
+.gear-cats button.on { color: #fff1d6; background: var(--nb-wood); border-color: var(--nb-wood2); }
+/* Campo de pruebas: más grande, y las fichas marcadas no se cortan */
+.range-menu { width: min(980px, 96vw); max-height: 92vh; }
+.range-body { padding: 6px 8px 8px; }
+.rg-row { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; }
+.rg-btn { padding: 10px 6px; gap: 6px; }
+.rg-btn .ks-ico { width: 34px; height: 34px; }
+.range-body .nb-tabs { margin: 0 -8px; padding-left: 12px; }
+/* El pozo: un icono grande por rareza con las que llevas; y el paso a armamento */
+.well-tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px; }
+.well-tier { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px 10px; font-family: var(--nb-head); text-align: center; background: var(--nb-paper); border: 2px solid var(--nb-wood); box-shadow: inset 0 -5px 0 var(--tier), 2px 3px 0 rgba(58, 36, 18, .3); }
+.well-tier .gem { width: 40px; height: 40px; margin: 6px 0 4px; background: var(--tier); border: 3px solid var(--nb-ink); box-shadow: inset 6px 6px 0 rgba(255, 255, 255, .35), inset -6px -6px 0 rgba(0, 0, 0, .2); transform: rotate(45deg); }
+.well-tier b { font-weight: 400; font-size: 22px; color: var(--nb-ink); }
+.well-tier b small { font-size: 13px; color: var(--nb-mute); }
+.well-tier span { font-size: 11px; color: var(--nb-mute); }
+.well-tier.full { background: #fff; }
+.well-tier.just { animation: wellJust 1.6s steps(8) 2; }
+.well-go { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; padding-top: 10px; border-top: 2px dashed var(--nb-wood); font-family: var(--nb-body); font-size: 13px; color: var(--nb-mute); }
+.well-go .btn { flex: none; font-size: 11px; padding: 7px 10px; }
+/* Mercaderes: la cara centrada en su círculo y el icono de lo que quiere, algo más grande */
+.m-face { background-position: center; background-size: contain; }
+.m-tab > .ico { right: -6px; bottom: -6px; width: 24px; height: 24px; background-size: 70% 70%; background-position: center; background-repeat: no-repeat; }
+.lo-name-in::selection { color: #fff1d6; background: var(--nb-red); }
+.range-body { align-items: stretch; }
+.range-body > .rg-row { width: 100%; }
+.range-body .nb-seg { align-self: flex-start; }
+.m-tab, .merchant-dock .m-tab { justify-content: center; align-content: center; }

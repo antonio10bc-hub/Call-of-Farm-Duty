@@ -117,6 +117,7 @@ export class FarmState {
                         const C = this.arsenal.classes[i];
                         if (!c || !C) return;
                         for (const kind of ARSENAL_KINDS) if (this.ownsGear(kind, c[kind])) C[kind] = c[kind];
+                        if (typeof c.name === 'string' && c.name.trim()) C.name = c.name.trim().slice(0, 14);
                         if (Array.isArray(c.ks)) C.ks = c.ks.filter((id) => KILLSTREAKS.some((k) => k.id === id));
                     });
                     this.arsenal.active = Math.min(CLASSES.length - 1, Math.max(0, d.arsenal.active | 0));
@@ -329,6 +330,14 @@ export class FarmState {
         this.arsenal.loadout = this.arsenal.classes[i];
         this.save();
         return true;
+    }
+
+    // Cambiarle el nombre a la clase i (vacío: el de serie)
+    renameClass(i, name) {
+        const c = this.arsenal.classes[i], n = String(name || '').trim().toUpperCase().slice(0, 14);
+        if (n) c.name = n;
+        else delete c.name;
+        this.save();
     }
 
     // Poner o quitar una racha de bajas en la clase i

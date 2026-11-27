@@ -6,7 +6,7 @@ import { CROPS } from './content/crops.js';
 import { FARM, FIELD_BY_ID, INFO, TURRETS, toWorld, worldToPlace, PLACES } from './content/farm.js';
 import { KILLSTREAKS, setStreakCounts } from './content/killstreaks.js';
 import { SHOP, SHOP_ITEMS } from './content/ufo.js';
-import { ARSENAL, ARSENAL_KINDS, CLASSES, DEFAULT_LOADOUT } from './content/arsenal.js';
+import { ARSENAL, ARSENAL_KINDS, CLASSES, DEFAULT_LOADOUT, WEAPON_CATS, className, weaponCat } from './content/arsenal.js';
 import { gearArt } from './ui/GearArt.js';
 import { TIERS, tierOf } from './content/well.js';
 import { MERCHANT, rareVisit } from './content/merchant.js';
@@ -1439,7 +1439,7 @@ function renderRange() {
             + (rgView.sub === 'box' ? WONDER.map((w) => btn(`data-wonder="${w.id}"`, sniper.special && sniper.special.id === w.id, `<i>${w.name}</i>`)).join('')
                 : ARSENAL[rgView.sub].map((it) => btn(`data-gear="${rgView.sub}:${it.id}"`, !sniper.special && lo[rgView.sub] === it.id, `<img alt="" src="${gearArt(rgView.sub, it)}"><i>${it.name}</i>`, it.desc)).join('')) + '</div>';
     } else if (rgView.tab === 'targets') body = `<div class="rg-row">${RANGE_TARGETS.map(([id, name]) => btn(`data-target="${id}"`, id === range.mode, `<span class="rg-target t-${id}"></span><i>${name}</i>`)).join('')}</div>`;
-    else if (rgView.tab === 'ks') body = `<div class="rg-row">${KILLSTREAKS.map((k) => btn(`data-ks="${k.id}"`, false, `<span class="ico ${k.icon}-ico"></span><i>${k.short}</i>`, k.desc)).join('')}</div>`;
+    else if (rgView.tab === 'ks') body = `<div class="rg-row">${KILLSTREAKS.map((k) => btn(`data-ks="${k.id}"`, false, `<i class="ks-ico" style="--ico: var(--px-${k.icon})"></i><i>${k.short}</i>`, k.desc)).join('')}</div>`;
     else body = `<div class="rg-row">${btn('data-toggle="aliens"', range.aliens, `<i>${L('ALIENS ON FOOT', 'ALIENS A PIE')}</i>`) + btn('data-toggle="ufos"', range.ufos, `<i>${L('UFOS', 'OVNIS')}</i>`)}</div>`;
     $('range-body').innerHTML = `<div class="nb-tabs">${tabs.map(([id, n]) => `<button data-rtab="${id}" class="nb-tab${rgView.tab === id ? ' on' : ''}">${n}</button>`).join('')}</div>` + body;
 }
@@ -2462,7 +2462,6 @@ function openWell() {
     if (mode !== 'farm' || inCine()) return;
     select(null);
     sfx.play('open');
-    rig.focus(135, 17);
     rig.zoomTarget = 0.8;
     $('well-line').textContent = WELL_LINES[(Math.random() * WELL_LINES.length) | 0];
     wellResult = null;
@@ -2471,7 +2470,16 @@ function openWell() {
     el.classList.remove('hidden', 'in');
     void el.offsetWidth;
     el.classList.add('in');
+    frameWell();
 }
+// La cámara, con el pozo en el centro de lo que deja libre su hoja (a la derecha)
+function frameWell() {
+    const w = toWorld(135, 17), el = $('well');
+    const dock = innerWidth >= 700 && !el.classList.contains('hidden') ? el.offsetWidth : 0;
+    const shift = (dock / innerWidth) * rig.halfWidth * rig.zoomTarget;
+    rigFocus(w.x - Math.cos(rig.yaw) * shift, w.z + Math.sin(rig.yaw) * shift, w.y);
+}
+addEventListener('resize', () => { if (!$('well').classList.contains('hidden')) frameWell(); });
 
 function renderWell() {
     const pool = state.wishPool(), cost = state.wishCost(), busy = farm.well.busy;
@@ -2490,14 +2498,11 @@ function renderWell() {
     // Arriba, en grande: lo último que ha salido (o el pozo, con lo que queda por salir)
     $('well-result').innerHTML = r ? `<div class="well-card${r.dup ? ' dup' : ''}" data-tier="${r.tier.id}" style="--tier:${hex(r.tier)}"><img alt="" src="${gearArt(r.kind, r.it)}"><b>${r.it.name}</b><em>${r.tier.name}</em><small>${r.dup ? `${L('DUPLICATE', 'REPETIDA')}: +${r.refund} ${L('GOLD BACK', 'DE ORO DE VUELTA')}` : r.it.desc}</small></div>`
         : `<div class="well-hero"><i class="ico well-ico"></i><span>${total > got ? L(`${total - got} NEW PIECES STILL DOWN THERE`, `QUEDAN ${total - got} PIEZAS NUEVAS AHÍ ABAJO`) : L('YOU HAVE THEM ALL!', '¡LAS TIENES TODAS!')}</span></div>`;
-    const was = $('well-list').querySelector('details');
+    // Debajo, la colección: un icono grande por rareza con las que llevas de cada una; y al final,
+    // el paso a armamento (para montarlas)
     $('well-list').innerHTML = `<div class="nb-lbl">${L('YOUR COLLECTION', 'TU COLECCIÓN')} · ${got}/${total}</div>`
-        + tiers.map(({ t, all, have }) => `<div class="well-bar" style="--tier:${hex(t)}"><span>${t.name}</span><i><b style="width:${Math.round(have / all.length * 100)}%"></b></i><em>${have}/${all.length}</em></div>`).join('')
-        + `<details class="well-all"${was && was.open ? ' open' : ''}><summary>${L(`SEE ALL ${total} PIECES`, `VER LAS ${total} PIEZAS`)}</summary>`
-        + tiers.map(({ t, all }) => `<div class="well-grid">${all.map(({ k, it }) => {
-            const have = state.ownsGear(k, it.id);
-            return `<span class="well-item${have ? ' on' : ''}" data-tier="${t.id}" style="--tier:${hex(t)}" data-id="${k}:${it.id}" title="${it.desc}"><img alt="" src="${gearArt(k, it)}"><i>${have ? it.name : '?'}</i></span>`;
-        }).join('')}</div>`).join('') + '</details>';
+        + `<div class="well-tiers">${tiers.map(({ t, all, have }) => `<div class="well-tier${have === all.length ? ' full' : ''}" data-tier="${t.id}" style="--tier:${hex(t)}"><i class="gem"></i><b>${have}<small>/${all.length}</small></b><span>${t.name}</span></div>`).join('')}</div>`
+        + `<div class="well-go"><span>${L('PUT THEM ON IN THE ARMORY', 'MÓNTALAS EN EL ARMAMENTO')}</span><button id="well-armory" class="btn btn-small">${L('GO TO ARMORY', 'IR A ARMAMENTO')}</button></div>`;
 }
 
 // El deseo, de cine: sin tocar nada, la moneda vuela al pozo, la cámara se acerca, el pozo se
@@ -2597,17 +2602,20 @@ function updateWellCine(dt) {
         el.classList.remove('hidden', 'in');
         void el.offsetWidth;
         el.classList.add('in');
-        const slot = $('well-list').querySelector(`.well-item[data-id="${p.kind}:${p.it.id}"]`);
-        if (slot) {
-            slot.closest('details').open = true;
-            slot.classList.add('just');
-            slot.scrollIntoView({ block: 'center' });
-        }
+        frameWell();
+        const slot = $('well-list').querySelector(`.well-tier[data-tier="${p.tier.id}"]`);
+        if (slot && !p.dup) slot.classList.add('just');
         sfx.play('open');
     }
 }
 $('well').addEventListener('click', (e) => e.stopPropagation());
 $('well').addEventListener('pointerdown', (e) => e.stopPropagation());
+$('well-list').addEventListener('click', (e) => {
+    if (!e.target.closest('#well-armory')) return;
+    $('well').classList.add('hidden');
+    rig.zoomTarget = 1;
+    openStreaks();
+});
 tapBtn('well-close', () => {
     sfx.play('close');
     $('well').classList.add('hidden');
@@ -2745,12 +2753,58 @@ CLASSES.forEach((c, i) => {
     $('lo-classes').appendChild(b);
     classBtns.push(b);
 });
+// Al final de la lista, algo separada: ir al pozo a pedir un deseo (de ahí salen las piezas)
+{
+    const b = document.createElement('button');
+    b.id = 'lo-wish';
+    b.className = 'btn lo-wish';
+    b.innerHTML = `${ico('well')}<span>${L('MAKE A WISH', 'PEDIR UN DESEO')}</span>`;
+    b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        $('streaks').classList.add('hidden');
+        openWell();
+    });
+    $('lo-classes').appendChild(b);
+}
+// El nombre de la clase se cambia tocándolo: se vuelve un cuadro de texto con el mismo aspecto
+// (Intro o tocar fuera lo guarda; Esc lo deja como estaba)
+$('class-name').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const el = $('class-name');
+    if (el.querySelector('input')) return;
+    const inp = document.createElement('input');
+    Object.assign(inp, { type: 'text', maxLength: 14, value: className(cls(), loEdit), spellcheck: false, autocomplete: 'off' });
+    inp.className = 'lo-name-in';
+    inp.setAttribute('aria-label', L('CLASS NAME', 'NOMBRE DE LA CLASE'));
+    el.textContent = '';
+    el.appendChild(inp);
+    el.classList.add('editing');
+    inp.focus();
+    inp.select();
+    let done = false;
+    const end = (save) => {
+        if (done) return;
+        done = true;
+        if (save) state.renameClass(loEdit, inp.value);
+        el.classList.remove('editing');
+        el.textContent = '';
+        sfx.play(save ? 'reloaded' : 'close');
+        refreshRifle();
+    };
+    inp.addEventListener('input', () => { inp.value = inp.value.toUpperCase(); });
+    inp.addEventListener('keydown', (ev) => {
+        ev.stopPropagation();
+        if (ev.key === 'Enter') end(true);
+        else if (ev.key === 'Escape') end(false);
+    });
+    inp.addEventListener('blur', () => end(true));
+});
 // Arma principal y accesorios (cada hueco abre su lista)
 for (const kind of ['rifle', 'scope', 'mag']) {
     const b = document.createElement('button');
     b.className = `lo-slot lo-${kind}`;
     b.id = `slot-${kind}`;
-    b.innerHTML = `<img alt=""><span><small>${GEAR[kind].title}</small><b></b></span><em>${L('CHANGE', 'CAMBIAR')} &gt;</em>`;
+    b.innerHTML = `<img alt=""><span><small>${GEAR[kind].title}</small><b></b></span><em>${L('CHANGE', 'CAMBIAR')} &gt;</em><i class="lo-new">${L('CHANGED!', '¡CAMBIADO!')}</i>`;
     b.addEventListener('click', (e) => {
         e.stopPropagation();
         sfx.play('ui');
@@ -2784,8 +2838,27 @@ tapBtn('class-equip', () => {
     vibrate('pickup');
     refreshRifle();
 });
-// La lista de un tipo de pieza (en esta clase)
+// La lista de un tipo de pieza (en esta clase). Las armas, con una primera fila de tipos para
+// filtrar (uno o varios; ninguno: todas)
 let pickKind = 'rifle';
+const catOn = new Set();
+{
+    const row = document.createElement('div');
+    row.id = 'gear-cats';
+    row.className = 'gear-cats';
+    row.innerHTML = WEAPON_CATS.map((c) => `<button data-cat="${c.id}">${c.name}</button>`).join('');
+    row.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const b = e.target.closest('[data-cat]');
+        if (!b) return;
+        const id = b.dataset.cat;
+        if (catOn.has(id)) catOn.delete(id);
+        else catOn.add(id);
+        sfx.play('ui');
+        refreshRifle();
+    });
+    $('gear-rows').appendChild(row);
+}
 for (const kind of ARSENAL_KINDS) {
     const row = document.createElement('div');
     row.className = 'gear-row';
@@ -2842,6 +2915,12 @@ $('gear-detail').addEventListener('click', (e) => {
     updateCounts();
     $('gear-picker').classList.add('hidden');
     refreshRifle();
+    // (el hueco que ha cambiado se enciende un momento: que se vea que ya está puesto)
+    const slot = loSlots[kind];
+    slot.classList.remove('just');
+    void slot.offsetWidth;
+    slot.classList.add('just');
+    setTimeout(() => slot.classList.remove('just'), 1700);
 });
 function openPicker(kind) {
     pickKind = kind;
@@ -2860,13 +2939,14 @@ function refreshRifle() {
     CLASSES.forEach((def, i) => {
         const b = classBtns[i], open = state.classOpen(i);
         const price = state.classPrice(i);
-        const html = open ? `<b>${L(...def.name)}</b>${i === A.active ? `<em>${L('EQUIPPED', 'EQUIPADA')}</em>` : ''}`
-            : `<b>${ico('lock')}${L(...def.name)}</b><em class="${state.items.gold < price ? 'short' : ''}">${ico('gold')}${price} · ${L('UNLOCK', 'DESBLOQUEAR')}</em>`;
+        const html = open ? `<b>${className(A.classes[i], i)}</b>${i === A.active ? `<em>${L('EQUIPPED', 'EQUIPADA')}</em>` : ''}`
+            : `<b>${ico('lock')}${className(A.classes[i], i)}</b><em class="${state.items.gold < price ? 'short' : ''}">${ico('gold')}${price} · ${L('UNLOCK', 'DESBLOQUEAR')}</em>`;
         if (b.innerHTML !== html) b.innerHTML = html;
         b.classList.toggle('on', i === loEdit);
         b.classList.toggle('lock', !open);
     });
-    $('class-name').textContent = L(...CLASSES[loEdit].name);
+    if (!$('class-name').querySelector('input')) $('class-name').textContent = className(c, loEdit);
+    $('class-name').title = L('TAP TO RENAME', 'TOCA PARA CAMBIAR EL NOMBRE');
     const eq = $('class-equip'), using = A.active === loEdit;
     eq.disabled = using;
     eq.textContent = using ? L('EQUIPPED', 'EQUIPADA') : L('EQUIP CLASS', 'EQUIPAR CLASE');
@@ -2891,6 +2971,9 @@ function refreshRifle() {
         ksBtns[k.id].querySelector('em').textContent = on ? L('ON', 'PUESTA') : L('OFF', 'QUITADA');
     }
     for (const row of document.querySelectorAll('.gear-row')) row.classList.toggle('hidden', row.dataset.kind !== pickKind);
+    $('gear-cats').classList.toggle('hidden', pickKind !== 'rifle');
+    for (const b of $('gear-cats').children) b.classList.toggle('on', catOn.has(b.dataset.cat));
+    for (const it of ARSENAL.rifle) gearCards[`rifle:${it.id}`].classList.toggle('hidden', catOn.size > 0 && !catOn.has(weaponCat(it)));
     if (!$('gear-picker').classList.contains('hidden') || pickSel) renderGearDetail();
     for (const kind of ARSENAL_KINDS) {
         for (const it of ARSENAL[kind]) {

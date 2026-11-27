@@ -105,7 +105,24 @@ export const CLASSES = [
     { name: ['ALIEN SCARER', 'ESPANTAALIENS'], price: 20 },
     { name: ['CLASS 4', 'CLASE 4'], price: 35 },
     { name: ['CLASS 5', 'CLASE 5'], price: 50 },
+    { name: ['CLASS 6', 'CLASE 6'], price: 70 },
+    { name: ['CLASS 7', 'CLASE 7'], price: 90 },
+    { name: ['CLASS 8', 'CLASE 8'], price: 120 },
+    { name: ['CLASS 9', 'CLASE 9'], price: 150 },
+    { name: ['CLASS 10', 'CLASE 10'], price: 200 },
 ];
+// El nombre de una clase: el que le haya puesto el jugador o el de serie
+export const className = (c, i) => (c && c.name) || L(...CLASSES[i].name);
+
+// Tipos de arma (el filtro del selector): por cómo se dibuja (look.type); el subfusil aparte
+export const WEAPON_CATS = [
+    { id: 'rifle', name: L('RIFLES', 'RIFLES') },
+    { id: 'pistol', name: L('PISTOLS', 'PISTOLAS') },
+    { id: 'smg', name: L('SMGS', 'SUBFUSILES') },
+    { id: 'mg', name: L('MACHINE GUNS', 'AMETRALLADORAS') },
+    { id: 'shotgun', name: L('SHOTGUNS', 'ESCOPETAS') },
+];
+export const weaponCat = (it) => (it.id === 'smg' ? 'smg' : it.look.type || 'rifle');
 export const arsenalItem = (kind, id) => ARSENAL[kind].find((x) => x.id === id) || ARSENAL[kind][0];
 
 // Lo que da al fusil un equipo { scope, rifle, mag }

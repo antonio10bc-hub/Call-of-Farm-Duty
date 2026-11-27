@@ -22,6 +22,7 @@ const SHELL = [
     './icons/icon-512.png',
     './icons/apple-touch-icon.png',
     './icons/favicon-64.png',
+    './img/loader.webp',
 ];
 const NETWORK_TIMEOUT = 4000;
 
