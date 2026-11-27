@@ -4051,8 +4051,9 @@ function takeAlbumShot() {
     } catch { /* sin almacenamiento */ }
     updateAlbumBtn();
 }
+// (el botón, siempre: aunque aún no haya fotos, se ve qué niveles faltan)
 function updateAlbumBtn() {
-    $('btn-album').classList.toggle('hidden', !Object.keys(albumGet()).length);
+    $('btn-album').classList.remove('hidden');
 }
 function renderAlbum() {
     const A = albumGet();
