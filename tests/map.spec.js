@@ -376,7 +376,7 @@ test('vida de los mercaderes (con DEBUG): confianza por niveles, racha con regal
     // Su hoja: pestañas de los 8, abrir el regalo y comprar en su tienda; lo que tienes, en el pueblo
     await page.evaluate(() => { game.state.village = []; game.state.merchants.m0.gift = 'gnome'; game.state.items.gold = 999; game.openMerchant('m0'); });
     await expect(page.locator('#merchant-trust')).toContainText('AMIGO DEL ALMA');
-    await expect(page.locator('#merchant-tabs .m-tab')).toHaveCount(8);
+    await expect(page.locator('#merchant-tabs .m-tab:not(.m-town)')).toHaveCount(8);
     await page.locator('button[data-gift]').click();
     await page.locator('button[data-view="rare"]').click(); // (las cosas raras, en su pestaña)
     await page.locator('button[data-buy="trophy"]').click();
@@ -504,6 +504,8 @@ test('ampliar el pueblo: con el pueblo terminado, cada paso construye la siguien
     await page.evaluate(() => { const S = game.state; S.story.merchant = true; S.village = game.allDecor.slice(); S.items.gold = 100; game.syncMerchantLife(false); game.clocks.m0.force = 'here'; });
     await expect.poll(() => page.evaluate(() => game.farm.village.byId.m0.open), { timeout: 120_000 }).toBe(true);
     await page.evaluate(() => game.openMerchant('m0'));
+    // (el pueblo: la primera entrada de la lista de mercaderes)
+    await page.locator('#merchant-tabs [data-tab="town"]').click();
     const btn = page.locator('#merchant-village [data-expand]');
     await expect(btn).toBeEnabled();
     await btn.click();
