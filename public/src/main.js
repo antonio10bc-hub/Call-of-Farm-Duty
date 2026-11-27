@@ -725,7 +725,8 @@ let curM = 'm0';
 let mView = 'orders'; // la pestaña del mercader: sus encargos o sus cosas raras
 let mTown = false; // en la hoja de los mercaderes, el pueblo (la primera entrada de la lista) en vez de un mercader
 // ¿Tiene algo que se le pueda entregar ahora?
-const merchantCan = (id) => farm.village.byId[id].open && state.ordersFor(clocks[id].visit, id).some((o) => state.canDeliver(o));
+// (algo que hacer con él: un encargo que se puede entregar o algo que se puede comprar)
+const merchantCan = (id) => farm.village.byId[id].open && (state.ordersFor(clocks[id].visit, id).some((o) => state.canDeliver(o)) || state.stock(clocks[id].visit, id).some((d) => state.canBuy(clocks[id].visit, d, id)));
 // ---------- Dock (abajo, en el centro) ----------
 // Botones cuadrados de solo icono para ir a cada sitio: el granero, los campos (va pasando por
 // los que piden algo), la casa y el mercader. Si la cámara ya está allí, abre su ficha. Un
@@ -2303,7 +2304,7 @@ function renderMerchant() {
     setHtml($('merchant-tabs'), `<button data-tab="town" class="m-tab m-town here${mTown ? ' on' : ''}${townCan ? ' can' : ''}" title="${L('YOUR VILLAGE', 'TU PUEBLO')}" aria-label="${L('YOUR VILLAGE', 'TU PUEBLO')}"><i class="m-face"></i></button><i class="m-sep"></i>` + MERCHANTS.map((d) => {
         const here = farm.village.byId[d.id].open, left = clocks[d.id].left;
         const when = left === null ? '' : `${here ? L('LEAVES', 'SE VA') : L('BACK', 'VUELVE')} ${fmt(left)}`;
-        return `<button data-tab="${d.id}" class="m-tab${d.id === id && !mTown ? ' on' : ''}${here ? ' here' : ''}${merchantCan(d.id) ? ' can' : ''}" title="${d.name}${when ? ` · ${when}` : ''}" aria-label="${d.name}"><i class="m-face" style="filter:hue-rotate(${hueOf(d.skin)}deg)"></i>${ico(CROPS[d.fav].icon)}</button>`;
+        return `${d.mother ? '<i class="m-sep"></i>' : ''}<button data-tab="${d.id}" class="m-tab${d.mother ? ' m-mother' : ''}${d.id === id && !mTown ? ' on' : ''}${here ? ' here' : ''}${merchantCan(d.id) ? ' can' : ''}" title="${d.name}${when ? ` · ${when}` : ''}" aria-label="${d.name}"><i class="m-face" style="filter:hue-rotate(${hueOf(d.skin)}deg)"></i>${ico(CROPS[d.fav].icon)}</button>`;
     }).join(''));
     $('merchant').classList.toggle('town-on', mTown);
     if (mTown) return renderTown();
@@ -2392,13 +2393,24 @@ function renderTown() {
     setHtml($('merchant-trust'), `<div class="t-row"><span class="trust-name">${L('LV', 'NV')} ${lv + 1}</span><span class="pips">${VILLAGE_LEVELS.map((_, i) => `<i class="pip${i <= lv ? ' on' : ''}"></i>`).join('')}</span>`
         + `<span class="trust-bar"><i style="width:${Math.round(Math.min(1, k) * 100)}%"></i></span><span class="trust-name">${n}/${ALL_DECOR.length}</span></div>`);
     setHtml($('merchant-view'), '');
-    // Los niveles, como una escalera: los pasados, marcados; el siguiente, con lo que falta y su premio
-    const steps = VILLAGE_LEVELS.map((L0, i) => `<div class="tw-step${i <= lv ? ' done' : ''}${i === lv + 1 ? ' next' : ''}"><b>${L0.name}</b><small>${i <= lv ? '✓' : i === lv + 1 ? `${L('MISSING', 'FALTAN')} ${L0.n - n}` : `${L0.n}`}</small>${L0.gold ? `<em>${ico('gold')}${L0.gold}</em>` : '<em></em>'}</div>`).join('');
-    const perks = Object.keys(TOWN_PERKS).map((p) => `<div class="tw-perk${state.perks[p] ? ' on' : ''}"><b>${PERK_CHIP[p]}</b><small>${PERK_TEXT[p]}</small></div>`).join('');
+    // Los niveles: los conseguidos, con su sello verde; el siguiente, con su barra y lo que falta; los
+    // demás, a lápiz (punteados) con cuántas cosas piden
+    const steps = VILLAGE_LEVELS.map((L0, i) => {
+        const done = i <= lv, nx = i === lv + 1;
+        const tag = done ? `<span class="tw-tag ok">✓ ${L('DONE', 'CONSEGUIDO')}</span>`
+            : nx ? `<span class="tw-tag">${L('MISSING', 'FALTAN')} ${L0.n - n}</span>` : `<span class="tw-tag">${ico('lock')}${L0.n} ${L('THINGS', 'COSAS')}</span>`;
+        const bar = nx ? `<i class="tw-bar"><b style="width:${Math.round(Math.min(1, k) * 100)}%"></b></i>` : '';
+        return `<div class="tw-step${done ? ' done' : nx ? ' next' : ''}"><b>${L0.name}</b>${tag}${L0.gold ? `<em>${ico('gold')}${L0.gold}</em>` : '<em></em>'}${bar}</div>`;
+    }).join('');
+    // Los barrios especiales: se construyen solos al ampliar el pueblo (en su paso de la ampliación)
+    const items = farm.village.planItems || [], total = farm.village.planCount; // (el plano se hace al llegar a ciudad)
+    const perks = Object.keys(TOWN_PERKS).map((p) => {
+        const at = items.findIndex((x) => x.kind === p) + 1, on = !!state.perks[p];
+        return `<div class="tw-perk${on ? ' on' : ''}"><b>${PLAN_NAMES[p]}</b><small>${PERK_TEXT[p]}</small><span class="tw-tag${on ? ' ok' : ''}">${on ? `✓ ${L('BUILT', 'CONSTRUIDO')}` : at ? `${L('EXPANSION', 'AMPLIACIÓN')} ${at}/${total}` : L('NOT BUILT', 'SIN CONSTRUIR')}</span></div>`;
+    }).join('');
     const phase = townPhase(n);
     setHtml($('merchant-orders'), `<div class="nb-lbl">${L('LEVELS', 'NIVELES')}</div><div class="tw-steps">${steps}</div>`
-        + `<div class="nb-lbl">${L('NEIGHBOURHOODS', 'BARRIOS')}</div><div class="tw-perks">${perks}</div>`
-        + `<div class="nb-lbl">${L('ACHIEVEMENTS', 'LOGROS')} · ${state.medals.length}/${MEDALS.length}</div><div class="merchant-coll">${MEDALS.map((m) => `<span class="${state.medals.includes(m.id) ? 'on' : ''}" title="${m.desc}">${m.name}</span>`).join('')}</div>`);
+        + `<div class="nb-lbl">${L('NEIGHBOURHOODS', 'BARRIOS')}</div><p class="tw-note">${phase >= 3 ? L('THEY GET BUILT AS YOU EXPAND THE VILLAGE (BUTTON BELOW). EACH ONE GIVES A BONUS.', 'SE CONSTRUYEN AL AMPLIAR EL PUEBLO (BOTÓN DE ABAJO). CADA UNO DA UNA VENTAJA.') : L(`THEY GET BUILT BY EXPANDING THE VILLAGE, ONCE IT IS A CITY (${VILLAGE_LEVELS[4].n} THINGS).`, `SE CONSTRUYEN AMPLIANDO EL PUEBLO CUANDO SEA CIUDAD (${VILLAGE_LEVELS[4].n} COSAS).`)}</p><div class="tw-perks">${perks}</div>`);
     // Abajo, la ampliación (con el pueblo terminado) o cuándo llega
     setHtml($('merchant-village'), phase >= 3 ? expandHtml() : `<div class="town-expand"><small>${L(`EXPANSIONS UNLOCK AT ${VILLAGE_LEVELS[4].n} THINGS`, `LAS AMPLIACIONES LLEGAN CON ${VILLAGE_LEVELS[4].n} COSAS`)}</small></div>`);
 }

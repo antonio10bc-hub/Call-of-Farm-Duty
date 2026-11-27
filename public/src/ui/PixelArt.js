@@ -42,6 +42,11 @@ function drawCoin(ctx, half, S = 16) {
 
 const SPRITES = {
     // La casa: tejado rojo con sus tejas, chimenea, ventana encendida y la puerta
+    // El mercado (el pueblo de los mercaderes): un puesto con su toldo de rayas y su género
+    market: {
+        rows: ['............', 'KKKKKKKKKKKK', 'KRWRWRWRWRWK', 'KRWRWRWRWRWK', '.KKKKKKKKKK.', '.KNDDDDDDNK.', '.KNDDDDDDNK.', '.KNYGOYGONK.', 'KKKKKKKKKKKK', 'KWWWWWWWWWWK', 'KNNNNNNNNNNK', 'KKKKKKKKKKKK'],
+        pal: { K: INK, R: '#e8452e', W: '#fff3d6', N: '#a8642e', D: '#5a3a22', Y: '#ffd23f', G: '#6ab04a', O: '#ff9a1f' },
+    },
     home: {
         rows: ['.....KK.....', '....KRRK.KK.', '...KRRRRKSK.', '..KRRDRRRKK.', '.KRRRRRDRRK.', 'KRDRRRRRRRRK', 'KKKKKKKKKKKK', '.KWWWWWWWWK.', '.KWKKKWKKKK.', '.KWKYKWKNNK.', '.KWKKKWKNNK.', 'KKKKKKKKKKKK'],
         pal: { K: INK, R: '#e8452e', D: '#b8321e', S: '#9a948c', W: '#fff3d6', Y: '#ffd23f', N: '#a8642e' },
