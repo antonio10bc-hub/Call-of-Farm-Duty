@@ -32,8 +32,9 @@ const { MERCHANTS, VILLAGE_LEVELS, PER_LEVEL, TOWN_PERKS, PERK_LEVEL, MEDALS, DE
 const arg = (k, d) => { const i = process.argv.indexOf(`--${k}`); return i > 0 ? Number(process.argv[i + 1]) : d; };
 const RUNS = arg('runs', 20), LOG = process.argv.includes('--log');
 
-// ---------- El jugador medio ----------
-const A = {
+// ---------- Los jugadores (arquetipos) ----------
+// El medio es la base; cada arquetipo cambia lo suyo (spt: multiplica los segundos por blanco)
+const BASE = {
     prologue: 180,      // s hasta tener el trigo listo para sembrar
     over: 14,           // s por viaje al campo de tiro (entrar, cambiar de torre, salir)
     hit: 0.88,          // de cada campo, lo que acaba recogiendo (fallos, robos)
@@ -41,10 +42,25 @@ const A = {
     dense: 0.07,        // cada nivel del campo, eso menos por blanco (más denso, granadas)
     deliver: 6,         // s por entrega o compra
     arsenal: 0.2,       // del oro que gana, lo que se gasta en la armería (pozo y clases)
-    classes: 4,         // clases que compra el jugador medio
+    classes: 4,         // clases que compra
     urgentOk: 0.7,      // urgentes que entrega a tiempo
+    impulse: 0.4,       // compra un objeto del pueblo aunque ahorre para una parcela si cuesta menos de esta parte de su oro
+    decorFirst: false,  // el pueblo antes que las parcelas
     session: 45 * 60,   // s de juego al día
 };
+export const PROFILES = {
+    medio: { name: 'Medio', desc: '45 min/día, puntería normal, reparte el oro', mod: {} },
+    casual: { name: 'Casual (móvil)', desc: '15 min/día, apunta despacio, falla y compra lo que ve', mod: { session: 15 * 60, sptK: 1.5, hit: 0.75, over: 20, urgentOk: 0.3, arsenal: 0.1, classes: 2, impulse: 0.8 } },
+    hardcore: { name: 'Optimizador', desc: '2 h/día, rápido y certero, va a por el oro', mod: { session: 120 * 60, sptK: 0.7, hit: 0.95, over: 9, urgentOk: 0.95, arsenal: 0.15, classes: 5, impulse: 0.2 } },
+    decorador: { name: 'Decorador', desc: '45 min/día, el pueblo antes que nada, ni mira la armería', mod: { sptK: 1.1, arsenal: 0.05, classes: 1, impulse: 1, decorFirst: true } },
+    tirador: { name: 'Tirador', desc: '1 h/día, buena puntería, gasta en armas y clases', mod: { session: 60 * 60, sptK: 0.75, hit: 0.93, arsenal: 0.45, classes: 10, impulse: 0.25, urgentOk: 0.6 } },
+};
+const profileOf = (id) => {
+    const m = PROFILES[id].mod, A = { ...BASE, ...m };
+    A.spt = Object.fromEntries(Object.entries(BASE.spt).map(([c, v]) => [c, v * (m.sptK || 1)]));
+    return A;
+};
+let A = profileOf('medio');
 
 // ---------- Reglas (las del juego, en content/ y game/FarmState.js) ----------
 const FIELDS = FARM.fields, FB = Object.fromEntries(FIELDS.map((f) => [f.id, f]));
@@ -116,6 +132,7 @@ function sim(seed) {
                     for (const [k, n] of Object.entries(c)) { S.items[k] -= n; S.sink[`crop:${k}`] = (S.sink[`crop:${k}`] || 0) + n; }
                     S.fields[f.id].lv++;
                     mile(`${f.id} nivel ${S.fields[f.id].lv + 1}`);
+                    if (FIELDS.every((x) => S.fields[x.id].on && maxed(x.id))) mile('granjas al máximo');
                     did = true;
                     break;
                 }
@@ -129,7 +146,7 @@ function sim(seed) {
                 const free = SALE.filter((l) => !S.lands[l.id]);
                 if (free.length) {
                     const l = free.sort((a, b) => landPrice(S, a.id) - landPrice(S, b.id))[0], p = landPrice(S, l.id);
-                    if (S.items.gold >= p) {
+                    if (S.items.gold >= p * (A.decorFirst ? 2 : 1)) { // (el decorador, solo si le sobra el doble)
                         spend('parcelas', p);
                         S.lands[l.id] = true;
                         unlock(FIELDS.find((f) => f.locked && f.locked.land === l.id).id);
@@ -265,7 +282,7 @@ function sim(seed) {
             for (const it of stock) {
                 const p = decorPrice(S, it), free = SALE.filter((l) => !S.lands[l.id]), land = free.length ? Math.min(...free.map((l) => landPrice(S, l.id))) : 0;
                 // (las parcelas van antes, pero lo barato lo compra aunque esté ahorrando)
-                if (S.items.gold - S.wallet >= p && (p <= 0.4 * (S.items.gold - S.wallet) || S.items.gold - S.wallet - land >= p)) { spend('pueblo', p); S.village.push(it.id); S.t += A.deliver; } else break;
+                if (S.items.gold - S.wallet >= p && (A.decorFirst || p <= A.impulse * (S.items.gold - S.wallet) || S.items.gold - S.wallet - land >= p)) { spend('pueblo', p); S.village.push(it.id); S.t += A.deliver; } else break;
             }
             villageCheck();
         }
@@ -316,13 +333,39 @@ function sim(seed) {
 }
 
 // ---------- Varias partidas: la mediana de cada hito ----------
-const runs = Array.from({ length: RUNS }, (_, i) => sim(i + arg('seed', 1)));
 const med = (xs) => { const s = [...xs].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };
+const fmt = (s) => (s === Infinity ? '—' : s < 3600 ? `${(s / 60).toFixed(0)} min` : `${(s / 3600).toFixed(1)} h`);
+function runAll(id) {
+    A = profileOf(id);
+    return Array.from({ length: RUNS }, (_, i) => sim(i + arg('seed', 1)));
+}
+const msAt = (runs, n) => med(runs.map((r) => (r.ms.find((m) => m[0] === n) || [n, Infinity])[1]));
+
+if (process.argv.includes('--all')) {
+    // Comparativa: los hitos clave de cada arquetipo (horas de juego y días)
+    const KEY = [['wheat nivel 5', 'Trigo al máx.'], ['tomato nivel 5', 'Seda al máx.'], ['primera venta: parcelas a la venta', 'Primera venta'], ['pueblo nivel 1', 'Pueblo 1'], ['pueblo nivel 5', 'Pueblo 5'], ['sunflower abierto', 'Última parcela'], ['granjas al máximo', 'Granjas al máx.'], ['pueblo nivel 8', 'Pueblo 8'], ['pueblo nivel 10', 'Pueblo 10']];
+    const ids = Object.keys(PROFILES), all = Object.fromEntries(ids.map((id) => [id, runAll(id)]));
+    const json = {};
+    console.log('Hito'.padEnd(16) + ids.map((id) => PROFILES[id].name.padStart(18)).join(''));
+    for (const [k, name] of KEY) {
+        console.log(name.padEnd(16) + ids.map((id) => { const t = msAt(all[id], k), A0 = profileOf(id); (json[id] ||= {})[name] = t; return `${fmt(t)} (d${t === Infinity ? '-' : Math.ceil(t / A0.session)})`.padStart(18); }).join(''));
+    }
+    const sum = (runs, k) => { const o = {}; for (const r of runs) for (const [a, b] of Object.entries(r[k])) o[a] = (o[a] || 0) + b / RUNS; return o; };
+    for (const id of ids) {
+        const src = sum(all[id], 'src'), sink = sum(all[id], 'sink');
+        console.log(`\n${PROFILES[id].name}: entra ${Math.round(Object.values(src).reduce((a, b) => a + b, 0))} oro · gasta ${Object.entries(sink).filter(([a]) => !a.startsWith('crop:')).map(([a, b]) => `${a} ${Math.round(b)}`).join(' · ')}`);
+    }
+    if (process.argv.includes('--json')) console.log(JSON.stringify(json));
+    process.exit(0);
+}
+
+const profile = process.argv.includes('--profile') ? process.argv[process.argv.indexOf('--profile') + 1] : 'medio';
+const runs = runAll(profile);
+console.log(`Jugador: ${PROFILES[profile].name} (${PROFILES[profile].desc})`);
 const names = [...new Set(runs.flatMap((r) => r.ms.map((m) => m[0])))];
 const at = names.map((n) => [n, med(runs.map((r) => (r.ms.find((m) => m[0] === n) || [n, Infinity])[1])), runs.filter((r) => r.ms.some((m) => m[0] === n)).length]).sort((a, b) => a[1] - b[1]);
-const fmt = (s) => (s === Infinity ? '—' : s < 3600 ? `${(s / 60).toFixed(0)} min` : `${(s / 3600).toFixed(1)} h`);
 const days = (s) => (s === Infinity ? '' : `día ${Math.ceil(s / A.session)}`);
-console.log('Hito'.padEnd(34), 'mediana'.padStart(9), ' sesión (45 min/día)');
+console.log('Hito'.padEnd(34), 'mediana'.padStart(9), ` sesión (${A.session / 60} min/día)`);
 for (const [n, s, k] of at) console.log(n.padEnd(34), fmt(s).padStart(9), ` ${days(s)}${k < RUNS ? `  (${k}/${RUNS} partidas)` : ''}`);
 const sum = (k) => { const o = {}; for (const r of runs) for (const [a, b] of Object.entries(r[k])) o[a] = (o[a] || 0) + b / RUNS; return o; };
 console.log('\nFuentes de oro (media por partida):', Object.entries(sum('src')).map(([a, b]) => `${a} ${Math.round(b)}`).join(' · '));
