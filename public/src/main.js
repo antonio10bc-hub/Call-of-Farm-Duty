@@ -133,7 +133,7 @@ farmScene.background = new THREE.Color(THEME.sky);
 addLights(farmScene, false);
 const farm = new Farm(THEME, state.fields, state.barn.level, state.house.level, state.lands);
 farmScene.add(farm.root);
-const farmParticles = new Particles(farmScene, 600);
+const farmParticles = new Particles(farmScene, 2400);
 // Lo de la granja se pide en las coordenadas de siempre de cada parcela (la lógica no sabe dónde
 // está en el mapa): farmFx y rig.focus lo pasan al mundo (farmParticles y rigFocus: ya en el mundo)
 const farmFx = {
@@ -2559,12 +2559,32 @@ function lookAtTown(lv) {
     rigFocus(w.x, w.z, w.y);
     rig.zoomTarget = lv >= 6 ? 4.5 : lv >= 2 ? 3.0 : 2.0;
 }
-// Confeti sobre el pueblo (k: cuánto)
-function townConfetti(k = 1) {
+// Fuegos artificiales sobre el pueblo: cohetes que suben con su estela y estallan en una bola de
+// chispas de su color (n cohetes, repartidos en over s y en un radio spread)
+const fireworks = [];
+function launchFireworks(n = 12, over = 3, spread = 26) {
     if (CONFIG.test) return;
-    for (let i = 0; i < 6 * k; i++) {
-        const a = Math.random() * Math.PI * 2, d = Math.random() * 18, w = vWorld(VILLAGE.cx + Math.cos(a) * d, VILLAGE.cz + Math.sin(a) * d, 6 + Math.random() * 4);
-        farmParticles.burst(w.x, w.y, w.z, 22, RAINBOW, { speed: 6, up: 5, size: 0.2, ttl: 1.8, grav: 5 });
+    for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * spread;
+        fireworks.push({ t: -Math.random() * over, x: VILLAGE.cx + Math.cos(a) * d, z: VILLAGE.cz + Math.sin(a) * d, y: 0.5, vy: 16 + Math.random() * 6, peak: 11 + Math.random() * 9, color: RAINBOW[(Math.random() * RAINBOW.length) | 0] });
+    }
+}
+function updateFireworks(dt) {
+    for (let i = fireworks.length - 1; i >= 0; i--) {
+        const f = fireworks[i];
+        f.t += dt;
+        if (f.t < 0) continue;
+        f.y += f.vy * dt;
+        const w = vWorld(f.x, f.z, f.y);
+        farmParticles.spawn(w.x, w.y, w.z, (Math.random() - 0.5) * 0.6, -2, (Math.random() - 0.5) * 0.6, 0.12, 0.35, 0xfff0b0, 0); // (la estela)
+        if (f.y < f.peak) continue;
+        fireworks.splice(i, 1);
+        const two = Math.random() < 0.4 ? RAINBOW[(Math.random() * RAINBOW.length) | 0] : 0xffffff;
+        for (let k = 0; k < 70; k++) {
+            const u = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2, r = Math.sqrt(1 - u * u), s = 7 + Math.random() * 3;
+            farmParticles.spawn(w.x, w.y, w.z, r * Math.cos(th) * s, u * s, r * Math.sin(th) * s, 0.22 + Math.random() * 0.12, 1.1 + Math.random() * 0.7, k % 4 ? f.color : two, 4);
+        }
+        if (Math.random() < 0.35) sfx.play('pop');
     }
 }
 function updateTownCine(dt) {
@@ -2589,7 +2609,7 @@ function updateTownCine(dt) {
     }
     // Si sube de nivel, más despacio y de fiesta: el pueblo entero, lo nuevo saliendo en ola desde
     // el centro (cada sitio con su rayo de luz), confeti en varias tandas y el cartel del nivel
-    const end = c.up ? 9.5 : 3.2;
+    const end = c.up ? 10.5 : 3.2;
     if (c.up) {
         if (at(3.0, 'town')) lookAtTown(c.up.lv);
         if (at(4.0, 'level')) {
@@ -2597,15 +2617,13 @@ function updateTownCine(dt) {
             sfx.play('village');
             rig.shake(0.25);
         }
-        if (at(4.8, 'party')) {
+        if (at(5.6, 'party')) {
             stage(...villageUpText(c.up));
             sfx.play('achievement');
-            townConfetti(1.5);
+            launchFireworks(26, 3.8);
             updateCounts(true);
         }
-        if (at(5.8, 'party2')) townConfetti(1);
-        if (at(6.8, 'party3')) { townConfetti(1); sfx.play('coin'); }
-        if (at(7.8, 'party4')) townConfetti(0.7);
+        if (at(7.0, 'party2')) { launchFireworks(18, 2.4); sfx.play('coin'); }
     }
     if (at(end, 'back')) {
         document.body.classList.remove('cine');
@@ -3920,6 +3938,7 @@ function frame(now) {
         updateLandTour(dt);
         updateWellCine(dt);
         updateTownCine(dt);
+        updateFireworks(dt);
         if (welcomeFrom && farm.introT > 2.6) showWelcome();
         updateAmbient(dt);
         rig.update(dt);

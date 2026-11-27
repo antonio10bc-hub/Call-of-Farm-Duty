@@ -2453,3 +2453,5 @@ body.photo .debug-btn { visibility: hidden; }
 .tw-step .tw-bar { grid-row: 3; }
 .tw-perk-l { display: inline-block; margin-left: 6px; padding: 0 5px; font-family: var(--nb-head); font-size: 9px; color: #8a5ad8; border: 2px solid #8a5ad8; }
 .tw-step.done .tw-perk-l { color: #fff1d6; background: #8a5ad8; }
+/* (de cine, el rótulo pequeño, por debajo de la franja negra de arriba) */
+body.cine .stage.small { top: calc(11vh + 26px); }

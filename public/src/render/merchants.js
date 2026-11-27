@@ -1571,25 +1571,31 @@ export class Village extends VoxelModel {
         byD.forEach((h, i) => (h.lv = TOWN.houses[Math.min(2, Math.floor((i / byD.length) * 3))]));
         for (const pl of plazas) pl.lv = pl.houses.length ? Math.min(...pl.houses.map((h) => h.lv)) : TOWN.houses[0];
         for (const L0 of lanes) L0.lv = L0.owner.lv;
-        // Se dibujan: un grupo por barrio
+        // Se dibujan: un grupo por barrio y, dentro, por tandas de distancia (al subir de nivel salen
+        // en ola desde el centro, cada tanda cuando se va su cubo de luz)
         this.homeG = {};
+        this.homeBands = {};
+        const BANDS = 6;
         for (const lv of TOWN.houses) {
-            const g = (this.homeG[lv] = new THREE.Group());
+            const g = (this.homeG[lv] = new THREE.Group()), mine = homes.filter((h) => h.lv === lv);
             g.visible = false;
             this.root.add(g);
+            const d0 = Math.min(...mine.map((h) => h.d)), d1 = Math.max(...mine.map((h) => h.d)) + 0.01;
+            this.homeBands[lv] = Array.from({ length: BANDS }, () => { const b = { g: new THREE.Group(), pts: [] }; g.add(b.g); return b; });
+            for (const h of mine) h.band = this.homeBands[lv][Math.floor(((h.d - d0) / (d1 - d0)) * BANDS)];
         }
-        for (const h of homes) this.drawHome(this.homeG[h.lv], h);
-        for (const L0 of lanes) this.part(this.homeG[L0.lv], L0.w, 0.1, L0.len, L0.col, L0.x + L0.ux * (L0.from + L0.len / 2), 0.05, L0.z + L0.uz * (L0.from + L0.len / 2), false).rotation.y = Math.atan2(L0.ux, L0.uz);
+        const bandOf = (o) => (o.band ? o.band : o.houses && o.houses.length ? o.houses[0].band : this.homeBands[o.lv][0]);
+        for (const h of homes) { this.drawHome(h.band.g, h); h.band.pts.push({ x: h.x, z: h.z }); }
+        for (const L0 of lanes) this.part(bandOf(L0.owner).g, L0.w, 0.1, L0.len, L0.col, L0.x + L0.ux * (L0.from + L0.len / 2), 0.05, L0.z + L0.uz * (L0.from + L0.len / 2), false).rotation.y = Math.atan2(L0.ux, L0.uz);
         for (const pl of plazas) {
-            const g = this.homeG[pl.lv];
+            const g = bandOf(pl).g;
             for (let i = 0; i < 10; i++) { const b = (i / 10) * Math.PI * 2; this.part(g, 0.9, 0.08, 0.9, i % 2 ? 0xd4c8b0 : 0xc8bca4, pl.x + Math.cos(b) * 1.1, 0.04, pl.z + Math.sin(b) * 1.1, false).rotation.y = -b; }
             if (pl.tree) { this.part(g, 0.24, 1.2, 0.24, WOOD2, pl.x, 0.6, pl.z); this.part(g, 1.2, 0.9, 1.2, [0x4caf3c, 0xb87dff][pl.n % 2], pl.x, 1.6, pl.z); }
             else { this.part(g, 1.0, 0.4, 1.0, STONE, pl.x, 0.2, pl.z); this.lit(g, 0.6, 0.06, 0.6, 0x5af0ff, pl.x, 0.42, pl.z); }
         }
-        for (const g of Object.values(this.homeG)) this.bake([g], []);
+        for (const list of Object.values(this.homeBands)) for (const b of list) this.bake([b.g], []);
         // (los sitios de lo que construye cada nivel: ahí salen sus rayos de luz, de dentro afuera)
-        this.buildPts = { ring: Array.from({ length: 24 }, (_, i) => P((i / 24) * Math.PI * 2, wobR((i / 24) * Math.PI * 2))), arches: streets.map((q) => P(q.a, q.parkR + 1.6)), homes: {} };
-        for (const lv of TOWN.houses) this.buildPts.homes[lv] = homes.filter((h) => h.lv === lv).map((h) => ({ x: h.x, z: h.z }));
+        this.buildPts = { ring: Array.from({ length: 24 }, (_, i) => P((i / 24) * Math.PI * 2, wobR((i / 24) * Math.PI * 2))), arches: streets.map((q) => P(q.a, q.parkR + 1.6)) };
         this.doors = homes.map((h) => ({ x: h.x + Math.sin(h.ry) * (h.D / 2 + 0.5), z: h.z + Math.cos(h.ry) * (h.D / 2 + 0.5), lv: h.lv }));
         // --- Los arcos de bienvenida (nivel 10), a la entrada de cada calle
         const arches = (this.archG = new THREE.Group());
@@ -1807,13 +1813,19 @@ export class Village extends VoxelModel {
         // (lo que aparece: crece del suelo, con un rayo de luz en cada sitio; lo construido, en ola
         // desde el centro hacia fuera, cada sitio a su tiempo)
         const wave = (p) => 0.3 + (Math.hypot(p.x - VILLAGE.cx, p.z - VILLAGE.cz) / 55) * 1.8;
-        const show = (g, on, pts = [], build = false) => {
+        // (lo de los objetos: un rayo de luz por pieza; lo que construye el nivel: un cubo de luz
+        // enorme en cada sitio y, cuando se va, aparece lo nuevo)
+        const show = (g, on, pts = [], build = 0) => {
             if (on && !g.visible) {
                 shown.push(g);
-                if (pop) {
+                if (pop && build) {
+                    let t0 = Infinity;
+                    for (const p of pts) t0 = Math.min(t0, this.cube(p.x, p.z, wave(p), build));
+                    this.pops.push({ g, k: 1, wait: pts.length ? t0 : 0.3 });
+                } else if (pop) {
                     const step = Math.max(1, Math.ceil(pts.length / 90)); // (no más de unos 90 rayos por cosa)
-                    for (let i = 0; i < pts.length; i += step) this.beam(pts[i].x, pts[i].z, build ? wave(pts[i]) : Math.random() * 0.4, build ? 0xfff0b0 : 0xffe08a);
-                    this.pops.push({ g, k: 1, wait: build ? (pts.length ? Math.min(...pts.map(wave)) : 0.3) : 0.15 });
+                    for (let i = 0; i < pts.length; i += step) this.beam(pts[i].x, pts[i].z, Math.random() * 0.4);
+                    this.pops.push({ g, k: 1, wait: 0.15 });
                 }
             }
             g.visible = on;
@@ -1824,7 +1836,7 @@ export class Village extends VoxelModel {
             const on = paved.includes(id);
             if (on && !H.on) {
                 shown.push(H.g);
-                if (pop) { H.pop = 1; H.wait = wave(H.lot); this.beam(H.lot.x, H.lot.z, H.wait, 0xfff0b0); }
+                if (pop) { H.pop = 1; H.wait = this.cube(H.lot.x, H.lot.z, wave(H.lot), 5.5); }
             }
             H.on = on;
             H.g.visible = on && H.pop > 0; // (la que bota, aparte; las asentadas, juntas: rebakeTown)
@@ -1832,9 +1844,20 @@ export class Village extends VoxelModel {
             if (this.fallen[id]) this.fallen[id].visible = !on;
         }
         this.rebakeTown();
-        show(this.ringG, lv >= TOWN.ring, this.buildPts.ring, true);
-        for (const [hl, g] of Object.entries(this.homeG)) show(g, lv >= +hl, this.buildPts.homes[hl], true);
-        show(this.archG, lv >= TOWN.arches, this.buildPts.arches, true);
+        show(this.ringG, lv >= TOWN.ring, this.buildPts.ring, 4.5);
+        for (const [hl, g] of Object.entries(this.homeG)) {
+            const on = lv >= +hl;
+            if (on && !g.visible) {
+                shown.push(g);
+                if (pop) for (const b of this.homeBands[hl]) {
+                    let t0 = Infinity;
+                    for (const p of b.pts) t0 = Math.min(t0, this.cube(p.x, p.z, wave(p), 4.2));
+                    if (b.pts.length) this.pops.push({ g: b.g, k: 1, wait: t0 });
+                }
+            }
+            g.visible = on;
+        }
+        show(this.archG, lv >= TOWN.arches, this.buildPts.arches, 7);
         this.lastShown = { build: shown.slice(), decor: {} };
         for (const [id, list] of Object.entries(this.regions)) {
             const have = owned.includes(id);
@@ -1867,6 +1890,28 @@ export class Village extends VoxelModel {
         g.renderOrder = 5;
         this.root.add(g);
         this.beams.push({ g, t: -delay });
+    }
+
+    // Un cubo de luz enorme donde el pueblo construye algo nuevo (al subir de nivel): crece, palpita
+    // y se va; lo nuevo aparece al irse. Devuelve cuándo se va (s)
+    cube(x, z, delay = 0, size = 4, color = 0x5af0ff) {
+        if (!this.cubeGeo) {
+            this.cubeGeo = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
+            this.cubeMat = this.own(new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending }));
+            this.cubeCore = this.own(new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.32, depthWrite: false, blending: THREE.AdditiveBlending }));
+            this.cubes = [];
+        }
+        const DUR = 1.7, out = delay + DUR * 0.62;
+        if (this.cubes.length > 420) return out;
+        const g = new THREE.Mesh(this.cubeGeo, this.cubeMat), core = new THREE.Mesh(this.cubeGeo, this.cubeCore);
+        core.scale.set(0.55, 0.8, 0.55);
+        g.add(core);
+        g.position.set(x, 0, z);
+        g.visible = false;
+        g.renderOrder = 5;
+        this.root.add(g);
+        this.cubes.push({ g, t: -delay, size, dur: DUR, spin: Math.random() * 6 });
+        return out;
     }
 
     // ¿Se ve algo de este objeto? ¿Y desde qué nivel se verá lo primero suyo? (para avisar en la tienda)
@@ -1980,6 +2025,19 @@ export class Village extends VoxelModel {
             P0.g.scale.set(1, Math.max(0.0001, back(Math.min(1, (1 - P0.k) * 1.2))), 1);
         }
         if (this.pops.length && this.pops.every((P0) => P0.k === 0)) this.pops.length = 0;
+        // Los cubos de luz: crecen del suelo, palpitan girando y se van hacia arriba, cada vez más finos
+        if (this.cubes) for (let i = this.cubes.length - 1; i >= 0; i--) {
+            const C = this.cubes[i];
+            C.t += dt;
+            if (C.t < 0) continue;
+            const k = C.t / C.dur;
+            if (k >= 1) { C.g.removeFromParent(); this.cubes.splice(i, 1); continue; }
+            C.g.visible = true;
+            const grow = ease(Math.min(1, k / 0.3)), gone = Math.max(0, (k - 0.62) / 0.38), puls = 1 + Math.sin(C.t * 18) * 0.05 * (1 - gone);
+            const w = C.size * grow * puls * (1 - gone * 0.9), h = C.size * 1.3 * grow * puls * (1 + gone * 2.5);
+            C.g.scale.set(w, h, w);
+            C.g.rotation.y = C.spin + C.t * 1.5;
+        }
         // Los rayos de luz: suben de golpe y se van afinando hasta desaparecer
         if (this.beams) for (let i = this.beams.length - 1; i >= 0; i--) {
             const B = this.beams[i];
