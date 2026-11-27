@@ -747,7 +747,8 @@ const dockGo = (x, z, open) => {
     rig.focus(x, z);
     sfx.play('ui');
 };
-const fieldNeeds = (id) => state.isReady(id) || state.canUnlock(id) || state.canUpgrade(id);
+// (cosecha lista: no enciende el punto rojo, ya tiene su línea verde en el desplegable)
+const fieldNeeds = (id) => state.canUnlock(id) || state.canUpgrade(id);
 const DOCK = [
     { id: 'barn', icon: 'ks-grenade', label: L('ARMORY', 'ARMAMENTO'), show: () => state.open('barn'), alert: () => armoryNews(),
         go: () => { const b = farm.byId.barn.def; dockGo(b.x, b.z + 1, () => select({ structure: 'barn' })); } },
@@ -757,7 +758,7 @@ const DOCK = [
         go: () => { const h = farm.byId.house.def; dockGo(h.x, h.z, () => select({ structure: 'house' })); } },
     { id: 'well', icon: 'well', label: L('WISHING WELL', 'POZO DE LOS DESEOS'), show: () => state.open('barn'), alert: () => false, // (sin aviso: con oro para un deseo, brilla el propio pozo)
         go: () => dockGo(135, 15, () => openWell()) },
-    { id: 'merchant', icon: 'market', label: L('MERCHANTS', 'MERCADERES'), show: () => !merchantClock.locked, alert: () => MERCHANTS.some((d) => merchantCan(d.id)),
+    { id: 'merchant', icon: 'market', label: L('MERCHANTS', 'MERCADERES'), show: () => !merchantClock.locked, alert: () => false, // (sin punto rojo: casi siempre hay alguno; ya dice cuántos con su número)
         go: () => { const c = vParcel(VILLAGE.cx, VILLAGE.cz); dockGo(c.x, c.z, () => openMerchant(MERCHANTS.find((d) => merchantCan(d.id))?.id || MERCHANTS.find((d) => farm.village.byId[d.id].open)?.id || curM)); } },
 ];
 for (const d of DOCK) {
@@ -2624,7 +2625,8 @@ function updateTownCine(dt) {
             syncMerchantLife(true); // (lo que construye el nivel nuevo, con sus cubos)
             sfx.play('townBuild');
             c.fwAt = c.t + Math.max(0.5, farm.village.cubesOut) * S;
-            c.stageAt = c.fwAt + 1.5 * S;
+            c.photoAt = c.fwAt + 1.3 * S; // (1,3 s de fuegos, la foto y, cuando la polaroid llega al álbum, el cartel)
+            c.stageAt = c.photoAt + 1.2 * S;
             c.endAt = c.stageAt + 3.2 * S;
         }
         if (at(c.fwAt, 'fw')) {
@@ -2632,8 +2634,14 @@ function updateTownCine(dt) {
             rig.shake(0.25);
         }
         if (at(c.fwAt + 0.9 * S, 'fw2')) launchFireworks(22, 1.6);
-        if (at(c.stageAt - 0.35 * S, 'photo')) albumShot = c.up.lv; // (la foto del álbum: en plenos fuegos)
+        // La foto del álbum: el visor se cierra sobre el pueblo, clic y flash, y la polaroid vuela al álbum
+        if (at(c.photoAt - 0.5 * S, 'aim')) {
+            $('viewfinder').classList.remove('hidden', 'snap');
+            document.body.classList.add('show-album');
+        }
+        if (at(c.photoAt, 'photo')) albumShot = c.up.lv;
         if (at(c.stageAt, 'party')) {
+            document.body.classList.remove('show-album');
             stage(...villageUpText(c.up), false, true); // (el nombre nuevo, en grande)
             sfx.play('townLevel');
             launchFireworks(16, 2);
@@ -4031,7 +4039,7 @@ function takePhoto() {
 // ---------- Álbum del pueblo ----------
 // Al subir de nivel el pueblo, en plenos fuegos artificiales, una foto (pequeña, en JPEG) que se
 // guarda en el álbum: una por nivel, como polaroids; los niveles que faltan, en blanco
-const ALBUM = 'cofd-album';
+const ALBUM = 'cofd-album', ALBUM_NEW = 'cofd-album-new';
 const albumGet = () => { try { return JSON.parse(localStorage.getItem(ALBUM) || '{}'); } catch { return {}; } };
 let albumShot = 0;
 function takeAlbumShot() {
@@ -4047,14 +4055,41 @@ function takeAlbumShot() {
         g.drawImage(src, 0, 0, w, h);
         const A = albumGet();
         A[lv] = { img: c.toDataURL('image/jpeg', 0.82), at: Date.now() };
+        snapFx(A[lv].img);
         localStorage.setItem(ALBUM, JSON.stringify(A));
-        $('btn-album').classList.add('new');
+        localStorage.setItem(ALBUM_NEW, '1');
     } catch { /* sin almacenamiento */ }
     updateAlbumBtn();
+}
+// El momento de la foto: clic, flash, el visor se aprieta y la polaroid vuela al botón del álbum
+function snapFx(img) {
+    sfx.play('shutter');
+    renderer.flash(0xffffff, 1);
+    const vf = $('viewfinder');
+    vf.classList.add('snap');
+    setTimeout(() => vf.classList.add('hidden'), 260);
+    const fly = document.createElement('div'), w = Math.min(innerWidth * 0.5, 520);
+    fly.className = 'album-fly';
+    fly.innerHTML = `<img src="${img}" alt="">`;
+    fly.style.width = `${w}px`;
+    fly.style.left = `${(innerWidth - w) / 2}px`;
+    fly.style.top = `${innerHeight * 0.2}px`;
+    fly.style.transform = 'rotate(-4deg)';
+    document.body.appendChild(fly);
+    setTimeout(() => {
+        const b = $('btn-album').getBoundingClientRect(), f = fly.getBoundingClientRect(), k = 38 / f.width;
+        fly.style.transformOrigin = '0 0';
+        fly.style.transform = `translate(${b.left - f.left}px, ${b.top - f.top}px) scale(${k}) rotate(12deg)`;
+        fly.style.opacity = '0';
+    }, 380);
+    setTimeout(() => fly.remove(), 1200);
 }
 // (el botón, siempre: aunque aún no haya fotos, se ve qué niveles faltan)
 function updateAlbumBtn() {
     $('btn-album').classList.remove('hidden');
+    let nw = false;
+    try { nw = localStorage.getItem(ALBUM_NEW) === '1'; } catch { /* sin almacenamiento */ }
+    $('btn-album').classList.toggle('new', nw); // (el punto rojo: hay foto nueva sin ver)
 }
 function renderAlbum() {
     const A = albumGet();
@@ -4076,7 +4111,8 @@ $('album-big').addEventListener('click', (e) => { e.stopPropagation(); $('album-
 tapBtn('btn-album', () => {
     renderAlbum();
     $('album').classList.remove('hidden');
-    $('btn-album').classList.remove('new');
+    try { localStorage.removeItem(ALBUM_NEW); } catch { /* sin almacenamiento */ }
+    updateAlbumBtn();
 });
 tapBtn('album-close', closeAlbum);
 $('album').addEventListener('click', (e) => e.target === $('album') && closeAlbum());

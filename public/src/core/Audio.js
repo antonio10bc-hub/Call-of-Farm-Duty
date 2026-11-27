@@ -361,6 +361,7 @@ export class Sfx {
                 this.arp('bell', [N.C6, N.G6, N.C7], 0.12, 0.05, pan, 0.8, 1.6);
                 this.thud(0.1, pan, 0.72, 90, 0.5);
                 break;
+            case 'shutter': this.noise(0.04, 0.12, 4000, pan, 0, { type: 'highpass' }); this.thud(0.08, pan, 0.02, 160, 0.08); this.noise(0.05, 0.09, 3000, pan, 0.09, { type: 'highpass' }); this.tone('square', 1800, 1800, 0.03, 0.02, pan, 0.1); break; // clic de cámara
             case 'fwLaunch': this.tone('sine', 700, 2400, 0.55, 0.025, pan, 0, { attack: 0.05 }); this.noise(0.5, 0.025, 3000, pan, 0, { type: 'highpass', to: 5000 }); break; // sube un cohete (silbido)
             case 'fwBoom': this.thud(0.14, pan, 0, 70, 0.6); this.noise(0.7, 0.09, 1800, pan, 0, { to: 200 }); for (let i = 0; i < 6; i++) this.noise(0.05, 0.03, 5000, pan, 0.15 + Math.random() * 0.5, { type: 'highpass' }); break; // estalla (y chisporrotea)
             case 'secret': for (let i = 0; i < 8; i++) this.bell([N.C6, N.D6, N.F6, N.G6, N.A6, N.C7, N.D6 * 2, N.F6 * 2][i], 0.035, pan, i * 0.07, 0.9); break; // magia, brillo, sorpresa

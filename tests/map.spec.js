@@ -529,7 +529,9 @@ test('el pueblo crece: lo comprado va solo a su sitio (de cine) y cada 5 cosas s
     // La foto del nivel, en el álbum (a la derecha del reloj del día): una por nivel, las demás en blanco
     expect(await page.evaluate(() => Object.keys(game.albumGet()))).toEqual(['2']);
     await expect(page.locator('#btn-album')).toBeVisible();
+    await expect(page.locator('#btn-album')).toHaveClass(/\bnew\b/); // (el punto rojo: foto nueva sin ver)
     await page.evaluate(() => document.getElementById('btn-album').click());
+    await expect(page.locator('#btn-album')).not.toHaveClass(/\bnew\b/);
     await expect(page.locator('#album-grid figure')).toHaveCount(10);
     await expect(page.locator('#album-grid img')).toHaveCount(1);
     await page.evaluate(() => document.getElementById('album-close').click());
