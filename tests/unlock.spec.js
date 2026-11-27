@@ -37,7 +37,7 @@ test('el montón con el barril cambia de sitio en cada desbloqueo', { tag: '@ful
     expect(new Set(spots).size).toBeGreaterThan(1);
 });
 
-test('tomates: con el trigo al máximo se desbloquea disparando al barril; luego se cosechan y se mejoran con trigo y tomates', { tag: '@full' }, async ({ page }) => {
+test('rodeo: con el trigo al máximo se desbloquea disparando al barril; luego se corre y se mejora con trigo y fichas', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await openFarm(page);
     await expect(page.locator('#sign-tomato')).toBeVisible({ timeout: 60_000 });
@@ -68,22 +68,20 @@ test('tomates: con el trigo al máximo se desbloquea disparando al barril; luego
     expect(await page.evaluate(() => game.farm.fields.tomato.locked)).toBe(false);
     await expect(page.locator('#sign-tomato')).toHaveText('NV.1');
     await expect(page.locator('#farm-tomato')).toBeVisible();
-    // A cosechar: matas de tomate con tomates gigantes; disparar a un tomate lo recoge
+    // Al rodeo: a caballo, con sus vueltas por dar; al cruzar la meta, una ficha
     await page.evaluate(() => game.harvest('tomato'));
-    await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
-    await page.evaluate(() => { game.sniper.flyers.next = Infinity; game.sniper.walkers.reset(); game.sniper.walkers.next = Infinity; }); // sin ovnis pequeños ni alienígenas a pie de por medio
-    await expect.poll(() => page.evaluate(() => game.sniper.field.sheaves.every((s) => s.landed)), { timeout: 20_000 }).toBe(true);
+    await expect.poll(() => page.evaluate(() => game.mode === 'snipe' && game.sniper.riding)).toBe(true);
     expect(await page.evaluate(() => game.sniper.field.remaining)).toBe(await page.evaluate(() => game.state.sheaves('tomato')));
-    await aimAndShoot(page, 'game.sniper.field.sheaves.find((x) => x.alive)');
+    await page.evaluate(() => { const R = game.sniper.field.mods.tomato; R.R.s = R.track.len - 0.5; });
     await expect.poll(() => page.evaluate(() => game.state.items.tomato)).toBeGreaterThan(0);
     // Con el ratón bloqueado los botones no se tocan (como en el juego: Esc lo suelta)
     await page.evaluate(() => document.exitPointerLock());
     await page.locator('#btn-home').click();
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('farm');
-    // La mejora pide trigo y tomates
-    await page.evaluate(() => { game.state.items.wheat = 15; game.state.items.tomato = 2; game.select({ field: 'tomato' }); });
+    // La mejora pide trigo y fichas de caballo
+    await page.evaluate(() => { game.state.items.wheat = 15; game.state.items.tomato = 1; game.select({ field: 'tomato' }); });
     await expect(page.locator('#panel-upgrade')).toBeDisabled();
-    await page.evaluate(() => { game.state.items.tomato = 3; });
+    await page.evaluate(() => { game.state.items.tomato = 2; });
     await expect(page.locator('#panel-upgrade')).toBeEnabled();
     await page.locator('#panel-upgrade').click();
     expect(await page.evaluate(() => [game.state.fields.tomato.level, game.state.items.wheat, game.state.items.tomato])).toEqual([1, 0, 0]);

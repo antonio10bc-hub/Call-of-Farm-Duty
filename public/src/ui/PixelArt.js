@@ -56,10 +56,10 @@ const SPRITES = {
         rows: ['.K..K..K.', 'KYKKWKKYK', 'KYYKYKYYK', '.KYYYYYK.', '..KYYOK..', '..KRRRK..', '..KYYOK..', '.KYOYOYK.', 'KYOKYKOYK', 'KKK.K.KKK'],
         pal: { K: INK, Y: '#ffd23f', O: '#e6a400', W: '#fff4b0', R: '#ff3e5e' },
     },
-    // Capullo de seda colgando de su hebra (el contador de la seda)
+    // Ficha de caballo: de latón, con su herradura grabada (el contador del rodeo)
     tomato: {
-        rows: ['....K.....', '....W.....', '...KKKK...', '..KWWWWK..', '.KWLWWWCK.', '.KWLWWWCK.', '.KWWWWWCK.', '.KWWWWCCK.', '..KWCCCK..', '...KKKK...'],
-        pal: { K: INK, W: '#fffdf6', L: '#ffffff', C: '#e8dcc0' },
+        rows: ['...KKKK...', '.KKYYYYKK.', '.KYLYYYOK.', 'KYLHYYHOYK', 'KYLHYYHOYK', 'KYYHYYHOYK', 'KYYHHHHOOK', '.KYYYYOOK.', '.KKOOOOKK.', '...KKKK...'],
+        pal: { K: INK, Y: '#ffd23f', L: '#fff3a0', O: '#d9a42e', H: '#8a5a2e' },
     },
     // Barril rojo (desbloqueo) y candado (terreno bloqueado)
     barrel: {

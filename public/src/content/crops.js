@@ -22,25 +22,24 @@ export const CROPS = {
         unit: L('BUNDLES', 'MATAS'),
         loot: 0xf6cf4a,
     },
-    // Seda: moreras (las matas, con su tronquito) con capullos de gusanos de seda colgando de su
-    // hebra; dentro, el gusano se revuelve y el capullo da tirones. Por las hojas trepan gusanos.
-    // Cada capullo es un blanco (el id sigue siendo 'tomato': así valen las partidas guardadas)
+    // Fichas de caballo: el rodeo. Se va a caballo dando vueltas a la pista y disparando a los
+    // obstáculos que salen y a los jinetes alienígenas; cada vuelta, una ficha (el id sigue siendo
+    // 'tomato': así valen las partidas guardadas)
     tomato: {
-        name: L('SILK', 'SEDA'),
+        name: L('HORSE TOKENS', 'FICHAS DE CABALLO'),
         icon: 'tomato',
         growTime: 45,
-        stages: [0x6fbf3a, 0x4caf3c, 0x3d9a34, 0x3d9a34],
-        leaves: [0x3d9a34, 0x2f8a2c, 0x4caf3c],
-        fruit: 0xfaf6ec, // (el capullo)
-        fruitDark: 0xf0e2c0,
-        unripe: 0xe8f0c8,
-        calyx: 0xfffdf6, // (la hebra de la que cuelga)
-        stake: 0x8a5a34, // (el tronco de la morera)
-        worm: [0xf3ead2, 0xe8dcc0], // (los gusanos: cuerpo y cabeza)
-        burst: [0xfffdf6, 0xfaf6ec, 0xf0e2c0, 0xffffff],
-        chaff: [0xfffdf6, 0x4caf3c, 0xe8dcc0],
-        unit: L('COCOONS', 'CAPULLOS'),
-        loot: 0xfaf6ec,
+        pasture: true, // (en el mapa, caballos dando vueltas a su pista)
+        sand: true, // (el ruedo, de arena)
+        speed: 6.5, // lo que corre el caballo (m/s, en el campo de tiro normal)
+        coat: [0x8a5a34, 0xc8a070, 0x5a3a24, 0xf0e8d8],
+        fruit: 0xe8b830, // (la ficha: de latón, con su herradura)
+        calyx: 0x8a5a2e,
+        burst: [0xffd23f, 0xe8b830, 0xfff3d6, 0xc09a62],
+        chaff: [0xc09a62, 0xe0c890, 0xb8925a],
+        unit: L('LAPS', 'VUELTAS'),
+        loot: 0xe8b830,
+        stub: [0xc8b070, 0xd8c088, 0xb8a060],
     },
     // Queso: cabras que no paran de saltar de montículo en montículo de rocas (y alguna voltereta);
     // las rocas tapan la vista y paran la bala, así que hay que ir cambiando de torre. Cuanto más

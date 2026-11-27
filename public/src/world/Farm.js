@@ -20,6 +20,7 @@ import { buildPig, animatePig } from '../render/pig.js';
 import { buildFish, animateFish } from '../render/fish.js';
 import { buildChicken, animateChicken } from '../render/chicken.js';
 import { buildGoat, animateGoat } from '../render/goat.js';
+import { buildHorse, animateHorse } from '../render/horse.js';
 import { BARNYARD, SLOTS, BarnPiece } from '../render/barnyard.js';
 import { reachAt, FARM, TURRETS, PLACES, toWorld, worldToPlace, inShapeOf, inFieldShape, stretchLocal, floorPlace, worldRect, worldToLocal } from '../content/farm.js';
 
@@ -56,6 +57,7 @@ const CLEARING = [0x8fbf54, 0x9ab85a, 0xa8a060, 0xb89a64, 0x86b04e]; // el claro
 const rectOf = ([x0, z0, x1, z1]) => ({ x: x0, z: z0, w: x1 - x0, d: z1 - z0 });
 const PASTURE = [0xa8e070, 0x9ad962, 0xb4e67a]; // hierba fresca del prado de las vacas
 const MUD = [0x7a5232, 0x6a4628, 0x8a5e38]; // el barro de la pocilga
+const ARENA = [0xe0c890, 0xd8c088, 0xe6d09a]; // la arena del rodeo
 const POND = [0x4aa8e0, 0x3f98d4], SAND = [0xd9c48a, 0xccb67a]; // la laguna del pescador y su orilla
 const POOL = [0x2f88c0, 0x2a7eb4], POOL_RIM = [0xc8c4b8, 0xb8b4a8]; // la piscina de las perlas y su borde
 // La parcela en venta en la que cae un punto (o ninguna)
@@ -465,7 +467,7 @@ export class Farm {
         const col = k && k.field
             ? (k.locked ? JUNK.ground[mod(c * 7 + r * 5 + mod(c * r, 3), JUNK.ground.length)]
                 : pond && this.inPond(pond, t.c + 0.5, t.r + 0.5) ? (CROPS[pond.crop].pool ? POOL : POND)[(c + r) & 1] : pond && this.inPond(pond, t.c + 0.5, t.r + 0.5, 1) ? (CROPS[pond.crop].pool ? POOL_RIM : SAND)[(c + r) & 1] // (la laguna en el centro, o la piscina)
-                : CROPS[this.fields[k.field].crop].mud ? MUD[mod(c * 3 + r * 5, 3)] : CROPS[this.fields[k.field].crop].pasture || CROPS[this.fields[k.field].crop].meadow ? PASTURE[mod(c * 3 + r * 5, 3)]
+                : CROPS[this.fields[k.field].crop].sand ? ARENA[mod(c * 3 + r * 5, 3)] : CROPS[this.fields[k.field].crop].mud ? MUD[mod(c * 3 + r * 5, 3)] : CROPS[this.fields[k.field].crop].pasture || CROPS[this.fields[k.field].crop].meadow ? PASTURE[mod(c * 3 + r * 5, 3)]
                 // (el trigo grande, sobre rastrojo de paja: se lee lleno con menos tallos)
                 : this.fields[k.field].crop === 'wheat' && this.fields[k.field].level >= 2 ? STRAW[(r & 1) + 2 * mod(c * 3 + r, 2)] : theme.soil[r & 1]) // (el prado, de hierba)
             : k && k.path ? theme.path[mod(c * 7 + r * 3, 2)]
@@ -797,7 +799,7 @@ export class Farm {
     }
 
     // Adelantos: en cada terreno aún bloqueado asoman, entre la porquería, unas cuantas plantas de lo
-    // que tendrá (espigas, moreras, rocas con su cabra, luciérnagas...). Se van al desbloquearlo
+    // que tendrá (espigas, vallas de salto, rocas con su cabra, luciérnagas...). Se van al desbloquearlo
     // Dónde van las plantas de muestra (antes que lo abandonado, que les deja un claro alrededor
     // para que se vean)
     pickHints() {
@@ -851,13 +853,11 @@ export class Farm {
                 add(thin, Math.sin(a) * d, h + 0.12, Math.cos(a) * d, 0.1, 0.24, 0.1, 0xf6cf4a);
             }
         } else if (crop === 'tomato') {
-            // Una morera de muestra con dos capullos de seda colgando
-            add(thin, 0.0, 0.4, 0, 0.08, 0.8, 0.08, 0x8a5a34);
-            add(solid, 0, 0.62, 0, 0.66, 0.4, 0.6, 0x3d9a34, r);
-            for (const [dx, dz] of [[-0.26, 0.24], [0.28, -0.1]]) {
-                add(thin, dx, 0.36, dz, 0.02, 0.14, 0.02, 0xfffdf6);
-                add(solid, dx, 0.18, dz, 0.14, 0.24, 0.14, 0xfaf6ec);
-            }
+            // Una valla de salto de muestra (dos postes y sus barras) y una herradura en el suelo
+            for (const dx of [-0.42, 0.42]) add(solid, dx, 0.3, 0, 0.1, 0.6, 0.1, 0xc8402e, r);
+            add(solid, 0, 0.24, 0, 0.9, 0.07, 0.07, 0xffffff, r);
+            add(solid, 0, 0.44, 0, 0.9, 0.07, 0.07, 0xc8402e, r);
+            add(solid, 0.2, 0.03, 0.35, 0.3, 0.05, 0.08, 0xe8b830, r);
         } else if (crop === 'pumpkin') {
             // Un montículo de rocas de muestra con su cabra encima
             const C = CROPS.pumpkin, rx = Math.sin(r), rz = Math.cos(r);
@@ -962,13 +962,12 @@ export class Farm {
 
     // Plantas del campo v. Se conservan las que ya había (por su sitio) y las nuevas brotan.
     //   Trigo: tallos finos (sin contorno, para que se lean a píxel fino) con su espiga.
-    //   Seda: una morera por casilla con su tronco y dos capullos colgando (blancos al madurar).
     //   Perlas: almejas en el fondo de la piscina, que se abren y se cierran.
     //   Luciérnagas: matas de hierba alta y, de noche, las luciérnagas encima.
     //   (las cabras, como los demás animales: buildHerd)
     buildPlants(v, old = null, fromCenter = false) {
         if (CROPS[v.crop].pasture) return this.buildHerd(v);
-        const f = v.rect, wheat = v.crop === 'wheat', n0 = { wheat: v.level >= 2 ? 1.5 : PER_TILE, corn: 1.2, tomato: 1.3, honey: 1.3, sunflower: 0.55 }[v.crop] || 1;
+        const f = v.rect, wheat = v.crop === 'wheat', n0 = { wheat: v.level >= 2 ? 1.5 : PER_TILE, corn: 1.2, honey: 1.3, sunflower: 0.55 }[v.crop] || 1;
         const prev = new Map(v.plants.map((s) => [s.key, s]));
         v.plants = [];
         for (let tx = f.x; tx < f.x + f.w; tx++) for (let tz = f.z; tz < f.z + f.d; tz++) {
@@ -1058,18 +1057,6 @@ export class Farm {
                 v.meshes[0].setColorAt(i, _c.setHex(C.leaves[i % 3]).offsetHSL(0, 0, (s.tone - 0.5) * 0.06));
                 for (let k = 0; k < 2; k++) v.meshes[1].setColorAt(i * 2 + k, _c.setHex(C.leaves[(k + i + 1) % 3]).offsetHSL(0, 0, (s.tone - 0.5) * 0.06));
                 v.meshes[2].setColorAt(i, _c.setHex(C.glow));
-            });
-        } else {
-            // Hojas (3 bloques por mata), tomates (2) y tutores (1)
-            v.meshes = [
-                this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[0], count * 3)),
-                this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[1], count * 2)),
-                this.dynamic(v, new THREE.InstancedMesh(box(1, 1, 1), v.mats[2], count)),
-            ];
-            const T = CROPS.tomato;
-            v.plants.forEach((s, i) => {
-                for (let k = 0; k < 3; k++) v.meshes[0].setColorAt(i * 3 + k, _c.setHex(T.leaves[(k + i) % 3]).offsetHSL(0, 0, (s.tone - 0.5) * 0.06));
-                v.meshes[2].setColorAt(i, _c.setHex(T.stake));
             });
         }
         v.fresh = true; // (se colocan ya, sin esperar al siguiente paso de la animación)
@@ -1575,7 +1562,6 @@ export class Farm {
             else if (v.crop === 'honey') this.updateHoney(v, time, p);
             else if (v.crop === 'sunflower') this.updateSunflower(v, time, p);
             else if (v.herd) this.updateHerd(v, pdt, time, p);
-            else this.updateTomato(v, time, p);
             if (v.barn) for (const b of v.barn) if (b.root.visible) b.update(pdt, time);
             for (const m of v.meshes) {
                 m.instanceMatrix.needsUpdate = true;
@@ -1615,47 +1601,11 @@ export class Farm {
         });
     }
 
-    // Moreras: tres bloques de hojas, el tronco y dos capullos de seda colgando, que salen
-    // verdosos y se ponen blancos al madurar (y dan tirones: el gusano se revuelve dentro)
-    updateTomato(v, time, p) {
-        const T = CROPS.tomato, [leafMesh, fruitMesh, stakeMesh] = v.meshes;
-        const ripe = Math.min(1, Math.max(0, (p - 0.6) / 0.4));
-        v.plants.forEach((s, i) => {
-            const g = this.grow(s, p), h = s.h * g;
-            const sway = Math.sin(time * 1.4 - s.x * 0.4 - s.z * 0.3 + s.ph) * 0.04;
-            const leaves = [[0.55, 0.32, 0.25], [0.45, 0.28, 0.55], [0.3, 0.22, 0.82]];
-            leaves.forEach(([w, lh, y], k) => {
-                _d.position.set(s.wx + Math.sin(sway) * y * h, y * h, s.wz);
-                _d.rotation.set(0, s.ry + k * 0.5, sway);
-                _d.scale.set(w * g, Math.max(0.0001, lh * g), w * g);
-                _d.updateMatrix();
-                leafMesh.setMatrixAt(i * 3 + k, _d.matrix);
-            });
-            _d.position.set(s.wx, 0.3 * h, s.wz);
-            _d.rotation.set(0, 0, 0);
-            _d.scale.set(0.09, Math.max(0.0001, 0.6 * h), 0.09);
-            _d.updateMatrix();
-            stakeMesh.setMatrixAt(i, _d.matrix);
-            // Capullos: aparecen al 40% y engordan al madurar, colgando por debajo de las hojas
-            const e = p < 0.4 ? 0.0001 : Math.min(1, (p - 0.4) / 0.2) * (0.6 + 0.4 * ripe) * g;
-            _c.setHex(T.unripe).lerp(_c2.setHex(s.tone < 0.5 ? T.fruit : T.fruitDark), ripe);
-            for (let k = 0; k < 2; k++) {
-                const a = s.ry + k * Math.PI, y = (0.2 + k * 0.12) * h, tw = Math.max(0, Math.sin(time * 0.8 + s.ph * 3 + k * 2)) ** 8 * Math.sin(time * 20) * 0.3;
-                _d.position.set(s.wx + Math.sin(a) * 0.34 + Math.sin(sway) * y, y, s.wz + Math.cos(a) * 0.34);
-                _d.rotation.set(0, a, tw);
-                _d.scale.set(Math.max(0.0001, 0.2 * e), Math.max(0.0001, 0.34 * e), Math.max(0.0001, 0.2 * e));
-                _d.updateMatrix();
-                fruitMesh.setMatrixAt(i * 2 + k, _d.matrix);
-                fruitMesh.setColorAt(i * 2 + k, _c);
-            }
-        });
-    }
-
     // El prado de las vacas (o de las ovejas): una cada pocas casillas (más pequeñas que en el
     // campo de tiro), paseando y paciendo por su campo. v.plants son ellas (la torreta les dispara)
     buildHerd(v) {
         if (v.crop === 'fish') return this.buildFishes(v);
-        const f = v.rect, n = Math.max(2, Math.min(v.crop === 'egg' ? 22 : 16, Math.round((f.w * f.d) / (v.crop === 'egg' ? 9 : 14))));
+        const f = v.rect, n = v.crop === 'tomato' ? Math.max(2, Math.min(8, Math.round((f.w * f.d) / 40))) : Math.max(2, Math.min(v.crop === 'egg' ? 22 : 16, Math.round((f.w * f.d) / (v.crop === 'egg' ? 9 : 14))));
         if (!v.herd) {
             v.herd = new THREE.Group();
             this.groupAt(v.zone.cx, v.zone.cz).add(v.herd);
@@ -1663,14 +1613,89 @@ export class Farm {
         }
         const ink = outline(this.theme.outline);
         while (v.plants.length < n) {
-            const c = v.crop === 'wool' ? buildSheep(ink) : v.crop === 'egg' ? buildChicken(ink) : v.crop === 'truffle' ? buildPig(ink) : v.crop === 'pumpkin' ? buildGoat(ink) : buildCow(ink);
+            const c = v.crop === 'tomato' ? buildHorse(ink) : v.crop === 'wool' ? buildSheep(ink) : v.crop === 'egg' ? buildChicken(ink) : v.crop === 'truffle' ? buildPig(ink) : v.crop === 'pumpkin' ? buildGoat(ink) : buildCow(ink);
             bakeRigid(c.g); // (sus piezas juntas por grupo: se anima igual con muchas menos llamadas)
             c.g.scale.setScalar(0.0001);
             v.herd.add(c.g);
             v.plants.push({ cow: c, x: f.x + 1 + Math.random() * (f.w - 2), z: f.z + 1 + Math.random() * (f.d - 2), ry: Math.random() * 6, goal: null, speed: 0, wait: Math.random() * 3, t0: this.clock + 0.3 + v.plants.length * 0.12 });
         }
         if (v.crop === 'pumpkin') this.buildRocks(v);
+        if (v.crop === 'tomato') this.buildRing(v);
         this.placeBarnyard(v);
+    }
+
+    // El rodeo: una pista ovalada con su valla blanca por dentro y por fuera y unas cuantas vallas
+    // de salto atravesadas; los caballos dan vueltas por ella (cada uno por su calle) y saltan las
+    // vallas. Se rehace al crecer
+    buildRing(v) {
+        const f = v.rect, parts = [];
+        if (v.ring) for (const m of v.ring) {
+            m.removeFromParent();
+            m.dispose();
+        }
+        const rx = Math.max(1.5, f.w / 2 - 1.4), rz = Math.max(1.2, f.d / 2 - 1.4), n = Math.max(16, Math.round((rx + rz) * 3));
+        v.track = { rx, rz, hurdles: Array.from({ length: rx + rz > 14 ? 4 : 3 }, (_, k) => ((k + 0.5) / (rx + rz > 14 ? 4 : 3)) * Math.PI * 2) };
+        const pt = (a, side) => ({ x: f.cx + Math.cos(a) * (rx + side), z: f.cz + Math.sin(a) * (rz + side) });
+        for (const side of [-0.95, 0.95]) for (let i = 0; i < n; i++) {
+            const p = pt((i / n) * Math.PI * 2, side), q = pt(((i + 1) / n) * Math.PI * 2, side);
+            parts.push({ x: p.x, z: p.z, y: 0.25, w: 0.1, h: 0.5, d: 0.1, ry: 0, color: 0x8a5a34 });
+            parts.push({ x: (p.x + q.x) / 2, z: (p.z + q.z) / 2, y: 0.4, w: 0.06, h: 0.08, d: Math.hypot(q.x - p.x, q.z - p.z), ry: Math.atan2(q.x - p.x, q.z - p.z), color: 0xfff6e8 });
+        }
+        for (const a of v.track.hurdles) {
+            const p = pt(a, -0.75), q = pt(a, 0.75), ry = Math.atan2(q.x - p.x, q.z - p.z);
+            for (const e of [p, q]) parts.push({ x: e.x, z: e.z, y: 0.3, w: 0.12, h: 0.6, d: 0.12, ry: 0, color: 0xc8402e });
+            for (const [y, color] of [[0.22, 0xffffff], [0.42, 0xc8402e]]) parts.push({ x: (p.x + q.x) / 2, z: (p.z + q.z) / 2, y, w: 0.08, h: 0.08, d: 1.5, ry, color });
+        }
+        const mesh = new THREE.InstancedMesh(box(1, 1, 1), v.rockMat || (v.rockMat = toon(0xffffff)), parts.length), hull = new THREE.InstancedMesh(box(1, 1, 1), outline(this.theme.outline), parts.length);
+        parts.forEach((p, i) => {
+            // (en el mundo: la parcela se estira, así que los travesaños van de poste a poste ya estirados)
+            const w = stretchLocal(p.x, p.z);
+            let ry = p.ry, d = p.d;
+            if (p.d > 0.2) {
+                const a = stretchLocal(p.x - Math.sin(p.ry) * p.d / 2, p.z - Math.cos(p.ry) * p.d / 2), b = stretchLocal(p.x + Math.sin(p.ry) * p.d / 2, p.z + Math.cos(p.ry) * p.d / 2);
+                ry = Math.atan2(b.x - a.x, b.z - a.z);
+                d = Math.hypot(b.x - a.x, b.z - a.z);
+            }
+            _d.position.set(w.x, p.y, w.z);
+            _d.rotation.set(0, ry, 0);
+            _d.scale.set(p.w, p.h, d);
+            _d.updateMatrix();
+            mesh.setMatrixAt(i, _d.matrix);
+            mesh.setColorAt(i, _c.setHex(p.color));
+            _d.scale.set(p.w + OUTLINE * 2, p.h + OUTLINE * 2, d + OUTLINE * 2);
+            _d.updateMatrix();
+            hull.setMatrixAt(i, _d.matrix);
+        });
+        v.ring = [mesh, hull];
+        v.herd.add(mesh, hull);
+        // (los caballos, repartidos por la pista, cada uno por su calle y a su ritmo)
+        v.plants.forEach((s, i) => {
+            s.a = (i / v.plants.length) * Math.PI * 2;
+            s.lane = ((i % 3) - 1) * 0.4;
+            s.sp = 0.85 + Math.random() * 0.3;
+        });
+    }
+
+    // Los caballos del rodeo: galopan dando vueltas a la pista (más deprisa cuanto más maduro está
+    // el campo) y saltan cada valla al pasar
+    updateHorses(v, dt, time, p) {
+        const f = v.rect, T = v.track;
+        if (!T) return;
+        for (const s of v.plants) {
+            const rx = T.rx + s.lane, rz = T.rz + s.lane, speed = (1.4 + Math.min(1, p) * 1.4) * s.sp;
+            s.a = (s.a + (speed * dt) / Math.hypot(rx * Math.sin(s.a), rz * Math.cos(s.a))) % (Math.PI * 2);
+            let air = 0;
+            for (const h of T.hurdles) {
+                const d = Math.atan2(Math.sin(s.a - h), Math.cos(s.a - h)) * Math.hypot(rx, rz) * 0.7;
+                if (Math.abs(d) < 0.8) air = Math.max(air, 1 - (d / 0.8) ** 2);
+            }
+            const x = (s.x = f.cx + Math.cos(s.a) * rx), z = (s.z = f.cz + Math.sin(s.a) * rz), w = stretchLocal(x, z), ahead = stretchLocal(x - Math.sin(s.a) * rx * 0.05, z + Math.cos(s.a) * rz * 0.05);
+            const g = s.cow.g, intro = Math.min(1, Math.max(0, (this.clock - s.t0) / 0.4));
+            g.position.set(w.x, air * 0.55, w.z);
+            g.rotation.y = Math.atan2(ahead.x - w.x, ahead.z - w.z);
+            g.scale.setScalar(intro <= 0 ? 0.0001 : 0.7 * easeOutBack(intro));
+            animateHorse(s.cow, dt, time, speed * 1.6, air);
+        }
     }
 
     // El risco de las cabras: montículos de rocas por el campo (más cuanto más grande es) y, en
@@ -1850,6 +1875,7 @@ export class Farm {
     updateHerd(v, dt, time, p) {
         if (v.crop === 'fish') return this.updateFishes(v, dt, p >= 1);
         if (v.crop === 'pumpkin') return this.updateGoats(v, dt, time);
+        if (v.crop === 'tomato') return this.updateHorses(v, dt, time, p);
         const f = v.rect;
         for (const s of v.plants) {
             if ((s.wait -= dt) <= 0 && !s.goal) {

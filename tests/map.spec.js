@@ -72,14 +72,14 @@ test('mejorar el campo: cuesta 3 de trigo, lo hace más grande y con más matas'
 
 test('partida guardada con las cifras de antes: los campos salen con los blancos de su nivel', { tag: '@smoke' }, async ({ page }) => {
     const errors = watchErrors(page);
-    // Trigo en nivel 5 maduro con las 32 matas de antes y tomates en nivel 3 creciendo con 11
+    // Trigo en nivel 5 maduro con las 32 matas de antes y el rodeo en nivel 3 creciendo con 11 (salen sus 5 vueltas)
     await page.addInitScript(() => {
         if (sessionStorage.getItem('seeded')) return;
         sessionStorage.setItem('seeded', '1');
         localStorage.setItem('cofd.farm.v4', JSON.stringify({ items: { wheat: 50, tomato: 0 }, fields: { wheat: { unlocked: true, level: 4, plantedAt: 0, left: 32 }, tomato: { unlocked: true, level: 2, plantedAt: Date.now(), left: 11 } } }));
     });
     await page.goto('/?test');
-    await expect.poll(() => page.evaluate(() => window.game && [game.state.fields.wheat.left, game.state.fields.tomato.left]), { timeout: 30_000 }).toEqual([240, 40]);
+    await expect.poll(() => page.evaluate(() => window.game && [game.state.fields.wheat.left, game.state.fields.tomato.left]), { timeout: 30_000 }).toEqual([240, 5]);
     // Ya guardada con la revisión nueva: lo que se haya empezado a recoger se respeta
     await page.evaluate(() => { game.state.collect('wheat'); });
     await page.reload();
@@ -491,7 +491,7 @@ test('dock: CAMPOS abre encima otra barra con los cultivos desbloqueados y tocar
     await page.evaluate(() => { game.state.unlock('tomato', Date.now(), true); while (game.revealUnlocked()); game.rig.focus(15, -15); });
     await page.locator('#dock-fields').click();
     await expect(page.locator('#fields-pop')).toBeVisible();
-    await expect(page.locator('.dock-pop-btn')).toHaveText([/TRIGO/, /SEDA/]);
+    await expect(page.locator('.dock-pop-btn')).toHaveText([/TRIGO/, /FICHAS/]);
     await page.locator('#pop-tomato').click();
     await expect(page.locator('#fields-pop')).toBeHidden();
     // (la cámara va al centro del campo, en su sitio del valle)
@@ -544,16 +544,15 @@ test('el pueblo crece: lo comprado va solo a su sitio (de cine) y cada 5 cosas s
     expect(errors).toEqual([]);
 });
 
-test('regresiones: los tomates se ven en el mapa, la rueda sobre el menú no mueve el mapa y los botones del menú no se rehacen solos', { tag: '@full' }, async ({ page }) => {
+test('regresiones: el rodeo se ve en el mapa, la rueda sobre el menú no mueve el mapa y los botones del menú no se rehacen solos', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await openFarm(page);
-    // Tomates (su parcela está desplazada en el valle): brotan y se ven
+    // El rodeo (su parcela está desplazada en el valle): sus caballos salen y se ven
     await page.evaluate(() => { game.state.unlock('tomato', Date.now(), true); while (game.revealUnlocked()); game.select(null); });
     await page.evaluate(() => { const r = game.farm.views.find((v) => v.id === 'tomato').rect; game.rig.focus(r.cx, r.cz); });
     await expect.poll(() => page.evaluate(() => {
-        const v = game.farm.views.find((x) => x.id === 'tomato'), m = new v.meshes[0].matrix.constructor(), s = new v.meshes[0].position.constructor();
-        v.meshes[0].getMatrixAt(0, m);
-        return s.setFromMatrixScale(m).y;
+        const v = game.farm.views.find((x) => x.id === 'tomato');
+        return v.plants.length > 0 && !!v.ring && v.plants[0].cow.g.scale.x;
     }), { timeout: 20_000 }).toBeGreaterThan(0.05);
     // El menú del pueblo: la rueda encima no cambia el zoom del mapa
     await page.evaluate(() => { game.state.story.merchant = true; game.openMerchant('m0'); });

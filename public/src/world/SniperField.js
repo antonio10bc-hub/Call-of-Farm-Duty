@@ -15,13 +15,12 @@ import { Bees } from './Bees.js';
 import { Goats } from './Goats.js';
 import { Clams } from './Clams.js';
 import { Fireflies } from './Fireflies.js';
+import { Rodeo } from './Rodeo.js';
 
 const _d = new THREE.Object3D();
 const _c = new THREE.Color();
 const _w = new THREE.Color(0xffffff);
 const CLUMP = 20; // tallos por mata de trigo
-const LEAVES = 9; // bloques de hojas por morera (la mata de los gusanos de seda)
-const WORM = 4; // trozos de cada gusano de seda
 const MAX = 300; // blancos como mucho (el trigo al máximo, 240)
 
 // Punto dentro del polígono (regla del rayo)
@@ -61,7 +60,7 @@ function instanced(root, mat, n) {
 // Campo de tiro: un campo en forma de cuadrilátero de lados distintos, con una torre de vigía
 // en cada esquina. Según a qué se entra:
 //   - cosecha de trigo: las matas maduras son los blancos
-//   - seda: moreras con capullos de gusanos de seda colgando; cada capullo es un blanco
+//   - rodeo (fichas de caballo): a caballo por la pista, en su módulo (Rodeo)
 //   - queso, perlas, luciérnagas y miel: cada uno en su módulo (Goats, Clams, Fireflies, Bees)
 //   - leche: vacas que corren por el prado; cada poco se les llena la ubre y, llena, un tiro a la
 //     ubre da un cubo
@@ -82,7 +81,6 @@ export class SniperField {
         this.root = new THREE.Group();
         this.animated = [];
         this.targets = [];
-        this.plants = []; // matas (de tomate, de maíz...), cada una con sus blancos en targets
         this.junk = null;
         this.introT = 0;
         // Torres: un poco por fuera de cada esquina, girada hacia el centro, con su plataforma de
@@ -110,7 +108,7 @@ export class SniperField {
         this.root.add(this.rangeT.root);
         // Los cultivos con su propio módulo (cada uno con su manera de dispararle): abejas con su
         // gota de miel, cabras que saltan entre rocas, almejas en su piscina y luciérnagas
-        this.mods = { honey: new Bees(theme.outline), pumpkin: new Goats(theme.outline), sunflower: new Clams(theme.outline), corn: new Fireflies(theme.outline) };
+        this.mods = { honey: new Bees(theme.outline), pumpkin: new Goats(theme.outline), sunflower: new Clams(theme.outline), corn: new Fireflies(theme.outline), tomato: new Rodeo(theme.outline) };
         for (const m of Object.values(this.mods)) this.root.add(m.root);
         this.build();
     }
@@ -203,17 +201,9 @@ export class SniperField {
             this.clouds.push(g);
         }
 
-        // Blancos: matas de trigo (tallos y espigas) y matas de tomate (hojas, tallo, tutor y
-        // tomates con su contorno y su rabito), instanciados y rellenados al entrar
+        // Blancos: matas de trigo (tallos y espigas), instanciados y rellenados al entrar
         this.tStalks = instanced(root, toon(0xffffff), MAX * CLUMP);
         this.tEars = instanced(root, toon(0xffffff), MAX * CLUMP);
-        this.tLeaves = instanced(root, toon(0xffffff), MAX * LEAVES);
-        this.tStems = instanced(root, toon(0xffffff), MAX * 2);
-        this.tFruit = instanced(root, toon(0xffffff), MAX);
-        this.tFruitHull = instanced(root, outline(theme.outline), MAX);
-        this.tCalyx = instanced(root, toon(CROPS.tomato.calyx), MAX);
-        // Los gusanos de seda que trepan por las moreras (WORM trozos cada uno)
-        this.tWorm = instanced(root, toon(0xffffff), MAX * WORM);
     }
 
     addHulled(color, pts) {
@@ -265,17 +255,17 @@ export class SniperField {
                 : kind === 'junk' ? JUNK.ground[mod(c * 7 + r * 5 + mod(c * r, 3), JUNK.ground.length)]
                 : inPond(c + 0.5, r + 0.5) ? (pool ? [0x2f88c0, 0x2a7eb4] : [0x4aa8e0, 0x3f98d4])[(c + r) & 1] // (el agua; la de la piscina, más honda)
                 : inPond(c + 0.5, r + 0.5, 1.3) ? (pool ? [0xc8c4b8, 0xb8b4a8] : [0xd9c48a, 0xccb67a])[(c + r) & 1] // (la orilla, o el muro de la piscina)
+                : CROPS[kind] && CROPS[kind].sand ? [0xe0c890, 0xd8c088, 0xe6d09a][mod(c * 3 + r * 5, 3)] // (el ruedo del rodeo, de arena)
                 : CROPS[kind] && CROPS[kind].mud ? [0x7a5232, 0x6a4628, 0x8a5e38][mod(c * 3 + r * 5, 3)] // (la pocilga, de barro)
                 : CROPS[kind] && (CROPS[kind].pasture || CROPS[kind].meadow) ? [0xa8e070, 0x9ad962, 0xb4e67a][mod(c * 3 + r * 5, 3)] : theme.soil[r & 1];
             this.floor.setColorAt(i, _c.setHex(col).offsetHSL(0, 0, (Math.random() - 0.5) * theme.grassJitter));
         });
         this.floor.instanceColor.needsUpdate = true;
-        const T = CROPS.tomato;
         this.stub.forEach((s, i) => {
             const own = CROPS[kind] && CROPS[kind].stub;
             if (inPond(s.x, s.z)) return this.stubMesh.setColorAt(i, _c.setHex(pool ? 0x2a7eb4 : 0x6ac0f0)); // (en el agua, brillos; en la piscina, el fondo)
             if (pool && inPond(s.x, s.z, 1.3)) return this.stubMesh.setColorAt(i, _c.setHex(0xb8b4a8)); // (en el muro, hormigón)
-            const col = kind === 'junk' ? (s.tone < 0.6 ? 0x8a7a4a : 0x6f8a3a) : own ? own[i % own.length] : kind === 'tomato' ? T.leaves[i % 3] : s.tone < 0.7 ? 0xb8a050 : CROPS.wheat.stages[1];
+            const col = kind === 'junk' ? (s.tone < 0.6 ? 0x8a7a4a : 0x6f8a3a) : own ? own[i % own.length] : s.tone < 0.7 ? 0xb8a050 : CROPS.wheat.stages[1];
             this.stubMesh.setColorAt(i, _c.setHex(col).offsetHSL(0, 0, (s.tone - 0.5) * 0.1));
         });
         this.stubMesh.instanceColor.needsUpdate = true;
@@ -307,8 +297,8 @@ export class SniperField {
             for (const t of this.towers) t.model.root.visible = false;
             return this.rangeT.spawn(this.rangeMode || 'mix', this.targets);
         }
+        if (crop === 'tomato') for (const t of this.towers) t.model.root.visible = false; // (el rodeo: a caballo, sin torres)
         if (this.mods[crop]) return this.mods[crop].spawn(count, this);
-        if (crop === 'tomato') return this.spawnTomatoes(count);
         if (crop === 'milk') return this.spawnCows(count);
         if (crop === 'wool') return this.spawnSheep(count);
         if (crop === 'truffle') return this.spawnPigs(count);
@@ -326,47 +316,6 @@ export class SniperField {
         this.tStalks.count = this.tEars.count = this.targets.length * CLUMP;
     }
 
-    spawnTomatoes(count) {
-        let left = count;
-        while (left > 0) {
-            const n = Math.min(left, 1 + ((Math.random() * 3) | 0));
-            const { x, z } = this.freeSpot(this.plants, count > 60 ? 1.8 : 2.2); // (más juntas si hay muchas)
-            const plant = {
-                x, z, h: 1.7 + Math.random() * 0.3, ph: Math.random() * 6, grow: -0.5 - this.plants.length * Math.min(0.08, 4.8 / count), g: 0.0001, sway: 0,
-                leaves: Array.from({ length: LEAVES }, (_, k) => ({ a: k * 2.4 + Math.random() * 0.5, y: 0.3 + (k / LEAVES) * 1.35, r: 0.22 + Math.random() * 0.16, w: 0.72 - (k / LEAVES) * 0.32, tone: Math.random() })),
-            };
-            this.plants.push(plant);
-            const a0 = Math.random() * Math.PI * 2;
-            // Su gusano: trepa por una de las hojas de arriba, de un lado a otro
-            plant.worm = { leaf: LEAVES - 1 - ((Math.random() * 3) | 0), ph: Math.random() * 6, sp: 0.5 + Math.random() * 0.5 };
-            for (let k = 0; k < n; k++) {
-                // Capullos gigantes colgando de su hebra alrededor del tronco, a distintas alturas
-                // (cada uno con su gusano dentro, que se revuelve a ratos)
-                const a = a0 + (k / n) * Math.PI * 2, size = 0.55 + Math.random() * 0.15;
-                const tx = x + Math.sin(a) * 0.55, tz = z + Math.cos(a) * 0.55, ty = 0.6 + k * 0.38 + Math.random() * 0.1;
-                this.targets.push({ plant, x: tx, y: ty, z: tz, size, ry: a, tone: Math.random(), twitch: 0.5 + Math.random() * 0.8, ph: Math.random() * 6, alive: true, grow: plant.grow - 0.15 - k * 0.08, landed: false, flash: 0, dying: 0 });
-            }
-            left -= n;
-        }
-        this.tLeaves.count = this.plants.length * LEAVES;
-        this.tStems.count = this.plants.length * 2;
-        this.tFruit.count = this.tFruitHull.count = this.tCalyx.count = this.targets.length;
-        this.tWorm.count = this.plants.length * WORM;
-        const T = CROPS.tomato;
-        this.tCalyx.material.color.setHex(T.calyx);
-        for (let i = 0; i < this.tWorm.count; i++) this.tWorm.setColorAt(i, _c.setHex(T.worm[i % WORM === WORM - 1 ? 1 : 0]));
-        if (this.tWorm.instanceColor) this.tWorm.instanceColor.needsUpdate = true;
-        this.plants.forEach((p, pi) => {
-            p.leaves.forEach((l, k) => this.tLeaves.setColorAt(pi * LEAVES + k, _c.setHex(T.leaves[(k + pi) % 3]).offsetHSL(0, 0, (l.tone - 0.5) * 0.08)));
-            this.tStems.setColorAt(pi * 2, _c.setHex(T.stake));
-            this.tStems.setColorAt(pi * 2 + 1, _c.setHex(T.stake));
-        });
-        this.tLeaves.instanceColor.needsUpdate = this.tStems.instanceColor.needsUpdate = true;
-    }
-
-    // Vacas: cada una corre por el prado a su ritmo; la ubre se le va hinchando (swell) hasta
-    // hacerse gigante, la vaca acaba botando sobre ella y, llena, es el blanco (s.x, s.y, s.z: la
-    // ubre; s.ur, s.uh: su tamaño)
     spawnCows(count) {
         if (!this.herd) {
             this.herd = new THREE.Group();
@@ -909,10 +858,9 @@ export class SniperField {
     clearSheaves() {
         if (this.herd) for (const c of [...this.herd.children]) this.herd.remove(c);
         this.targets.length = 0;
-        this.plants.length = 0;
         if (this.rangeT) this.rangeT.hide();
         if (this.mods) for (const m of Object.values(this.mods)) m.clear();
-        for (const m of [this.tStalks, this.tEars, this.tLeaves, this.tStems, this.tFruit, this.tFruitHull, this.tCalyx, this.tWorm]) m.count = 0;
+        for (const m of [this.tStalks, this.tEars]) m.count = 0;
         this.clearJunk();
     }
 
@@ -921,7 +869,7 @@ export class SniperField {
     }
 
     get remaining() {
-        return this.targets.reduce((n, s) => n + (s.alive ? 1 : 0), 0);
+        return this.targets.reduce((n, s) => n + (s.alive && !s.noLoot ? 1 : 0), 0); // (los obstáculos del rodeo no cuentan)
     }
 
     // Rayo contra las cajas de los blancos vivos: la bala los atraviesa todos hasta tocar el
@@ -977,7 +925,6 @@ export class SniperField {
         else if (this.crop === 'range') this.rangeT.update(dt, time);
         else if (this.mods[this.crop]) this.mods[this.crop].update(dt, time);
         else if (this.crop === 'wheat') this.drawWheat(time);
-        else if (this.crop === 'tomato') this.drawTomatoes(dt, time);
         if (this.junk) this.updateJunk(dt);
         for (const t of this.towers) t.model.update(dt);
         for (const c of this.clouds) {
@@ -1020,80 +967,6 @@ export class SniperField {
         }
     }
 
-    // Moreras (hojas, tronco y una rama) con sus gusanos de seda trepando y los capullos gigantes
-    // colgando de su hebra, que a ratos dan tirones (el gusano se revuelve dentro)
-    drawTomatoes(dt, time) {
-        const T = CROPS.tomato;
-        this.plants.forEach((p, pi) => {
-            p.grow += dt;
-            const k = Math.min(1, Math.max(0, p.grow / 0.5));
-            p.g = k <= 0 ? 0.0001 : easeOutBack(k);
-            p.sway = Math.sin(time * 1.5 - p.x * 0.4 + p.ph) * 0.05;
-            const h = p.h * p.g;
-            p.leaves.forEach((l, k2) => {
-                const y = l.y * p.g;
-                _d.position.set(p.x + Math.sin(l.a) * l.r * p.g + p.sway * y, y, p.z + Math.cos(l.a) * l.r * p.g);
-                _d.rotation.set(0, l.a, p.sway);
-                _d.scale.set(l.w * p.g, 0.3 * p.g, l.w * 0.8 * p.g);
-                _d.updateMatrix();
-                this.tLeaves.setMatrixAt(pi * LEAVES + k2, _d.matrix);
-            });
-            _d.position.set(p.x + p.sway * h * 0.5, h / 2, p.z);
-            _d.rotation.set(0, 0, p.sway);
-            _d.scale.set(0.16, Math.max(0.0001, h), 0.16);
-            _d.updateMatrix();
-            this.tStems.setMatrixAt(pi * 2, _d.matrix);
-            _d.position.set(p.x + p.sway * h * 0.7, h * 0.72, p.z);
-            _d.rotation.set(0, p.ph, Math.PI / 2 + p.sway);
-            _d.scale.set(0.08, Math.max(0.0001, 1.2 * p.g), 0.08);
-            _d.updateMatrix();
-            this.tStems.setMatrixAt(pi * 2 + 1, _d.matrix);
-            // El gusano: de un lado a otro de su hoja, encogiéndose y estirándose (los trozos, en fila)
-            const l = p.leaves[p.worm.leaf], W = p.worm, top = l.y * p.g + 0.15 * p.g + 0.05;
-            const along = Math.sin(time * W.sp + W.ph) * l.w * 0.3, dir = Math.cos(time * W.sp + W.ph) >= 0 ? 1 : -1;
-            const cx = p.x + Math.sin(l.a) * l.r * p.g + p.sway * top, cz = p.z + Math.cos(l.a) * l.r * p.g;
-            for (let j = 0; j < WORM; j++) {
-                const off = along + (j - (WORM - 1) / 2) * 0.12 * dir, hump = Math.max(0, Math.sin(time * 6 + W.ph - j * 0.9)) * 0.06;
-                _d.position.set(cx + Math.cos(l.a) * off, top + hump, cz - Math.sin(l.a) * off);
-                _d.rotation.set(0, l.a, 0);
-                _d.scale.setScalar(0.13 * p.g);
-                _d.updateMatrix();
-                this.tWorm.setMatrixAt(pi * WORM + j, _d.matrix);
-            }
-        });
-        this.targets.forEach((s, i) => {
-            const gone = !s.alive && s.dying <= 0;
-            const pop = !s.alive ? 1 + Math.max(0, 0.14 - s.dying) * 3 : 1;
-            const e = gone ? 0.0001 : (s.g || 0.0001) * pop;
-            // Cuelga de arriba: el tirón es un giro sobre el punto de la hebra
-            const tw = Math.max(0, Math.sin(time * s.twitch + s.ph)) ** 6, th = Math.sin(time * 22 + s.ph) * 0.25 * tw + s.plant.sway;
-            const w = s.size * 0.62 * e, hh = s.size * 1.05 * e, hx = s.x, hy = s.y + hh / 2;
-            const x = hx + Math.sin(th) * hh / 2, y = hy - Math.cos(th) * hh / 2;
-            _d.position.set(x, y, s.z);
-            _d.rotation.set(0, s.ry, th);
-            _d.scale.set(w, hh, w);
-            _d.updateMatrix();
-            this.tFruit.setMatrixAt(i, _d.matrix);
-            _d.scale.set(gone ? 0.0001 : w + OUTLINE * 2, gone ? 0.0001 : hh + OUTLINE * 2, gone ? 0.0001 : w + OUTLINE * 2);
-            _d.updateMatrix();
-            this.tFruitHull.setMatrixAt(i, _d.matrix);
-            _c.setHex(s.tone < 0.5 ? T.fruit : T.fruitDark).lerp(_w, s.flash);
-            this.tFruit.setColorAt(i, _c);
-            // La hebra: del capullo hacia arriba, hasta la rama
-            _d.position.set(hx, hy + 0.25 * e, s.z);
-            _d.rotation.set(0, 0, 0);
-            _d.scale.set(0.03 * e, 0.5 * e, 0.03 * e);
-            _d.updateMatrix();
-            this.tCalyx.setMatrixAt(i, _d.matrix);
-        });
-        for (const m of [this.tLeaves, this.tStems, this.tFruit, this.tFruitHull, this.tCalyx, this.tWorm]) {
-            m.instanceMatrix.needsUpdate = true;
-            if (m.instanceColor) m.instanceColor.needsUpdate = true;
-        }
-    }
-
-    // Tras la explosión: las piezas vuelan, giran, rebotan y se encogen. La tierra se va
-    // limpiando en un anillo que sale del barril.
     updateJunk(dt) {
         const J = this.junk;
         if (J.t < 0) {

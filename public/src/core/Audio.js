@@ -262,6 +262,9 @@ export class Sfx {
             for (const d of [0, 0.16]) this.tone('sawtooth', 240, 180, 0.11, vol, pan, d, { lp: 900, q: 6 });
         } else if (kind === 'buzz') {
             this.tone('sawtooth', 220, 230, 0.6, vol * 0.5, pan, 0, { attack: 0.1, lp: 1400, q: 2, vib: [28, 0.03] });
+        } else if (kind === 'neigh') {
+            this.tone('sawtooth', 700, 980, 0.18, vol, pan, 0, { attack: 0.02, lp: 2400, q: 4, vib: [22, 0.08] });
+            this.tone('sawtooth', 900, 420, 0.5, vol, pan, 0.16, { lp: 2000, q: 4, vib: [18, 0.1] });
         } else if (kind === 'quackSoft') {
             this.tone('sawtooth', 500, 330, 0.13, vol, pan, 0, { lp: 1500, lp1: 700, q: 4 });
         }
@@ -313,7 +316,7 @@ export class Sfx {
     cropLayer(crop, pan) {
         switch (crop) {
             case 'wheat': this.noise(0.18, 0.18, 3800, pan, 0, { type: 'bandpass', q: 0.8, to: 1800 }); break; // (espigas que crujen)
-            case 'tomato': this.swish(0.16, 0.12, 5000, 2500, pan); this.pluck(N.G6, 0.05, pan, 0.02, 0.2); break; // (la hebra de seda que se suelta)
+            case 'tomato': this.bell(N.E6, 0.05, pan, 0, 0.4); this.bell(N.A6, 0.05, pan, 0.08, 0.5); this.wood(1100, 0.06, pan, 0.02); break; // (la ficha de latón: tilín y un casco)
             case 'pumpkin': this.tone('sine', 330, 150, 0.12, 0.14, pan); if (Math.random() < 0.35) this.voice('bleat', pan, 0.06); break; // (el queso y, a veces, la cabra)
             case 'corn': this.bell(N.C7, 0.05, pan, 0, 0.6); this.bell(N.G6, 0.04, pan, 0.06, 0.6); break; // (una luz que se apaga)
             case 'sunflower': this.bell(N.E6 * 2, 0.05, pan, 0, 0.5); this.drip(900, 0.08, pan, 0.05); break; // (perla de cristal y burbuja)
@@ -415,6 +418,7 @@ export class Sfx {
             case 'bleat': this.voice('bleat', pan, 0.07); break;
             case 'oink': this.voice('oink', pan, 0.08); break;
             case 'baa': this.voice('baa', pan, 0.07); break;
+            case 'neigh': this.voice('neigh', pan, 0.06); break;
             case 'buzz': this.voice('buzz', pan, 0.07); break;
             case 'bubble': this.drip(500 + Math.random() * 300, 0.05, pan); break;
             case 'whoosh': this.swish(0.45, 0.14, 600, 5000, pan); break;

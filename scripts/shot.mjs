@@ -79,7 +79,7 @@ if (opt.merchant || opt.trust !== undefined || opt.own) {
 }
 if (opt.snipe) {
     await page.evaluate((id) => { game.state.unlock(id, Date.now(), true); while (game.revealUnlocked()); game.harvest(id); }, opt.snipe);
-    await page.waitForFunction(() => game.mode === 'snipe' && game.sniper.field.targets.every((s) => s.landed), null, { timeout: 120000 });
+    await page.waitForFunction(() => game.mode === 'snipe' && game.sniper.field.targets.every((s) => s.landed || s.lap), null, { timeout: 120000 });
     await page.evaluate(() => { game.sniper.flyers.next = Infinity; game.sniper.walkers.reset(); game.sniper.walkers.next = Infinity; });
 }
 if (opt.eval) { const r = await page.evaluate(opt.eval); if (r !== undefined) console.log(typeof r === "string" ? r : JSON.stringify(r)); } // (si devuelve algo, se escribe)

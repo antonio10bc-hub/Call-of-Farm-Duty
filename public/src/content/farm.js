@@ -57,8 +57,8 @@ export const FARM = {
             { yard: [1, 1, 29, 29], cost: { wheat: 5 } },
             { yard: [1, 1, 29, 29], cost: { wheat: 15 } },
             { yard: [1, 1, 29, 29], cost: { wheat: 30 } },
-            { yard: [1, 1, 29, 29], cost: { wheat: 40, tomato: 15 } },
-            { yard: [1, 1, 29, 29], cost: { wheat: 60, tomato: 30 } },
+            { yard: [1, 1, 29, 29], cost: { wheat: 40, tomato: 5 } },
+            { yard: [1, 1, 29, 29], cost: { wheat: 60, tomato: 10 } },
         ],
         strip: [9, 20, 28, 24],
         pads: [[2.5, 2.5, 14.5, 9.5], [20, 3, 27, 9], [2.5, 9.5, 8.5, 15]],
@@ -93,7 +93,7 @@ export const FARM = {
             { clear: null },
             { clear: [10, -20, 21, -10], cost: { wheat: 8 } },
             { clear: [4, -26, 26, -4], cost: { wheat: 20 } },
-            { clear: [0, -30, 30, 0], cost: { wheat: 35, tomato: 10 } },
+            { clear: [0, -30, 30, 0], cost: { wheat: 35, tomato: 3 } },
         ],
     },
     structures: [
@@ -138,17 +138,17 @@ export const FARM = {
         {
             id: 'tomato',
             crop: 'tomato',
-            name: L('SILKWORM GROVE', 'GUSANOS DE SEDA'),
+            name: L('RODEO', 'RODEO'),
             corner: { x: 105, z: 45, center: true }, // crece desde el centro de su parcela
-            climb: { wheat: 15, own: 3, growth: 1.8 },
+            climb: { wheat: 15, own: 2, growth: 1.8 },
             locked: { after: 'wheat', name: L('JUNKYARD', 'TERRENO ABANDONADO') },
-            // El último llena su zona entera
+            // El último llena su zona entera. sheaves: las vueltas a la pista (una ficha cada una)
             levels: [
-                { w: 7, d: 6, sheaves: 8, arena: 1, sign: 0x9a6a3a },
-                { w: 11, d: 10, sheaves: 18, arena: 1.2, sign: 0xb07a44 },
-                { w: 16, d: 15, sheaves: 40, arena: 1.45, sign: 0x5a9e32 },
-                { w: 22, d: 20, sheaves: 80, arena: 1.75, sign: 0x3a7ec8 },
-                { w: 28, d: 28, sheaves: 150, arena: 2.1, sign: 0xc8402e },
+                { w: 7, d: 6, sheaves: 3, arena: 1, sign: 0x9a6a3a },
+                { w: 11, d: 10, sheaves: 4, arena: 1.2, sign: 0xb07a44 },
+                { w: 16, d: 15, sheaves: 5, arena: 1.45, sign: 0x5a9e32 },
+                { w: 22, d: 20, sheaves: 6, arena: 1.75, sign: 0x3a7ec8 },
+                { w: 28, d: 28, sheaves: 7, arena: 2.1, sign: 0xc8402e },
             ],
         },
         // Los de las parcelas que se compran (con su cultivo nuevo y su forma de disparar)
@@ -185,7 +185,7 @@ export const FARM = {
                 { w: 28, d: 28, sheaves: 34, arena: 2.4, sign: 0xc8402e },
             ],
         },
-        // Piscifactoría de perlas: debajo de los gusanos de seda
+        // Piscifactoría de perlas: debajo del rodeo
         {
             id: 'sunflower',
             crop: 'sunflower',

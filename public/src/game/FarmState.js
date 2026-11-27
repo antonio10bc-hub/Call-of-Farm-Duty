@@ -166,6 +166,8 @@ export class FarmState {
                     // contenido, al cargar ya valen); lo maduro guardado antes de la revisión 2,
                     // también, aunque ya se hubiera empezado a recoger
                     if (f.unlocked && (!this.isReady(id) || (d.rev | 0) < 2)) f.left = Math.max(this.isReady(id) ? f.left : 0, this.sheaves(id));
+                    // (la seda pasó a ser el rodeo: lo que quedaba por recoger, como mucho las vueltas de su nivel)
+                    if (id === 'tomato') f.left = Math.min(f.left, this.sheaves(id));
                 }
                 // La historia (las partidas de antes: lo que ya habrían visto, por cómo van)
                 if (d.story && typeof d.story === 'object') for (const k of STORY) this.story[k] = !!d.story[k];

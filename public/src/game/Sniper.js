@@ -257,7 +257,7 @@ export class Sniper {
         this.ks.clear();
         this.flyers.reset();
         this.walkers.reset();
-        this.turrets.set(!this.unlocking && !!what.turrets);
+        this.turrets.set(!this.unlocking && !!what.turrets && !this.riding); // (en el rodeo no hay torretas)
         this.box.reset();
         // Depuración (los ajustes de DEBUG, en this.debug): vacas llenas y empezar con un arma de
         // la caja
@@ -376,9 +376,15 @@ export class Sniper {
         return !!this.move;
     }
 
+    // El rodeo: a caballo dando vueltas a la pista (sin torres, ni caja sorpresa, ni ovnis ni
+    // alienígenas a pie: los alienígenas vienen a caballo)
+    get riding() {
+        return this.crop === 'tomato' && !this.unlocking && !this.practice;
+    }
+
     // Salta a la torre vecina (dir: +1 / -1). La mira sigue puesta si lo estaba.
     goCorner(dir) {
-        if (this.move || this.ending >= 0 || this.unlocking || this.lockCorners || this.ks.predator) return;
+        if (this.move || this.ending >= 0 || this.unlocking || this.lockCorners || this.ks.predator || this.riding) return;
         const n = this.stations.length;
         const to = (this.corner + dir + n) % n;
         this.move = { from: this.pos.clone(), to: this.eyeOf(to), t: 0, idx: to };
@@ -387,7 +393,7 @@ export class Sniper {
 
     // Salta a la torre vecina que queda a la izquierda (side -1) o a la derecha (+1) de la vista
     goSide(side) {
-        if (this.move || this.ending >= 0 || this.unlocking || this.lockCorners || this.ks.predator) return;
+        if (this.move || this.ending >= 0 || this.unlocking || this.lockCorners || this.ks.predator || this.riding) return;
         const n = this.stations.length;
         const rx = Math.cos(this.lookYaw), rz = -Math.sin(this.lookYaw); // derecha de la vista
         const along = (d) => {
@@ -737,7 +743,11 @@ export class Sniper {
             }
             if (chunks) this.particles.burst(s.x, s.y, s.z, 7, C.burst, { speed: 2.6, up: 3.4, size: 0.22, ttl: 1.3, grav: 16 }); // (trozos grandes)
             _v.set(s.x, s.y, s.z).project(this.camera);
-            this.hooks.onHit(s, _v.x, _v.y);
+            // (en el rodeo, los obstáculos no dan nada y los jinetes alienígenas cuentan como alienígenas)
+            if (s.rider) {
+                if (this.hooks.onAlien) this.hooks.onAlien(_v.x, _v.y);
+                this.addAlien(1);
+            } else if (!s.noLoot) this.hooks.onHit(s, _v.x, _v.y);
             if (k && k < 6) setTimeout(() => sfx.play('harvest', 0, { crop: this.crop, rate: Settings.feelOn('feelSound') ? 2 ** (k / 12) : 1 }), k * 90); // (cada pieza del colateral, un semitono más arriba)
         });
         sfx.play('harvest', 0, { crop: this.crop });
@@ -932,6 +942,7 @@ export class Sniper {
         this.updateNightSky();
         if (this.crop) this.checkEnd();
         this.turrets.update(dt);
+        if (this.riding) this.field.mods.tomato.ride(rawDt, this);
 
         if (this.move) {
             const m = this.move;

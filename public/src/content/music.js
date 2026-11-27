@@ -20,8 +20,8 @@ export const THEMES = {
     // Los campos de tiro (por cultivo)
     // Trigo: guitarra arpegiada (el del principio: el más «de granja»)
     wheat: field({ keys: 'none', perc: 'groove', sig: { inst: 'pluck', motif: '0.2.4.2.7.4.2.4.0.2.4.2.7.4.9.7.', oct: 1 } }),
-    // Gusanos de seda: un koto pentatónico, fino y delicado
-    tomato: field({ keys: 'chords', perc: 'brush', sig: { inst: 'koto', motif: '4...2...0.....b.4...2...4.7.....', oct: 2 } }),
+    // Rodeo: guitarra country al galope (cascos de madera)
+    tomato: field({ keys: 'stab', bass: 'oompah', perc: 'hooves', sig: { inst: 'pluck', motif: '0.4.7.4.0.4.7.9.7.4.2.4.0...0...', oct: 1 } }),
     // Cabras: marimba saltarina y cascos de madera
     pumpkin: field({ keys: 'stab', bass: 'bounce', perc: 'hooves', sig: { inst: 'mallet', motif: '0.4.0.4..7.4....0.4.0.4..7.9....', oct: 1 } }),
     // Luciérnagas (de noche): celesta suelta, sin ritmo, todo oscuro

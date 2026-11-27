@@ -339,6 +339,17 @@ const sniper = new Sniper(THEME, {
     onCorner(i) {
         showCorner(i);
     },
+    // El rodeo: una vuelta más (su ficha) y los choques contra lo que hay en la pista
+    onLap(n) {
+        if (prologue.active) return;
+        const left = sniper.field.remaining - 1;
+        medal(left > 0 ? `${L('LAP', 'VUELTA')} ${n} · ${L('+1 TOKEN', '+1 FICHA')}` : L('LAST LAP!', '¡ÚLTIMA VUELTA!'), 'collateral');
+    },
+    onCrash(rider) {
+        if (prologue.active) return;
+        if (!rider) medal(L('OUCH! SHOOT THE OBSTACLES', '¡AY! DISPARA A LOS OBSTÁCULOS'), 'stolen');
+        vibrate('kill');
+    },
 });
 addLights(sniper.scene);
 
@@ -1531,12 +1542,13 @@ function enterSnipe() {
     $('snipe-ui').classList.remove('hidden');
     document.body.classList.add('sniping');
     document.body.classList.toggle('unlocking', unlock);
+    document.body.classList.toggle('riding', !unlock && def.crop === 'tomato');
     $('left-count').textContent = sniper.field.remaining;
     showCorner(0);
     updateCounts();
     startMusic();
     $('nuke-count').classList.add('hidden');
-    const msg = unlock ? L('SHOOT THE RED BARREL!', '¡DISPARA AL BARRIL ROJO!') : L('HARVEST!', '¡A COSECHAR!');
+    const msg = unlock ? L('SHOOT THE RED BARREL!', '¡DISPARA AL BARRIL ROJO!') : def.crop === 'tomato' ? L('RIDE!', '¡AL GALOPE!') : L('HARVEST!', '¡A COSECHAR!');
     setTimeout(() => mode === 'snipe' && banner(msg, 'go'), 450);
 }
 
@@ -1589,7 +1601,7 @@ function enterFarm() {
     mode = 'farm';
     renderer.flash(INK, 1);
     scope.show(false);
-    document.body.classList.remove('sniping', 'unlocking');
+    document.body.classList.remove('sniping', 'unlocking', 'riding');
     $('snipe-ui').classList.add('hidden');
     $('farm-ui').classList.remove('hidden');
     $('bubbles').classList.remove('hidden');
@@ -3865,7 +3877,7 @@ function magicVisit(step) {
 // La llamada del mercader: suena hasta que se contesta; habla, cuelga y viene por primera vez
 const CALL = [
     L('HELLO, NEIGHBOUR! I AM THE MERCHANT. A HUMAN, LIKE YOU. VERY NORMAL.', '¡HOLA, VECINO! SOY EL MERCADER. UN HUMANO, COMO TÚ. MUY NORMAL.'),
-    L('WORD IS YOUR SILKWORMS SPIN SPLENDID SILK.', 'ME HAN DICHO QUE TUS GUSANOS HILAN UNA SEDA ESTUPENDA.'),
+    L('WORD IS YOUR RODEO IS THE FINEST IN THE VALLEY.', 'ME HAN DICHO QUE TU RODEO ES EL MEJOR DEL VALLE.'),
     L('I BUY CROPS AT A GOOD PRICE: IN GOLD COINS. REAL GOLD.', 'TE COMPRO LA COSECHA A BUEN PRECIO: EN MONEDAS DE ORO. DE ORO DE VERDAD.'),
     L("I'M ON MY WAY, BY CAR. DROP BY MY STALL WHENEVER YOU LIKE.", 'VOY PARA ALLÁ, EN MI COCHE. PÁSATE POR MI PUESTO CUANDO QUIERAS.'),
 ];
