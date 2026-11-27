@@ -48,7 +48,7 @@ test('tomates: con el trigo al máximo se desbloquea disparando al barril; luego
     await page.locator('#sign-tomato').click();
     await expect(page.locator('#panel-title')).toHaveText('TERRENO ABANDONADO');
     await expect(page.locator('#panel-action')).toBeHidden();
-    await page.evaluate(() => { game.state.wheat = 40; for (let i = 0; i < 4; i++) game.upgradeField('wheat'); game.select(null); });
+    await page.evaluate(() => { for (let i = 0; i < 4; i++) { game.state.wheat = 1e4; game.upgradeField('wheat'); } game.state.wheat = 0; game.select(null); });
     expect(await page.evaluate(() => game.state.maxed('wheat'))).toBe(true);
     await expect(page.locator('#sign-tomato')).toHaveText('¡DESBLOQUEAR!');
     // El cartel lleva directo al campo de tiro del desbloqueo: una torre, chatarra y el barril
@@ -81,9 +81,9 @@ test('tomates: con el trigo al máximo se desbloquea disparando al barril; luego
     await page.locator('#btn-home').click();
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('farm');
     // La mejora pide trigo y tomates
-    await page.evaluate(() => { game.state.items.wheat = 5; game.state.items.tomato = 2; game.select({ field: 'tomato' }); });
+    await page.evaluate(() => { game.state.items.wheat = 40; game.state.items.tomato = 7; game.select({ field: 'tomato' }); });
     await expect(page.locator('#panel-upgrade')).toBeDisabled();
-    await page.evaluate(() => { game.state.items.tomato = 3; });
+    await page.evaluate(() => { game.state.items.tomato = 8; });
     await expect(page.locator('#panel-upgrade')).toBeEnabled();
     await page.locator('#panel-upgrade').click();
     expect(await page.evaluate(() => [game.state.fields.tomato.level, game.state.items.wheat, game.state.items.tomato])).toEqual([1, 0, 0]);
@@ -96,10 +96,10 @@ test('parcelas en venta: se compran con el oro del comerciante, se desbloquean c
     await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
     // EN VENTA, con su precio en oro y en sombra (con su poste de SE VENDE); sin oro no se compra
     expect(await page.evaluate(() => [game.farm.shadeOf('sw', -15, 45), game.farm.landPosts.sw.owned])).toEqual([1, false]);
-    await expect(page.locator('#sign-pumpkin')).toHaveText('15');
+    await expect(page.locator('#sign-pumpkin')).toHaveText('20');
     await expect(page.locator('#sign-pumpkin')).toHaveClass(/for-sale/);
     // (el corral de las gallinas, al lado, también se compra con oro)
-    await expect(page.locator('#sign-egg')).toHaveText('50');
+    await expect(page.locator('#sign-egg')).toHaveText('20') // (la primera, cualquiera, cuesta lo mismo; la siguiente, más);
     await expect(page.locator('#sign-egg')).toHaveClass(/for-sale/);
     await page.evaluate(() => game.select({ field: 'pumpkin' }));
     await expect(page.locator('#panel-title')).toHaveText('PARCELA DE LAS CABRAS');
@@ -109,6 +109,7 @@ test('parcelas en venta: se compran con el oro del comerciante, se desbloquean c
     await expect(page.locator('#panel-action')).toBeEnabled();
     await page.locator('#panel-action').click();
     expect(await page.evaluate(() => [game.state.lands.sw, game.state.items.gold, game.state.fields.pumpkin.unlocked])).toEqual([true, 5, false]);
+    await expect(page.locator('#sign-egg')).toHaveText('45'); // (la segunda parcela ya cuesta más)
     // Ya es tuya: la sombra se retira en una onda desde el poste, que salta, y se iza tu bandera
     await expect(page.locator('#stage')).toContainText('AHORA ES TUYA');
     expect(await page.evaluate(() => [game.farm.landPosts.sw.owned, !!game.farm.landWave.sw])).toEqual([true, true]);
