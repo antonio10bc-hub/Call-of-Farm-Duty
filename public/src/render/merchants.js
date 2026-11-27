@@ -1296,12 +1296,13 @@ export class Village extends VoxelModel {
         // Cada cosa que se construye es una pieza aparte (se ve al ampliar el pueblo): g, la de ahora
         this.planItems = [];
         this.planDoors = []; // (las puertas de sus casas: los vecinos entran y salen)
-        let g = null;
+        let g = null, cur = null;
         const item = (kind, x, z) => {
             g = new THREE.Group();
             g.visible = false;
             plan.add(g);
-            this.planItems.push({ g, kind, x, z, d: Math.hypot(x - VILLAGE.cx, z - VILLAGE.cz), pop: 0 });
+            cur = { g, kind, x, z, d: Math.hypot(x - VILLAGE.cx, z - VILLAGE.cz), pop: 0 };
+            this.planItems.push(cur);
         };
         const geos = Object.values(this.geo), mother = geos.find((q) => q.def.mother);
         const WALLS = [0xf3e6c4, 0xe8c8a0, 0xc8dce8, 0xe0b8c8, 0xd8e0b0, 0xf0d0a0], ROOFS = [0xc8402e, 0x3a6ab8, 0x5a8a3a, 0x8a4a8a, 0xd88a2a];
@@ -1350,7 +1351,7 @@ export class Village extends VoxelModel {
             if (rnd(k * 8.8) < 0.45) { this.part(h, 0.2, 1.0, 0.2, WOOD2, W / 2 + 0.6, 0.5, back + 0.4); this.part(h, 0.9, 0.8, 0.9, [0x4caf3c, 0xb87dff][rnd(k * 3.3) < 0.8 ? 0 : 1], W / 2 + 0.6, 1.3, back + 0.4); }
             if (rnd(k * 1.7) < 0.35) { this.part(h, 0.08, 0.6, 0.08, DARK, W / 2 + 0.2, 0.3, D / 2 + 0.9, false); this.part(h, 0.3, 0.22, 0.2, RED_BOX, W / 2 + 0.2, 0.68, D / 2 + 0.9); } // (buzón)
             g.add(h);
-            this.planDoors.push({ item: this.planItems.length - 1, x: x + Math.sin(ry) * (D / 2 + 0.5), z: z + Math.cos(ry) * (D / 2 + 0.5) });
+            this.planDoors.push({ it: cur, x: x + Math.sin(ry) * (D / 2 + 0.5), z: z + Math.cos(ry) * (D / 2 + 0.5) });
             return D;
         };
         // Las rondas de los barrios: asfalto con su raya discontinua y aceras a los dos lados
@@ -1450,6 +1451,87 @@ export class Village extends VoxelModel {
             const D = house(x, z, Math.atan2(R0.ux, R0.uz) + (rnd(tries * 2.2) - 0.5) * 0.2, k++);
             placed.push({ x, z, r: 1.9 });
             lane(x, z, R0.ux, R0.uz, D / 2, R0.d - D / 2);
+        }
+        // El relleno: con todo construido no debe quedar campo vacío entre calles. Más casas (de cara
+        // a su calle, con su camino) y, lejos de las calles, huertos y frutales; cada cosa va con la
+        // casa o el grupito más cercano (sale en su paso de la ampliación: no hay pasos de más)
+        const anchors = this.planItems.filter((it) => it.kind === 'house' || it.kind === 'cluster');
+        // (como free, pero más apretado: pegado a las aceras y a las otras casas)
+        const freeFill = (x, z, rad) => {
+            const [dx, dz] = local(x, z), r = Math.hypot(dx, dz), a = Math.atan2(dz, dx);
+            if (r < 13 || r > this.reach((a * 180) / Math.PI) - 2.5 - rad || inPark(a) || Math.abs(r - wobR(RING, a)) < rad + 2.0) return false;
+            for (const q of geos) {
+                if (q.def.mother) continue;
+                const c = Math.cos(q.a), sn = Math.sin(q.a), along = dx * c + dz * sn;
+                if (along > VILLAGE.R - 2 && along < q.endR + 2 && Math.abs(-dx * sn + dz * c) < furrowHalf(q, Math.max(along, q.parkR)) + 0.5 + rad) return false;
+            }
+            return placed.every((p) => Math.hypot(p.x - x, p.z - z) > p.r + rad + 0.2);
+        };
+        const near = (x, z) => {
+            let best = anchors[0], bd = Infinity;
+            for (const it of anchors) { const d = Math.hypot(it.x - x, it.z - z); if (d < bd) { bd = d; best = it; } }
+            g = best.g;
+            cur = best;
+        };
+        const R_MAX = 52;
+        let fill = 0;
+        // Primero casas (y algún huerto o frutal donde no llega calle)
+        for (let t = 0; t < 9000 && fill < 240; t++) {
+            const a = rnd(t * 2.9 + 911) * Math.PI * 2, r = 13 + Math.sqrt(rnd(t * 4.3 + 77)) * (R_MAX - 13), x = VILLAGE.cx + Math.cos(a) * r, z = VILLAGE.cz + Math.sin(a) * r;
+            if (!freeFill(x, z, 1.4)) continue;
+            near(x, z);
+            fill++;
+            const R0 = nearestRoad(x, z);
+            if (R0.d < 10 || rnd(t * 6.1) < 0.4) {
+                const D = house(x, z, R0.d < 10 ? Math.atan2(R0.ux, R0.uz) + (rnd(t * 2.2) - 0.5) * 0.25 : rnd(t * 5.5) * 6.3, k++);
+                placed.push({ x, z, r: 1.5 });
+                if (R0.d < 10) lane(x, z, R0.ux, R0.uz, D / 2, R0.d - D / 2);
+            } else if (rnd(t * 3.3) < 0.5) {
+                // Huerto: surcos con sus matas y una valla
+                const h = new THREE.Group();
+                h.position.set(x, 0, z);
+                h.rotation.y = rnd(t * 1.3) * Math.PI;
+                for (let i = 0; i < 4; i++) {
+                    this.part(h, 0.5, 0.12, 2.4, 0x8a5a3a, -1.05 + i * 0.7, 0.06, 0, false);
+                    for (let j = 0; j < 3; j++) this.part(h, 0.34, 0.3, 0.34, [0x5aa83a, 0x7ac83a, 0xd8a83a][(i + t) % 3], -1.05 + i * 0.7, 0.25, -0.8 + j * 0.8, false);
+                }
+                for (let i = 0; i < 5; i++) for (const sd of [-1, 1]) this.part(h, 0.08, 0.45, 0.08, 0xf3e6c4, -1.4 + i * 0.7, 0.22, sd * 1.45, false);
+                g.add(h);
+                placed.push({ x, z, r: 1.5 });
+            } else {
+                // Frutales: un corro de árboles (alguno alien)
+                for (let i = 0; i < 4; i++) {
+                    const b = i * 1.57 + rnd(t), tx = x + Math.cos(b) * 1.0, tz = z + Math.sin(b) * 1.0;
+                    this.part(g, 0.2, 1.0, 0.2, WOOD2, tx, 0.5, tz);
+                    this.part(g, 0.9, 0.8, 0.9, rnd(t * 7 + i) < 0.85 ? [0x4caf3c, 0x3d9a34, 0x5ab83f][i % 3] : 0xb87dff, tx, 1.3, tz);
+                }
+                placed.push({ x, z, r: 1.5 });
+            }
+        }
+        // Y en los huecos que quedan, cosas pequeñas: un árbol, un almiar, un cobertizo o unos arbustos
+        for (let t = 0; t < 9000 && fill < 520; t++) {
+            const a = rnd(t * 3.1 + 517) * Math.PI * 2, r = 13 + Math.sqrt(rnd(t * 5.9 + 33)) * (R_MAX - 13), x = VILLAGE.cx + Math.cos(a) * r, z = VILLAGE.cz + Math.sin(a) * r;
+            if (!freeFill(x, z, 0.7)) continue;
+            near(x, z);
+            fill++;
+            const kind = rnd(t * 8.3);
+            if (kind < 0.45) {
+                this.part(g, 0.22, 1.1, 0.22, WOOD2, x, 0.55, z);
+                this.part(g, 1.0, 0.9, 1.0, rnd(t * 2.7) < 0.85 ? [0x4caf3c, 0x3d9a34, 0x5ab83f][t % 3] : [0xb87dff, 0x5af0ff][t % 2], x, 1.45, z);
+            } else if (kind < 0.65) {
+                this.part(g, 1.0, 0.7, 1.0, 0xe0c060, x, 0.35, z);
+                this.part(g, 0.7, 0.3, 0.7, 0xd0b050, x, 0.85, z);
+            } else if (kind < 0.82) {
+                const h = new THREE.Group();
+                h.position.set(x, 0, z);
+                h.rotation.y = rnd(t * 4.1) * 6.3;
+                this.part(h, 1.1, 0.8, 0.9, [0x8a5a3a, 0xa8642e, 0xc8bca4][t % 3], 0, 0.4, 0);
+                this.part(h, 1.3, 0.2, 1.1, [0xc8402e, 0x5a8a3a, 0x3a6ab8][t % 3], 0, 0.9, 0);
+                g.add(h);
+            } else {
+                for (let i = 0; i < 3; i++) this.part(g, 0.5, 0.45, 0.5, [0x3d8a2c, 0x4caf3c][i % 2], x + (i - 1) * 0.45, 0.22, z + (i % 2) * 0.3, false);
+            }
+            placed.push({ x, z, r: 0.8 });
         }
         // La calle del mercado: la del primero (toldos de rayas a los dos lados)
         const mk = geos.find((q) => q.def.id === 'm0'), c = Math.cos(mk.a), s = Math.sin(mk.a);
@@ -1614,7 +1696,7 @@ export class Village extends VoxelModel {
     openDoors() {
         const out = [];
         if (this.houses) for (const H of Object.values(this.houses)) if (H.on) out.push({ x: H.g.position.x + Math.sin(H.g.rotation.y) * 1.7, z: H.g.position.z + Math.cos(H.g.rotation.y) * 1.7 });
-        if (this.planDoors) for (const d of this.planDoors) if (this.planItems[d.item] && this.planItems[d.item].built) out.push(d);
+        if (this.planDoors) for (const d of this.planDoors) if (d.it.built) out.push(d);
         return out;
     }
 
