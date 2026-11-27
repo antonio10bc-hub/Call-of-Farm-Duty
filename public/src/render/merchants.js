@@ -1358,7 +1358,9 @@ export class Village extends VoxelModel {
         item('ring', VILLAGE.cx, VILLAGE.cz);
         const RINGS = [29.5], ASPH = [0x54545a, 0x4e4e54], WALK = 0xc8c0b0;
         // (las rondas no son círculos: se ondulan, cada una a su manera)
-        const wobR = (R, a) => R + Math.sin(a * 3 + R) * 1.3 + Math.sin(a * 5 - R * 0.7) * 0.6;
+        // (y donde el claro se acaba antes, la ronda se mete hacia dentro en vez de cortarse: sin
+        // cabos sueltos)
+        const wobR = (R, a) => Math.min(R + Math.sin(a * 3 + R) * 1.3 + Math.sin(a * 5 - R * 0.7) * 0.6, this.reach((a * 180) / Math.PI) - 3.4);
         this.ringAt = (a) => wobR(RINGS[0], a);
         this.ringGap = (a) => wobR(RINGS[0], a) > this.reach((a * 180) / Math.PI) - 2.5;
         for (const R0 of RINGS) {
@@ -1456,10 +1458,14 @@ export class Village extends VoxelModel {
         // a su calle, con su camino) y, lejos de las calles, huertos y frutales; cada cosa va con la
         // casa o el grupito más cercano (sale en su paso de la ampliación: no hay pasos de más)
         const anchors = this.planItems.filter((it) => it.kind === 'house' || it.kind === 'cluster');
+        // (lo que hay en la cuña de la nave madre: su plataforma, el parque y la arboleda)
+        const at = (aa, rr) => [VILLAGE.cx + Math.cos(aa) * rr, VILLAGE.cz + Math.sin(aa) * rr];
+        const specials = [[...at(mother.a, mother.padR), 12], [...at(mother.a + 0.32, 26), 7], [...at(mother.a - 0.32, 27), 6.5]];
         // (como free, pero más apretado: pegado a las aceras y a las otras casas)
         const freeFill = (x, z, rad) => {
             const [dx, dz] = local(x, z), r = Math.hypot(dx, dz), a = Math.atan2(dz, dx);
-            if (r < 13 || r > this.reach((a * 180) / Math.PI) - 2.5 - rad || inPark(a) || Math.abs(r - wobR(RING, a)) < rad + 2.0) return false;
+            if (r < 13 || r > this.reach((a * 180) / Math.PI) - 2.5 - rad || Math.abs(r - wobR(RING, a)) < rad + 2.0) return false;
+            if (inPark(a) && specials.some(([sx, sz, sr]) => Math.hypot(x - sx, z - sz) < sr + rad)) return false;
             for (const q of geos) {
                 if (q.def.mother) continue;
                 const c = Math.cos(q.a), sn = Math.sin(q.a), along = dx * c + dz * sn;
