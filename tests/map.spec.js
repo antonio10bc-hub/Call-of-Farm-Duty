@@ -275,7 +275,8 @@ test('mercader: su ovni disfrazado de coche recorre su surco hasta el pueblo, sa
     await expect.poll(() => page.evaluate(() => game.farm.introT > 2.5)).toBe(true);
     // Sin él (en las pruebas empieza fuera): su zona vacía y el cartel dice que está fuera
     expect(await page.evaluate(() => { const v = game.farm.village.byId.m0; return [v.present, v.ship.visible, v.man.visible]; })).toEqual([false, false, false]);
-    await expect(page.locator('#sign-merchant')).toContainText('FUERA');
+    await expect(page.locator('#sign-merchant')).toHaveClass(/away/); // (nadie: el cartel, apagado; dice el nivel del pueblo)
+    await expect(page.locator('#sign-merchant')).toContainText('CAMPAMENTO · 0');
     // Llega: el ovni entra volando, recorre el surco pegado al suelo y sale él (con su aviso)
     await page.evaluate(() => { game.merchantClock.force = 'here'; });
     await expect(page.locator('#stage')).toContainText('MERCADER');
@@ -288,7 +289,7 @@ test('mercader: su ovni disfrazado de coche recorre su surco hasta el pueblo, sa
     })).toEqual([true, true, true, 0, 0, 0, 0]);
     // Los demás no han venido (cada uno tiene su reloj)
     expect(await page.evaluate(() => game.farm.village.visitors.filter((v) => v.present).map((v) => v.def.id))).toEqual(['m0']);
-    await expect(page.locator('#sign-merchant')).toContainText('PUEBLO'); // (un solo cartel, el del pueblo: cuántos hay)
+    await expect(page.locator('#sign-merchant')).not.toHaveClass(/away/); // (un solo cartel, el del pueblo: encendido)
     // Sus encargos: 3, de lo que da la granja; sin cosecha no se entregan (la cámara va a su zona:
     // desde el principio queda fuera de la pantalla del móvil)
     await page.evaluate(() => { const v = game.farm.village.byId.m0, p = game.farm.places.merchant.position; game.rig.fx = 45 + p.x; game.rig.fz = -15 + p.z; game.rig.zoomTarget = 0.8; }); // (el cartel del pueblo, sobre la plaza)
@@ -419,7 +420,7 @@ test('pueblo de los mercaderes: día de mercado, exclusivo de la nave madre, niv
     await expect.poll(() => page.evaluate(() => game.farm.village.visitors.every((v) => v.open)), { timeout: 90_000 }).toBe(true);
     expect(await page.evaluate(() => [game.farm.village.marketG.visible, game.state.ordersFor(game.clocks.m1.visit, 'm1') && game.state.merchants.m1.market])).toEqual([true, true]);
     // El cartel del pueblo y el dock dicen cuántos hay
-    await expect(page.locator('#sign-merchant')).toContainText('8');
+    await expect(page.locator('#sign-merchant')).toContainText('· 0'); // (el cartel: el nivel del pueblo)
     await expect(page.locator('#dock-merchant .dock-count')).toHaveText('8');
     // La nave madre vende, además, un exclusivo de esa visita (solo a ella)
     const ex = await page.evaluate(() => game.state.stock(game.clocks.mother.visit, 'mother').find((id) => !['fountain', 'statue', 'discoball', 'tree'].includes(id)));

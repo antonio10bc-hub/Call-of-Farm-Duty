@@ -2455,3 +2455,16 @@ body.photo .debug-btn { visibility: hidden; }
 .tw-step.done .tw-perk-l { color: #fff1d6; background: #8a5ad8; }
 /* (de cine, el rótulo pequeño, por debajo de la franja negra de arriba) */
 body.cine .stage.small { top: calc(11vh + 26px); }
+
+/* El icono del mercado (el pueblo): en el cartel del mapa, en el dock y en la lista de mercaderes */
+.market-ico { --ico: var(--px-market); }
+/* El cartel del pueblo en el mapa: su nivel, siempre, debajo del icono */
+#bubbles .merchant-sign > span:not(.ico):not(.pips):not(.grow), #bubbles .merchant-sign.away > span:not(.ico):not(.pips):not(.grow) { display: block; left: 50%; top: calc(100% + 6px); transform: translateX(-50%); }
+#bubbles .merchant-sign.compact:not(:hover) > span:not(.ico):not(.pips):not(.grow) { display: block; }
+/* La lista de mercaderes: el pueblo también redondo, sin rayas entre medias y todo algo más abajo */
+.m-tab.m-town, .merchant-dock .m-tab.m-town { border-radius: 50%; border-color: var(--nb-wood); }
+.m-tab.m-town .m-face { width: 30px; height: 30px; }
+.merchant-tabs, .merchant-dock .merchant-tabs { padding-top: 16px; }
+/* El nombre nuevo del pueblo al subir de nivel: en grande y algo más de rato */
+.stage.big.show { animation-duration: 2.7s; }
+.stage.big .stage-name { font-size: clamp(32px, 11vw, 72px); padding: 14px 26px; border-width: 6px; }

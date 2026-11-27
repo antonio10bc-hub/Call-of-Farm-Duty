@@ -1881,6 +1881,7 @@ export class Village extends VoxelModel {
             for (const e of list) {
                 const was = e.g.visible;
                 // (lo que sale porque ahora hay sitio, al subir de nivel: con lo construido, sin rayo)
+                e.on = have && lv >= e.lv; // (lo que tiene que verse, aunque aún espere su turno)
                 if (pop && have && !was && e.lv > prev && lv >= e.lv) {
                     e.g.visible = true;
                     shown.push(e.g);
@@ -1892,6 +1893,9 @@ export class Village extends VoxelModel {
                 if (!was && e.g.visible) (this.lastShown.decor[id] = this.lastShown.decor[id] || []).push(e.g);
             }
         }
+        // (lo que espera su turno, ya escondido: que no se vea ni un fotograma aplastado)
+        for (const P0 of this.pops) if (P0.wait > 0) { P0.g.visible = false; P0.hid = true; }
+        for (const H of Object.values(this.houses)) if (H.wait > 0) H.g.visible = false;
         return this.lastShown;
     }
 
@@ -1958,7 +1962,7 @@ export class Village extends VoxelModel {
 
     // ¿Se ve algo de este objeto? ¿Y desde qué nivel se verá lo primero suyo? (para avisar en la tienda)
     shown(id) {
-        return (this.regions[id] || []).some((e) => e.g.visible);
+        return (this.regions[id] || []).some((e) => e.on);
     }
 
     firstLevel(id) {
@@ -2061,9 +2065,13 @@ export class Village extends VoxelModel {
         }
         // Lo nuevo (barrios, ronda, objetos), con un bote: crece del suelo
         for (const P0 of this.pops) {
-            if (P0.wait > 0) { P0.wait -= dt; P0.g.scale.set(1, 0.0001, 1); continue; }
+            // (mientras espera o está casi plano, escondido: aplastado contra el suelo parpadea)
+            if (P0.wait > 0) { P0.wait -= dt; P0.g.scale.set(1, 0.0001, 1); P0.g.visible = false; P0.hid = true; continue; }
             P0.k = Math.max(0, P0.k - dt * 1.4);
-            P0.g.scale.set(1, Math.max(0.0001, back(Math.min(1, (1 - P0.k) * 1.2))), 1);
+            const sy = back(Math.min(1, (1 - P0.k) * 1.2));
+            P0.g.scale.set(1, Math.max(0.0001, sy), 1);
+            if (P0.hid && sy > 0.06) { P0.g.visible = true; P0.hid = false; }
+            else if (sy <= 0.06 && P0.k > 0) { P0.g.visible = false; P0.hid = true; }
         }
         if (this.pops.length && this.pops.every((P0) => P0.k === 0)) this.pops.length = 0;
         // Los cubos de luz: crecen del suelo, palpitan girando y se van hacia arriba, cada vez más finos
@@ -2093,9 +2101,11 @@ export class Village extends VoxelModel {
         // Las casas nuevas, con un bote
         if (this.houses) for (const H of Object.values(this.houses)) if (H.pop > 0) {
             if (H.roadWait > 0 && (H.roadWait -= dt) <= 0 && this.fallen[H.id]) this.fallen[H.id].visible = false;
-            if (H.wait > 0) { H.wait -= dt; H.g.scale.set(1, 0.0001, 1); continue; }
+            if (H.wait > 0) { H.wait -= dt; H.g.scale.set(1, 0.0001, 1); H.g.visible = false; continue; }
             H.pop = Math.max(0, H.pop - dt * 1.4);
-            H.g.scale.set(1, Math.max(0.0001, back(Math.min(1, (1 - H.pop) * 1.2))), 1);
+            const hy = back(Math.min(1, (1 - H.pop) * 1.2));
+            H.g.scale.set(1, Math.max(0.0001, hy), 1);
+            H.g.visible = H.on && (hy > 0.06 || H.pop === 0);
             if (H.pop === 0 && !(H.roadWait > 0)) {
                 H.g.visible = H.road.visible = false;
                 this.rebakeTown();

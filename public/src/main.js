@@ -596,11 +596,12 @@ function medal(text, cls = '') {
 }
 
 // small: el aviso pequeño (para lo que pasa a menudo: las idas y venidas de los mercaderes)
-function stage(name, sub, small = false) {
+function stage(name, sub, small = false, big = false) {
     $('stage-name').textContent = name;
     $('stage-sub').textContent = sub;
     const el = $('stage');
     el.classList.toggle('small', small);
+    el.classList.toggle('big', big);
     el.classList.remove('show');
     void el.offsetWidth;
     el.classList.add('show');
@@ -753,7 +754,7 @@ const DOCK = [
         go: () => { const h = farm.byId.house.def; dockGo(h.x, h.z, () => select({ structure: 'house' })); } },
     { id: 'well', icon: 'well', label: L('WISHING WELL', 'POZO DE LOS DESEOS'), show: () => state.open('barn'), alert: () => false, // (sin aviso: con oro para un deseo, brilla el propio pozo)
         go: () => dockGo(135, 15, () => openWell()) },
-    { id: 'merchant', icon: 'merchant', label: L('MERCHANTS', 'MERCADERES'), show: () => !merchantClock.locked, alert: () => MERCHANTS.some((d) => merchantCan(d.id)),
+    { id: 'merchant', icon: 'market', label: L('MERCHANTS', 'MERCADERES'), show: () => !merchantClock.locked, alert: () => MERCHANTS.some((d) => merchantCan(d.id)),
         go: () => { const c = vParcel(VILLAGE.cx, VILLAGE.cz); dockGo(c.x, c.z, () => openMerchant(MERCHANTS.find((d) => merchantCan(d.id))?.id || MERCHANTS.find((d) => farm.village.byId[d.id].open)?.id || curM)); } },
 ];
 for (const d of DOCK) {
@@ -842,8 +843,9 @@ function refreshDock() {
 }
 function refreshMerchantSign() {
     // El cartel del pueblo: cuántos están (o cuándo vuelve el primero) y la flecha si hay algo que entregar
-    const here = MERCHANTS.filter((d) => farm.village.byId[d.id].open), next = Math.min(...MERCHANTS.map((d) => clocks[d.id].left ?? Infinity));
-    const html = `${ico('merchant')}<span>${here.length ? `${L('VILLAGE', 'PUEBLO')} · ${here.length}` : next < Infinity ? fmt(next) : L('AWAY', 'FUERA')}</span><i class="sign-up"></i>`;
+    const here = MERCHANTS.filter((d) => farm.village.byId[d.id].open);
+    // (y, debajo, el nivel del pueblo)
+    const lv = state.villageLevel, html = `${ico('market')}<span>${VILLAGE_LEVELS[lv].name} · ${lv}</span><i class="sign-up"></i>`;
     if (merchantSign.innerHTML !== html) merchantSign.innerHTML = html;
     merchantSign.classList.toggle('away', !here.length);
     merchantSign.classList.toggle('can-up', MERCHANTS.some((d) => merchantCan(d.id)));
@@ -2268,7 +2270,7 @@ function syncMerchantLife(pop = true, lv = state.villageLevel) {
 // ¿Sube de nivel el pueblo? (con su aviso, lo que construye, su ventaja y su oro)
 function villageUpText(up) {
     const V = VILLAGE_LEVELS[up.lv];
-    return [`${L('YOUR VILLAGE IS NOW', 'TU PUEBLO YA ES')}: ${V.name}`, `${V.build}${V.perk ? ` · ${PERK_TEXT[V.perk]}` : ''}${up.gold ? ` · +${up.gold} ${L('GOLD', 'DE ORO')}` : ''}`];
+    return [V.name, `${V.build}${V.perk ? ` · ${PERK_TEXT[V.perk]}` : ''}${up.gold ? ` · +${up.gold} ${L('GOLD', 'DE ORO')}` : ''}`];
 }
 function merchantNews2() {
     const up = state.checkVillage();
@@ -2297,10 +2299,10 @@ function renderMerchant() {
     // La lista: primero, algo aparte, el pueblo; luego cada mercader con su favorito y cuándo se va
     // (si está) o cuándo vuelve (si no)
     // (un retrato por mercader, con su color; el tiempo, debajo, solo en minutos para que no cambie cada segundo)
-    setHtml($('merchant-tabs'), `<button data-tab="town" class="m-tab m-town here${mTown ? ' on' : ''}" title="${L('YOUR VILLAGE', 'TU PUEBLO')}" aria-label="${L('YOUR VILLAGE', 'TU PUEBLO')}"><i class="m-face"></i></button><i class="m-sep"></i>` + MERCHANTS.map((d) => {
+    setHtml($('merchant-tabs'), `<button data-tab="town" class="m-tab m-town here${mTown ? ' on' : ''}" title="${L('YOUR VILLAGE', 'TU PUEBLO')}" aria-label="${L('YOUR VILLAGE', 'TU PUEBLO')}"><i class="m-face"></i></button>` + MERCHANTS.map((d) => {
         const here = farm.village.byId[d.id].open, left = clocks[d.id].left;
         const when = left === null ? '' : `${here ? L('LEAVES', 'SE VA') : L('BACK', 'VUELVE')} ${fmt(left)}`;
-        return `${d.mother ? '<i class="m-sep"></i>' : ''}<button data-tab="${d.id}" class="m-tab${d.mother ? ' m-mother' : ''}${d.id === id && !mTown ? ' on' : ''}${here ? ' here' : ''}${merchantCan(d.id) ? ' can' : ''}" title="${d.name}${when ? ` · ${when}` : ''}" aria-label="${d.name}"><i class="m-face" style="filter:hue-rotate(${hueOf(d.skin)}deg)"></i>${ico(CROPS[d.fav].icon)}</button>`;
+        return `<button data-tab="${d.id}" class="m-tab${d.mother ? ' m-mother' : ''}${d.id === id && !mTown ? ' on' : ''}${here ? ' here' : ''}${merchantCan(d.id) ? ' can' : ''}" title="${d.name}${when ? ` · ${when}` : ''}" aria-label="${d.name}"><i class="m-face" style="filter:hue-rotate(${hueOf(d.skin)}deg)"></i>${ico(CROPS[d.fav].icon)}</button>`;
     }).join(''));
     $('merchant').classList.toggle('town-on', mTown);
     if (mTown) return renderTown();
@@ -2627,7 +2629,7 @@ function updateTownCine(dt) {
         }
         if (at(c.fwAt + 0.9 * S, 'fw2')) launchFireworks(22, 1.6);
         if (at(c.stageAt, 'party')) {
-            stage(...villageUpText(c.up));
+            stage(...villageUpText(c.up), false, true); // (el nombre nuevo, en grande)
             sfx.play('coin');
             launchFireworks(16, 2);
             updateCounts(true);
