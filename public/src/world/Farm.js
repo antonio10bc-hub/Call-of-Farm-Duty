@@ -1637,39 +1637,33 @@ export class Farm {
         // (cuánto se estira la parcela en su centro: casillas del mundo por casilla suya)
         const c0 = stretchLocal(f.cx, f.cz), cx1 = stretchLocal(f.cx + 1, f.cz), cz1 = stretchLocal(f.cx, f.cz + 1);
         const kx = Math.hypot(cx1.x - c0.x, cx1.z - c0.z), kz = Math.hypot(cz1.x - c0.x, cz1.z - c0.z);
-        const R = Math.max(1.6, (Math.min(f.w * kx, f.d * kz) / 2) * 0.62), rx = (R * 1.08) / kx, rz = (R * 0.94) / kz;
+        const R = Math.max(1.4, (Math.min(f.w * kx, f.d * kz) / 2) * 0.45), rx = R * 1.08, rz = R * 0.94;
         const n = Math.max(20, Math.round(R * 5)), nh = R > 7 ? 4 : 3;
-        v.track = { rx, rz, kx, kz, hurdles: Array.from({ length: nh }, (_, k) => ((k + 0.5) / nh) * Math.PI * 2) };
-        // (side: hacia fuera, en el mundo; en la parcela, lo que toca en cada eje)
-        const pt = (a, side) => ({ x: f.cx + Math.cos(a) * (rx + side / kx), z: f.cz + Math.sin(a) * (rz + side / kz) });
-        for (const side of [-0.95, 0.95]) for (let i = 0; i < n; i++) {
+        v.track = { cx: c0.x, cz: c0.z, rx, rz, kx, kz, hurdles: Array.from({ length: nh }, (_, k) => ((k + 0.5) / nh) * Math.PI * 2) };
+        // (en el mundo, alrededor del centro de la parcela: el estiramiento no la deforma)
+        const pt = (a, side) => ({ x: c0.x + Math.cos(a) * (rx + side), z: c0.z + Math.sin(a) * (rz + side) });
+        const hw = Math.min(0.95, R * 0.28); // (media anchura de la pista: en las pequeñas, más estrecha)
+        for (const side of [-hw, hw]) for (let i = 0; i < n; i++) {
             const p = pt((i / n) * Math.PI * 2, side), q = pt(((i + 1) / n) * Math.PI * 2, side);
             parts.push({ x: p.x, z: p.z, y: 0.25, w: 0.1, h: 0.5, d: 0.1, ry: 0, color: 0x8a5a34 });
             parts.push({ x: (p.x + q.x) / 2, z: (p.z + q.z) / 2, y: 0.4, w: 0.06, h: 0.08, d: Math.hypot(q.x - p.x, q.z - p.z), ry: Math.atan2(q.x - p.x, q.z - p.z), color: 0xfff6e8 });
         }
         for (let i = 0; i < n * 2; i++) {
             const p = pt((i / (n * 2)) * Math.PI * 2, 0), q = pt(((i + 1) / (n * 2)) * Math.PI * 2, 0);
-            dirt.push({ x: (p.x + q.x) / 2, z: (p.z + q.z) / 2, y: 0.02, w: 1.8, h: 0.04, d: Math.hypot(q.x - p.x, q.z - p.z) + 0.15, ry: Math.atan2(q.x - p.x, q.z - p.z), color: i % 2 ? 0xb8925a : 0xc09a62 });
+            dirt.push({ x: (p.x + q.x) / 2, z: (p.z + q.z) / 2, y: 0.02, w: hw * 1.9, h: 0.04, d: Math.hypot(q.x - p.x, q.z - p.z) + 0.15, ry: Math.atan2(q.x - p.x, q.z - p.z), color: i % 2 ? 0xb8925a : 0xc09a62 });
         }
         for (const a of v.track.hurdles) {
-            const p = pt(a, -0.75), q = pt(a, 0.75), ry = Math.atan2(q.x - p.x, q.z - p.z);
+            const p = pt(a, -hw * 0.8), q = pt(a, hw * 0.8), ry = Math.atan2(q.x - p.x, q.z - p.z);
             for (const e of [p, q]) parts.push({ x: e.x, z: e.z, y: 0.3, w: 0.12, h: 0.6, d: 0.12, ry: 0, color: 0xc8402e });
-            for (const [y, color] of [[0.22, 0xffffff], [0.42, 0xc8402e]]) parts.push({ x: (p.x + q.x) / 2, z: (p.z + q.z) / 2, y, w: 0.08, h: 0.08, d: 1.5, ry, color });
+            for (const [y, color] of [[0.22, 0xffffff], [0.42, 0xc8402e]]) parts.push({ x: (p.x + q.x) / 2, z: (p.z + q.z) / 2, y, w: 0.08, h: 0.08, d: hw * 1.6, ry, color });
         }
         // (de todo, una malla con su contorno; la tierra, sin contorno)
         const all = [...parts, ...dirt];
         const mesh = new THREE.InstancedMesh(box(1, 1, 1), v.rockMat || (v.rockMat = toon(0xffffff)), all.length), hull = new THREE.InstancedMesh(box(1, 1, 1), outline(this.theme.outline), parts.length);
         all.forEach((p, i) => {
-            // (en el mundo: la parcela se estira, así que lo largo va de punta a punta ya estirado)
-            const w = stretchLocal(p.x, p.z);
-            let ry = p.ry, d = p.d;
-            if (p.d > 0.2) {
-                const a = stretchLocal(p.x - Math.sin(p.ry) * p.d / 2, p.z - Math.cos(p.ry) * p.d / 2), b = stretchLocal(p.x + Math.sin(p.ry) * p.d / 2, p.z + Math.cos(p.ry) * p.d / 2);
-                ry = Math.atan2(b.x - a.x, b.z - a.z);
-                d = Math.hypot(b.x - a.x, b.z - a.z);
-            }
-            _d.position.set(w.x, p.y, w.z);
-            _d.rotation.set(0, ry, 0);
+            const d = p.d;
+            _d.position.set(p.x, p.y, p.z);
+            _d.rotation.set(0, p.ry, 0);
             _d.scale.set(p.w, p.h, d);
             _d.updateMatrix();
             mesh.setMatrixAt(i, _d.matrix);
@@ -1684,7 +1678,7 @@ export class Farm {
         // (los caballos, repartidos por la pista, cada uno por su calle y a su ritmo)
         v.plants.forEach((s, i) => {
             s.a = (i / v.plants.length) * Math.PI * 2;
-            s.lane = ((i % 3) - 1) * 0.4;
+            s.lane = ((i % 3) - 1) * hw * 0.4;
             s.sp = 0.85 + Math.random() * 0.3;
         });
     }
@@ -1695,14 +1689,17 @@ export class Farm {
         const f = v.rect, T = v.track;
         if (!T) return;
         for (const s of v.plants) {
-            const rx = T.rx + s.lane / T.kx, rz = T.rz + s.lane / T.kz, speed = (1.4 + Math.min(1, p) * 1.4) * s.sp;
+            const rx = T.rx + s.lane, rz = T.rz + s.lane, speed = (1.4 + Math.min(1, p) * 1.4) * s.sp;
             s.a = (s.a + (speed * dt) / Math.hypot(rx * Math.sin(s.a), rz * Math.cos(s.a))) % (Math.PI * 2);
             let air = 0;
             for (const h of T.hurdles) {
                 const d = Math.atan2(Math.sin(s.a - h), Math.cos(s.a - h)) * Math.hypot(rx, rz) * 0.7;
                 if (Math.abs(d) < 0.8) air = Math.max(air, 1 - (d / 0.8) ** 2);
             }
-            const x = (s.x = f.cx + Math.cos(s.a) * rx), z = (s.z = f.cz + Math.sin(s.a) * rz), w = stretchLocal(x, z), ahead = stretchLocal(x - Math.sin(s.a) * rx * 0.05, z + Math.cos(s.a) * rz * 0.05);
+            // (en el mundo; en s.x, s.z, más o menos en la parcela: a donde apunta la torreta)
+            const w = { x: T.cx + Math.cos(s.a) * rx, z: T.cz + Math.sin(s.a) * rz }, ahead = { x: w.x - Math.sin(s.a) * rx * 0.05, z: w.z + Math.cos(s.a) * rz * 0.05 };
+            s.x = f.cx + (w.x - T.cx) / T.kx;
+            s.z = f.cz + (w.z - T.cz) / T.kz;
             const g = s.cow.g, intro = Math.min(1, Math.max(0, (this.clock - s.t0) / 0.4));
             g.position.set(w.x, air * 0.55, w.z);
             g.rotation.y = Math.atan2(ahead.x - w.x, ahead.z - w.z);

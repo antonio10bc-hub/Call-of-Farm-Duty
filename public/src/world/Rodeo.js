@@ -29,12 +29,12 @@ const HALF = 1.9; // media anchura de la pista (de la valla de dentro a la de fu
 // Los recorridos: la forma (r: armónicos del radio, k veces por vuelta con amplitud a) y las
 // colinas (hills: cuántas y de qué altura, en metros con el campo normal)
 export const COURSES = [
-    { id: 'oval', name: L('THE OVAL', 'EL ÓVALO'), r: [], hills: [1, 1.4] },
-    { id: 'bean', name: L('THE BEAN', 'LA JUDÍA'), r: [[1, 0.12], [2, 0.16]], hills: [2, 1.6] },
-    { id: 'triangle', name: L('THE TRIANGLE', 'EL TRIÁNGULO'), r: [[3, 0.13]], hills: [3, 1.3] },
-    { id: 'clover', name: L('THE CLOVER', 'EL TRÉBOL'), r: [[4, 0.1]], hills: [2, 2.2] },
-    { id: 'snake', name: L('THE SNAKE', 'LA SERPIENTE'), r: [[5, 0.07], [2, 0.09]], hills: [3, 1.8] },
-    { id: 'hill', name: L('THE BIG HILL', 'LA GRAN COLINA'), r: [[2, 0.1]], hills: [1, 3.2] },
+    { id: 'oval', name: L('THE OVAL', 'EL ÓVALO'), r: [], hills: [1, 0.45] },
+    { id: 'bean', name: L('THE BEAN', 'LA JUDÍA'), r: [[1, 0.12], [2, 0.16]], hills: [2, 0.5] },
+    { id: 'triangle', name: L('THE TRIANGLE', 'EL TRIÁNGULO'), r: [[3, 0.13]], hills: [3, 0.4] },
+    { id: 'clover', name: L('THE CLOVER', 'EL TRÉBOL'), r: [[4, 0.1]], hills: [2, 0.6] },
+    { id: 'snake', name: L('THE SNAKE', 'LA SERPIENTE'), r: [[5, 0.07], [2, 0.09]], hills: [3, 0.5] },
+    { id: 'hill', name: L('THE BIG HILL', 'LA GRAN COLINA'), r: [[2, 0.1]], hills: [1, 0.9] },
 ];
 
 export class Rodeo {
@@ -336,7 +336,7 @@ export class Rodeo {
         // Velocidad: arranca poco a poco; cuesta arriba va más despacio y cuesta abajo, más deprisa;
         // tras un tropiezo va despacio un rato; al acabar (o con hold, para las pruebas), se para
         R.stun = Math.max(0, R.stun - dt);
-        const hill = Math.max(0.6, Math.min(1.3, 1 - p.slope * 1.2));
+        const hill = Math.max(0.6, Math.min(1.3, 1 - p.slope * 0.8));
         const want = done || this.hold ? 0 : this.speed * hill * (R.stun > 0 ? 0.3 : 1);
         R.v += (want - R.v) * Math.min(1, dt * (R.stun > 0 ? 6 : 1.4));
         R.s += R.v * dt;
@@ -380,7 +380,7 @@ export class Rodeo {
         }
         // La vista: a lomos del caballo, con el trote; el giro de la pista gira también la vista, y
         // las cuestas la inclinan
-        const k = Math.min(1, R.v / 4), tilt = Math.atan(p.slope) * 0.7;
+        const k = Math.min(1, R.v / 4), tilt = Math.atan(p.slope) * 0.4;
         R.step = (R.step || 0) + dt * (2 + R.v * 1.6);
         const yaw = Math.atan2(-p.tx, -p.tz);
         if (R.yaw !== null) {

@@ -400,7 +400,7 @@ test('rodeo: a caballo por la pista (con su recorrido y su sentido); las silueta
     // (la gran colina, al revés)
     await page.evaluate(() => { game.sniper.field.mods.tomato.force = { course: 'hill', reverse: true }; game.state.unlock('tomato', Date.now(), true); while (game.revealUnlocked()); game.harvest('tomato'); });
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
-    expect(await page.evaluate(() => { const T = game.sniper.field.mods.tomato.track; return [T.course.id, T.reverse, Math.max(...T.pts.map((p) => p.y)) > 2]; })).toEqual(['hill', true, true]);
+    expect(await page.evaluate(() => { const T = game.sniper.field.mods.tomato.track; return [T.course.id, T.reverse, Math.max(...T.pts.map((p) => p.y)) > 0.5]; })).toEqual(['hill', true, true]);
     // Sin torres: a caballo, y el caballo corre solo
     const laps = await page.evaluate(() => game.state.sheaves('tomato'));
     expect(await page.evaluate(() => [game.sniper.riding, game.sniper.field.towers.some((t) => t.model.root.visible), game.sniper.field.remaining])).toEqual([true, false, laps]);
