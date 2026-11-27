@@ -14,6 +14,7 @@ async function listen(page) {
 }
 
 test('progresión: granero, trigo, regalos del trigo mágico, mercader, casa y parcelas', { tag: '@full' }, async ({ page }) => {
+    test.setTimeout(240_000); // (es larga: recorre toda la progresión, y con 2 workers va justa en 2 min)
     const errors = watchErrors(page);
     await page.goto('/?test&progress');
     await expect.poll(() => page.evaluate(() => window.game && game.farm.introT > 2.6), { timeout: 60_000 }).toBe(true);

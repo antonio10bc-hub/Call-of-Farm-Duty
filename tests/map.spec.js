@@ -418,7 +418,9 @@ test('pueblo de los mercaderes: día de mercado, exclusivo de la nave madre, niv
     await page.evaluate(() => { for (const c of Object.values(game.clocks)) c.force = null; });
     await tap('dbg-market');
     await expect.poll(() => page.evaluate(() => game.farm.village.visitors.every((v) => v.open)), { timeout: 90_000 }).toBe(true);
-    expect(await page.evaluate(() => [game.farm.village.marketG.visible, game.state.ordersFor(game.clocks.m1.visit, 'm1') && game.state.merchants.m1.market])).toEqual([true, true]);
+    // (los encargos que pide ya en el mercado pagan más: si m1 los pidió antes de forzarlo, que pida otros)
+    await page.evaluate(() => { const M = game.state.merchants.m1; if (!M.market) M.visit = -1; });
+    await expect.poll(() => page.evaluate(() => [game.farm.village.marketG.visible, game.state.ordersFor(game.clocks.m1.visit, 'm1') && game.state.merchants.m1.market])).toEqual([true, true]);
     // El cartel del pueblo y el dock dicen cuántos hay
     await expect(page.locator('#sign-merchant')).toContainText('· 0'); // (el cartel: el nivel del pueblo)
     await expect(page.locator('#dock-merchant .dock-count')).toHaveText('8');

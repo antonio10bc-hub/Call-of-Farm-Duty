@@ -133,6 +133,7 @@ async function aimAndShoot(page, where) {
     await expect.poll(() => page.evaluate(() => game.sniper.adsK === 1 && game.sniper.spread < 0.002), { timeout: 20_000 }).toBe(true);
     await frames(page);
     await page.evaluate(look); // (justo antes de soltar: sin que la mira se mueva entre medias)
+    await frames(page); // (y que la cámara ya mire ahí: el disparo sale por donde mira el último fotograma)
     await page.mouse.up({ button: 'right' });
 }
 
