@@ -21,6 +21,7 @@ import { FarmState, MERCHANT_FRESH, orderWants } from './game/FarmState.js';
 import { TRUST, LEVEL_NAMES, HELLO, MOOD_LINES, MOODS, GIFT_EVERY, URGENT, FORCE } from './content/merchantLife.js';
 import { WONDER } from './content/mysterybox.js';
 import { Sniper } from './game/Sniper.js';
+import { Walk } from './game/Walk.js';
 import { DayNight } from './game/DayNight.js';
 import { Prologue } from './game/Prologue.js';
 import { Scope } from './ui/Scope.js';
@@ -145,6 +146,27 @@ rig.free = true;
 rig.setBounds(M.view, M.view);
 rig.yaw = rig.yawTarget = M.yaw;
 const rigFocus = rig.focus.bind(rig);
+// Paseo en primera persona (experimental): V o el botón ANDAR entra y sale
+const walk = new Walk();
+function toggleWalk(on = !walk.on) {
+    if (on === walk.on || (on && mode !== 'farm')) return;
+    const c = rig.camera;
+    if (on) {
+        select(null);
+        // (un poco hacia la cámara: no aparecer dentro de lo que se miraba)
+        walk.start(rig.x + Math.sin(rig.yaw) * 12, rig.z + Math.cos(rig.yaw) * 12, rig.yaw);
+        c.fov = 70; c.near = 0.1;
+        lockMouse();
+    } else {
+        walk.stop();
+        rig.focus(walk.x, walk.z);
+        c.fov = M.fov; c.near = 0.5;
+        if (locked()) document.exitPointerLock();
+    }
+    c.updateProjectionMatrix();
+    document.body.classList.toggle('walking', walk.on);
+    $('btn-walk').classList.toggle('on', walk.on);
+}
 rig.focus = (x, z) => {
     const w = toWorld(x, z);
     rigFocus(w.x, w.z, w.y);
@@ -1658,6 +1680,10 @@ addEventListener('pointerdown', (e) => {
     // Con el trigo mágico hablando, tocar pasa el texto
     if (prologue.talking) return prologue.next();
     if (isUi(e) || inCine() || prologueLocked()) return;
+    if (mode === 'farm' && walk.on) {
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, walk: true });
+        return lockMouse();
+    }
     if (mode === 'farm') {
         pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
         if (pointers.size === 2) {
@@ -1687,6 +1713,12 @@ addEventListener('pointerdown', (e) => {
 
 addEventListener('pointermove', (e) => {
     const p = pointers.get(e.pointerId);
+    if (p && p.walk) {
+        // (sin ratón bloqueado, p. ej. en el móvil: arrastrar mira)
+        if (!locked()) walk.look((e.clientX - p.x) * 1.5, (e.clientY - p.y) * 1.5);
+        p.x = e.clientX; p.y = e.clientY;
+        return;
+    }
     if (p) {
         p.x = e.clientX;
         p.y = e.clientY;
@@ -1769,6 +1801,7 @@ addEventListener('mousedown', (e) => {
     }
 });
 addEventListener('mousemove', (e) => {
+    if (walk.on && locked()) walk.look(e.movementX, e.movementY);
     if (mode === 'snipe' && touch && touch.mouse && !locked()) {
         sniper.look(e.clientX - touch.lx, e.clientY - touch.ly, S.lookMouse);
         touch.lx = e.clientX;
@@ -1856,6 +1889,8 @@ addEventListener('keydown', (e) => {
     if (mode === 'prologue') return (k === ' ' || k === 'enter') && prologue.tap();
     if (prologueLocked()) return;
     if (mode === 'farm') {
+        if (k === 'v' || (k === 'escape' && walk.on)) return toggleWalk();
+        if (walk.on) return;
         if (k === 'escape') select(null);
         if ((k === 'enter' || k === ' ') && !menuOpen() && !storyBusy && $('welcome').classList.contains('hidden')) quickAction(); // (con un menú abierto, no)
         return;
@@ -1881,7 +1916,7 @@ function keyInput(dt) {
     const y = (keys.has('s') || keys.has('arrowdown') ? 1 : 0) - (keys.has('w') || keys.has('arrowup') ? 1 : 0);
     if (!x && !y) return;
     if (mode === 'snipe') sniper.look(x, y, S.lookPad * 0.6 * dt);
-    else if (mode === 'farm') panBy(-x * dt * 500, -y * dt * 500);
+    else if (mode === 'farm' && !walk.on) panBy(-x * dt * 500, -y * dt * 500);
 }
 
 // Mando: sticks miran (con curva de respuesta), LT apunta (soltarlo dispara), RT/A disparan,
@@ -1983,6 +2018,7 @@ tapBtn('panel-upgrade', () => {
     else if (selected.structure === 'house') upgradeHouse();
 });
 tapBtn('panel-close', () => select(null));
+tapBtn('btn-walk', () => toggleWalk());
 tapBtn('btn-map', () => {
     if (mapView) {
         leaveMap();
@@ -3907,6 +3943,7 @@ function frame(now) {
         checkStory();
         updateCall(dt);
     }
+    if (walk.on && mode !== 'farm') toggleWalk(false);
     if (mode === 'farm' || mode === 'toSnipe') {
         const progress = progressNow;
         for (const f of FARM.fields) progress[f.id] = state.progress(f.id); // (el mismo objeto cada fotograma)
@@ -3952,7 +3989,8 @@ function frame(now) {
         updateFireworks(dt);
         if (welcomeFrom && farm.introT > 2.6) showWelcome();
         updateAmbient(dt);
-        rig.update(dt);
+        if (mode === 'farm' && walk.on) walk.update(dt, keys, rig.camera);
+        else rig.update(dt);
         farm.setFar(rig.zoom > 4); // (muy lejos: sin contornos de lo pequeño)
         updateBarnFx(dt);
         shopClouds();
