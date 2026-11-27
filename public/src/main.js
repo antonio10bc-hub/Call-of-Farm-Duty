@@ -758,7 +758,7 @@ const DOCK = [
         go: () => { const h = farm.byId.house.def; dockGo(h.x, h.z, () => select({ structure: 'house' })); } },
     { id: 'well', icon: 'well', label: L('WISHING WELL', 'POZO DE LOS DESEOS'), show: () => state.open('barn'), alert: () => false, // (sin aviso: con oro para un deseo, brilla el propio pozo)
         go: () => dockGo(135, 15, () => openWell()) },
-    { id: 'merchant', icon: 'market', label: L('MERCHANTS', 'MERCADERES'), show: () => !merchantClock.locked, alert: () => MERCHANTS.some((d) => merchantCan(d.id)),
+    { id: 'merchant', icon: 'market', label: L('MERCHANTS', 'MERCADERES'), show: () => !merchantClock.locked, alert: () => false, // (sin punto rojo: casi siempre hay alguno; ya dice cuántos con su número)
         go: () => { const c = vParcel(VILLAGE.cx, VILLAGE.cz); dockGo(c.x, c.z, () => openMerchant(MERCHANTS.find((d) => merchantCan(d.id))?.id || MERCHANTS.find((d) => farm.village.byId[d.id].open)?.id || curM)); } },
 ];
 for (const d of DOCK) {
