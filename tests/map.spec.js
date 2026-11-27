@@ -53,7 +53,7 @@ test('mejorar el campo: cuesta 3 de trigo, lo hace más grande y con más matas'
     await expect(page.locator('#panel-upgrade')).toBeEnabled();
     await page.locator('#panel-upgrade').click();
     expect(await page.evaluate(() => game.state.fields.wheat.level)).toBe(1);
-    expect(await page.evaluate(() => game.state.wheat)).toBe(3);
+    expect(await page.evaluate(() => game.state.wheat)).toBe(11);
     const after = await page.evaluate(() => ({ w: game.farm.fields.wheat.rect.w, d: game.farm.fields.wheat.rect.d, left: game.state.fields.wheat.left, stalks: game.farm.fields.wheat.plants.length }));
     expect(after.w * after.d).toBeGreaterThan(before.w * before.d);
     expect(after.stalks).toBeGreaterThan(before.stalks);
@@ -183,7 +183,7 @@ test('torreta: con el campo al máximo, la mejora extra pone una torreta que va 
     await page.evaluate(() => { for (let i = 0; i < 4; i++) { game.state.wheat = 1e4; game.upgradeField('wheat'); } game.state.wheat = 0; game.select({ field: 'wheat' }); });
     await expect(page.locator('#upgrade-label')).toHaveText('TORRETA');
     await expect(page.locator('#panel-upgrade')).toBeDisabled();
-    await page.evaluate(() => { game.state.wheat = 480; });
+    await page.evaluate(() => { game.state.wheat = 90; });
     await expect(page.locator('#panel-upgrade')).toBeEnabled();
     await page.locator('#panel-upgrade').click();
     expect(await page.evaluate(() => [game.state.fields.wheat.turrets, !!game.farm.fields.wheat.turret, game.farm.fields.wheat.bases.length, game.state.wheat, game.state.fields.wheat.ammo])).toEqual([true, true, 4, 0, 60]);

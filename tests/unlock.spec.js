@@ -81,9 +81,9 @@ test('tomates: con el trigo al máximo se desbloquea disparando al barril; luego
     await page.locator('#btn-home').click();
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('farm');
     // La mejora pide trigo y tomates
-    await page.evaluate(() => { game.state.items.wheat = 40; game.state.items.tomato = 7; game.select({ field: 'tomato' }); });
+    await page.evaluate(() => { game.state.items.wheat = 15; game.state.items.tomato = 2; game.select({ field: 'tomato' }); });
     await expect(page.locator('#panel-upgrade')).toBeDisabled();
-    await page.evaluate(() => { game.state.items.tomato = 8; });
+    await page.evaluate(() => { game.state.items.tomato = 3; });
     await expect(page.locator('#panel-upgrade')).toBeEnabled();
     await page.locator('#panel-upgrade').click();
     expect(await page.evaluate(() => [game.state.fields.tomato.level, game.state.items.wheat, game.state.items.tomato])).toEqual([1, 0, 0]);

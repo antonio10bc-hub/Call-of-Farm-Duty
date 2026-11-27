@@ -9,7 +9,7 @@ test('ajustes: borrar el progreso pide confirmación y deja la granja como al em
     await openFarm(page);
     await expect(page.locator('#bubbles .field-sign.ready')).toHaveCount(1, { timeout: 30_000 });
     await page.evaluate(() => { game.state.wheat = 21; game.upgradeField('wheat'); });
-    expect(await page.evaluate(() => [game.state.fields.wheat.level, game.state.wheat])).toEqual([1, 3]);
+    expect(await page.evaluate(() => [game.state.fields.wheat.level, game.state.wheat])).toEqual([1, 11]);
     await page.locator('#btn-debug').click();
     // El primer toque solo arma el botón (hay 3 s para el segundo: los dos van seguidos en la
     // página, que con la máquina cargada el ir y venir de la prueba puede tardar más)
