@@ -1041,6 +1041,9 @@ body.optic-on .reticle { display: none !important; }
 .optic[data-optic='acog'] b::before, .optic[data-optic='acog'] b::after { content: ''; position: absolute; top: -1px; width: 8px; height: 2px; background: #ffa23a; }
 .optic[data-optic='acog'] b::before { right: 1px; transform: rotate(-40deg); transform-origin: right center; }
 .optic[data-optic='acog'] b::after { left: 1px; transform: rotate(40deg); transform-origin: left center; }
+/* (la holográfica: un aro alrededor del punto) */
+.optic[data-lens='ring'] b { left: -2px; top: -2px; width: 4px; height: 4px; }
+.optic[data-lens='ring'] b::before { content: ''; position: absolute; left: -12px; top: -12px; width: 24px; height: 24px; border: 2px solid #ff5a3a; border-radius: 50%; box-shadow: 0 0 4px rgba(255, 90, 58, 0.6); }
 /* Desbloqueo: una sola torre y un solo blanco (el barril) */
 body.unlocking .arrow-btn, body.unlocking .corners, body.unlocking .left-badge { display: none; }
 

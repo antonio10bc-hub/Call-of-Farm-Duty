@@ -3978,6 +3978,7 @@ function frame(now) {
         const lit = sniper.scoped && (optic === 'reflex' || optic === 'acog') && sniper.adsK > 0.8;
         document.body.classList.toggle('optic-on', lit);
         $('optic').dataset.optic = lit ? optic : '';
+        $('optic').dataset.lens = lit ? sniper.stats.lens : '';
         scope.show(sniper.tube && sniper.fov < (S.fov + sniper.stats.zoom) * 0.5);
         if (sniper.stats.lens) scope.setLens(sniper.stats.lens);
         scope.setReady(sniper.canFire);

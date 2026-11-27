@@ -24,9 +24,12 @@ export function buildGun(model, g, loadout = DEFAULT_LOADOUT, only = null) {
             model.part(g, R.thick, R.thick, len, METAL_DARK, 0, 0.03, -0.29 - len / 2);
             model.part(g, 0.03, 0.04, 0.03, R.wood2, 0, 0.09, -0.27, false);
         } else {
-            // Culata (corta en el subfusil) y empuñadura
-            model.part(g, 0.13, 0.15, R.short ? 0.18 : 0.36, R.wood, 0, -0.03, R.short ? 0.17 : 0.26);
-            model.part(g, 0.11, 0.08, 0.18, R.wood2, 0, -0.13, 0.36);
+            // Culata (corta en el subfusil) y empuñadura; sin culata, solo el puño bajo el cajón
+            if (R.nostock) model.part(g, 0.09, 0.2, 0.1, R.wood2, 0, -0.14, 0.1).rotation.x = -0.18;
+            else {
+                model.part(g, 0.13, 0.15, R.short ? 0.18 : 0.36, R.wood, 0, -0.03, R.short ? 0.17 : 0.26);
+                model.part(g, 0.11, 0.08, 0.18, R.wood2, 0, -0.13, 0.36);
+            }
             // Cajón de los mecanismos y guardamonte
             model.part(g, 0.12, 0.12, 0.3, R.metal, 0, 0, -0.02);
             model.part(g, 0.05, 0.08, 0.1, METAL_DARK, 0, -0.1, 0.04, false);
@@ -41,6 +44,18 @@ export function buildGun(model, g, loadout = DEFAULT_LOADOUT, only = null) {
             if (!R.double) model.part(g, R.thick * 1.5, R.thick * 1.5, 0.08, R.brake ? METAL : R.metal, 0, 0.03, end);
             if (R.brake) for (const dz of [0.05, 0.12]) model.part(g, R.thick * 1.9, 0.03, 0.03, METAL_DARK, 0, 0.03, end + dz, false);
             if (R.glow) for (const dz of [0.15, 0.3, 0.45]) model.part(g, R.thick * 1.25, R.thick * 1.25, 0.04, R.glow, 0, 0.03, -0.27 - dz, false);
+            // (la camisa del cañón, con sus agujeros; la empuñadura delantera; la caja de la cinta
+            // al costado con los cartuchos que entran al cajón)
+            if (R.shroud) {
+                const sl = len * 0.55;
+                model.part(g, R.thick * 1.7, R.thick * 1.7, sl, METAL, 0, 0.03, -0.29 - sl / 2);
+                for (let k = 0; k < 3; k++) for (const s of [-1, 1]) model.part(g, 0.005, R.thick * 0.6, 0.04, METAL_DARK, s * R.thick * 0.86, 0.03, -0.33 - k * sl * 0.3, false);
+            }
+            if (R.foregrip) model.part(g, 0.06, 0.14, 0.06, METAL_DARK, 0, -0.12, -0.2);
+            if (R.belt) {
+                model.part(g, 0.12, 0.16, 0.2, 0x5a6a3a, -0.14, -0.1, -0.04);
+                for (let k = 0; k < 3; k++) model.part(g, 0.05, 0.03, 0.035, BRASS, -0.08 + k * 0.02, -0.01 + k * 0.025, -0.04, false);
+            }
             // (el bípode de la ametralladora, abierto bajo el cañón)
             if (R.bipod) for (const s of [-1, 1]) model.part(g, 0.025, 0.2, 0.025, METAL_DARK, s * 0.05, -0.08, end + 0.12, false).rotation.z = s * 0.3;
         }
@@ -70,6 +85,7 @@ export function buildGun(model, g, loadout = DEFAULT_LOADOUT, only = null) {
             for (const x of [-0.055, 0.055]) model.part(g, 0.02, 0.13, 0.03, S.body, x, 0.145, -0.1, false);
             model.part(g, 0.13, 0.02, 0.03, S.body, 0, 0.205, -0.1, false);
             if (only) model.part(g, 0.06, 0.06, 0.01, S.glass, 0, 0.145, -0.1, false); // (en su dibujo, el cristal rojo)
+            if (S.hood) model.part(g, 0.13, 0.03, 0.12, S.body, 0, 0.205, -0.04, false); // (la holográfica: caja con techo)
         } else if (S.acog) {
             const zc = -0.08, w = 0.018, cy = 0.18; // (alto: que el cajón del arma no asome dentro)
             for (const s of [-1, 1]) {
@@ -103,6 +119,12 @@ export function buildGun(model, g, loadout = DEFAULT_LOADOUT, only = null) {
         } else {
             const box = model.part(mag, M.w, M.h, M.d, M.color, 0, -M.h / 2, 0);
             if (M.bend) box.rotation.x = -0.25;
+            if (M.dual) {
+                // (el doble: otro cargador al lado, pegado con cinta)
+                model.part(mag, M.w, M.h, M.d, M.color, M.w + 0.01, -M.h / 2 - 0.02, 0);
+                model.part(mag, M.w * 2 + 0.03, 0.03, M.d * 1.05, 0x8a7a4a, M.w / 2, -M.h * 0.55, 0, false);
+            }
+            if (M.box) model.part(mag, M.w * 0.3, 0.02, M.d * 0.5, BRASS, 0, 0.005, 0, false); // (la cinta asomando)
             if (M.glow) model.part(mag, M.w * 0.6, M.h * 0.7, 0.02, M.glow, 0, -M.h / 2, M.d / 2 + 0.01, false);
         }
     }
