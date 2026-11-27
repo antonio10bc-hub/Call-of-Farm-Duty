@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { MERCHANTS, VILLAGE, EXCLUSIVE, TOWN } from '../content/merchants.js';
 import { PIECES } from './townPieces.js';
+import { bakeGroup } from './materials.js';
 
 // El pueblo de los mercaderes, diseñado entero de antemano (render/merchants.js: Village lo usa):
 // la ronda, los tres barrios (chalets dentro de la ronda; adosados y pisos fuera, en los sectores
@@ -634,24 +635,32 @@ export function layoutTown(V) {
         attach('dish', lv, 'roofDish', 0, H.lot, -0.2, 2.8, 0.7);
     }
 
-    // --- Los arcos de bienvenida (nivel 10), a la entrada de cada calle
+    // --- Los arcos de bienvenida (nivel 10), a la entrada de cada calle (al llegar al pueblo)
     V.archG = new THREE.Group();
     V.archG.visible = false;
     V.root.add(V.archG);
     V.archShapes = [];
     for (const q of streets) {
-        const t = q.parkR + 1.6, p = P(q.a, t), a = new THREE.Group(), w = (fh(q, t) + 0.7) * 2;
+        // (por fuera de la ronda, donde la calle ya es estrecha: dentro, junto a la plaza, es tan
+        // ancha que el arco se ve como una viga larguísima)
+        const out = wobR(q.a) + 3.6, t = out < q.endR - 1 ? out : q.parkR + 1.6, p = P(q.a, t), a = new THREE.Group(), w = (fh(q, t) + 0.7) * 2;
         a.position.set(p.x, 0, p.z);
         a.rotation.y = Math.atan2(-Math.cos(q.a), -Math.sin(q.a));
         V.archPiece(a, w);
         V.archG.add(a);
-        V.archShapes.push({ x: p.x, z: p.z, hx: w / 2 + 0.6, hz: 0.6, ry: a.rotation.y, h: 5 });
+        V.archShapes.push({ x: p.x, z: p.z, hx: w / 2 + 0.6, hz: 0.6, ry: a.rotation.y, h: 3.6 });
     }
     V.bake([V.archG], []);
     V.ringShape = { donut: true, r: RING, w: 2.3, h: 2.5 };
 
     // Cada sitio, junto (lo que se mueve, aparte)
-    for (const list of Object.values(V.regions)) for (const e of list) V.bake([e.g], e.keep);
+    for (const list of Object.values(V.regions)) for (const e of list) {
+        V.bake([e.g], e.keep);
+        // (y lo que se mueve, junto por dentro: cada subgrupo por su lado, sin tocar lo animado)
+        const moving = new Set(e.anims.map((a) => a.o)), groups = [];
+        for (const k of e.keep) if (!k.isMesh) k.traverse((o) => { if (!o.isMesh) groups.push(o); });
+        for (const g of groups) bakeGroup(g, (o) => !o.isMesh || moving.has(o));
+    }
     V.homes = homes;
     V.sectors = sectors;
 

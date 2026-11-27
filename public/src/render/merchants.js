@@ -1001,14 +1001,15 @@ export class Village extends VoxelModel {
 
     // Un arco de bienvenida (nivel 10), sobre la entrada de una calle (w: de lado a lado)
     archPiece(g, w = 6) {
+        // (bajito: con la cámara desde arriba, unos postes altos se ven como vigas larguísimas)
         for (const x of [-w / 2, w / 2]) {
-            this.part(g, 0.6, 4.6, 0.6, 0xe8c050, x, 2.3, 0);
-            this.part(g, 0.9, 0.4, 0.9, 0xd8a830, x, 0.2, 0);
-            this.lit(g, 0.3, 0.3, 0.3, 0x7dff4a, x, 4.8, 0);
+            this.part(g, 0.55, 3.0, 0.55, 0xe8c050, x, 1.5, 0);
+            this.part(g, 0.85, 0.35, 0.85, 0xd8a830, x, 0.18, 0);
+            this.lit(g, 0.3, 0.3, 0.3, 0x7dff4a, x, 3.25, 0);
         }
-        this.part(g, w + 1.0, 0.6, 0.7, 0xe8c050, 0, 4.8, 0);
-        this.part(g, w * 0.6, 0.9, 0.14, 0x8a5ad8, 0, 4.8, 0.42);
-        this.lit(g, 0.4, 0.4, 0.4, 0xffd23f, 0, 5.5, 0);
+        this.part(g, w + 0.9, 0.5, 0.6, 0xe8c050, 0, 3.15, 0);
+        this.part(g, w * 0.55, 0.7, 0.12, 0x8a5ad8, 0, 3.15, 0.36);
+        this.lit(g, 0.36, 0.36, 0.36, 0xffd23f, 0, 3.7, 0);
     }
 
     // Lo que se ve del pueblo: lo construido en el nivel lv (casas y calles de los mercaderes, la
