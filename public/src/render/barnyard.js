@@ -141,6 +141,20 @@ export const BARNYARD = {
             }
             for (const x of [-1.3, 1.3]) m.part(g, 0.1, 1.9, 0.1, WOOD2, x, 0.95, -1.0);
             m.part(g, 2.7, 0.08, 0.08, WOOD2, 0, 1.85, -1.0, false);
+            // El público (los del pueblo, sentados en los bancos): cada poco se levantan y vitorean
+            m.crowd = [];
+            const shirts = [0xc8402e, 0x3a6ab8, 0xffd23f, 0x5a9e32, 0xf6f3ea, 0x9a5ab8];
+            for (let i = 0; i < 3; i++) for (let j = 0; j < 4; j++) {
+                if ((i + j) % 3 === 2) continue;
+                const p = new THREE.Group();
+                p.position.set(-0.95 + j * 0.62 + (i % 2) * 0.2, 0.4 + i * 0.4, -i * 0.5);
+                m.part(p, 0.26, 0.28, 0.2, shirts[(i * 4 + j) % shirts.length], 0, 0.16, 0);
+                m.part(p, 0.2, 0.2, 0.2, 0xf3c8a0, 0, 0.42, 0);
+                if ((i + j) % 2) m.part(p, 0.3, 0.06, 0.3, 0x8a5a2e, 0, 0.55, 0);
+                p.userData.ph = Math.random() * 6;
+                g.add(p);
+                m.crowd.push(p);
+            }
         } },
         { lv: 5, r: 1.1, build: (m, g) => windpump(m, g) },
         { lv: 5, r: 1.8, build: (m, g) => { fence(m, g, -1.4, 0, 1.4, 0); trough(m, g, 0, 0.7, 2.2); } },
@@ -276,13 +290,19 @@ export class BarnPiece extends VoxelModel {
         super(outline);
         this.def = def;
         def.build(this, this.root);
-        this.bake([this.root], [this.spin]);
+        if (this.crowd) for (const p of this.crowd) p.userData.y0 = p.position.y;
+        this.bake([this.root], [this.spin, ...(this.crowd || [])]);
         this.root.scale.setScalar(SCALE);
         this.shown = false;
     }
 
     update(dt, time) {
         if (this.spin) this.spin.rotation.z = time * (this.def.lv >= 5 ? 1.6 : 1);
+        // El público: de vez en cuando (todos a la vez, como cuando pasa un caballo) se levanta y vitorea
+        if (this.crowd) {
+            const cheer = Math.max(0, Math.sin(time * 0.7)) ** 6;
+            for (const p of this.crowd) p.position.y = p.userData.y0 + cheer * (0.12 + Math.abs(Math.sin(time * 9 + p.userData.ph)) * 0.12);
+        }
         this.updateFx(dt);
     }
 }

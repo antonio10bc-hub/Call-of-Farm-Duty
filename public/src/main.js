@@ -340,15 +340,41 @@ const sniper = new Sniper(THEME, {
         showCorner(i);
     },
     // El rodeo: una vuelta más (su ficha) y los choques contra lo que hay en la pista
-    onLap(n) {
-        if (prologue.active) return;
+    // (clean: sin chocar en toda la vuelta: una ficha más)
+    onLap(n, clean) {
+        if (prologue.active || sniper.practice) return;
         const left = sniper.field.remaining - 1;
         medal(left > 0 ? `${L('LAP', 'VUELTA')} ${n} · ${L('+1 TOKEN', '+1 FICHA')}` : L('LAST LAP!', '¡ÚLTIMA VUELTA!'), 'collateral');
+        if (clean) {
+            state.items.tomato++;
+            state.save();
+            setTimeout(() => {
+                medal(L('CLEAN LAP! +1 TOKEN', '¡VUELTA LIMPIA! +1 FICHA'), 'reward');
+                updateCounts(true);
+                sfx.play('reloaded');
+            }, 700);
+        }
     },
     onCrash(rider) {
         if (prologue.active) return;
         if (!rider) medal(L('OUCH! SHOOT THE OBSTACLES', '¡AY! DISPARA A LOS OBSTÁCULOS'), 'stolen');
         vibrate('kill');
+    },
+    // Un tiro al vaquero de chapa: una ficha menos (si hay) y tropiezo
+    onFriendly() {
+        if (prologue.active || sniper.practice) return;
+        if (state.items.tomato > 0) {
+            state.items.tomato--;
+            state.save();
+            updateCounts(true);
+        }
+        medal(L("DON'T SHOOT THE COWBOY! -1 TOKEN", '¡AL VAQUERO NO! -1 FICHA'), 'stolen');
+        sfx.play('stolen');
+        vibrate('kill');
+    },
+    // Tres aciertos seguidos sin chocar: espuelas (un acelerón)
+    onSpur() {
+        medal(L('SPURS!', '¡ESPUELAS!'), 'multi');
     },
 });
 addLights(sniper.scene);

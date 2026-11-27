@@ -748,6 +748,7 @@ export class Sniper {
                 if (this.hooks.onAlien) this.hooks.onAlien(_v.x, _v.y);
                 this.addAlien(1);
             } else if (!s.noLoot) this.hooks.onHit(s, _v.x, _v.y);
+            if (s.noLoot && s.mod && s.mod.shotDown) s.mod.shotDown(s, this);
             if (k && k < 6) setTimeout(() => sfx.play('harvest', 0, { crop: this.crop, rate: Settings.feelOn('feelSound') ? 2 ** (k / 12) : 1 }), k * 90); // (cada pieza del colateral, un semitono más arriba)
         });
         sfx.play('harvest', 0, { crop: this.crop });

@@ -3,7 +3,7 @@ import { box, toon, outline, OUTLINE } from '../render/materials.js';
 import { wrapAngle } from '../core/math.js';
 import { CROPS } from '../content/crops.js';
 import { L } from '../core/I18n.js';
-import { buildHorse, animateHorse } from '../render/horse.js';
+import { buildHorse, animateHorse, horseNight } from '../render/horse.js';
 
 // El rodeo (el campo de tiro de las fichas de caballo): el jugador va montado a caballo dando
 // vueltas a una pista con su valla blanca a cada lado. Cada vez, un recorrido de los de COURSES
@@ -22,8 +22,9 @@ const _d = new THREE.Object3D();
 _d.rotation.order = 'YXZ';
 const _v = new THREE.Vector3();
 const rand = (a, b) => a + Math.random() * (b - a);
+const b2 = (open) => Math.max(0, Math.min(1, (open - 0.8) / 0.2));
 const pick = (a) => a[(Math.random() * a.length) | 0];
-const EYE = 2.75; // la vista del jinete (a lomos del caballo)
+const EYE = 2.6; // la vista del jinete (a lomos del caballo)
 const HALF = 1.9; // media anchura de la pista (de la valla de dentro a la de fuera)
 
 // Los recorridos: la forma (r: armónicos del radio, k veces por vuelta con amplitud a) y las
@@ -124,6 +125,20 @@ export class Rodeo {
             dirt.push({ x: (p.x + q.x) / 2, y: top / 2, z: (p.z + q.z) / 2, sx: HALF * 2 + 0.6, sy: top, sz: Math.hypot(q.x - p.x, q.z - p.z) + 0.12, ry: Math.atan2(q.x - p.x, q.z - p.z), c: i % 2 ? 0xb8925a : 0xc09a62 });
         }
         this.instances([...posts, ...rails], true);
+        // Farolillos en uno de cada cuatro postes (de noche se encienden)
+        const lamps = posts.filter((_, i) => i % 4 === 0).map((p) => ({ x: p.x, y: p.y + 0.72, z: p.z, sx: 0.22, sy: 0.26, sz: 0.22, ry: 0, c: 0xfff0a0 }));
+        this.lampMat = this.lampMat || toon(0xffffff);
+        const lm = new THREE.InstancedMesh(box(1, 1, 1), this.lampMat, lamps.length);
+        lamps.forEach((b, i) => {
+            _d.position.set(b.x, b.y, b.z);
+            _d.rotation.set(0, 0, 0);
+            _d.scale.set(b.sx, b.sy, b.sz);
+            _d.updateMatrix();
+            lm.setMatrixAt(i, _d.matrix);
+            lm.setColorAt(i, new THREE.Color(b.c));
+        });
+        this.root.add(lm);
+        this.decor.push(lm);
         this.instances(dirt, false);
     }
 
@@ -199,10 +214,30 @@ export class Rodeo {
         // El caballo del jugador: se ve su cuello y su cabeza por delante
         this.mount = buildHorse(this.ink);
         this.mount.g.rotation.order = 'YXZ';
+        this.mount.neck.visible = false; // (el cuello y la cabeza van pegados a la vista: viewHead)
+        this.buildViewHead();
         this.root.add(this.mount.g);
         this.decor.push(this.mount.g);
         // La carrera: s (metros recorridos desde la salida), v (velocidad) y lo demás
-        this.R = { s: 1.5, v: 0, yaw: null, tilt: 0, stun: 0, jump: -1, lap: 0, nextObs: 3, nextRider: rand(3, 5) };
+        this.R = { s: 1.5, v: 0, yaw: null, tilt: 0, clean: true, hits: 0, spur: 0, stun: 0, jump: -1, lap: 0, nextObs: 3, nextRider: rand(3, 5) };
+    }
+
+    // Lo que el jinete ve de su caballo por delante, pegado a la cámara (como el fusil): lo alto del
+    // cuello con la crin, la cabeza y las dos orejas, abajo en el centro
+    buildViewHead() {
+        if (this.view) return;
+        const g = (this.view = new THREE.Group()), C = 0x8a5a34, H = 0x3a2418;
+        g.position.set(-0.08, -0.8, -1.25);
+        g.rotation.x = 0.35;
+        g.scale.setScalar(0.8);
+        this.part(g, 0.34, 0.3, 0.9, C, 0, -0.1, 0.25); // (el cuello, hacia el jinete)
+        this.part(g, 0.1, 0.16, 0.95, H, 0, 0.1, 0.25); // (la crin)
+        const head = (this.viewHeadG = new THREE.Group());
+        head.position.set(0, -0.02, -0.25);
+        g.add(head);
+        this.part(head, 0.3, 0.3, 0.42, C, 0, 0, -0.1);
+        for (const x of [-0.1, 0.1]) this.part(head, 0.08, 0.2, 0.07, C, x, 0.22, 0.02);
+        this.part(head, 0.12, 0.1, 0.12, H, 0, 0.17, -0.12); // (el flequillo)
     }
 
     hittable(s) {
@@ -243,6 +278,21 @@ export class Rodeo {
         }
         const G = 0x3ec82a, D = 0x2a6a1a;
         px(0.04, 0.2, 0x5a5048, 0, 0.1);
+        if (kind === 'cowboy') {
+            // El vaquero (¡no se dispara!): sombrero, cara, pañuelo, camisa a cuadros y vaqueros
+            px(0.7, 0.08, 0x8a5a2e, 0, 0.26);
+            px(0.36, 0.2, 0x8a5a2e, 0, 0.12);
+            px(0.32, 0.34, 0xf3c8a0, 0, 0.46);
+            for (const x of [-0.07, 0.07]) px(0.05, 0.05, 0x2a1a0e, x, 0.44, false).position.z = 0.04;
+            px(0.36, 0.1, 0xc8402e, 0, 0.66);
+            px(0.56, 0.56, 0x3a6ab8, 0, 0.98);
+            px(0.56, 0.08, 0xffffff, 0, 0.86, false).position.z = 0.04;
+            for (const x of [-0.36, 0.36]) px(0.14, 0.48, 0x3a6ab8, x, 0.98);
+            px(0.5, 0.08, 0x2a1a0e, 0, 1.3);
+            px(0.1, 0.08, 0xffd23f, 0, 1.3, false).position.z = 0.04;
+            for (const x of [-0.13, 0.13]) px(0.2, 0.5, 0x2a4a7a, x, 1.6);
+            return [0.9 * k, 1.85 * k];
+        }
         if (kind === 'alien') {
             // De cuerpo entero: antena, cabeza enorme, cuello, cuerpo y piernas, todo de chapa verde
             px(0.12, 0.12, 0xff3e5e, 0, 0.26);
@@ -268,12 +318,17 @@ export class Rodeo {
     // Una silueta en un poste de la valla (s: dónde), siempre de cara al jinete. Llega doblada: el
     // brazo, pegado a la valla; al acercarse el jinete, el brazo gira hacia la pista y la silueta
     // queda colgando en medio, cortando el paso
-    obstacle(s) {
+    // (force: un tipo concreto, para las pruebas)
+    obstacle(s, force = null) {
         const side = Math.random() < 0.5 ? -1 : 1, p = this.at(s, side * (HALF + 0.2));
         const g = new THREE.Group();
         g.position.set(p.x, p.y, p.z);
         g.rotation.y = Math.atan2(p.tx, p.tz); // (en g: +z hacia donde va la pista, +x hacia el lado del poste)
-        const kind = pick(['bull', 'square', 'alien', 'head']), k = rand(0.75, 1.35);
+        // (de vez en cuando, un vaquero: a ese no se le dispara; cuanto más grande el campo, más
+        // pequeñas y más de las que se mueven)
+        const sc = this.f.scale || 1, friend = force ? force === 'cowboy' : !this.noFriends && Math.random() < 0.16;
+        const kind = force || friend ? force || 'cowboy' : pick(['bull', 'square', 'alien', 'head']), k = rand(0.75, 1.35) / Math.sqrt(sc);
+        const move = friend || force ? null : Math.random() < 0.12 + (sc - 1) * 0.3 ? pick(['swing', 'slide']) : null;
         const H = 2.5 + rand(0, 0.5) * k;
         this.part(g, 0.2, H, 0.2, 0x5a5048, 0, H / 2, 0);
         this.part(g, 0.3, 0.12, 0.3, 0x3a302a, 0, H, 0);
@@ -294,12 +349,13 @@ export class Rodeo {
         g.scale.setScalar(0.0001);
         this.root.add(g);
         const o = { kind: 'sign', mod: this, noLoot: true, obj: g, arm, hinge, mark, side, s, x: p.x, y: p.y + H - h / 2, z: p.z, hb: [w / 2, h / 2, w / 2],
-            open: 0, opening: false, knock: 0, alive: true, landed: false, grow: 0, flash: 0, dying: 0, gone: 0 };
+            friend, move, ph: rand(0, 6), reach, open: 0, opening: false, knock: 0, alive: true, landed: false, grow: 0, flash: 0, dying: 0, gone: 0 };
         this.pose(o);
         this.list.push(o);
         this.f.targets.push(o);
     }
 
+    // (lo desplegada que está, para el movimiento: 0 hasta que corta el paso)
     // Cómo está la silueta: open (0 junto a la valla, 1 cortando el paso) y knock (de un tiro: se dobla hacia atrás)
     pose(o) {
         const a = Math.min(1, o.open / 0.8);
@@ -310,6 +366,10 @@ export class Rodeo {
         // de un tiro se dobla hacia atrás
         o.hinge.rotation.y = Math.PI - o.arm.rotation.y;
         o.hinge.rotation.x = -o.knock * 1.5;
+        // (las que se mueven, ya desplegadas: se balancean de lado a lado o van y vienen por el brazo)
+        const m = o.alive ? b2(o.open) : 0, t = this.time || 0;
+        o.hinge.rotation.z = o.move === 'swing' ? Math.sin(t * 2.6 + o.ph) * 0.45 * m : 0;
+        o.hinge.position.x = o.reach + (o.move === 'slide' ? Math.sin(t * 1.8 + o.ph) * (o.reach - 0.5) * m : 0);
         o.obj.updateMatrixWorld(true);
         o.mark.getWorldPosition(_v);
         o.x = _v.x;
@@ -340,7 +400,8 @@ export class Rodeo {
         // tras un tropiezo va despacio un rato; al acabar (o con hold, para las pruebas), se para
         R.stun = Math.max(0, R.stun - dt);
         const hill = Math.max(0.6, Math.min(1.3, 1 - p.slope * 0.8));
-        const want = done || this.hold ? 0 : this.speed * hill * (R.stun > 0 ? 0.3 : 1);
+        R.spur = Math.max(0, R.spur - dt);
+        const want = done || this.hold ? 0 : this.speed * hill * (R.stun > 0 ? 0.3 : R.spur > 0 ? 1.45 : 1);
         R.v += (want - R.v) * Math.min(1, dt * (R.stun > 0 ? 6 : 1.4));
         R.s += R.v * dt;
         // Las vueltas: cada vez que se pasa por la meta, una ficha
@@ -353,7 +414,8 @@ export class Rodeo {
                 lap.y = q.y + 2.6;
                 lap.z = q.z;
                 lap.landed = true;
-                if (sn.hooks.onLap) sn.hooks.onLap(R.lap);
+                if (sn.hooks.onLap) sn.hooks.onLap(R.lap, R.clean);
+                R.clean = true;
                 sn.harvest([lap]);
                 lap.x += 9999;
             }
@@ -395,10 +457,19 @@ export class Rodeo {
         sn.pos.set(p.x, p.y + EYE + air * 1.25 + Math.abs(Math.sin(R.step)) * 0.12 * k, p.z);
         // El caballo (debajo del jinete): se le ve el cuello y la cabeza por delante
         const M = this.mount;
-        M.g.position.set(p.x - p.tx * 0.75, p.y + air * 1.25, p.z - p.tz * 0.75); // (el jinete, sentado en la silla)
+        M.g.position.set(p.x - p.tx * 0.45, p.y + air * 1.25, p.z - p.tz * 0.45); // (el jinete, sentado en la silla)
         M.g.rotation.set(-Math.atan(p.slope) - air * 0.25, Math.atan2(p.tx, p.tz), 0);
         M.step = R.step;
         animateHorse(M, 0, sn.time, R.v, air);
+        // La cabeza de delante: cabecea al galope y se levanta en los saltos
+        if (!this.view.parent) sn.camera.add(this.view);
+        this.view.position.y = -0.8 - Math.abs(Math.sin(R.step)) * 0.05 * k + air * 0.12;
+        this.view.rotation.x = 0.35 + Math.sin(R.step) * 0.06 * k - air * 0.25;
+        this.view.visible = !sn.ks.predator && sn.adsK < 0.85;
+        // De noche: los farolillos de la valla y las luces de los caballos alienígenas se encienden
+        const night = sn.nightK || 0;
+        this.lampMat.emissive.setHex(0xffb040).multiplyScalar(night * 1.2);
+        horseNight(night, sn.time);
         if (done) return;
         // Siluetas que salen por delante (dobladas, en su poste)
         if (!this.hold && (R.nextObs -= dt) <= 0) {
@@ -427,7 +498,33 @@ export class Rodeo {
                 o.opening = true;
                 sn.hooks.sfx.play('corner');
             }
+            if (o.friend) {
+                if (gap < 4) o.leave = true; // (el vaquero se aparta solo)
+                continue;
+            }
             if (gap < (o.rider ? 1.2 : 0.7)) this.crash(o, sn);
+        }
+    }
+
+    // Un acierto (silueta o jinete abatido): cada 3 seguidos sin chocar, espuelas (un acelerón);
+    // a un vaquero: tropiezo, sin vuelta limpia ni racha
+    shotDown(o, sn) {
+        const R = this.R;
+        if (!R) return;
+        if (o.friend) {
+            R.stun = 1;
+            R.clean = false;
+            R.hits = 0;
+            R.spur = 0;
+            sn.trauma = Math.min(1, sn.trauma + 0.5);
+            if (sn.hooks.onFriendly) sn.hooks.onFriendly();
+            return;
+        }
+        if (++R.hits % 3 === 0) {
+            R.spur = 2.5;
+            sn.fovPunch = (sn.fovPunch || 0) + 6;
+            sn.hooks.sfx.play('neigh');
+            if (sn.hooks.onSpur) sn.hooks.onSpur();
         }
     }
 
@@ -438,6 +535,9 @@ export class Rodeo {
         o.alive = false;
         o.crashed = true;
         R.stun = o.rider ? 1.8 : 1.3;
+        R.clean = false;
+        R.hits = 0;
+        R.spur = 0;
         sn.trauma = 1;
         sn.dipV -= 3;
         sn.streak = sn.streakT = 0;
@@ -459,6 +559,7 @@ export class Rodeo {
     // Animación de lo que hay en la pista (la llama el campo en cada fotograma)
     update(dt, time) {
         if (!this.on) return;
+        this.time = time;
         const p = {}, at = this.R ? this.R.s : 0;
         this.list = this.list.filter((o) => {
             const k = o.landed ? 1 : Math.max(0.0001, typeof o.g === 'number' ? o.g : 0.0001);
@@ -482,12 +583,12 @@ export class Rodeo {
                 o.obj.scale.setScalar(o.alive ? k : Math.max(0.0001, 1 - o.gone));
             } else {
                 // La silueta: se despliega; de un tiro se dobla hacia atrás y el brazo vuelve a la valla
-                if (o.alive && o.opening) o.open = Math.min(1, o.open + dt * 1.25);
+                if (o.alive && o.opening && !o.leave) o.open = Math.min(1, o.open + dt * 1.25);
+                if (o.leave) o.open = Math.max(0, o.open - dt * 2.5);
                 if (!o.alive && !o.crashed) {
                     o.knock = Math.min(1, o.knock + dt * 5);
                     if (o.knock >= 1) o.open = Math.max(0, o.open - dt * 1.6);
                 }
-                if (o.flash > 0) o.hinge.rotation.z = Math.sin(time * 60) * o.flash * 0.1;
                 this.pose(o);
                 o.obj.scale.setScalar(o.crashed ? Math.max(0.0001, 1 - o.gone) : k);
                 // (ya atrás: se quita)
@@ -513,5 +614,6 @@ export class Rodeo {
         this.hurdles = [];
         this.R = null;
         this.on = false;
+        if (this.view) this.view.removeFromParent();
     }
 }

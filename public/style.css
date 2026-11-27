@@ -1051,6 +1051,8 @@ body.optic-on .reticle { display: none !important; }
 body.unlocking .arrow-btn, body.unlocking .corners, body.unlocking .left-badge { display: none; }
 /* El rodeo: a caballo, sin torres a las que saltar */
 body.riding .arrow-btn, body.riding .corners { display: none; }
+.hint .ride-hint, body.riding .hint .tower-hint { display: none; }
+body.riding .hint .ride-hint { display: inline; }
 
 /* Granero: menú de rachas de bajas. Tarjetas con icono, bajas que piden y si están equipadas */
 .streaks-screen { gap: 14px; }

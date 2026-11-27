@@ -408,14 +408,20 @@ test('rodeo: a caballo por la pista (con su recorrido y su sentido); las silueta
     await expect.poll(() => page.evaluate((x0) => Math.abs(game.sniper.pos.x + game.sniper.pos.z - x0) > 2, x0), { timeout: 15_000 }).toBe(true);
     // Parado, una silueta por delante: se despliega cortando el paso; un tiro la quita y no da ninguna ficha
     await page.evaluate(() => { const R = game.sniper.field.mods.tomato; R.hold = true; R.R.v = 0; R.list.forEach((o) => (o.alive = false)); });
-    await page.evaluate(() => { const R = game.sniper.field.mods.tomato; R.obstacle(R.R.s + 9); });
+    await page.evaluate(() => { const R = game.sniper.field.mods.tomato; R.obstacle(R.R.s + 9, 'bull'); });
     await expect.poll(() => page.evaluate(() => game.sniper.field.mods.tomato.list.some((o) => o.alive && !o.rider && game.sniper.field.hittable(o)))).toBe(true);
     await aimAndShoot(page, `(() => { const o = game.sniper.field.mods.tomato.list.find((o) => o.alive && !o.rider); return o && { x: o.x, y: o.y, z: o.z }; })()`);
     await expect.poll(() => page.evaluate(() => game.sniper.field.mods.tomato.list.some((o) => o.alive && !o.rider))).toBe(false);
     expect(await page.evaluate(() => game.state.items.tomato)).toBe(0);
-    // Al cruzar la meta: una ficha
-    await page.evaluate(() => { const R = game.sniper.field.mods.tomato; R.R.s = R.track.len - 0.5; R.hold = false; });
-    await expect.poll(() => page.evaluate(() => game.state.items.tomato), { timeout: 10_000 }).toBe(1);
+    // Al cruzar la meta: una ficha, y otra más por la vuelta limpia (sin chocar)
+    await page.evaluate(() => { const R = game.sniper.field.mods.tomato; R.noFriends = true; R.R.s = R.track.len - 0.5; R.hold = false; });
+    await expect.poll(() => page.evaluate(() => game.state.items.tomato), { timeout: 10_000 }).toBe(2);
+    // El vaquero de chapa no se dispara: si le das, una ficha menos
+    await page.evaluate(() => { const R = game.sniper.field.mods.tomato; R.hold = true; R.R.v = 0; R.list.forEach((o) => (o.gone = 1)); R.obstacle(R.R.s + 9, 'cowboy'); });
+    await expect.poll(() => page.evaluate(() => game.sniper.field.mods.tomato.list.some((o) => o.friend && o.alive && game.sniper.field.hittable(o)))).toBe(true);
+    await aimAndShoot(page, `(() => { const o = game.sniper.field.mods.tomato.list.find((o) => o.friend && o.alive); return o && { x: o.x, y: o.y, z: o.z }; })()`);
+    await expect.poll(() => page.evaluate(() => game.state.items.tomato)).toBe(1);
+    await page.evaluate(() => { game.sniper.field.mods.tomato.hold = false; });
     // Un jinete alienígena que llega se lleva una (una vuelta menos)
     const left = await page.evaluate(() => game.sniper.field.remaining);
     await page.evaluate(() => { const R = game.sniper.field.mods.tomato, r = R.rider(R.R.s + 3); r.landed = true; });

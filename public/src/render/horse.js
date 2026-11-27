@@ -124,3 +124,11 @@ export function animateHorse(h, dt, time, speed, air = 0) {
     h.tail.rotation.x = -0.4 * k - Math.sin(time * 5 + h.step) * 0.15;
     if (h.rider) h.rider.position.y = 1.66 + Math.abs(Math.cos(h.step)) * 0.06 * k;
 }
+
+// De noche, los caballos alienígenas y sus jinetes brillan (la piel verde y la luz de la antena),
+// como los alienígenas a pie
+export function horseNight(k, time) {
+    const pulse = 0.75 + Math.sin(time * 3) * 0.25;
+    mat(SKIN).emissive.setHex(0x2a8a1a).multiplyScalar(k * 0.6);
+    mat(LAMP).emissive.setHex(0xff3e5e).multiplyScalar(k * pulse);
+}

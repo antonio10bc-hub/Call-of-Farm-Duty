@@ -38,7 +38,7 @@ const BASE = {
     prologue: 180,      // s hasta tener el trigo listo para sembrar
     over: 14,           // s por viaje al campo de tiro (entrar, cambiar de torre, salir)
     hit: 0.88,          // de cada campo, lo que acaba recogiendo (fallos, robos)
-    spt: { wheat: 0.85, tomato: 1.0, corn: 1.2, pumpkin: 2.6, milk: 2.4, egg: 2.2, fish: 2.4, truffle: 2.8, wool: 2.3, honey: 1.8, sunflower: 2.7 },
+    spt: { wheat: 0.85, tomato: 7, corn: 1.2, pumpkin: 2.6, milk: 2.4, egg: 2.2, fish: 2.4, truffle: 2.8, wool: 2.3, honey: 1.8, sunflower: 2.7 },
     dense: 0.07,        // cada nivel del campo, eso menos por blanco (más denso, granadas)
     deliver: 6,         // s por entrega o compra
     arsenal: 0.2,       // del oro que gana, lo que se gasta en la armería (pozo y clases)
@@ -343,7 +343,7 @@ const msAt = (runs, n) => med(runs.map((r) => (r.ms.find((m) => m[0] === n) || [
 
 if (process.argv.includes('--all')) {
     // Comparativa: los hitos clave de cada arquetipo (horas de juego y días)
-    const KEY = [['wheat nivel 5', 'Trigo al máx.'], ['tomato nivel 5', 'Seda al máx.'], ['primera venta: parcelas a la venta', 'Primera venta'], ['pueblo nivel 1', 'Pueblo 1'], ['pueblo nivel 5', 'Pueblo 5'], ['sunflower abierto', 'Última parcela'], ['granjas al máximo', 'Granjas al máx.'], ['pueblo nivel 8', 'Pueblo 8'], ['pueblo nivel 10', 'Pueblo 10']];
+    const KEY = [['wheat nivel 5', 'Trigo al máx.'], ['tomato nivel 5', 'Rodeo al máx.'], ['primera venta: parcelas a la venta', 'Primera venta'], ['pueblo nivel 1', 'Pueblo 1'], ['pueblo nivel 5', 'Pueblo 5'], ['sunflower abierto', 'Última parcela'], ['granjas al máximo', 'Granjas al máx.'], ['pueblo nivel 8', 'Pueblo 8'], ['pueblo nivel 10', 'Pueblo 10']];
     const ids = Object.keys(PROFILES), all = Object.fromEntries(ids.map((id) => [id, runAll(id)]));
     const json = {};
     console.log('Hito'.padEnd(16) + ids.map((id) => PROFILES[id].name.padStart(18)).join(''));
