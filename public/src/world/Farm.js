@@ -22,9 +22,21 @@ import { buildChicken, animateChicken } from '../render/chicken.js';
 import { buildGoat, animateGoat } from '../render/goat.js';
 import { buildHorse, animateHorse } from '../render/horse.js';
 import { BARNYARD, SLOTS, BarnPiece } from '../render/barnyard.js';
-// Dónde va cada pieza del rodeo alrededor de su pista (ángulos, en el orden en que aparecen: arriba,
-// a los lados y en las esquinas)
-const RODEO_SPOTS = [-2.2, -0.9, 3.6, 0.3, -1.57, 2.4, 1.2];
+// Cómo se reparte el rodeo alrededor de su pista, como un rancho (en el orden de BARNYARD.tomato):
+// los establos en fila al fondo (arriba en pantalla), con las puertas hacia la pista y a la vista,
+// el abrevadero y el corral a los extremos de la fila y el molino detrás; a la derecha, la grada
+// mirando a la pista, y delante el cartel de la entrada. side: el lado (0 al fondo, 1 a la
+// derecha, 2 delante); t: a lo largo de la fila; out: lo que se aparta de la pista además de su tamaño
+const RODEO_LAYOUT = [
+    { side: 0, t: 6.4, out: 0 },    // abrevadero y paja
+    { side: 0, t: 3.0, out: 0 },    // el establo pequeño
+    { side: 2, t: 0, out: 0.4 },    // el cartel de la entrada
+    { side: 0, t: -2.4, out: 0 },   // el establo grande
+    { side: 1, t: 0, out: 0.2 },    // la grada
+    { side: 0, t: 0.6, out: 4.0 },  // el molino, detrás de los establos
+    { side: 0, t: -7.0, out: 0 },   // el corral con su abrevadero
+];
+const RODEO_SIDES = [(5 * Math.PI) / 4, -Math.PI / 4, Math.PI / 4];
 import { reachAt, FARM, TURRETS, PLACES, toWorld, worldToPlace, inShapeOf, inFieldShape, stretchLocal, floorPlace, worldRect, worldToLocal } from '../content/farm.js';
 
 const _d = new THREE.Object3D();
@@ -1642,7 +1654,11 @@ export class Farm {
         const kx = Math.hypot(cx1.x - c0.x, cx1.z - c0.z), kz = Math.hypot(cz1.x - c0.x, cz1.z - c0.z);
         const R = Math.max(1.4, (Math.min(f.w * kx, f.d * kz) / 2) * 0.4), rx = R * 1.08, rz = R * 0.94;
         const n = Math.max(20, Math.round(R * 5)), nh = R > 7 ? 4 : 3;
-        v.track = { cx: c0.x, cz: c0.z, rx, rz, kx, kz, hurdles: Array.from({ length: nh }, (_, k) => ((k + 0.5) / nh) * Math.PI * 2) };
+        // (la pista, algo hacia delante: al fondo, sitio para la fila de establos)
+        const back = (Math.min(f.w * kx, f.d * kz) / 2) * 0.32, ox = c0.x, oz = c0.z;
+        c0.x += Math.cos(Math.PI / 4) * back;
+        c0.z += Math.sin(Math.PI / 4) * back;
+        v.track = { cx: c0.x, cz: c0.z, ox, oz, rx, rz, kx, kz, hw: Math.min(0.95, R * 0.28), hurdles: Array.from({ length: nh }, (_, k) => ((k + 0.5) / nh) * Math.PI * 2) };
         // (en el mundo, alrededor del centro de la parcela: el estiramiento no la deforma)
         const pt = (a, side) => ({ x: c0.x + Math.cos(a) * (rx + side), z: c0.z + Math.sin(a) * (rz + side) });
         const hw = Math.min(0.95, R * 0.28); // (media anchura de la pista: en las pequeñas, más estrecha)
@@ -1701,8 +1717,8 @@ export class Farm {
             }
             // (en el mundo; en s.x, s.z, más o menos en la parcela: a donde apunta la torreta)
             const w = { x: T.cx + Math.cos(s.a) * rx, z: T.cz + Math.sin(s.a) * rz }, ahead = { x: w.x - Math.sin(s.a) * rx * 0.05, z: w.z + Math.cos(s.a) * rz * 0.05 };
-            s.x = f.cx + (w.x - T.cx) / T.kx;
-            s.z = f.cz + (w.z - T.cz) / T.kz;
+            s.x = f.cx + (w.x - T.ox) / T.kx;
+            s.z = f.cz + (w.z - T.oz) / T.kz;
             const g = s.cow.g, intro = Math.min(1, Math.max(0, (this.clock - s.t0) / 0.4));
             g.position.set(w.x, air * 0.55, w.z);
             g.rotation.y = Math.atan2(ahead.x - w.x, ahead.z - w.z);
@@ -1820,21 +1836,22 @@ export class Farm {
                 z += (f.cz - z) * 0.25;
             }
             const at = stretchLocal(x, z);
-            // (el rodeo: alrededor de la pista, cada uno por su lado, sin pisarla ni salirse del prado;
-            // si no cabe, no sale)
+            // (el rodeo: cada pieza en su sitio del rancho, mirando a la pista, sin pisarla ni
+            // salirse del prado; si no cabe, no sale)
             const T = v.track;
-            let fits = true;
+            let fits = true, ry = 0;
             if (T) {
-                const ang = RODEO_SPOTS[i % RODEO_SPOTS.length], R = b.def.r * 1.45;
-                const lo = stretchLocal(f.x, f.z), hi = stretchLocal(f.x + f.w, f.z + f.d);
-                const free = Math.min((hi.x - lo.x) / 2 - T.rx, (hi.z - lo.z) / 2 - T.rz) - 1.2; // (lo que queda entre la pista y el borde)
-                const dist = 1.2 + Math.min(R, free / 2) + Math.max(0, (free - 2 * R) * 0.35);
-                at.x = T.cx + Math.cos(ang) * (T.rx + dist);
-                at.z = T.cz + Math.sin(ang) * (T.rz + dist);
-                fits = free >= R * 1.1;
+                const L = RODEO_LAYOUT[i % RODEO_LAYOUT.length], th = RODEO_SIDES[L.side], R = b.def.r * 1.45;
+                const ux = Math.cos(th), uz = Math.sin(th), ring = Math.hypot(T.rx * ux, T.rz * uz) + T.hw;
+                const d = ring + 0.8 + R + L.out;
+                at.x = T.cx + ux * d - uz * L.t;
+                at.z = T.cz + uz * d + ux * L.t;
+                ry = Math.atan2(T.cx - at.x, T.cz - at.z);
+                const lo = stretchLocal(f.x, f.z), hi = stretchLocal(f.x + f.w, f.z + f.d), m = R * 0.7;
+                fits = at.x - m >= lo.x && at.x + m <= hi.x && at.z - m >= lo.z && at.z + m <= hi.z;
             }
             b.root.position.set(at.x, 0, at.z);
-            b.root.rotation.y = 0; // (de frente a la cámara)
+            b.root.rotation.y = ry; // (de frente a la cámara; los del rodeo, a su pista)
             if (on && !fits) {
                 b.shown = b.root.visible = false;
                 return;
