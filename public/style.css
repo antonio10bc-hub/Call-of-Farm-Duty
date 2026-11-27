@@ -2468,3 +2468,24 @@ body.cine .stage.small { top: calc(11vh + 26px); }
 /* El nombre nuevo del pueblo al subir de nivel: en grande y algo más de rato */
 .stage.big.show { animation-duration: 2.7s; }
 .stage.big .stage-name { font-size: clamp(32px, 11vw, 72px); padding: 14px 26px; border-width: 6px; }
+
+/* Álbum del pueblo: el botón (junto al reloj del día) y las fotos, como polaroids */
+.album-btn { position: fixed; z-index: 8; display: flex; align-items: center; justify-content: center; padding: 6px 7px; background: var(--cream); border: 3px solid var(--ink); box-shadow: 0 3px 0 rgba(42, 26, 14, .45); cursor: pointer; }
+.album-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(42, 26, 14, .45); }
+.album-btn.new { animation: album-new 0.9s steps(2) infinite; }
+@keyframes album-new { 50% { background: var(--yellow); } }
+body.cine .album-btn, body.predator .album-btn, body.sniping .album-btn, body.prologue .album-btn, body.photo .album-btn { visibility: hidden; }
+.album { position: fixed; inset: 0; z-index: 70; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(42, 26, 14, .72); }
+.album-card { display: flex; flex-direction: column; width: min(760px, 100%); max-height: 88vh; background: var(--cream); border: 3px solid var(--ink); box-shadow: 0 6px 0 var(--ink); animation: album-in .25s steps(3); }
+@keyframes album-in { from { transform: translateY(24px) scale(.96); } }
+.album-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 10px 10px 14px; border-bottom: 3px solid var(--ink); font-family: var(--font); font-size: 12px; color: var(--ink); }
+.album-x { width: 30px; height: 30px; font-family: var(--font); font-size: 14px; line-height: 1; color: var(--ink); background: var(--cream); border: 3px solid var(--ink); box-shadow: 0 3px 0 var(--ink); cursor: pointer; }
+.album-x:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+.album-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; padding: 16px; overflow: auto; }
+.album-photo { margin: 0; padding: 6px 6px 8px; background: #fffaf0; border: 3px solid var(--ink); box-shadow: 0 3px 0 var(--ink); transform: rotate(var(--r, 0deg)); }
+.album-photo img, .album-blank { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; image-rendering: pixelated; border: 2px solid var(--ink); }
+.album-blank { display: flex; align-items: center; justify-content: center; font-family: var(--font); font-size: 22px; color: rgba(42, 26, 14, .35); background: repeating-linear-gradient(45deg, #efe4cc 0 8px, #e6d9bc 8px 16px); }
+.album-photo figcaption { margin-top: 7px; font-family: var(--font); font-size: 9px; line-height: 1.5; color: var(--ink); text-align: center; }
+.album-photo.empty figcaption { opacity: .45; }
+.album-photo img { cursor: zoom-in; }
+.album-big { position: absolute; max-width: min(1100px, 94vw); max-height: 86vh; image-rendering: pixelated; background: #fffaf0; border: 3px solid var(--ink); box-shadow: 0 6px 0 var(--ink); padding: 8px; cursor: zoom-out; animation: album-in .25s steps(3); }

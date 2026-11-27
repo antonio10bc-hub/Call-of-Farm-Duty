@@ -125,6 +125,9 @@ function updateClock() {
     // A la derecha del botón MAPA (en la granja)
     const r = $('btn-map').getBoundingClientRect();
     if (r.width) placeAt(el, r.right + 8, r.top);
+    // (y el álbum del pueblo, a su derecha)
+    const d = el.getBoundingClientRect();
+    if (d.width) placeAt($('btn-album'), d.right + 8, d.top);
 }
 
 // ---------- Granja (mapa) ----------
@@ -2629,6 +2632,7 @@ function updateTownCine(dt) {
             rig.shake(0.25);
         }
         if (at(c.fwAt + 0.9 * S, 'fw2')) launchFireworks(22, 1.6);
+        if (at(c.stageAt - 0.35 * S, 'photo')) albumShot = c.up.lv; // (la foto del álbum: en plenos fuegos)
         if (at(c.stageAt, 'party')) {
             stage(...villageUpText(c.up), false, true); // (el nombre nuevo, en grande)
             sfx.play('townLevel');
@@ -3959,6 +3963,7 @@ function frame(now) {
         shopClouds();
         placeBubbles();
         renderer.render(farmScene, rig.camera, dt);
+        if (albumShot) takeAlbumShot(); // (justo después de dibujar: el lienzo aún tiene la imagen)
     }
     if (mode === 'snipe' || mode === 'toFarm') {
         // (el campo de tiro, en pasos cortos aunque el fotograma sea largo: la puntería y los golpes,
@@ -4022,6 +4027,59 @@ function takePhoto() {
     }));
 }
 
+// ---------- Álbum del pueblo ----------
+// Al subir de nivel el pueblo, en plenos fuegos artificiales, una foto (pequeña, en JPEG) que se
+// guarda en el álbum: una por nivel, como polaroids; los niveles que faltan, en blanco
+const ALBUM = 'cofd-album';
+const albumGet = () => { try { return JSON.parse(localStorage.getItem(ALBUM) || '{}'); } catch { return {}; } };
+let albumShot = 0;
+function takeAlbumShot() {
+    const lv = albumShot;
+    albumShot = 0;
+    try {
+        const src = renderer.gl.domElement, w = 480, h = Math.round((w * src.height) / src.width);
+        const c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        const g = c.getContext('2d');
+        g.imageSmoothingEnabled = false;
+        g.drawImage(src, 0, 0, w, h);
+        const A = albumGet();
+        A[lv] = { img: c.toDataURL('image/jpeg', 0.82), at: Date.now() };
+        localStorage.setItem(ALBUM, JSON.stringify(A));
+        $('btn-album').classList.add('new');
+    } catch { /* sin almacenamiento */ }
+    updateAlbumBtn();
+}
+function updateAlbumBtn() {
+    $('btn-album').classList.toggle('hidden', !Object.keys(albumGet()).length);
+}
+function renderAlbum() {
+    const A = albumGet();
+    $('album-grid').innerHTML = VILLAGE_LEVELS.slice(1).map((V, i) => {
+        const lv = i + 1, p = A[lv], tilt = (((lv * 37) % 7) - 3) * 0.6;
+        return p
+            ? `<figure class="album-photo" style="--r:${tilt}deg"><img src="${p.img}" alt=""><figcaption>${L('LV', 'NV')}.${lv} · ${V.name}</figcaption></figure>`
+            : `<figure class="album-photo empty" style="--r:${tilt}deg"><div class="album-blank">?</div><figcaption>${L('LV', 'NV')}.${lv}</figcaption></figure>`;
+    }).join('');
+}
+const closeAlbum = () => { $('album').classList.add('hidden'); $('album-big').classList.add('hidden'); };
+// (tocar una foto: en grande; tocarla otra vez, de vuelta)
+$('album-grid').addEventListener('click', (e) => {
+    if (e.target.tagName !== 'IMG') return;
+    $('album-big').src = e.target.src;
+    $('album-big').classList.remove('hidden');
+});
+$('album-big').addEventListener('click', (e) => { e.stopPropagation(); $('album-big').classList.add('hidden'); });
+tapBtn('btn-album', () => {
+    renderAlbum();
+    $('album').classList.remove('hidden');
+    $('btn-album').classList.remove('new');
+});
+tapBtn('album-close', closeAlbum);
+$('album').addEventListener('click', (e) => e.target === $('album') && closeAlbum());
+updateAlbumBtn();
+
 // ---------- Resumen al volver ----------
 // Se apunta cuándo se jugó por última vez; al volver tras un rato (al abrir o al volver a la
 // pestaña), una tarjeta con el tiempo fuera, lo que está listo para recoger, lo que está a punto y
@@ -4080,4 +4138,4 @@ if ('serviceWorker' in navigator && !/^(localhost|127\.)/.test(location.hostname
 }
 
 // Para las pruebas (Playwright)
-window.game = { get townCine() { return townCine; }, goRange, range, allDecor: ALL_DECOR.map((d) => d.id), syncMerchantLife, set cineSpeed(v) { CINE_SPEED = v; }, get wellCine() { return wellCine; }, state, sniper, farm, rig, prologue, dayNight, merchantClock, clocks, openMerchant, openWell, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, upgradeHouse, openShop, get cine() { return inCine(); }, goFarm, select, updateCounts, pause: () => (paused = true) };
+window.game = { albumGet, get townCine() { return townCine; }, goRange, range, allDecor: ALL_DECOR.map((d) => d.id), syncMerchantLife, set cineSpeed(v) { CINE_SPEED = v; }, get wellCine() { return wellCine; }, state, sniper, farm, rig, prologue, dayNight, merchantClock, clocks, openMerchant, openWell, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, upgradeHouse, openShop, get cine() { return inCine(); }, goFarm, select, updateCounts, pause: () => (paused = true) };

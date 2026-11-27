@@ -526,6 +526,14 @@ test('el pueblo crece: lo comprado va solo a su sitio (de cine) y cada 5 cosas s
     await expect.poll(() => page.evaluate(() => game.townCine), { timeout: 30_000 }).toBe(null);
     await expect(page.locator('#merchant')).toBeVisible();
     expect(await page.evaluate(() => [game.state.villageLevel, game.state.villageLv, game.farm.townLv, game.farm.village.shown('gnome'), game.farm.village.houses.m0.on, game.farm.village.ringG.visible])).toEqual([2, 2, 2, true, true, false]);
+    // La foto del nivel, en el álbum (a la derecha del reloj del día): una por nivel, las demás en blanco
+    expect(await page.evaluate(() => Object.keys(game.albumGet()))).toEqual(['2']);
+    await expect(page.locator('#btn-album')).toBeVisible();
+    await page.evaluate(() => document.getElementById('btn-album').click());
+    await expect(page.locator('#album-grid figure')).toHaveCount(10);
+    await expect(page.locator('#album-grid img')).toHaveCount(1);
+    await page.evaluate(() => document.getElementById('album-close').click());
+    await expect(page.locator('#album')).toBeHidden();
     // La hoja del pueblo: 10 niveles, 2 conseguidos
     await page.locator('#merchant-tabs [data-tab="town"]').click();
     await expect(page.locator('.tw-step')).toHaveCount(10);
