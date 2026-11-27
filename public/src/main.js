@@ -2297,8 +2297,10 @@ function renderMerchant() {
         + `<span class="t-streak">${L('GIFT IN', 'REGALO EN')} <span class="pips">${Array.from({ length: GIFT_EVERY }, (_, i) => `<i class="pip${i < st ? ' on' : ''}"></i>`).join('')}</span></span></div>`);
     const stock = state.stock(clock.visit, id), mine = stock.filter((d) => state.collects(d)).length;
     const orders = here ? state.ordersFor(clock.visit, id).map((o, i) => ({ o, i })) : [];
-    setHtml($('merchant-view'), `<button data-view="orders" class="nb-tab${mView === 'orders' ? ' on' : ''}">${L('ORDERS', 'ENCARGOS')} ${here ? `${orders.filter(({ o }) => o.done).length}/${orders.length}` : ''}</button>`
-        + `<button data-view="rare" class="nb-tab${mView === 'rare' ? ' on' : ''}">${L('RARE THINGS', 'COSAS RARAS')} ${mine}/${stock.length}</button>`);
+    // (cada pestaña con su punto verde si hay algo que hacer en ella: entregar o comprar)
+    const canSell = here && (M.gift !== null || orders.some(({ o }) => state.canDeliver(o))), canBuy = here && stock.some((d) => state.canBuy(clock.visit, d, id));
+    setHtml($('merchant-view'), `<button data-view="orders" class="nb-tab${mView === 'orders' ? ' on' : ''}${canSell ? ' can' : ''}">${L('ORDERS', 'ENCARGOS')} ${here ? `${orders.filter(({ o }) => o.done).length}/${orders.length}` : ''}</button>`
+        + `<button data-view="rare" class="nb-tab${mView === 'rare' ? ' on' : ''}${canBuy ? ' can' : ''}">${L('RARE THINGS', 'COSAS RARAS')} ${mine}/${stock.length}</button>`);
     if (mView === 'rare') return setHtml($('merchant-orders'), shopHtml(id, here));
     if (!here) {
         setHtml($('merchant-orders'), `<div class="merchant-away">${L('NOT HERE RIGHT NOW. EACH MERCHANT COMES WHEN THEY PLEASE, WITH NEW ORDERS.', 'AHORA NO ESTÁ. CADA MERCADER VIENE CUANDO QUIERE, CON ENCARGOS NUEVOS.')}</div>`);

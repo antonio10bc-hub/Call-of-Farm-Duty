@@ -553,9 +553,15 @@ export class FarmState {
         return this.village.includes(item);
     }
 
+    // ¿Se puede comprar ya? (es suyo, no lo tienes, llega el oro y lo tiene a la venta)
+    canBuy(visit, item, id = 'm0') {
+        const it = DECOR_BY_ID[item];
+        return !!it && it.by === id && !this.collects(item) && this.items.gold >= it.gold && this.stock(visit, id).includes(item);
+    }
+
     buy(visit, item, id = 'm0') {
         const it = DECOR_BY_ID[item];
-        if (!it || it.by !== id || this.collects(item) || this.items.gold < it.gold || !this.stock(visit, id).includes(item)) return false;
+        if (!this.canBuy(visit, item, id)) return false;
         this.items.gold -= it.gold;
         this.village.push(item);
         this.save();

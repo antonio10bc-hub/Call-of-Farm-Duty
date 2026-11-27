@@ -2352,3 +2352,21 @@ body.photo .debug-btn { visibility: hidden; }
 .range-body > .rg-row { width: 100%; }
 .range-body .nb-seg { align-self: flex-start; }
 .m-tab, .merchant-dock .m-tab { justify-content: center; align-content: center; }
+
+/* ===== 3.ª pasada ===== */
+/* Selector de piezas: siempre del mismo tamaño (filtre lo que filtre) y los tipos de arma en una fila */
+.gear-picker { width: min(980px, calc(100vw - 24px)); height: min(620px, calc(100vh - 32px)); }
+.picker-body { flex: 1; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
+.gear-rows { align-content: start; }
+.gear-cats { flex-wrap: nowrap; }
+.gear-cats button { flex: 1 1 auto; min-width: 0; padding: 6px 6px 5px; font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Campo de pruebas: más alto */
+.range-menu { height: min(760px, 92vh); }
+.range-body { flex: 1; min-height: 0; }
+/* Mercader: lo que dice ocupa siempre lo mismo (tres líneas), así la tabla de abajo no se mueve */
+#merchant-line { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; height: 3.9em; }
+/* Punto verde en las pestañas con algo que hacer */
+.nb-tab { position: relative; }
+.nb-tab.can::after { content: ''; position: absolute; top: -6px; right: -6px; width: 12px; height: 12px; background: var(--nb-good); border: 2px solid var(--nb-paper); border-radius: 50%; }
+/* Retratos: sitio alrededor para que el icono del recurso no se corte */
+.merchant-tabs, .merchant-dock .merchant-tabs { padding: 4px 9px 9px 4px; }
