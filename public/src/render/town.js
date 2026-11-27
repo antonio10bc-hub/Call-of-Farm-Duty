@@ -80,6 +80,10 @@ class Grid {
 function measure(m, build) {
     const g = new THREE.Group();
     build(g);
+    // (los charcos de luz del suelo no ocupan sitio)
+    const halos = [];
+    g.traverse((o) => o.userData.halo && halos.push(o));
+    for (const o of halos) o.removeFromParent();
     g.updateMatrixWorld(true);
     const box = new THREE.Box3(), b = new THREE.Box3(), all = new THREE.Box3().setFromObject(g);
     g.traverse((o) => {
@@ -616,7 +620,7 @@ export function layoutTown(V) {
         h.band.g.add(g);
         h.band.shapes.push({ x: h.x, z: h.z, hx: info.W / 2 + 0.2, hz: info.D / 2 + 0.2, ry: h.ry, h: info.top + 0.6 });
         const cs = Math.cos(h.ry), sn = Math.sin(h.ry), fz = info.D / 2 + 0.6;
-        V.doors.push({ x: h.x + info.door * cs + fz * sn, z: h.z - info.door * sn + fz * cs, lv: h.lv });
+        V.doors.push({ x: h.x + info.door * cs + fz * sn, z: h.z - info.door * sn + fz * cs, lv: h.lv, nx: sn, nz: cs });
         // (lo de cada casa: buzón junto al camino, jardinera bajo sus ventanas y, en algunas, la parabólica)
         attach('mailbox', h.lv, 'mailbox', h.k % 3, h, info.W / 2 - 0.3, 0, info.D / 2 + 0.7);
         for (const [wx, wy] of info.win.slice(0, 4)) attach('windowbox', h.lv, 'windowbox', h.k % 3, h, wx, wy - 0.4, info.D / 2 + 0.14);

@@ -4,14 +4,15 @@ import { box, mergeBoxes, bakeRigid } from './materials.js';
 import { MERCHANTS, VILLAGE, TOWN, polar, pavedIn } from '../content/merchants.js';
 import { CROPS } from '../content/crops.js';
 import { layoutTown, auditTown } from './town.js';
+import { TownLife } from './townLife.js';
 
 // El pueblo de los mercaderes: el cráter grande del centro de su zona (donde montan sus puestos y
 // se va llenando de lo que les compras), los siete surcos que llegan hasta él (cada uno lo dejó la
 // nave de un mercader al estrellarse), los árboles tumbados a sus lados, la hoguera y el claro de
 // la nave madre. Cada mercader (Visitor) llega en su ovni disfrazado de vehículo por su surco; la
 // nave madre (Mother) baja en vertical sobre su claro.
-// Las ventanas de las casas de la ampliación, en tres grupos que apagan la luz a horas distintas
-const WINDOW_OFF = { 0xffe18b: 0.8, 0xffe28c: 0.93 };
+// Las ventanas de las casas: un grupo apaga la luz bien entrada la noche
+const WINDOW_OFF = { 0xffe18b: 0.97 }; // (las demás no se apagan: el pueblo sigue con vida de noche)
 const WOOD = 0x9a6a3a, WOOD2 = 0x7a4f2a, DARK = 0x5a3a22, STONE = 0x9a948a;
 const DIRT = [0x8a5a34, 0x76492a, 0x9a6a3a], TRENCH = [0x5a3a22, 0x4a2e1a];
 const METAL = 0x9aa8b8, METAL2 = 0x7a8898, HULL = 0x4a5868, GLASS = 0x9fdcff, CARD = 0xe8d8b0;
@@ -888,6 +889,23 @@ export class Village extends VoxelModel {
 
     // Una pieza que se enciende de noche (farolas, bombillas, cristales...): MeshBasic de su color,
     // que de día se ve apagada
+    // Un charco de luz en el suelo, bajo una farola: un disco que se suma, solo de noche
+    halo(g, x, z, r = 1.7, color = 0xffd27a) {
+        const M = (this.haloMats = this.haloMats || new Map());
+        let mat = M.get(color);
+        if (!mat) {
+            mat = this.own(new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+            mat.visible = false;
+            M.set(color, mat);
+        }
+        const m = new THREE.Mesh(new THREE.CircleGeometry(r, 10), mat);
+        m.rotation.x = -Math.PI / 2;
+        m.position.set(x, 0.05, z);
+        m.userData.halo = true;
+        g.add(m);
+        return m;
+    }
+
     lit(g, w, h, d, color, x, y, z) {
         this.litMats = this.litMats || new Map();
         let L0 = this.litMats.get(color);
@@ -976,6 +994,7 @@ export class Village extends VoxelModel {
     buildLayout() {
         this.buildTown();
         layoutTown(this);
+        this.life = new TownLife(this);
     }
 
     furrowHalf(q, t) {
@@ -1271,21 +1290,8 @@ export class Village extends VoxelModel {
 
     update(dt, time, nightK = 0) {
         for (const v of this.visitors) v.update(dt, time, nightK);
-        // Los coches de la ronda
-        if (this.cars) {
-            const on = this.ringG.visible;
-            for (const C of this.cars) {
-                C.g.visible = on;
-                if (!on) continue;
-                const na = C.a + C.v * C.dir * dt;
-                C.a = na;
-                const R = this.ringAt(C.a) + C.dir * 0.55, R2 = this.ringAt(C.a + 0.01 * C.dir) + C.dir * 0.55;
-                const x = VILLAGE.cx + Math.cos(C.a) * R, z = VILLAGE.cz + Math.sin(C.a) * R;
-                const x2 = VILLAGE.cx + Math.cos(C.a + 0.01 * C.dir) * R2, z2 = VILLAGE.cz + Math.sin(C.a + 0.01 * C.dir) * R2;
-                C.g.position.set(x, 0.13, z);
-                C.g.rotation.y = Math.atan2(x2 - x, z2 - z);
-            }
-        }
+        // El tráfico de la ronda, los paseantes de los barrios y las luciérnagas (render/townLife.js)
+        if (this.life) this.life.update(dt, time, nightK);
         // Lo nuevo (barrios, ronda, objetos), con un bote: crece del suelo
         for (const P0 of this.pops) {
             // (mientras espera o está casi plano, escondido: aplastado contra el suelo parpadea)
@@ -1338,6 +1344,11 @@ export class Village extends VoxelModel {
         if (this.marketPop > 0) {
             this.marketPop = Math.max(0, this.marketPop - dt * 1.5);
             this.marketG.scale.set(1, Math.max(0.0001, back(Math.min(1, (1 - this.marketPop) * 1.2))), 1);
+        }
+        // (y, bajo las farolas, su charco de luz)
+        if (this.haloMats) {
+            const hk = Math.max(0, Math.min(1, (nightK - 0.35) / 0.4));
+            for (const mat of this.haloMats.values()) { mat.opacity = hk * 0.3; mat.visible = hk > 0; }
         }
         // De noche se encienden las farolas, las bombillas y los cristales
         // (las ventanas de las casas se van apagando según avanza la noche: cada grupo a su hora)
