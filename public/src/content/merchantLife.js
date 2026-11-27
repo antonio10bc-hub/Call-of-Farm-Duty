@@ -3,7 +3,7 @@ import { L } from '../core/I18n.js';
 // La vida del mercader a lo largo del tiempo (la lógica, en game/FarmState.js):
 //  - confianza: sube con cada encargo cumplido; por niveles (1-5) paga más, pide más variado, te
 //    saluda distinto y su campamento crece (y deja cosas en el claro entre visitas)
-//  - racha: visitas seguidas con todo cumplido; cada 3, la siguiente trae un regalo
+//  - racha: visitas seguidas con todo cumplido; cada 4, la siguiente trae un regalo
 //  - ánimo: contento si cumpliste la última; serio si lo dejaste plantado dos veces seguidas
 //  - encargos especiales (dan una pieza de colección), combinados (varios cultivos, pagan más) y
 //    urgentes (con cuenta atrás: a tiempo, pagan el doble)
@@ -15,10 +15,15 @@ export const TRUST = [0, 4, 10, 20, 35]; // puntos para cada nivel (1 a 5)
 export const trustLevel = (t) => TRUST.reduce((lv, need, i) => (t >= need ? i + 1 : lv), 1);
 export const TRUST_PAY = 0.06;   // lo que sube el oro por nivel
 export const MOOD_PAY = { happy: 1.1, neutral: 1, serious: 0.9 };
-export const GIFT_EVERY = 3;     // visitas seguidas con todo cumplido para un regalo
+export const GIFT_EVERY = 4;     // visitas seguidas con todo cumplido para un regalo
+export const GIFT_GOLD = 100;    // el regalo, si ya tienes todo lo suyo: oro
 export const URGENT = { secs: 150, pay: 2 }; // el urgente: tiempo y lo que multiplica a tiempo
 export const BASKET_PAY = 1.3;   // el combinado
-export const SPECIAL = { size: 1.6, gold: 1.5 }; // el especial: más grande; si ya tienes todo, oro
+export const SPECIAL = { size: 1.6, gold: 1.5, from: 3, every: 3, top: 2 }; // el especial: más grande; si ya tienes todo, oro
+// ¿Trae especial esta visita? Desde la confianza from, una de cada every visitas; con la máxima,
+// una de cada top (los especiales regalan objetos del pueblo: si salieran siempre, el pueblo se
+// llenaría solo)
+export const specialVisit = (lv, visit) => lv >= SPECIAL.from && visit % (lv >= 5 ? SPECIAL.top : SPECIAL.every) === 0;
 
 // FORCE: lo que fija DEBUG (null: lo normal) para la fiesta
 export const FORCE = { party: null };

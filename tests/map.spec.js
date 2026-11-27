@@ -49,11 +49,11 @@ test('mejorar el campo: cuesta 3 de trigo, lo hace más grande y con más matas'
     await expect(page.locator('#panel-title')).toHaveText('CAMPO DE TRIGO NV.1');
     // Sin trigo suficiente no se puede mejorar
     await expect(page.locator('#panel-upgrade')).toBeDisabled();
-    await page.evaluate(() => { game.state.wheat = 4; });
+    await page.evaluate(() => { game.state.wheat = 21; });
     await expect(page.locator('#panel-upgrade')).toBeEnabled();
     await page.locator('#panel-upgrade').click();
     expect(await page.evaluate(() => game.state.fields.wheat.level)).toBe(1);
-    expect(await page.evaluate(() => game.state.wheat)).toBe(1);
+    expect(await page.evaluate(() => game.state.wheat)).toBe(3);
     const after = await page.evaluate(() => ({ w: game.farm.fields.wheat.rect.w, d: game.farm.fields.wheat.rect.d, left: game.state.fields.wheat.left, stalks: game.farm.fields.wheat.plants.length }));
     expect(after.w * after.d).toBeGreaterThan(before.w * before.d);
     expect(after.stalks).toBeGreaterThan(before.stalks);
@@ -182,10 +182,10 @@ test('torreta: con el campo al máximo, la mejora extra pone una torreta que va 
     await openFarm(page);
     await expect(page.locator('#sign-wheat')).toHaveText('NV.1', { timeout: 30_000 });
     // Al nivel 5 la mejora pasa a ser TORRETA, con su precio
-    await page.evaluate(() => { game.state.wheat = 12; for (let i = 0; i < 4; i++) game.upgradeField('wheat'); game.state.wheat = 0; game.select({ field: 'wheat' }); });
+    await page.evaluate(() => { for (let i = 0; i < 4; i++) { game.state.wheat = 1e4; game.upgradeField('wheat'); } game.state.wheat = 0; game.select({ field: 'wheat' }); });
     await expect(page.locator('#upgrade-label')).toHaveText('TORRETA');
     await expect(page.locator('#panel-upgrade')).toBeDisabled();
-    await page.evaluate(() => { game.state.wheat = 40; });
+    await page.evaluate(() => { game.state.wheat = 480; });
     await expect(page.locator('#panel-upgrade')).toBeEnabled();
     await page.locator('#panel-upgrade').click();
     expect(await page.evaluate(() => [game.state.fields.wheat.turrets, !!game.farm.fields.wheat.turret, game.farm.fields.wheat.bases.length, game.state.wheat, game.state.fields.wheat.ammo])).toEqual([true, true, 4, 0, 60]);
@@ -216,10 +216,10 @@ test('torreta: con el campo al máximo, la mejora extra pone una torreta que va 
     const stopped = await page.evaluate(() => game.state.wheat);
     await page.evaluate(() => game.select({ field: 'wheat' }));
     await expect(page.locator('#upgrade-label')).toHaveText('RECARGAR');
-    await expect(page.locator('#upgrade-cost')).toContainText('6');
+    await expect(page.locator('#upgrade-cost')).toContainText('3');
     await expect(page.locator('#panel-upgrade')).toBeDisabled();
     expect(await page.evaluate(() => game.state.wheat)).toBe(stopped);
-    await page.evaluate(() => { game.state.items.gold = 10; game.select({ field: 'wheat' }); });
+    await page.evaluate(() => { game.state.items.gold = 7; game.select({ field: 'wheat' }); });
     await expect(page.locator('#panel-upgrade')).toBeEnabled();
     await page.locator('#panel-upgrade').click();
     expect(await page.evaluate(() => [game.state.fields.wheat.ammo, game.state.items.gold])).toEqual([60, 4]);
@@ -452,7 +452,7 @@ test('pozo de los deseos: se echa una moneda de oro y sale una pieza de la armer
     await page.locator('#dock-well').click();
     await expect(page.locator('#well')).toBeVisible();
     await expect(page.locator('#well-wish')).toBeDisabled();
-    // Con oro: cuesta 15 y sale una pieza nueva (con su carta y ya en la armería)
+    // Con oro: el primero cuesta 15 y sale una pieza nueva (con su carta y ya en la armería)
     await page.evaluate(() => { game.state.items.gold = 15 * 12 + 5; game.openWell(); });
     await page.locator('#well-wish').click();
     await expect(page.locator('.well-card')).toBeVisible({ timeout: 15_000 });
@@ -460,12 +460,12 @@ test('pozo de los deseos: se echa una moneda de oro y sale una pieza de la armer
     // Puede repetir: la repetida no se suma y devuelve el 25% de lo que costó
     const got = await page.evaluate(() => {
         const S = game.state, p0 = S.arsenal.owned[0].split(':'), pool = S.wishPool(), i = pool.findIndex((p) => p.kind === p0[0] && p.id === p0[1]);
-        S.items.gold = 15;
+        S.items.gold = 18; // (el segundo deseo: 15 + 3 por la pieza que ya tiene)
         const total = pool.reduce((n, p) => n + p.tier.w, 0), before = pool.slice(0, i).reduce((n, p) => n + p.tier.w, 0);
         const r = S.wish(() => (before + 0.01) / total); // (la que ya tiene)
         return [r.dup, r.refund, S.items.gold, S.arsenal.owned.length];
     });
-    expect(got).toEqual([true, 4, 4, 1]);
+    expect(got).toEqual([true, 5, 5, 1]);
     expect(errors).toEqual([]);
 });
 
@@ -579,11 +579,11 @@ test('recargar todas las torretas desde la fila de cultivos: las que dé el oro,
         const S = game.state;
         for (const id of ['wheat', 'tomato']) { S.unlock(id, Date.now(), true); S.fields[id].turrets = true; S.fields[id].ammo = 0; }
         while (game.revealUnlocked());
-        S.items.gold = 8; // (da para una entera, no para las dos)
+        S.items.gold = 4; // (da para una entera, no para las dos)
         game.updateCounts();
     });
     await page.locator('#dock-fields').click();
     await page.locator('#pop-reload-all').click();
-    expect(await page.evaluate(() => [game.state.fields.wheat.ammo > 0 || game.state.fields.tomato.ammo > 0, game.state.fields.wheat.ammo > 0 && game.state.fields.tomato.ammo > 0, game.state.items.gold])).toEqual([true, false, 2]);
+    expect(await page.evaluate(() => [game.state.fields.wheat.ammo > 0 || game.state.fields.tomato.ammo > 0, game.state.fields.wheat.ammo > 0 && game.state.fields.tomato.ammo > 0, game.state.items.gold])).toEqual([true, false, 1]);
     expect(errors).toEqual([]);
 });

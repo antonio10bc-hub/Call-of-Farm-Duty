@@ -36,7 +36,7 @@ test('progresión: granero, trigo, regalos del trigo mágico, mercader, casa y p
     await expect(page.locator('.lo-sec-crop')).toHaveClass(/locked/);
     await page.locator('#class-1').click();
     expect(await page.evaluate(() => game.state.classOpen(1))).toBe(false);
-    await page.evaluate(() => { game.state.items.gold = 12; });
+    await page.evaluate(() => { game.state.items.gold = 17; });
     await page.locator('#class-1').click();
     expect(await page.evaluate(() => [game.state.classOpen(1), game.state.items.gold])).toEqual([true, 2]);
     await page.keyboard.press('Escape');
