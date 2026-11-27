@@ -210,12 +210,12 @@ test('debug en cuatro apartados: botones a la izquierda, ninguno abierto al entr
     await page.locator('#dbg-feel').click();
     await page.locator('#dbg-feel-fov').click();
     expect(await page.evaluate(() => { const S = JSON.parse(localStorage.getItem('cofd.settings')); return [S.feel, S.feelFov, game.sniper.debug.feelOn('feelFov')]; })).toEqual([false, false, false]);
-    // La ampliación del pueblo (con el pueblo terminado), de paso en paso
-    await page.evaluate(() => { game.state.village = game.allDecor.slice(); game.syncMerchantLife(false); });
+    // El nivel del pueblo, de uno en uno
+    await page.evaluate(() => { game.state.village = []; game.syncMerchantLife(false); });
     await tab(page, 'PUEBLO');
     await page.locator('#dbg-town-row [data-d="1"]').click();
     await page.locator('#dbg-town-row [data-d="1"]').click();
-    expect(await page.evaluate(() => [game.state.town, game.farm.village.planItems[1].built])).toEqual([2, true]);
+    expect(await page.evaluate(() => [game.state.villageLevel, game.farm.townLv, game.state.village.length])).toEqual([2, 2, 10]);
     // Se recuerda el apartado al volver a abrir
     await page.locator('#btn-debug-close').click();
     await page.locator('#btn-debug').click();

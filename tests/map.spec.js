@@ -377,11 +377,16 @@ test('vida de los mercaderes (con DEBUG): confianza por niveles, racha con regal
     await page.evaluate(() => { game.state.village = []; game.state.merchants.m0.gift = 'gnome'; game.state.items.gold = 999; game.openMerchant('m0'); });
     await expect(page.locator('#merchant-trust')).toContainText('AMIGO DEL ALMA');
     await expect(page.locator('#merchant-tabs .m-tab:not(.m-town)')).toHaveCount(8);
+    // (cada cosa nueva, de cine: la cámara va a su sitio y vuelve el menú)
     await page.locator('button[data-gift]').click();
+    await expect.poll(() => page.evaluate(() => game.townCine), { timeout: 15_000 }).toBe(null);
     await page.locator('button[data-view="rare"]').click(); // (las cosas raras, en su pestaña)
     await page.locator('button[data-buy="trophy"]').click();
+    await expect(page.locator('body')).toHaveClass(/cine/);
+    await expect.poll(() => page.evaluate(() => game.townCine), { timeout: 15_000 }).toBe(null);
+    await expect(page.locator('#merchant')).toBeVisible();
     expect(await page.evaluate(() => game.state.village)).toEqual(['gnome', 'trophy']);
-    await expect.poll(() => page.evaluate(() => ['gnome', 'trophy', 'flamingo'].map((i) => game.farm.village.decor[i].g.visible))).toEqual([true, true, false]);
+    await expect.poll(() => page.evaluate(() => ['gnome', 'trophy', 'flamingo'].map((i) => game.farm.village.shown(i)))).toEqual([true, true, false]);
     // Lo de otro mercader solo se compra a ese (y si no está, no se compra)
     expect(await page.evaluate(() => [game.state.buy(0, 'fountain', 'm0'), game.state.buy(0, 'flamingo', 'm0')])).toEqual([false, true]);
     await page.locator('button[data-tab="m1"]').click();
@@ -389,7 +394,7 @@ test('vida de los mercaderes (con DEBUG): confianza por niveles, racha con regal
     await expect(page.locator('button[data-buy="banner"]')).toBeDisabled();
     // El pueblo entero (DEBUG): toda la decoración a la vista
     await tap('dbg-village-all');
-    expect(await page.evaluate(() => Object.values(game.farm.village.decor).every((d) => d.g.visible))).toBe(true);
+    expect(await page.evaluate(() => Object.keys(game.farm.village.regions).every((id) => game.farm.village.shown(id)))).toBe(true);
     // Dejarlo plantado dos veces: serio y pide uno menos
     await page.evaluate(() => { game.state.merchants.m0.trust = 0; });
     await page.evaluate(() => { document.getElementById('dbg-m-pick').click(); while (document.getElementById('dbg-m-pick').textContent !== 'EL MERCADER') document.getElementById('dbg-m-pick').click(); });
@@ -421,10 +426,10 @@ test('pueblo de los mercaderes: día de mercado, exclusivo de la nave madre, niv
     expect(ex).toBeTruthy();
     expect(await page.evaluate((ex) => { game.state.items.gold = 999; return [game.state.buy(game.clocks.mother.visit, ex, 'm0'), game.state.buy(game.clocks.mother.visit, ex, 'mother')]; }, ex)).toEqual([false, true]);
     await page.evaluate(() => game.openMerchant('m0'));
-    // Nivel del pueblo: al llenarlo, sube de nivel (con su oro) y se quedan a vivir 3 (sin logros: ya no hay)
-    await page.evaluate(() => { game.state.village = Object.keys(game.farm.village.decor); });
+    // Nivel del pueblo: al llenarlo, sube al último (con su oro) y se quedan a vivir 9
+    await page.evaluate(() => { game.state.village = game.allDecor.slice(); });
     await tap('dbg-medals');
-    expect(await page.evaluate(() => [game.state.villageLevel, game.state.villageLv, game.farm.village.residents.filter((r) => r.on).length])).toEqual([4, 4, 3]);
+    expect(await page.evaluate(() => { game.syncMerchantLife(false); return [game.state.villageLevel, game.state.villageLv, game.farm.village.residents.filter((r) => r.on).length]; })).toEqual([10, 10, 9]);
     // Celos: si a otro le tienes mucha más confianza, este paga más
     await page.evaluate(() => { game.state.merchants.m0.trust = 35; game.state.newOrders(game.clocks.m2.visit, 'm2'); });
     expect(await page.evaluate(() => game.state.merchants.m2.jealous)).toBe(true);
@@ -498,28 +503,29 @@ test('dock: CAMPOS abre encima otra barra con los cultivos desbloqueados y tocar
     expect(errors).toEqual([]);
 });
 
-test('ampliar el pueblo: con el pueblo terminado, cada paso construye la siguiente pieza (la ronda primero) por oro, y se guarda', { tag: '@full' }, async ({ page }) => {
+test('el pueblo crece: lo comprado va solo a su sitio (de cine) y cada 5 cosas sube un nivel, con lo que construye; se guarda', { tag: '@full' }, async ({ page }) => {
     const errors = watchErrors(page);
     await openFarm(page);
-    await page.evaluate(() => { const S = game.state; S.story.merchant = true; S.village = game.allDecor.slice(); S.items.gold = 100; game.syncMerchantLife(false); game.clocks.m0.force = 'here'; });
+    // 9 cosas de otros mercaderes (nivel 1: la plaza de piedra) y oro para comprar la décima
+    await page.evaluate(() => { const S = game.state; S.story.merchant = true; S.village = game.allDecor.filter((id) => !['gnome', 'flamingo', 'trophy', 'hedges', 'swings', 'birdbath'].includes(id)).slice(0, 9); S.items.gold = 100; game.syncMerchantLife(false); game.clocks.m0.force = 'here'; });
+    expect(await page.evaluate(() => [game.state.villageLevel, game.farm.townLv, game.farm.village.houses.m0.on])).toEqual([1, 1, false]);
     await expect.poll(() => page.evaluate(() => game.farm.village.byId.m0.open), { timeout: 120_000 }).toBe(true);
     await page.evaluate(() => game.openMerchant('m0'));
-    // (el pueblo: la primera entrada de la lista de mercaderes)
-    await page.locator('#merchant-tabs [data-tab="town"]').click();
-    const btn = page.locator('#merchant-village [data-expand]');
-    await expect(btn).toBeEnabled();
-    await btn.click();
-    // (de cine: sin control hasta que se ve la pieza nueva, y vuelve el menú)
+    await page.locator('button[data-view="rare"]').click();
+    await expect(page.locator('button[data-buy="gnome"]')).toContainText(/COMPRAR|BUY/);
+    await page.locator('button[data-buy="gnome"]').click();
+    // De cine: sin control, a su sitio y, como sube de nivel, otro plano con lo que construye
     await expect(page.locator('body')).toHaveClass(/cine/);
     await expect.poll(() => page.evaluate(() => game.townCine), { timeout: 30_000 }).toBe(null);
     await expect(page.locator('#merchant')).toBeVisible();
-    expect(await page.evaluate(() => [game.state.town, game.state.items.gold, game.farm.village.planItems[0].kind, game.farm.village.planItems[0].built, game.farm.townPhase])).toEqual([1, 94, 'ring', true, 4]);
-    await page.locator('#merchant-village [data-expand]').click();
-    await expect.poll(() => page.evaluate(() => game.townCine), { timeout: 30_000 }).toBe(null);
-    expect(await page.evaluate(() => [game.state.town, game.farm.village.planItems[1].built])).toEqual([2, true]);
+    expect(await page.evaluate(() => [game.state.villageLevel, game.state.villageLv, game.farm.townLv, game.farm.village.shown('gnome'), game.farm.village.houses.m0.on, game.farm.village.ringG.visible])).toEqual([2, 2, 2, true, true, false]);
+    // La hoja del pueblo: 10 niveles, 2 conseguidos
+    await page.locator('#merchant-tabs [data-tab="town"]').click();
+    await expect(page.locator('.tw-step')).toHaveCount(10);
+    await expect(page.locator('.tw-step.done')).toHaveCount(2);
     // Se guarda
     await page.reload();
-    await expect.poll(() => page.evaluate(() => window.game && game.state.town)).toBe(2);
+    await expect.poll(() => page.evaluate(() => window.game && game.state.village.length)).toBe(10);
     expect(errors).toEqual([]);
 });
 

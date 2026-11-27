@@ -45,45 +45,81 @@ export const MERCHANT_BY_ID = Object.fromEntries(MERCHANTS.map((m) => [m.id, m])
 export const VILLAGE = { cx: 45, cz: -15, R: 10, stall: 8.4, pad: 20, impact: 14, fire: { r: 8.6, angle: 152 } };
 export const polar = (r, deg) => ({ x: VILLAGE.cx + Math.cos((deg * Math.PI) / 180) * r, z: VILLAGE.cz + Math.sin((deg * Math.PI) / 180) * r });
 
-// Lo que vende cada uno: objetos raros (de su estilo) que, comprados, decoran el cráter. at: dónde
-// va (r, y el ángulo: desde el suyo con da, o fijo con a)
+// Lo que vende cada uno: objetos (de su estilo) que, comprados, se colocan solos en su sitio del
+// pueblo. El pueblo está diseñado entero de antemano (render/merchants.js: Village): cada objeto
+// «pinta» su parte, como un dibujo de colorear por números, en cualquier orden. where: qué parte
+//   plaza   una cosa en su sitio de la plaza (o la fuente, en el centro)
+//   round   alrededor de toda la plaza
+//   street  por todas las calles (y la ronda, cuando la hay)
+//   town    por todo el pueblo
+//   house   en las casas (las de los mercaderes y las del pueblo: se ve cuando las hay)
+//   pad     junto a la plataforma de la nave madre
 export const DECOR = [
-    { id: 'gnome', by: 'm0', name: L('ALIEN GNOME', 'GNOMO ALIENÍGENA'), gold: 12, r: 6, da: -16 },
-    { id: 'flamingo', by: 'm0', name: L('PLASTIC FLAMINGO', 'FLAMENCO DE PLÁSTICO'), gold: 8, r: 6, da: 16 },
-    { id: 'trophy', by: 'm0', name: L('GOLDEN TROPHY', 'TROFEO DORADO'), gold: 25, r: 4.2, da: 0 },
-    { id: 'banner', by: 'm1', name: L('ALIEN BANNER', 'BANDERA ALIENÍGENA'), gold: 15, r: 6, da: -16 },
-    { id: 'stand', by: 'm1', name: L('MARKET STAND', 'PUESTO DE MERCADO'), gold: 20, r: 6, da: 16 },
-    { id: 'bench', by: 'm1', name: L('PARK BENCH', 'BANCO DEL PARQUE'), gold: 10, r: 4.2, da: 0 },
-    { id: 'lamps', by: 'm2', name: L('STREET LAMPS', 'FAROLAS'), gold: 14, r: 6, da: -16 },
-    { id: 'mailbox', by: 'm2', name: L('MAILBOX (FOR HUMAN LETTERS)', 'BUZÓN (DE CARTAS HUMANAS)'), gold: 8, r: 6, da: 16 },
-    { id: 'flowers', by: 'm2', name: L('ALIEN FLOWER BED', 'PARTERRE ALIENÍGENA'), gold: 12, r: 4.2, da: 0 },
-    { id: 'shrubs', by: 'm3', name: L('GLOWING SHRUBS', 'ARBUSTOS QUE BRILLAN'), gold: 10, r: 6, da: -16 },
-    { id: 'cone', by: 'm3', name: L('GIANT ICE CREAM SIGN', 'CUCURUCHO GIGANTE'), gold: 18, r: 6, da: 16 },
-    { id: 'lights', by: 'm3', name: L('STRING LIGHTS', 'GUIRNALDA DE LUCES'), gold: 16, r: 4.2, da: 0 },
-    { id: 'well', by: 'm4', name: L('STONE WELL', 'POZO DE PIEDRA'), gold: 16, r: 6, da: -16 },
-    { id: 'dish', by: 'm4', name: L('SATELLITE DISH', 'ANTENA PARABÓLICA'), gold: 20, r: 6, da: 16 },
-    { id: 'signpost', by: 'm4', name: L('SIGNPOST TO EVERYWHERE', 'POSTE A TODAS PARTES'), gold: 8, r: 4.2, da: 0 },
-    { id: 'telescope', by: 'm5', name: L('TELESCOPE (TO SEE HOME)', 'TELESCOPIO (PARA VER CASA)'), gold: 18, r: 6, da: -16 },
-    { id: 'crystal', by: 'm5', name: L('SPACE CRYSTAL', 'CRISTAL ESPACIAL'), gold: 14, r: 6, da: 16 },
-    { id: 'mushrooms', by: 'm5', name: L('GIANT MUSHROOMS', 'SETAS GIGANTES'), gold: 10, r: 4.2, da: 0 },
-    { id: 'mill', by: 'm6', name: L('LITTLE WINDMILL', 'MOLINILLO DE VIENTO'), gold: 22, r: 6, da: -16 },
-    { id: 'pumpkins', by: 'm6', name: L('ALIEN PUMPKINS', 'CALABAZAS ALIENÍGENAS'), gold: 10, r: 6, da: 16 },
-    { id: 'scarecrow', by: 'm6', name: L('ALIEN SCARECROW', 'ESPANTAPÁJAROS ALIENÍGENA'), gold: 12, r: 4.2, da: 0 },
-    { id: 'fountain', by: 'mother', name: L('GOLDEN FOUNTAIN', 'FUENTE DORADA'), gold: 60, r: 0, a: 0 },
-    { id: 'statue', by: 'mother', name: L('STATUE OF THE MERCHANTS', 'ESTATUA DE LOS MERCADERES'), gold: 50, r: 2.6, a: -115 },
-    { id: 'discoball', by: 'mother', name: L('DISCO BALL', 'BOLA DE DISCOTECA'), gold: 30, r: 2.6, a: 40 },
-    { id: 'tree', by: 'mother', name: L('GIANT ALIEN TREE', 'ÁRBOL ALIENÍGENA GIGANTE'), gold: 45, r: 2.6, a: 160 },
+    // El mercader: jardín kitsch
+    { id: 'gnome', by: 'm0', where: 'town', name: L('ALIEN GNOMES', 'GNOMOS ALIENÍGENAS'), gold: 12 },
+    { id: 'flamingo', by: 'm0', where: 'town', name: L('PLASTIC FLAMINGOS', 'FLAMENCOS DE PLÁSTICO'), gold: 8 },
+    { id: 'trophy', by: 'm0', where: 'plaza', name: L('GOLDEN TROPHY', 'TROFEO DORADO'), gold: 25 },
+    { id: 'hedges', by: 'm0', where: 'round', name: L('HEDGES', 'SETOS'), gold: 14 },
+    { id: 'swings', by: 'm0', where: 'town', name: L('SWINGS', 'COLUMPIOS'), gold: 16 },
+    { id: 'birdbath', by: 'm0', where: 'town', name: L('BIRD BATHS', 'BEBEDEROS DE PÁJAROS'), gold: 10 },
+    // La conductora: lo de la calle
+    { id: 'banner', by: 'm1', where: 'street', name: L('ALIEN FLAGS', 'BANDERAS ALIENÍGENAS'), gold: 15 },
+    { id: 'stand', by: 'm1', where: 'street', name: L('MARKET STALLS', 'PUESTOS DEL MERCADO'), gold: 20 },
+    { id: 'bench', by: 'm1', where: 'street', name: L('BENCHES', 'BANCOS'), gold: 10 },
+    { id: 'busstop', by: 'm1', where: 'street', name: L('BUS STOPS', 'PARADAS DE AUTOBÚS'), gold: 18 },
+    { id: 'hydrant', by: 'm1', where: 'street', name: L('FIRE HYDRANTS', 'BOCAS DE INCENDIO'), gold: 8 },
+    { id: 'billboard', by: 'm1', where: 'street', name: L('BILLBOARDS', 'VALLAS PUBLICITARIAS'), gold: 16 },
+    // La del mini: lo bonito
+    { id: 'lamps', by: 'm2', where: 'street', name: L('STREET LAMPS', 'FAROLAS'), gold: 14 },
+    { id: 'mailbox', by: 'm2', where: 'house', name: L('MAILBOXES', 'BUZONES'), gold: 8 },
+    { id: 'flowers', by: 'm2', where: 'round', name: L('ALIEN FLOWER BEDS', 'PARTERRES ALIENÍGENAS'), gold: 12 },
+    { id: 'planters', by: 'm2', where: 'street', name: L('FLOWER POTS', 'MACETEROS'), gold: 10 },
+    { id: 'windowbox', by: 'm2', where: 'house', name: L('WINDOW BOXES', 'JARDINERAS'), gold: 12 },
+    { id: 'fences', by: 'm2', where: 'town', name: L('PICKET FENCES', 'VALLAS BLANCAS'), gold: 12 },
+    // El heladero: la fiesta
+    { id: 'shrubs', by: 'm3', where: 'town', name: L('GLOWING SHRUBS', 'ARBUSTOS QUE BRILLAN'), gold: 10 },
+    { id: 'cone', by: 'm3', where: 'plaza', name: L('GIANT ICE CREAM SIGN', 'CUCURUCHO GIGANTE'), gold: 18 },
+    { id: 'lights', by: 'm3', where: 'round', name: L('STRING LIGHTS', 'GUIRNALDAS DE LUCES'), gold: 16 },
+    { id: 'discoball', by: 'm3', where: 'plaza', name: L('DISCO BALL', 'BOLA DE DISCOTECA'), gold: 30 },
+    { id: 'kiosk', by: 'm3', where: 'town', name: L('ICE CREAM KIOSKS', 'QUIOSCOS DE HELADOS'), gold: 22 },
+    { id: 'parasols', by: 'm3', where: 'town', name: L('TERRACES', 'TERRAZAS'), gold: 14 },
+    // La camionera: lo útil
+    { id: 'well', by: 'm4', where: 'town', name: L('STONE WELLS', 'POZOS DE PIEDRA'), gold: 16 },
+    { id: 'dish', by: 'm4', where: 'house', name: L('SATELLITE DISHES', 'ANTENAS PARABÓLICAS'), gold: 20 },
+    { id: 'signpost', by: 'm4', where: 'plaza', name: L('SIGNPOST TO EVERYWHERE', 'POSTE A TODAS PARTES'), gold: 8 },
+    { id: 'gas', by: 'm4', where: 'town', name: L('GAS STATION', 'GASOLINERA'), gold: 28 },
+    { id: 'crates', by: 'm4', where: 'town', name: L('CRATES AND BARRELS', 'CAJAS Y BARRILES'), gold: 8 },
+    { id: 'sheds', by: 'm4', where: 'town', name: L('TOOL SHEDS', 'COBERTIZOS'), gold: 14 },
+    // El campista: la naturaleza
+    { id: 'telescope', by: 'm5', where: 'plaza', name: L('TELESCOPE (TO SEE HOME)', 'TELESCOPIO (PARA VER CASA)'), gold: 18 },
+    { id: 'crystal', by: 'm5', where: 'town', name: L('SPACE CRYSTALS', 'CRISTALES ESPACIALES'), gold: 14 },
+    { id: 'mushrooms', by: 'm5', where: 'town', name: L('GIANT MUSHROOMS', 'SETAS GIGANTES'), gold: 10 },
+    { id: 'tents', by: 'm5', where: 'town', name: L('CAMPING TENTS', 'TIENDAS DE CAMPAÑA'), gold: 12 },
+    { id: 'woods', by: 'm5', where: 'town', name: L('TREES', 'ÁRBOLES'), gold: 20 },
+    { id: 'tree', by: 'm5', where: 'plaza', name: L('GIANT ALIEN TREE', 'ÁRBOL ALIENÍGENA GIGANTE'), gold: 30 },
+    // El falso granjero: el campo
+    { id: 'mill', by: 'm6', where: 'town', name: L('WINDMILLS', 'MOLINOS'), gold: 22 },
+    { id: 'pumpkins', by: 'm6', where: 'town', name: L('ALIEN PUMPKINS', 'CALABAZAS ALIENÍGENAS'), gold: 10 },
+    { id: 'scarecrow', by: 'm6', where: 'town', name: L('ALIEN SCARECROWS', 'ESPANTAPÁJAROS ALIENÍGENAS'), gold: 12 },
+    { id: 'gardens', by: 'm6', where: 'town', name: L('VEGETABLE PATCHES', 'HUERTOS'), gold: 14 },
+    { id: 'orchards', by: 'm6', where: 'town', name: L('ORCHARDS', 'FRUTALES'), gold: 16 },
+    { id: 'haystacks', by: 'm6', where: 'town', name: L('HAYSTACKS', 'ALMIARES'), gold: 8 },
+    // La nave madre: lo grande
+    { id: 'fountain', by: 'mother', where: 'plaza', name: L('GOLDEN FOUNTAIN', 'FUENTE DORADA'), gold: 60 },
+    { id: 'statue', by: 'mother', where: 'plaza', name: L('STATUE OF THE MERCHANTS', 'ESTATUA DE LOS MERCADERES'), gold: 50 },
 ];
-// Lo exclusivo de la nave madre: cada visita trae uno distinto (solo se vende esa visita); va en su
-// zona de impacto, junto al camino al cráter (a: fijo, r desde el centro del cráter)
+// Lo exclusivo de la nave madre: cada visita trae uno distinto (solo se vende esa visita); va
+// junto a su plataforma
 export const EXCLUSIVE = [
-    { id: 'arch', by: 'mother', exclusive: true, name: L('CRYSTAL ARCH', 'ARCO DE CRISTAL'), gold: 70, r: 13, a: -97 },
-    { id: 'totem', by: 'mother', exclusive: true, name: L('ALIEN TOTEM', 'TÓTEM ALIENÍGENA'), gold: 55, r: 13, a: -133 },
-    { id: 'holo', by: 'mother', exclusive: true, name: L('HOLOGRAM OF HOME', 'HOLOGRAMA DE CASA'), gold: 80, r: 15.5, a: -87 },
-    { id: 'rocket', by: 'mother', exclusive: true, name: L('FAIRGROUND ROCKET', 'COHETE DE FERIA'), gold: 65, r: 15.5, a: -143 },
-    { id: 'pond', by: 'mother', exclusive: true, name: L('GLOWING POND', 'CHARCA QUE BRILLA'), gold: 50, r: 11.6, a: -84 },
-    { id: 'saucer', by: 'mother', exclusive: true, name: L('SOUVENIR SAUCER', 'PLATILLO DE RECUERDO'), gold: 60, r: 11.6, a: -146 },
+    { id: 'arch', by: 'mother', where: 'pad', exclusive: true, name: L('CRYSTAL ARCH', 'ARCO DE CRISTAL'), gold: 70 },
+    { id: 'totem', by: 'mother', where: 'pad', exclusive: true, name: L('ALIEN TOTEM', 'TÓTEM ALIENÍGENA'), gold: 55 },
+    { id: 'holo', by: 'mother', where: 'pad', exclusive: true, name: L('HOLOGRAM OF HOME', 'HOLOGRAMA DE CASA'), gold: 80 },
+    { id: 'rocket', by: 'mother', where: 'pad', exclusive: true, name: L('FAIRGROUND ROCKET', 'COHETE DE FERIA'), gold: 65 },
+    { id: 'pond', by: 'mother', where: 'pad', exclusive: true, name: L('GLOWING POND', 'CHARCA QUE BRILLA'), gold: 50 },
+    { id: 'saucer', by: 'mother', where: 'pad', exclusive: true, name: L('SOUVENIR SAUCER', 'PLATILLO DE RECUERDO'), gold: 60 },
 ];
+// Dónde va, dicho en la tienda
+export const WHERE = { plaza: L('IN THE PLAZA', 'EN LA PLAZA'), round: L('ALL AROUND THE PLAZA', 'ALREDEDOR DE LA PLAZA'), street: L('ALONG EVERY STREET', 'POR TODAS LAS CALLES'), town: L('ALL OVER THE VILLAGE', 'POR TODO EL PUEBLO'), house: L('ON THE HOUSES', 'EN LAS CASAS'), pad: L('BY THE MOTHERSHIP', 'JUNTO A LA NAVE MADRE') };
 // El exclusivo de una visita de la nave madre (si ya lo tienes, el siguiente que no tengas)
 export function exclusiveFor(visit, owned) {
     for (let k = 0; k < EXCLUSIVE.length; k++) {
@@ -95,32 +131,34 @@ export function exclusiveFor(visit, owned) {
 export const ALL_DECOR = [...DECOR, ...EXCLUSIVE];
 export const DECOR_BY_ID = Object.fromEntries(ALL_DECOR.map((d) => [d.id, d]));
 
-// El nivel del pueblo, según cuántas cosas tiene (y el oro que te dan al llegar a cada uno)
+// El nivel del pueblo: uno cada 5 objetos (hasta 10). Cada uno da su oro y construye algo grande
+// (build); algunos, además, una ventaja (perk: TOWN_PERKS)
+export const PER_LEVEL = 5;
 export const VILLAGE_LEVELS = [
-    { n: 0, name: L('CAMP', 'CAMPAMENTO'), gold: 0 },
-    { n: 4, name: L('HAMLET', 'ALDEA'), gold: 20 },
-    { n: 9, name: L('VILLAGE', 'PUEBLO'), gold: 40 },
-    { n: 16, name: L('TOWN', 'VILLA'), gold: 60 },
-    { n: 24, name: L('CITY', 'CIUDAD'), gold: 100 },
+    { name: L('CAMP', 'CAMPAMENTO'), gold: 0, build: L('A CRATER IN THE CLEARING', 'UN CRÁTER EN EL CLARO') },
+    { name: L('OUTPOST', 'PUESTO'), gold: 10, build: L('STONE PLAZA', 'PLAZA DE PIEDRA') },
+    { name: L('HAMLET', 'ALDEA'), gold: 15, build: L('3 MERCHANTS MOVE IN: HOUSES AND PAVED STREETS', '3 MERCADERES SE MUDAN: CASAS Y CALLES ASFALTADAS') },
+    { name: L('SETTLEMENT', 'CASERÍO'), gold: 20, build: L('A ROAD AROUND THE PLAZA', 'UNA CALLE ALREDEDOR DE LA PLAZA'), perk: 'market' },
+    { name: L('VILLAGE', 'PUEBLO'), gold: 25, build: L('THE OTHER 4 MERCHANTS MOVE IN', 'LOS OTROS 4 MERCADERES SE MUDAN') },
+    { name: L('BIG VILLAGE', 'PUEBLO GRANDE'), gold: 30, build: L('STONE AVENUE TO THE MOTHERSHIP', 'AVENIDA DE PIEDRA HASTA LA NAVE MADRE'), perk: 'park' },
+    { name: L('TOWN', 'VILLA'), gold: 40, build: L('THE RING ROAD, WITH ITS CARS', 'LA RONDA, CON SUS COCHES') },
+    { name: L('MARKET TOWN', 'VILLA MERCADO'), gold: 50, build: L('FIRST NEIGHBOURHOOD', 'PRIMER BARRIO'), perk: 'tech' },
+    { name: L('BOROUGH', 'BURGO'), gold: 60, build: L('SECOND NEIGHBOURHOOD', 'SEGUNDO BARRIO') },
+    { name: L('SMALL CITY', 'CIUDAD PEQUEÑA'), gold: 80, build: L('THIRD NEIGHBOURHOOD', 'TERCER BARRIO'), perk: 'grove' },
+    { name: L('CITY', 'CIUDAD'), gold: 100, build: L('WELCOME ARCHES ON EVERY STREET', 'ARCOS DE BIENVENIDA EN CADA CALLE') },
 ];
-// Las tres fases del pueblo (por lo comprado): 1 campamento (plaza y calles de tierra), 2 pueblo
-// (plaza empedrada, ronda interior, tres calles pavimentadas y las casas de sus mercaderes), 3
-// ciudad (todas las calles con farolas, todas las casas, ronda exterior y la avenida de la nave madre)
-export const TOWN = { phase2: 9, phase3: 24, first: ['m0', 'm2', 'm4'] };
-// La ampliación del pueblo (con el pueblo terminado, fase 3): cada paso construye la siguiente
-// pieza (la ronda, casas sueltas, grupitos de casas, el mercado, el parque, el barrio tecnológico,
-// la arboleda), de dentro hacia fuera. Lo que cuesta cada paso, en oro
-// Lo que da cada barrio especial al construirlo: el mercado paga más por los encargos, el parque
-// da más confianza con cada entrega, el barrio tecnológico abarata los deseos del pozo y la
-// arboleda alarga lo que se quedan los mercaderes
+export const villageLevel = (n) => Math.min(VILLAGE_LEVELS.length - 1, Math.floor(n / PER_LEVEL));
+// Qué construye el pueblo y en qué nivel
+export const TOWN = { plaza: 1, first: 2, inner: 3, all: 4, avenue: 5, ring: 6, houses: [7, 8, 9], arches: 10, firstIds: ['m0', 'm2', 'm4'] };
+// Las calles asfaltadas (con la casa de su mercader) en un nivel
+export const pavedIn = (lv) => (lv >= TOWN.all ? MERCHANTS.filter((m) => !m.mother).map((m) => m.id) : lv >= TOWN.first ? TOWN.firstIds : []);
+// Las ventajas (en su nivel): el mercado paga más por los encargos, el parque da más confianza
+// con cada entrega, la tecnología abarata los deseos del pozo y la arboleda alarga lo que se
+// quedan los mercaderes
 export const TOWN_PERKS = { market: { pay: 1.2 }, park: { trust: 1 }, tech: { wish: 0.75 }, grove: { stay: 1.25 } };
-export const expandCost = (step) => 6 + Math.floor(step / 4) * 2;
-export const townPhase = (n) => (n >= TOWN.phase3 ? 3 : n >= TOWN.phase2 ? 2 : 1);
-// Las calles pavimentadas en cada fase (los mercaderes de esas calles)
-export const pavedIn = (phase) => (phase >= 3 ? MERCHANTS.filter((m) => !m.mother).map((m) => m.id) : phase === 2 ? TOWN.first : []);
-export const villageLevel = (n) => VILLAGE_LEVELS.reduce((lv, L0, i) => (n >= L0.n ? i : lv), 0);
-// Los habitantes: con cuántas cosas se queda a vivir cada uno en el pueblo
-export const RESIDENTS = [8, 15, 22];
+export const PERK_LEVEL = Object.fromEntries(VILLAGE_LEVELS.map((L0, i) => [L0.perk, i]).filter(([p]) => p));
+// Los vecinos que se quedan a vivir: uno por nivel (hasta 9)
+export const residentsAt = (lv) => Math.min(9, lv);
 
 // Los celos: si a otro le tienes más confianza (jealous niveles más), te paga más para recuperarte
 export const JEALOUS = { gap: 2, pay: 1.15 };
@@ -152,11 +190,6 @@ export const MEDALS = [
     { id: 'full', name: L('COMPLETE VILLAGE', 'PUEBLO COMPLETO'), desc: L('EVERYTHING IN THE VILLAGE', 'TODO EN EL PUEBLO'), gold: 150, test: (S) => ALL_DECOR.every((d) => S.village.includes(d.id)) },
 ];
 export const decorOf = (id) => DECOR.filter((d) => d.by === id);
-// Dónde va cada objeto (en el grupo de la parcela)
-export function decorAt(d) {
-    const a = d.a !== undefined ? d.a : MERCHANT_BY_ID[d.by].angle + d.da;
-    return polar(d.r, a);
-}
 
 // El reloj de cada mercader: el tiempo se parte en tramos (slot); en cada uno, con probabilidad
 // p (siempre igual para ese tramo: no depende de cuándo se mire), viene en un momento al azar del

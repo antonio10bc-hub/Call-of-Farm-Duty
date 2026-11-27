@@ -2441,3 +2441,14 @@ body.photo .debug-btn { visibility: hidden; }
 /* (la nave madre, aunque no esté, con su aro en color; solo su cara se apaga) */
 .m-tab.m-mother, .merchant-dock .m-tab.m-mother { opacity: 1; filter: none; }
 .m-tab.m-mother:not(.here) .m-face { opacity: .45; }
+
+/* ===== El pueblo por niveles ===== */
+/* En la tienda: dónde va cada cosa */
+.order-want .o-where { display: block; margin-top: 3px; font-family: var(--nb-body); font-size: 11px; color: var(--nb-mute); }
+/* La hoja del pueblo: cada nivel con lo que construye y su ventaja */
+.tw-step { grid-template-columns: minmax(0, 1fr) auto 56px; grid-template-rows: auto auto; row-gap: 2px; }
+.tw-step .tw-build { grid-column: 1 / -1; grid-row: 2; font-family: var(--nb-body); font-size: 12px; line-height: 1.25; color: var(--nb-mute); }
+.tw-step.done .tw-build { color: var(--nb-good); }
+.tw-step .tw-bar { grid-row: 3; }
+.tw-perk-l { display: inline-block; margin-left: 6px; padding: 0 5px; font-family: var(--nb-head); font-size: 9px; color: #8a5ad8; border: 2px solid #8a5ad8; }
+.tw-step.done .tw-perk-l { color: #fff1d6; background: #8a5ad8; }

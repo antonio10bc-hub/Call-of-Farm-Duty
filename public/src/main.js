@@ -10,7 +10,7 @@ import { ARSENAL, ARSENAL_KINDS, CLASSES, DEFAULT_LOADOUT, WEAPON_CATS, classNam
 import { gearArt } from './ui/GearArt.js';
 import { TIERS, tierOf } from './content/well.js';
 import { MERCHANT, rareVisit } from './content/merchant.js';
-import { MERCHANTS, MERCHANT_BY_ID, VisitClock, ALL_DECOR, DECOR_BY_ID, VILLAGE, VILLAGE_LEVELS, RESIDENTS, MEDALS, MARKET, MARKET_FORCE, marketNow, townPhase, expandCost, TOWN_PERKS } from './content/merchants.js';
+import { MERCHANTS, MERCHANT_BY_ID, VisitClock, ALL_DECOR, DECOR_BY_ID, VILLAGE, VILLAGE_LEVELS, PER_LEVEL, MEDALS, MARKET, MARKET_FORCE, marketNow, TOWN_PERKS, PERK_LEVEL, WHERE, residentsAt } from './content/merchants.js';
 import { regionAt, isWater, groundAt } from './world/valley.js';
 import { RetroRenderer } from './render/RetroRenderer.js';
 import { CameraRig } from './render/CameraRig.js';
@@ -2251,32 +2251,29 @@ function merchantHello(id) {
     return pick(HELLO[lv - 1]);
 }
 
-// Lo que se ve de su vida en el mapa: cada puesto según su confianza, su ánimo y lo que has
-// comprado para el pueblo
-function syncMerchantLife(pop = true) {
+// Lo que se ve de su vida en el mapa: cada puesto según su confianza, su ánimo y el pueblo (lo
+// construido en su nivel y lo comprado, cada cosa en su sitio). lv: el nivel a enseñar (en la
+// cinemática de una compra, primero el de antes). Devuelve lo que acaba de aparecer
+function syncMerchantLife(pop = true, lv = state.villageLevel) {
     for (const d of MERCHANTS) {
         const v = farm.village.byId[d.id];
         v.setLevel(state.trustOf(d.id));
         v.setMood(state.merchants[d.id].mood);
     }
-    farm.village.setDecor(state.village, pop);
-    // (el pueblo en tres fases: casas, calles y farolas; terminado, se amplía paso a paso: fase 4)
-    const phase = townPhase(state.village.length);
-    farm.setTownPhase(phase >= 3 && state.town > 0 ? 4 : phase, pop);
-    if (phase >= 3) farm.village.setTownPlan(state.town, pop);
-    // Lo que dan los barrios especiales ya construidos (TOWN_PERKS)
-    const built = phase >= 3 ? farm.village.planItems.slice(0, state.town).map((it) => it.kind) : [];
-    state.perks = Object.fromEntries(Object.keys(TOWN_PERKS).filter((k) => built.includes(k)).map((k) => [k, true]));
+    const out = farm.setTownLevel(lv, state.village, pop);
     for (const c of Object.values(clocks)) c.stayK = state.perks.grove ? TOWN_PERKS.grove.stay : 1;
-    // Más vecinos con la ampliación (uno por cada 4 piezas)
-    farm.village.setResidents(RESIDENTS.filter((n) => state.village.length >= n).length + Math.floor(state.town / 4));
+    farm.village.setResidents(residentsAt(lv)); // (un vecino más por nivel)
+    return out;
 }
-// Tras cada cosa del pueblo: ¿sube de nivel? (con su aviso y su oro). (Los logros del pueblo ya no
-// están)
+// ¿Sube de nivel el pueblo? (con su aviso, lo que construye, su ventaja y su oro)
+function villageUpText(up) {
+    const V = VILLAGE_LEVELS[up.lv];
+    return [`${L('YOUR VILLAGE IS NOW', 'TU PUEBLO YA ES')}: ${V.name}`, `${V.build}${V.perk ? ` · ${PERK_TEXT[V.perk]}` : ''}${up.gold ? ` · +${up.gold} ${L('GOLD', 'DE ORO')}` : ''}`];
+}
 function merchantNews2() {
     const up = state.checkVillage();
     if (up) {
-        stage(`${L('YOUR VILLAGE IS NOW', 'TU PUEBLO YA ES')}: ${VILLAGE_LEVELS[up.lv].name}`, up.gold ? `+${up.gold} ${L('GOLD', 'DE ORO')}` : '');
+        stage(...villageUpText(up));
         sfx.play('village');
         updateCounts(true);
     }
@@ -2300,8 +2297,7 @@ function renderMerchant() {
     // La lista: primero, algo aparte, el pueblo; luego cada mercader con su favorito y cuándo se va
     // (si está) o cuándo vuelve (si no)
     // (un retrato por mercader, con su color; el tiempo, debajo, solo en minutos para que no cambie cada segundo)
-    const townCan = townPhase(state.village.length) >= 3 && state.canExpand(farm.village.planCount);
-    setHtml($('merchant-tabs'), `<button data-tab="town" class="m-tab m-town here${mTown ? ' on' : ''}${townCan ? ' can' : ''}" title="${L('YOUR VILLAGE', 'TU PUEBLO')}" aria-label="${L('YOUR VILLAGE', 'TU PUEBLO')}"><i class="m-face"></i></button><i class="m-sep"></i>` + MERCHANTS.map((d) => {
+    setHtml($('merchant-tabs'), `<button data-tab="town" class="m-tab m-town here${mTown ? ' on' : ''}" title="${L('YOUR VILLAGE', 'TU PUEBLO')}" aria-label="${L('YOUR VILLAGE', 'TU PUEBLO')}"><i class="m-face"></i></button><i class="m-sep"></i>` + MERCHANTS.map((d) => {
         const here = farm.village.byId[d.id].open, left = clocks[d.id].left;
         const when = left === null ? '' : `${here ? L('LEAVES', 'SE VA') : L('BACK', 'VUELVE')} ${fmt(left)}`;
         return `${d.mother ? '<i class="m-sep"></i>' : ''}<button data-tab="${d.id}" class="m-tab${d.mother ? ' m-mother' : ''}${d.id === id && !mTown ? ' on' : ''}${here ? ' here' : ''}${merchantCan(d.id) ? ' can' : ''}" title="${d.name}${when ? ` · ${when}` : ''}" aria-label="${d.name}"><i class="m-face" style="filter:hue-rotate(${hueOf(d.skin)}deg)"></i>${ico(CROPS[d.fav].icon)}</button>`;
@@ -2378,55 +2374,35 @@ function shopHtml(id, open) {
     const stock = state.stock(clocks[id].visit, id);
     return `<div class="rare-shop">${open ? '' : `<div class="merchant-away">${L('ONLY SOLD WHILE THEY ARE HERE.', 'SOLO LAS VENDE MIENTRAS ESTÁ AQUÍ.')}</div>`}` + stock.map((d) => {
         const it = DECOR_BY_ID[d], have = state.collects(it.id), short = state.items.gold < it.gold;
-        return `<div class="order shop${have ? ' done' : ''}${it.exclusive ? ' party' : ''}">${it.exclusive ? `<em class="order-tag">${L('TODAY ONLY', 'SOLO HOY')}</em>` : ''}<span class="order-want"><b>${it.name}</b></span><span class="order-pay">${ico('gold')}<b>${it.gold}</b></span><button data-buy="${it.id}"${have || short || !open ? ' disabled' : ''}>${have ? L('YOURS', 'TUYO') : L('BUY', 'COMPRAR')}</button></div>`;
+        return `<div class="order shop${have ? ' done' : ''}${it.exclusive ? ' party' : ''}">${it.exclusive ? `<em class="order-tag">${L('TODAY ONLY', 'SOLO HOY')}</em>` : ''}<span class="order-want"><b>${it.name}</b><small class="o-where">${WHERE[it.where]}</small></span><span class="order-pay">${ico('gold')}<b>${it.gold}</b></span><button data-buy="${it.id}"${have || short || !open ? ' disabled' : ''}>${have ? L('YOURS', 'TUYO') : L('BUY', 'COMPRAR')}</button></div>`;
     }).join('') + '</div>';
 }
 
 // Arriba del todo, el pueblo: su nivel, cuánto tiene y la barra hasta el siguiente
-// La hoja del pueblo: su nivel (por las cosas compradas) y lo que da cada uno, la ampliación (con
-// el pueblo terminado), las ventajas de los barrios especiales y los logros
+// La hoja del pueblo: su nivel (uno cada 5 cosas compradas), lo que falta para el siguiente y, nivel
+// a nivel, lo que construye, su oro y su ventaja (los conseguidos, con su sello verde)
 function renderTown() {
-    const n = state.village.length, lv = state.villageLevel, cur = VILLAGE_LEVELS[lv], next = VILLAGE_LEVELS[lv + 1];
-    const k = next ? (n - cur.n) / Math.max(1, next.n - cur.n) : 1;
+    const n = state.village.length, lv = state.villageLevel, cur = VILLAGE_LEVELS[lv], max = VILLAGE_LEVELS.length - 1;
+    const k = lv >= max ? 1 : (n - lv * PER_LEVEL) / PER_LEVEL;
     $('merchant-name').textContent = `${L('YOUR VILLAGE', 'TU PUEBLO')}: ${cur.name}`;
     document.querySelector('#merchant .merchant-portrait').style.filter = '';
-    setHtml($('merchant-trust'), `<div class="t-row"><span class="trust-name">${L('LV', 'NV')} ${lv + 1}</span><span class="pips">${VILLAGE_LEVELS.map((_, i) => `<i class="pip${i <= lv ? ' on' : ''}"></i>`).join('')}</span>`
+    setHtml($('merchant-trust'), `<div class="t-row"><span class="trust-name">${L('LV', 'NV')} ${lv}/${max}</span>`
         + `<span class="trust-bar"><i style="width:${Math.round(Math.min(1, k) * 100)}%"></i></span><span class="trust-name">${n}/${ALL_DECOR.length}</span></div>`);
     setHtml($('merchant-view'), '');
-    // Los niveles: los conseguidos, con su sello verde; el siguiente, con su barra y lo que falta; los
-    // demás, a lápiz (punteados) con cuántas cosas piden
-    const steps = VILLAGE_LEVELS.map((L0, i) => {
-        const done = i <= lv, nx = i === lv + 1;
+    const steps = VILLAGE_LEVELS.slice(1).map((V, i) => {
+        const L1 = i + 1, done = L1 <= lv, nx = L1 === lv + 1;
         const tag = done ? `<span class="tw-tag ok">✓ ${L('DONE', 'CONSEGUIDO')}</span>`
-            : nx ? `<span class="tw-tag">${L('MISSING', 'FALTAN')} ${L0.n - n}</span>` : `<span class="tw-tag">${ico('lock')}${L0.n} ${L('THINGS', 'COSAS')}</span>`;
+            : nx ? `<span class="tw-tag">${L('MISSING', 'FALTAN')} ${L1 * PER_LEVEL - n}</span>` : `<span class="tw-tag">${ico('lock')}${L1 * PER_LEVEL}</span>`;
         const bar = nx ? `<i class="tw-bar"><b style="width:${Math.round(Math.min(1, k) * 100)}%"></b></i>` : '';
-        return `<div class="tw-step${done ? ' done' : nx ? ' next' : ''}"><b>${L0.name}</b>${tag}${L0.gold ? `<em>${ico('gold')}${L0.gold}</em>` : '<em></em>'}${bar}</div>`;
+        return `<div class="tw-step${done ? ' done' : nx ? ' next' : ''}"><b>${L1}. ${V.name}</b>${tag}<em>${ico('gold')}${V.gold}</em>`
+            + `<small class="tw-build">${V.build}${V.perk ? `<span class="tw-perk-l">${PERK_TEXT[V.perk]}</span>` : ''}</small>${bar}</div>`;
     }).join('');
-    // Los barrios especiales: se construyen solos al ampliar el pueblo (en su paso de la ampliación)
-    const items = farm.village.planItems || [], total = farm.village.planCount; // (el plano se hace al llegar a ciudad)
-    const perks = Object.keys(TOWN_PERKS).map((p) => {
-        const at = items.findIndex((x) => x.kind === p) + 1, on = !!state.perks[p];
-        return `<div class="tw-perk${on ? ' on' : ''}"><b>${PLAN_NAMES[p]}</b><small>${PERK_TEXT[p]}</small><span class="tw-tag${on ? ' ok' : ''}">${on ? `✓ ${L('BUILT', 'CONSTRUIDO')}` : at ? `${L('EXPANSION', 'AMPLIACIÓN')} ${at}/${total}` : L('NOT BUILT', 'SIN CONSTRUIR')}</span></div>`;
-    }).join('');
-    const phase = townPhase(n);
-    setHtml($('merchant-orders'), `<div class="nb-lbl">${L('LEVELS', 'NIVELES')}</div><div class="tw-steps">${steps}</div>`
-        + `<div class="nb-lbl">${L('NEIGHBOURHOODS', 'BARRIOS')}</div><p class="tw-note">${phase >= 3 ? L('THEY GET BUILT AS YOU EXPAND THE VILLAGE (BUTTON BELOW). EACH ONE GIVES A BONUS.', 'SE CONSTRUYEN AL AMPLIAR EL PUEBLO (BOTÓN DE ABAJO). CADA UNO DA UNA VENTAJA.') : L(`THEY GET BUILT BY EXPANDING THE VILLAGE, ONCE IT IS A CITY (${VILLAGE_LEVELS[4].n} THINGS).`, `SE CONSTRUYEN AMPLIANDO EL PUEBLO CUANDO SEA CIUDAD (${VILLAGE_LEVELS[4].n} COSAS).`)}</p><div class="tw-perks">${perks}</div>`);
-    // Abajo, la ampliación (con el pueblo terminado) o cuándo llega
-    setHtml($('merchant-village'), phase >= 3 ? expandHtml() : `<div class="town-expand"><small>${L(`EXPANSIONS UNLOCK AT ${VILLAGE_LEVELS[4].n} THINGS`, `LAS AMPLIACIONES LLEGAN CON ${VILLAGE_LEVELS[4].n} COSAS`)}</small></div>`);
+    setHtml($('merchant-orders'), `<p class="tw-note">${L(`EVERYTHING YOU BUY GOES TO ITS PLACE IN THE VILLAGE. EVERY ${PER_LEVEL} THINGS, THE VILLAGE GROWS A LEVEL.`, `TODO LO QUE COMPRAS VA A SU SITIO DEL PUEBLO. CADA ${PER_LEVEL} COSAS, EL PUEBLO SUBE UN NIVEL.`)}</p>`
+        + `<div class="nb-lbl">${L('LEVELS', 'NIVELES')}</div><div class="tw-steps">${steps}</div>`);
+    setHtml($('merchant-village'), '');
 }
-// Con el pueblo terminado (fase 3), se amplía: cada paso construye la siguiente pieza, por oro
-const PERK_TEXT = { market: L('MARKET: ORDERS PAY +20%', 'MERCADO: LOS ENCARGOS PAGAN +20%'), park: L('PARK: +1 TRUST PER DELIVERY', 'PARQUE: +1 DE CONFIANZA POR ENTREGA'), tech: L('TECH: WISHES 25% CHEAPER', 'TECNOLOGÍA: DESEOS UN 25% MÁS BARATOS'), grove: L('GROVE: MERCHANTS STAY LONGER', 'ARBOLEDA: LOS MERCADERES SE QUEDAN MÁS') };
-const PERK_CHIP = { market: L('MKT +20%', 'MERC +20%'), park: L('PARK +1', 'PARQUE +1'), tech: L('TECH -25%', 'TEC -25%'), grove: L('GROVE +T', 'ARBOL +T') };
-const PLAN_NAMES = { ring: L('RING ROAD', 'RONDA'), house: L('HOUSE', 'CASA'), cluster: L('GROUP OF HOUSES', 'GRUPO DE CASAS'), market: L('MARKET STREET', 'CALLE DEL MERCADO'), park: L('ALIEN PARK', 'PARQUE ALIEN'), tech: L('TECH QUARTER', 'BARRIO TECNOLÓGICO'), grove: L('GROVE', 'ARBOLEDA') };
-function expandHtml() {
-    if (townPhase(state.village.length) < 3) return '';
-    const total = farm.village.planCount, step = state.town, it = farm.village.planItems[step];
-    // (las ventajas ganadas, como fichas con su texto entero al pasar por encima; la siguiente, junto al botón)
-    const chips = Object.keys(state.perks).map((k) => `<i class="perk-chip" title="${PERK_TEXT[k]}">${PERK_CHIP[k]}</i>`).join('');
-    return `<div class="town-expand"><small>${L('EXPAND', 'AMPLIAR')} ${step}/${total}</small>${chips}`
-        + (it ? `<button data-expand="1"${state.canExpand(total) ? '' : ' disabled'} title="${PERK_TEXT[it.kind] || ''}">${PLAN_NAMES[it.kind]} · ${ico('gold')}${expandCost(step)}</button>` : `<b>${L('ALL BUILT!', '¡TODO CONSTRUIDO!')}</b>`)
-        + (it && PERK_TEXT[it.kind] ? `<small class="perk-next">${PERK_TEXT[it.kind]}</small>` : '') + '</div>';
-}
+// Las ventajas del pueblo (en su nivel: content/merchants.js: PERK_LEVEL)
+const PERK_TEXT = { market: L('ORDERS PAY +20%', 'LOS ENCARGOS PAGAN +20%'), park: L('+1 TRUST PER DELIVERY', '+1 DE CONFIANZA POR ENTREGA'), tech: L('WISHES 25% CHEAPER', 'DESEOS UN 25% MÁS BARATOS'), grove: L('MERCHANTS STAY LONGER', 'LOS MERCADERES SE QUEDAN MÁS') };
 
 $('merchant').addEventListener('click', (e) => {
     e.stopPropagation();
@@ -2438,42 +2414,24 @@ $('merchant').addEventListener('click', (e) => {
         sfx.play('ui');
         return renderMerchant();
     }
-    if (e.target.closest('button[data-expand]')) {
-        const it = farm.village.planItems[state.town];
-        if (!it || townCine || !state.expandTown(farm.village.planCount)) return sfx.play('deny');
-        sfx.play('coin');
-        updateCounts(true);
-        // De cine: se cierra el menú, la cámara se aleja hasta la pieza nueva (sin tocar nada), la
-        // pieza sale con su bote y polvo, y vuelve el menú
-        $('merchant').classList.add('hidden');
-        document.body.classList.add('cine');
-        touch = pan = pinch = null;
-        townCine = { it, t: 0, done: new Set() };
-        return;
-    }
-    const name = (d) => DECOR_BY_ID[d].name;
     if (gb) {
         const g = state.claimGift(id);
         if (g === null) return;
         sfx.play('gift');
         merchantSay(L('ENJOY IT, FRIEND!', '¡QUE LO DISFRUTES, AMIGO!'));
-        if (typeof g !== 'number') stage(L('NEW IN YOUR VILLAGE', 'NUEVO EN TU PUEBLO'), name(g));
         merchantDeal($('merchant'));
-        syncMerchantLife();
         updateCounts(true);
-        setTimeout(merchantNews2, 1800);
+        if (typeof g !== 'number') return townShow(g); // (un objeto: se ve dónde va)
+        syncMerchantLife();
         return renderMerchant();
     }
     if (bb) {
         if (!state.buy(visit, bb.dataset.buy, id)) return sfx.play('deny'), merchantSay(MERCHANT.lines.short, true);
         sfx.play('buy');
         merchantSay(L('GOOD CHOICE! IT IS ALREADY IN THE VILLAGE.', '¡BUENA ELECCIÓN! YA ESTÁ EN EL PUEBLO.'));
-        stage(L('NEW IN YOUR VILLAGE', 'NUEVO EN TU PUEBLO'), name(bb.dataset.buy));
         merchantDeal($('merchant'), $('gold-count'));
-        syncMerchantLife();
         updateCounts(true);
-        setTimeout(merchantNews2, 1800);
-        return renderMerchant();
+        return townShow(bb.dataset.buy); // (se ve dónde va)
     }
     const b = e.target.closest('button[data-i]');
     if (!b) return;
@@ -2488,10 +2446,10 @@ $('merchant').addEventListener('click', (e) => {
     if (res.levelUp) {
         stage(`${L('TRUST LEVEL', 'CONFIANZA NIVEL')} ${res.levelUp}`, LEVEL_NAMES[res.levelUp - 1]);
         sfx.play('bounceGet');
-    } else if (res.reward) stage(L('NEW IN YOUR VILLAGE', 'NUEVO EN TU PUEBLO'), name(res.reward));
-    syncMerchantLife();
+    }
     updateCounts(true);
-    setTimeout(merchantNews2, 1800);
+    if (res.reward) return void setTimeout(() => townShow(res.reward), res.levelUp ? 1400 : 300); // (su premio: se ve dónde va)
+    syncMerchantLife();
     renderMerchant();
 });
 $('merchant').addEventListener('pointerdown', (e) => e.stopPropagation());
@@ -2577,30 +2535,66 @@ tapBtn('well-wish', () => {
     }, art, CINE_SPEED);
     wellCine = { p, art, t: 0, done: new Set() };
 });
-// La cinemática de la ampliación del pueblo
+// Lo comprado, de cine: se cierra el menú y, sin tocar nada, la cámara va a donde va (cerca si es
+// una cosa, lejos si ocupa medio pueblo), sale con su bote y, si con ello sube de nivel el pueblo,
+// otro plano con todo el pueblo y lo que se construye; y vuelve el menú
 let townCine = null;
+function townShow(id) {
+    const before = Math.min(farm.townLv || 0, state.villageLevel), up = state.checkVillage(); // (si sube, su oro ya)
+    $('merchant').classList.add('hidden');
+    document.body.classList.add('cine');
+    touch = pan = pinch = null;
+    townCine = { id, before, up, view: mView, t: 0, done: new Set() };
+}
+// (la cámara sobre una caja del mundo: en su centro y con el zoom que la abarca)
+function lookAtBox(box, min = 0.7) {
+    const c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
+    rigFocus(c.x, c.z, box.min.y);
+    rig.zoomTarget = Math.max(min, Math.min(4.4, Math.max(size.x, size.z) / 19));
+}
+function lookAtTown(lv) {
+    const w = vWorld(VILLAGE.cx, VILLAGE.cz);
+    rigFocus(w.x, w.z, w.y);
+    rig.zoomTarget = lv >= 6 ? 4.2 : lv >= 2 ? 2.6 : 1.6;
+}
 function updateTownCine(dt) {
     const c = townCine;
     if (!c) return;
     c.t += dt * CINE_SPEED;
-    const at = (time, id) => c.t >= time && !c.done.has(id) && c.done.add(id);
+    const at = (time, key) => c.t >= time && !c.done.has(key) && c.done.add(key);
+    const D = DECOR_BY_ID[c.id];
     if (at(0, 'go')) {
-        const w = vWorld(c.it.x, c.it.z);
-        rigFocus(w.x, w.z, w.y);
-        rig.zoomTarget = c.it.kind === 'ring' ? 3.2 : 1.9;
+        // (lo suyo que ya tiene sitio con el nivel de antes)
+        const box = new THREE.Box3();
+        for (const e of farm.village.regions[c.id] || []) if (e.lv <= c.before) box.expandByObject(e.g);
+        c.none = box.isEmpty();
+        if (c.none) lookAtTown(c.before);
+        else lookAtBox(box);
     }
-    if (at(0.7, 'build')) {
-        syncMerchantLife(); // (sale la pieza nueva, con su bote)
-        stage(L('NEW IN YOUR VILLAGE', 'NUEVO EN TU PUEBLO'), PLAN_NAMES[c.it.kind], true);
+    if (at(0.9, 'show')) {
+        syncMerchantLife(true, c.before); // (sale, con su bote)
+        const lv = farm.village.firstLevel(c.id);
+        stage(D.name, c.none ? L(`YOU WILL SEE IT AT VILLAGE LEVEL ${lv}`, `SE VERÁ CON EL PUEBLO EN NIVEL ${lv}`) : WHERE[D.where], true);
         sfx.play('village');
-        rig.shake(0.2);
-        const w = vWorld(c.it.x, c.it.z, 0.4);
-        if (!CONFIG.test) farmParticles.burst(w.x, w.y, w.z, 40, [0xd8c8a0, 0xffffff, 0xffd23f], { speed: 3, up: 3, size: 0.14, ttl: 0.9 });
     }
-    if (at(2.1, 'back')) {
+    const end = c.up ? 5.8 : 2.8;
+    if (c.up) {
+        if (at(2.7, 'town')) lookAtTown(c.up.lv);
+        if (at(3.4, 'level')) {
+            syncMerchantLife(true); // (lo que construye el nivel nuevo, con su bote)
+            stage(...villageUpText(c.up));
+            sfx.play('achievement');
+            rig.shake(0.2);
+            updateCounts(true);
+        }
+    }
+    if (at(end, 'back')) {
         document.body.classList.remove('cine');
         townCine = null;
+        syncMerchantLife(false);
         openMerchant(mTown ? 'town' : curM);
+        mView = c.view; // (en la pestaña de antes)
+        renderMerchant();
     }
 }
 function updateWellCine(dt) {
@@ -3177,10 +3171,9 @@ function refreshMerchantLifeDbg() {
     $('dbg-mood').textContent = MOODS[M.mood];
     $('dbg-party').textContent = triName(FORCE.party);
     $('dbg-coll').textContent = `${state.village.length}/${ALL_DECOR.length}`;
-    // (la ampliación: solo con el pueblo terminado; lo que hay: fase, vecinos y ventajas)
-    const total = townPhase(state.village.length) >= 3 ? farm.village.planCount : 0;
-    $('dbg-town').textContent = `${state.town}/${total || '-'}`;
-    $('dbg-town-info').textContent = `${L('PHASE', 'FASE')} ${farm.townPhase || 1} · ${L('NEIGHBOURS', 'VECINOS')} ${farm.village.residents.filter((r) => r.on).length} · ${Object.keys(state.perks).map((k) => PERK_CHIP[k]).join(' ') || L('NO PERKS', 'SIN VENTAJAS')}`;
+    // (el nivel del pueblo; lo que hay: vecinos y ventajas)
+    $('dbg-town').textContent = `${state.villageLevel}/${VILLAGE_LEVELS.length - 1}`;
+    $('dbg-town-info').textContent = `${L('NEIGHBOURS', 'VECINOS')} ${farm.village.residents.filter((r) => r.on).length} · ${Object.keys(state.perks).map((k) => PERK_TEXT[k]).join(' · ') || L('NO PERKS', 'SIN VENTAJAS')}`;
     $('dbg-market').textContent = triName(MARKET_FORCE.on);
 }
 function dbgMerchant(fn, renew = false) {
@@ -3252,10 +3245,12 @@ tapBtn('dbg-well-reset', () => {
     if (!$('well').classList.contains('hidden')) renderWell();
 });
 tapBtn('dbg-village-all', () => dbgMerchant(() => (state.village = ALL_DECOR.map((d) => d.id))));
-// La ampliación del pueblo: un paso más o menos, toda o nada (sin cinemática); y lo que hay
-stepRow('dbg-town-row', (d) => dbgMerchant(() => (state.town = Math.max(0, Math.min(farm.village.planCount, state.town + d)))));
-tapBtn('dbg-town-all', () => dbgMerchant(() => (state.town = farm.village.planCount)));
-tapBtn('dbg-town-none', () => dbgMerchant(() => (state.town = 0)));
+// El nivel del pueblo: uno más o menos (las primeras cosas de la lista, sin cinemática)
+stepRow('dbg-town-row', (d) => dbgMerchant(() => {
+    const lv = Math.max(0, Math.min(VILLAGE_LEVELS.length - 1, state.villageLevel + d));
+    state.village = ALL_DECOR.slice(0, lv * PER_LEVEL).map((x) => x.id);
+    state.villageLv = Math.min(state.villageLv, lv);
+}));
 // El pozo: deseos gratis, lo que sale (al azar, una rareza o una repetida) y la velocidad de las cinemáticas
 const WISH_FORCES = [null, 'common', 'rare', 'epic', 'dup'];
 const CINE_SPEEDS = [1, 3, 6];
@@ -4022,4 +4017,4 @@ if ('serviceWorker' in navigator && !/^(localhost|127\.)/.test(location.hostname
 }
 
 // Para las pruebas (Playwright)
-window.game = { get townCine() { return townCine; }, expandHtml, goRange, range, allDecor: ALL_DECOR.map((d) => d.id), syncMerchantLife, set cineSpeed(v) { CINE_SPEED = v; }, get wellCine() { return wellCine; }, state, sniper, farm, rig, prologue, dayNight, merchantClock, clocks, openMerchant, openWell, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, upgradeHouse, openShop, get cine() { return inCine(); }, goFarm, select, updateCounts, pause: () => (paused = true) };
+window.game = { get townCine() { return townCine; }, goRange, range, allDecor: ALL_DECOR.map((d) => d.id), syncMerchantLife, set cineSpeed(v) { CINE_SPEED = v; }, get wellCine() { return wellCine; }, state, sniper, farm, rig, prologue, dayNight, merchantClock, clocks, openMerchant, openWell, get mode() { return mode; }, harvest, startUnlock, revealUnlocked, upgradeField, upgradeHouse, openShop, get cine() { return inCine(); }, goFarm, select, updateCounts, pause: () => (paused = true) };

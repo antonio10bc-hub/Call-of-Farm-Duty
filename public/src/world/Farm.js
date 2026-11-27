@@ -5,8 +5,8 @@ import { G, GN, cellX, cellZ, hash, regionAt, groundAt } from './valley.js';
 import { easeOutBack } from '../core/math.js';
 import { STRUCTURES, Turret, Sandbags, LandPost } from '../render/structures.js';
 import { Plot } from '../render/props.js';
-import { Village, villageGeometry, furrowHalf, houseLot } from '../render/merchants.js';
-import { VILLAGE, pavedIn } from '../content/merchants.js';
+import { Village, villageGeometry, furrowHalf } from '../render/merchants.js';
+import { VILLAGE, pavedIn, TOWN } from '../content/merchants.js';
 import { WishingWell } from '../render/well.js';
 import { Compound } from '../render/compound.js';
 import { Life } from './Life.js';
@@ -606,20 +606,8 @@ export class Farm {
         if (!inRect(this.villageZone, x, z)) return false;
         const [dx, dz] = this.villageAt(x, z), r = Math.hypot(dx, dz);
         const wob = Math.sin(x * 0.9 + z * 0.4) * 0.5 + Math.sin(z * 1.3 - x * 0.5) * 0.4;
-        let d = r - VILLAGE.R - 1.8 - wob * 0.5;
-        // (el pueblo crecido: la ronda interior, las parcelas de las casas y, en la fase 3, la
-        // ronda exterior)
-        const P = this.townPhase || 1;
-        if (P >= 2) {
-            d = Math.min(d, r - 13.6 - wob * 0.4);
-            const paved = pavedIn(P);
-            for (const g of this.vgeo) if (!g.def.mother && paved.includes(g.def.id)) {
-                const L = houseLot(g);
-                d = Math.min(d, Math.hypot(dx - (L.x - VILLAGE.cx), dz - (L.z - VILLAGE.cz)) - 3.2 - wob * 0.3);
-            }
-        }
-        if (P >= 3) d = Math.min(d, Math.abs(r - 21.6) - 1.6 - wob * 0.3);
-        if (P >= 4) d = Math.min(d, r - (this.villageReach((Math.atan2(dz, dx) * 180) / Math.PI) - 2.5) - wob * 0.5); // (la propuesta: todo el claro)
+        // (el claro entero, hasta el borde de la zona: el pueblo está diseñado entero desde el principio)
+        let d = r - (this.villageReach((Math.atan2(dz, dx) * 180) / Math.PI) - 2.5) - wob * 0.5;
         for (const g of this.vgeo) {
             const c = Math.cos(g.a), s = Math.sin(g.a);
             if (g.def.mother) {
@@ -646,20 +634,20 @@ export class Farm {
         return !!M && Math.hypot(dx - (M.pad.x - VILLAGE.cx), dz - (M.pad.z - VILLAGE.cz)) < 8.2;
     }
 
-    // El suelo del pueblo crecido (fases 2 y 3): la plaza empedrada en anillos, las rondas y las
-    // calles pavimentadas, y la avenida de la nave madre (o null: lo de siempre)
+    // El suelo del pueblo según su nivel (content/merchants.js: TOWN): la plaza empedrada en anillos,
+    // la calle de alrededor de la plaza, las calles asfaltadas y la avenida de la nave madre (o
+    // null: lo de siempre)
     townTile(t) {
-        const P = this.townPhase || 1;
-        if (P < 2) return null;
+        const lv = this.townLv || 0;
+        if (lv < TOWN.plaza) return null;
         const [dx, dz] = this.villageAt(t.c + 0.5, t.r + 0.5), r = Math.hypot(dx, dz), c = Math.floor(t.wx), w = Math.floor(t.wz);
         if (r < VILLAGE.R - 0.6) return TOWN_STONE[(Math.floor(r / 1.7) + ((c + w) & 1)) % TOWN_STONE.length];
-        if (r > 11 && r < 12.8) return TOWN_ROAD[(c + w) & 1];
-        if (P >= 3 && r > 20.8 && r < 22.4) return TOWN_ROAD[(c + w) & 1];
-        const paved = pavedIn(P);
+        if (lv >= TOWN.inner && r > 11 && r < 12.8) return TOWN_ROAD[(c + w) & 1];
+        const paved = pavedIn(lv);
         for (const g of this.vgeo) {
             const cs = Math.cos(g.a), sn = Math.sin(g.a), along = dx * cs + dz * sn, side = Math.abs(-dx * sn + dz * cs);
             if (g.def.mother) {
-                if (P >= 3 && along > VILLAGE.R - 1 && along < g.padR - 6 && side < 2.2) return TOWN_STONE[(c + w) % TOWN_STONE.length];
+                if (lv >= TOWN.avenue && along > VILLAGE.R - 1 && along < g.padR - 6 && side < 2.2) return TOWN_STONE[(c + w) % TOWN_STONE.length];
                 continue;
             }
             if (!paved.includes(g.def.id) || along < VILLAGE.R - 1 || along > g.endR + 1) continue;
@@ -668,14 +656,16 @@ export class Farm {
         return null;
     }
 
-    // La fase del pueblo de los mercaderes (content/merchants.js: townPhase): sus casas y farolas,
-    // el suelo (se rehace) y los árboles que quedan debajo de lo nuevo
-    setTownPhase(phase, pop = true) {
-        if (phase === this.townPhase) return;
-        this.townPhase = phase;
-        this.village.setTownPhase(phase, pop);
-        this.buildFloor();
-        this.refreshGround();
+    // El nivel del pueblo de los mercaderes: lo que se ve (casas, calles, ronda, barrios, objetos:
+    // Village.setTown) y el suelo (se rehace si cambia). Devuelve lo que acaba de aparecer
+    setTownLevel(lv, owned, pop = true) {
+        const out = this.village.setTown(lv, owned, pop);
+        if (lv !== this.townLv) {
+            this.townLv = lv;
+            this.buildFloor();
+            this.refreshGround();
+        }
+        return out;
     }
 
     // ¿En el abanico de árboles tumbados a los lados de un surco? (ahí no queda ninguno en pie)
