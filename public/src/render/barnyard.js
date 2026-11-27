@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { VoxelModel } from './VoxelModel.js';
 
-// Los edificios de los prados de animales (vacas, ovejas, gallinas y cerdos) y de la laguna: cada nivel del campo
+// Los edificios de los prados de animales (vacas, ovejas, gallinas, cerdos y el rodeo) y de la laguna: cada nivel del campo
 // añade alguno (y se quedan los de antes), así su zona se va llenando y no tiene solo animales.
 // Cada pieza es un modelo voxel con su contorno, mirando hacia +z, en medidas del mundo.
 //   lv     nivel del campo desde el que está
@@ -99,7 +99,52 @@ function crates(m, g, list, top = WHITE) {
 }
 
 // Lo de cada prado, nivel a nivel
+// El establo de los caballos: largo, con una fila de cuadras de puerta partida (la de arriba
+// abierta, con la cabeza del caballo asomando) y el tejado a dos aguas
+function stable(m, g, n, wall, roofC) {
+    const w = n * 0.9 + 0.3, d = 1.8, h = 1.4;
+    m.part(g, w, h, d, wall, 0, h / 2, 0);
+    for (let i = 0; i < n; i++) {
+        const x = -w / 2 + 0.6 + i * 0.9;
+        m.part(g, 0.6, 0.6, 0.06, WOOD2, x, 0.3, d / 2 + 0.02, false); // (la hoja de abajo)
+        m.part(g, 0.6, 0.06, 0.08, WHITE, x, 0.62, d / 2 + 0.03, false);
+        m.part(g, 0.6, 0.5, 0.04, DARK, x, 0.92, d / 2 + 0.01, false); // (la de arriba, abierta)
+        if (i % 2 === 0) { // (un caballo asomando)
+            const c = [0x8a5a34, 0xc8a070, 0x5a3a24][i % 3];
+            m.part(g, 0.26, 0.3, 0.4, c, x, 0.95, d / 2 + 0.16);
+            m.part(g, 0.2, 0.2, 0.3, c, x, 0.88, d / 2 + 0.45);
+        }
+    }
+    roof(m, g, w, d, h, roofC);
+}
+
 export const BARNYARD = {
+    // El rodeo: abrevadero y balas al principio; luego el establo, el cartel de la entrada con el
+    // guadarnés, otro establo con su pajar, la grada y el molino
+    tomato: [
+        { lv: 1, r: 0.9, build: (m, g) => { trough(m, g, 0, 0, 1.1); bales(m, g, [[0.2, 0, 0.6, 0.3]]); } },
+        { lv: 2, r: 1.5, build: (m, g) => stable(m, g, 2, 0xb0583a, ROOF) },
+        { lv: 3, r: 1.3, build: (m, g) => { // el cartel de la entrada (con su herradura) y la barra de las sillas
+            for (const x of [-0.9, 0.9]) m.part(g, 0.14, 1.9, 0.14, WOOD2, x, 0.95, 0);
+            m.part(g, 2.1, 0.5, 0.1, 0xffd23f, 0, 1.75, 0);
+            m.part(g, 0.5, 0.36, 0.06, 0x8a5a2e, 0, 1.75, 0.06, false);
+            m.part(g, 0.26, 0.2, 0.07, 0xffd23f, 0, 1.71, 0.07, false);
+            for (const x of [-0.5, 0.5]) m.part(g, 0.1, 0.7, 0.1, WOOD2, x, 0.35, 0.9);
+            m.part(g, 1.2, 0.1, 0.1, WOOD, 0, 0.7, 0.9);
+            for (const [x, c] of [[-0.25, 0x6a3a1a], [0.25, 0x8a4a22]]) { m.part(g, 0.36, 0.14, 0.4, c, x, 0.8, 0.9); m.part(g, 0.4, 0.3, 0.04, RED, x, 0.6, 1.12, false); }
+        } },
+        { lv: 4, r: 2.3, build: (m, g) => { stable(m, g, 4, 0x8a5a3a, 0x3a4a5a); bales(m, g, [[2.4, 0, 0.3, 0], [2.4, 0.46, 0.3, 0.2]]); } },
+        { lv: 4, r: 1.6, build: (m, g) => { // la grada: tres escalones de bancos de madera con su barandilla
+            for (let i = 0; i < 3; i++) {
+                m.part(g, 2.6, 0.4 + i * 0.4, 0.5, i % 2 ? WOOD : WOOD2, 0, (0.4 + i * 0.4) / 2, -i * 0.5);
+                m.part(g, 2.6, 0.06, 0.2, WHITE, 0, 0.43 + i * 0.4, -i * 0.5 + 0.1, false);
+            }
+            for (const x of [-1.3, 1.3]) m.part(g, 0.1, 1.9, 0.1, WOOD2, x, 0.95, -1.0);
+            m.part(g, 2.7, 0.08, 0.08, WOOD2, 0, 1.85, -1.0, false);
+        } },
+        { lv: 5, r: 1.1, build: (m, g) => windpump(m, g) },
+        { lv: 5, r: 1.8, build: (m, g) => { fence(m, g, -1.4, 0, 1.4, 0); trough(m, g, 0, 0.7, 2.2); } },
+    ],
     milk: [
         { lv: 1, r: 1.2, build: (m, g) => { trough(m, g, 0, 0); bales(m, g, [[0.4, 0, 0.8, 0.2]]); } },
         { lv: 2, r: 1.0, build: (m, g) => {

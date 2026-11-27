@@ -22,6 +22,9 @@ import { buildChicken, animateChicken } from '../render/chicken.js';
 import { buildGoat, animateGoat } from '../render/goat.js';
 import { buildHorse, animateHorse } from '../render/horse.js';
 import { BARNYARD, SLOTS, BarnPiece } from '../render/barnyard.js';
+// Dónde va cada pieza del rodeo alrededor de su pista (ángulos, en el orden en que aparecen: arriba,
+// a los lados y en las esquinas)
+const RODEO_SPOTS = [-2.2, -0.9, 3.6, 0.3, -1.57, 2.4, 1.2];
 import { reachAt, FARM, TURRETS, PLACES, toWorld, worldToPlace, inShapeOf, inFieldShape, stretchLocal, floorPlace, worldRect, worldToLocal } from '../content/farm.js';
 
 const _d = new THREE.Object3D();
@@ -1637,7 +1640,7 @@ export class Farm {
         // (cuánto se estira la parcela en su centro: casillas del mundo por casilla suya)
         const c0 = stretchLocal(f.cx, f.cz), cx1 = stretchLocal(f.cx + 1, f.cz), cz1 = stretchLocal(f.cx, f.cz + 1);
         const kx = Math.hypot(cx1.x - c0.x, cx1.z - c0.z), kz = Math.hypot(cz1.x - c0.x, cz1.z - c0.z);
-        const R = Math.max(1.4, (Math.min(f.w * kx, f.d * kz) / 2) * 0.45), rx = R * 1.08, rz = R * 0.94;
+        const R = Math.max(1.4, (Math.min(f.w * kx, f.d * kz) / 2) * 0.4), rx = R * 1.08, rz = R * 0.94;
         const n = Math.max(20, Math.round(R * 5)), nh = R > 7 ? 4 : 3;
         v.track = { cx: c0.x, cz: c0.z, rx, rz, kx, kz, hurdles: Array.from({ length: nh }, (_, k) => ((k + 0.5) / nh) * Math.PI * 2) };
         // (en el mundo, alrededor del centro de la parcela: el estiramiento no la deforma)
@@ -1817,8 +1820,25 @@ export class Farm {
                 z += (f.cz - z) * 0.25;
             }
             const at = stretchLocal(x, z);
+            // (el rodeo: alrededor de la pista, cada uno por su lado, sin pisarla ni salirse del prado;
+            // si no cabe, no sale)
+            const T = v.track;
+            let fits = true;
+            if (T) {
+                const ang = RODEO_SPOTS[i % RODEO_SPOTS.length], R = b.def.r * 1.45;
+                const lo = stretchLocal(f.x, f.z), hi = stretchLocal(f.x + f.w, f.z + f.d);
+                const free = Math.min((hi.x - lo.x) / 2 - T.rx, (hi.z - lo.z) / 2 - T.rz) - 1.2; // (lo que queda entre la pista y el borde)
+                const dist = 1.2 + Math.min(R, free / 2) + Math.max(0, (free - 2 * R) * 0.35);
+                at.x = T.cx + Math.cos(ang) * (T.rx + dist);
+                at.z = T.cz + Math.sin(ang) * (T.rz + dist);
+                fits = free >= R * 1.1;
+            }
             b.root.position.set(at.x, 0, at.z);
             b.root.rotation.y = 0; // (de frente a la cámara)
+            if (on && !fits) {
+                b.shown = b.root.visible = false;
+                return;
+            }
             if (on) v.spots.push({ x, z, r: b.def.r * 1.2 });
             if (on && !b.shown && this.introT > 2) b.select();
             b.shown = on;

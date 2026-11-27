@@ -265,9 +265,9 @@ export class Rodeo {
         return [0.95 * k, 1.25 * k];
     }
 
-    // Una silueta en un poste de la valla (s: dónde). Llega doblada: el brazo, pegado a la valla, y
-    // la silueta, plegada contra él; al acercarse el jinete, el brazo gira hacia la pista y la
-    // silueta cae y se queda colgando, cortando el paso
+    // Una silueta en un poste de la valla (s: dónde), siempre de cara al jinete. Llega doblada: el
+    // brazo, pegado a la valla; al acercarse el jinete, el brazo gira hacia la pista y la silueta
+    // queda colgando en medio, cortando el paso
     obstacle(s) {
         const side = Math.random() < 0.5 ? -1 : 1, p = this.at(s, side * (HALF + 0.2));
         const g = new THREE.Group();
@@ -284,6 +284,7 @@ export class Rodeo {
         const reach = rand(1.3, 2.3);
         this.part(arm, reach + 0.3, 0.1, 0.1, 0xffd23f, (reach + 0.3) / 2, 0, 0);
         const hinge = new THREE.Group();
+        hinge.rotation.order = 'YXZ';
         hinge.position.x = reach;
         arm.add(hinge);
         const [w, h] = this.silhouette(hinge, kind, k);
@@ -299,14 +300,16 @@ export class Rodeo {
         this.f.targets.push(o);
     }
 
-    // Cómo está la silueta: open (0 doblada, 1 cortando el paso) y knock (de un tiro: se dobla hacia atrás)
+    // Cómo está la silueta: open (0 junto a la valla, 1 cortando el paso) y knock (de un tiro: se dobla hacia atrás)
     pose(o) {
-        const a = Math.min(1, o.open / 0.6), b = Math.max(0, Math.min(1, (o.open - 0.45) / 0.35));
+        const a = Math.min(1, o.open / 0.8);
         const e = (t) => t * t * (3 - 2 * t);
         // El brazo: de pegado a la valla (hacia atrás) a cruzando la pista (hacia dentro)
         o.arm.rotation.y = Math.PI / 2 + e(a) * (o.side > 0 ? Math.PI / 2 : -Math.PI / 2);
-        // La silueta: de plegada contra el brazo a colgando (y, de un tiro, se dobla hacia atrás)
-        o.hinge.rotation.x = -o.side * Math.PI / 2 * (1 - e(b)) + o.knock * 1.5; // (plegada hacia fuera de la pista)
+        // La silueta: siempre de cara al jinete (gira en su bisagra lo contrario que el brazo), colgando;
+        // de un tiro se dobla hacia atrás
+        o.hinge.rotation.y = Math.PI - o.arm.rotation.y;
+        o.hinge.rotation.x = -o.knock * 1.5;
         o.obj.updateMatrixWorld(true);
         o.mark.getWorldPosition(_v);
         o.x = _v.x;
