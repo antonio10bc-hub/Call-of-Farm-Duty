@@ -1473,11 +1473,15 @@ export class Village extends VoxelModel {
             g = best.g;
             cur = best;
         };
-        const R_MAX = 52;
+        // (lo que no es casa va con la ronda, el primer paso: así ninguna esquina del claro se queda
+        // vacía mientras se amplía; las casas, con su vecina)
+        const ringIt = this.planItems.find((it) => it.kind === 'ring');
+        const toRing = () => { g = ringIt.g; cur = ringIt; };
+        const R_OF = (a, u) => 13 + Math.sqrt(u) * Math.max(0, this.reach((a * 180) / Math.PI) - 13);
         let fill = 0;
         // Primero casas (y algún huerto o frutal donde no llega calle)
-        for (let t = 0; t < 9000 && fill < 240; t++) {
-            const a = rnd(t * 2.9 + 911) * Math.PI * 2, r = 13 + Math.sqrt(rnd(t * 4.3 + 77)) * (R_MAX - 13), x = VILLAGE.cx + Math.cos(a) * r, z = VILLAGE.cz + Math.sin(a) * r;
+        for (let t = 0; t < 9000 && fill < 300; t++) {
+            const a = rnd(t * 2.9 + 911) * Math.PI * 2, r = R_OF(a, rnd(t * 4.3 + 77)), x = VILLAGE.cx + Math.cos(a) * r, z = VILLAGE.cz + Math.sin(a) * r;
             if (!freeFill(x, z, 1.4)) continue;
             near(x, z);
             fill++;
@@ -1488,6 +1492,7 @@ export class Village extends VoxelModel {
                 if (R0.d < 10) lane(x, z, R0.ux, R0.uz, D / 2, R0.d - D / 2);
             } else if (rnd(t * 3.3) < 0.5) {
                 // Huerto: surcos con sus matas y una valla
+                toRing();
                 const h = new THREE.Group();
                 h.position.set(x, 0, z);
                 h.rotation.y = rnd(t * 1.3) * Math.PI;
@@ -1500,6 +1505,7 @@ export class Village extends VoxelModel {
                 placed.push({ x, z, r: 1.5 });
             } else {
                 // Frutales: un corro de árboles (alguno alien)
+                toRing();
                 for (let i = 0; i < 4; i++) {
                     const b = i * 1.57 + rnd(t), tx = x + Math.cos(b) * 1.0, tz = z + Math.sin(b) * 1.0;
                     this.part(g, 0.2, 1.0, 0.2, WOOD2, tx, 0.5, tz);
@@ -1509,10 +1515,10 @@ export class Village extends VoxelModel {
             }
         }
         // Y en los huecos que quedan, cosas pequeñas: un árbol, un almiar, un cobertizo o unos arbustos
-        for (let t = 0; t < 9000 && fill < 520; t++) {
-            const a = rnd(t * 3.1 + 517) * Math.PI * 2, r = 13 + Math.sqrt(rnd(t * 5.9 + 33)) * (R_MAX - 13), x = VILLAGE.cx + Math.cos(a) * r, z = VILLAGE.cz + Math.sin(a) * r;
+        for (let t = 0; t < 9000 && fill < 650; t++) {
+            const a = rnd(t * 3.1 + 517) * Math.PI * 2, r = R_OF(a, rnd(t * 5.9 + 33)), x = VILLAGE.cx + Math.cos(a) * r, z = VILLAGE.cz + Math.sin(a) * r;
             if (!freeFill(x, z, 0.7)) continue;
-            near(x, z);
+            toRing();
             fill++;
             const kind = rnd(t * 8.3);
             if (kind < 0.45) {
