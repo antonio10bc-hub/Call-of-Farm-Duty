@@ -140,7 +140,7 @@ async function aimAndShoot(page, where) {
 // Al campo de tiro con el trigo al máximo (sitio para encadenar rachas)
 async function enterBigField(page) {
     await openFarm(page);
-    await page.evaluate(() => { game.state.wheat = 12; for (let i = 0; i < 4; i++) game.upgradeField('wheat'); game.state.wheat = 0; game.select(null); });
+    await page.evaluate(() => { for (let i = 0; i < 4; i++) { game.state.wheat = 1e4; game.upgradeField('wheat'); } game.state.wheat = 0; game.select(null); });
     await harvestFirst(page);
     await expect.poll(() => page.evaluate(() => game.mode)).toBe('snipe');
     await expect.poll(() => page.evaluate(() => game.sniper.field.sheaves.every((s) => s.landed)), { timeout: 60_000 }).toBe(true);

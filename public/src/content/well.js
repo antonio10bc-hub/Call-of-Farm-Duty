@@ -2,11 +2,12 @@ import { L } from '../core/I18n.js';
 import { ARSENAL, ARSENAL_KINDS } from './arsenal.js';
 
 // El pozo de los deseos: un pozo de piedra en la esquina de las vacas, junto al granero. Se echa
-// una moneda de oro (cost) y sale al azar una pieza de la armería (mirilla, rifle o cargador): es
+// unas monedas de oro (cost, más step por cada pieza que ya has sacado: cada deseo cuesta un poco
+// más que el anterior) y sale al azar una pieza de la armería (mirilla, rifle o cargador): es
 // la única forma de conseguirlas (las de serie, ya se tienen). Puede salir una que ya tienes:
 // entonces devuelve refund de lo que costó. Las baratas salen más; las caras, menos (tiers: hasta
 // qué precio de la armería es de cada rareza y su peso)
-export const WELL = { cost: 15, refund: 0.25 };
+export const WELL = { cost: 15, step: 3, refund: 0.25 };
 export const TIERS = [
     { id: 'common', max: 12, w: 6, color: 0x9aa8b8, name: L('COMMON', 'COMÚN') },
     { id: 'rare', max: 25, w: 3, color: 0x3a8ad8, name: L('RARE', 'RARA') },

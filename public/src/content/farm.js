@@ -1,4 +1,5 @@
 import { L } from '../core/I18n.js';
+import { MERCHANT } from './merchant.js';
 import { REGIONS, G, GN, cellX, cellZ, regionAt, toUV, toXZ, VW, VH } from '../world/valley.js';
 
 // Plano de la granja (en casillas). Cada edificio se puede tocar para ver su ficha.
@@ -22,24 +23,27 @@ export const FARM = {
     // cultivo nuevo (field). Las de soon, de momento abandonadas y sin nada que desbloquear.
     // Sin comprar se ven oscuras (como en sombra) y con su poste (SE VENDE o PRONTO); al comprarla
     // la oscuridad se retira en una onda desde el poste, que salta, y queda tu bandera.
-    //   price   monedas de oro que cuesta
+    //   sale    se vende (por oro). El precio no es de cada una: sube con cada parcela que ya
+    //           tienes (landPrices), así que la primera sale barata y la última, carísima
     //   post    dónde está el poste (y luego la bandera): se calcula al repartir el valle (abajo)
     lands: [
-        { id: 'west', rect: [-30, 0, 0, 30], price: 50, field: 'egg', name: L('HEN RUN', 'CORRAL DE GALLINAS') },
-        { id: 'east', rect: [30, 0, 60, 30], price: 25, field: 'corn', name: L('EAST PLOT', 'PARCELA ESTE') },
-        { id: 'nw', rect: [-30, -30, 0, 0], price: 40, field: 'milk', name: L('NORTH-WEST PLOT', 'PARCELA NOROESTE') },
-        { id: 'sw', rect: [-30, 30, 0, 60], price: 15, field: 'pumpkin', name: L('GOAT PLOT', 'PARCELA DE LAS CABRAS') },
+        { id: 'west', rect: [-30, 0, 0, 30], sale: true, field: 'egg', name: L('HEN RUN', 'CORRAL DE GALLINAS') },
+        { id: 'east', rect: [30, 0, 60, 30], sale: true, field: 'corn', name: L('EAST PLOT', 'PARCELA ESTE') },
+        { id: 'nw', rect: [-30, -30, 0, 0], sale: true, field: 'milk', name: L('NORTH-WEST PLOT', 'PARCELA NOROESTE') },
+        { id: 'sw', rect: [-30, 30, 0, 60], sale: true, field: 'pumpkin', name: L('GOAT PLOT', 'PARCELA DE LAS CABRAS') },
         // (el desagüe del lago, a la derecha de los cerdos: la laguna del pescador)
-        { id: 'south', rect: [0, 30, 30, 60], price: 45, field: 'fish', name: L('FISHING POND', 'LAGUNA DEL PESCADOR') },
+        { id: 'south', rect: [0, 30, 30, 60], sale: true, field: 'fish', name: L('FISHING POND', 'LAGUNA DEL PESCADOR') },
         { id: 'se', rect: [30, 30, 60, 60], soon: true },
         // Las otras mitades de la orilla alta (la de las ovejas), la cañada y la parcela de abajo
-        { id: 'nw2', rect: [60, -30, 90, 0], price: 60, field: 'wool', name: L('SHEEP MEADOW', 'PRADO DE LAS OVEJAS') },
-        { id: 'west2', rect: [60, 0, 90, 30], price: 45, field: 'honey', name: L('APIARY', 'COLMENAR') },
+        { id: 'nw2', rect: [60, -30, 90, 0], sale: true, field: 'wool', name: L('SHEEP MEADOW', 'PRADO DE LAS OVEJAS') },
+        { id: 'west2', rect: [60, 0, 90, 30], sale: true, field: 'honey', name: L('APIARY', 'COLMENAR') },
         // La de la casa (aparcada de momento, la casa personalizable: ver house.hidden) es ahora la
         // pocilga de los cerdos
-        { id: 'house', rect: [0, -30, 30, 0], price: 35, field: 'truffle', name: L('PIGSTY', 'POCILGA') },
-        { id: 'east2', rect: [60, 30, 90, 60], price: 55, field: 'sunflower', name: L('POOL PLOT', 'PARCELA DE LA PISCINA') },
+        { id: 'house', rect: [0, -30, 30, 0], sale: true, field: 'truffle', name: L('PIGSTY', 'POCILGA') },
+        { id: 'east2', rect: [60, 30, 90, 60], sale: true, field: 'sunflower', name: L('POOL PLOT', 'PARCELA DE LA PISCINA') },
     ],
+    // Lo que cuesta la siguiente parcela, según cuántas tienes ya (de la 1.ª a la 9.ª)
+    landPrices: [20, 45, 80, 130, 190, 260, 350, 460, 600],
     bounds: { x0: -30, z0: -30, x1: 120, z1: 60 }, // todas las parcelas (en sus coordenadas de siempre)
     // El granero (armamento: rachas de bajas y mejoras del rifle) y su recinto militar, que llena
     // toda su zona: tierra apisonada (zone/yard) con un borde de hierba, la pista con el avión y su
@@ -100,7 +104,9 @@ export const FARM = {
     ],
     // Campos de cultivo. Cada uno crece al mejorarlo desde una esquina fija (corner) hacia
     // los lados que marcan dx, dz (+1 / -1).
-    //   cost      lo que cuesta cada mejora, por recurso
+    //   climb     lo que cuesta la primera mejora (de trigo y de su propio cultivo: own); cada
+    //             mejora siguiente, CLIMB.growth veces la anterior, y la torreta, CLIMB.turret
+    //             veces la última (se calcula abajo: levels[k].cost, turrets, reload)
     //   locked    empieza como un terreno abandonado lleno de chatarra que se desbloquea
     //             disparando al barril rojo; con `after`, solo cuando ese campo está al máximo; con
     //             `land`, cuando se ha comprado esa parcela
@@ -108,16 +114,15 @@ export const FARM = {
     //             arena: tamaño del campo de tiro (1 = el normal); sign: color del cartel.
     //             El nivel 1 apenas cambia; los altos tienen un campo de tiro mucho mayor y a
     //             rebosar (sobre todo el maíz y los tomates)
-    //   turrets   lo que cuesta la torreta automática, la mejora extra con el campo al máximo:
-    //             una torreta que va de esquina en esquina y lo recoge sola (ver TURRETS)
+    //   turrets   (calculado) lo que cuesta la torreta automática, la mejora extra con el campo
+    //             al máximo: una torreta que va de esquina en esquina y lo recoge sola (ver TURRETS)
     fields: [
         {
             id: 'wheat',
             crop: 'wheat',
             name: L('WHEAT FIELD', 'CAMPO DE TRIGO'),
             corner: { x: 105, z: 15, center: true }, // crece desde el centro de su parcela
-            cost: { wheat: 3 },
-            turrets: { wheat: 40 },
+            climb: { wheat: 0, own: 18 },
             // Lo primero del juego: limpiar este terreno para poder sembrar trigo
             locked: { barn: true, name: L('JUNKYARD', 'TERRENO ABANDONADO') },
             // El último llena su zona entera
@@ -134,8 +139,7 @@ export const FARM = {
             crop: 'tomato',
             name: L('SILKWORM GROVE', 'GUSANOS DE SEDA'),
             corner: { x: 105, z: 45, center: true }, // crece desde el centro de su parcela
-            cost: { wheat: 5, tomato: 3 },
-            turrets: { wheat: 40, tomato: 25 },
+            climb: { wheat: 40, own: 8 },
             locked: { after: 'wheat', name: L('JUNKYARD', 'TERRENO ABANDONADO') },
             // El último llena su zona entera
             levels: [
@@ -154,8 +158,7 @@ export const FARM = {
             crop: 'pumpkin',
             name: L('GOAT ROCKS', 'RISCO DE LAS CABRAS'),
             corner: { x: -15, z: 45, center: true }, // crece desde el centro de su parcela (la de abajo de la cañada)
-            cost: { wheat: 8, pumpkin: 2 },
-            turrets: { wheat: 40, pumpkin: 10 },
+            climb: { wheat: 50, own: 6 },
             locked: { land: 'sw', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
             levels: [
                 { w: 6, d: 5, sheaves: 6, arena: 1, sign: 0x9a6a3a },
@@ -171,8 +174,7 @@ export const FARM = {
             crop: 'honey',
             name: L('APIARY', 'COLMENAR'),
             corner: { x: 75, z: 15, center: true },
-            cost: { wheat: 10, honey: 3 },
-            turrets: { wheat: 40, honey: 12 },
+            climb: { wheat: 60, own: 7 },
             locked: { land: 'west2', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
             levels: [
                 { w: 6, d: 5, sheaves: 6, arena: 1, sign: 0x9a6a3a },
@@ -188,8 +190,7 @@ export const FARM = {
             crop: 'sunflower',
             name: L('PEARL FARM', 'PISCIFACTORÍA'),
             corner: { x: 75, z: 45, center: true },
-            cost: { wheat: 8, sunflower: 4 },
-            turrets: { wheat: 40, sunflower: 16 },
+            climb: { wheat: 50, own: 8 },
             locked: { land: 'east2', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
             levels: [
                 { w: 6, d: 5, sheaves: 8, arena: 1, sign: 0x9a6a3a },
@@ -204,8 +205,7 @@ export const FARM = {
             crop: 'corn',
             name: L('FIREFLY MEADOW', 'PRADO DE LUCIÉRNAGAS'),
             corner: { x: 45, z: 15, center: true },
-            cost: { wheat: 6, corn: 5 },
-            turrets: { wheat: 40, corn: 30 },
+            climb: { wheat: 45, own: 15 },
             locked: { land: 'east', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
             levels: [
                 { w: 6, d: 5, sheaves: 16, arena: 1, sign: 0x9a6a3a },
@@ -220,8 +220,7 @@ export const FARM = {
             crop: 'milk',
             name: L('COW PASTURE', 'PRADO DE VACAS'),
             corner: { x: -15, z: -15, center: true },
-            cost: { wheat: 10, milk: 3 },
-            turrets: { wheat: 40, milk: 12 },
+            climb: { wheat: 50, own: 5 },
             locked: { land: 'nw', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
             // sheaves: vacas del campo de tiro (un cubo cada una)
             levels: [
@@ -237,8 +236,7 @@ export const FARM = {
             crop: 'wool',
             name: L('SHEEP MEADOW', 'PRADO DE LAS OVEJAS'),
             corner: { x: 75, z: -15, center: true }, // (a la izquierda de las vacas, en la orilla alta)
-            cost: { wheat: 12, wool: 3 },
-            turrets: { wheat: 40, wool: 12 },
+            climb: { wheat: 60, own: 6 },
             locked: { land: 'nw2', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
             // sheaves: ovejas del campo de tiro (un ovillo cada una)
             levels: [
@@ -254,8 +252,7 @@ export const FARM = {
             crop: 'truffle',
             name: L('PIGSTY', 'POCILGA'),
             corner: { x: 15, z: -15, center: true }, // (donde estaba la casa)
-            cost: { wheat: 10, truffle: 3 },
-            turrets: { wheat: 40, truffle: 10 },
+            climb: { wheat: 60, own: 5 },
             locked: { land: 'house', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
             // sheaves: cerdos del campo de tiro (una trufa cada uno)
             levels: [
@@ -271,8 +268,7 @@ export const FARM = {
             crop: 'fish',
             name: L('FISHING POND', 'LAGUNA DEL PESCADOR'),
             corner: { x: 15, z: 45, center: true },
-            cost: { wheat: 10, fish: 3 },
-            turrets: { wheat: 40, fish: 12 },
+            climb: { wheat: 50, own: 6 },
             locked: { land: 'south', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
             // sheaves: peces de la laguna del campo de tiro (un pescado cada uno)
             levels: [
@@ -288,8 +284,7 @@ export const FARM = {
             crop: 'egg',
             name: L('HEN RUN', 'CORRAL DE GALLINAS'),
             corner: { x: -15, z: 15, center: true }, // (donde estaban las calabazas)
-            cost: { wheat: 10, egg: 3 },
-            turrets: { wheat: 40, egg: 12 },
+            climb: { wheat: 50, own: 6 },
             locked: { land: 'west', name: L('PLOT FOR SALE', 'PARCELA EN VENTA') },
             // sheaves: gallinas del campo de tiro (un huevo cada una)
             levels: [
@@ -320,9 +315,28 @@ export const FARM = {
 // otro (de alto mast, en cada torre menos la tuya): acribilla una mata con una ráfaga y la
 // recoge, descansa cool s y a por otra. Lo que recoge no suma a las rachas.
 // Munición: ammo matas recogidas (en el mapa y en el campo de tiro) y se queda sin balas, quieta
-// hasta que se recargue en el panel del campo pagando reload monedas de oro (las de cartón del
-// mercader; a medio gastar, la parte que falta, al menos 1).
-export const TURRETS = { every: 4, cool: 0.7, burst: 6, rate: 0.075, aim: 0.35, mast: 2.4, hop: 7, ammo: 60, reload: 6 };
+// hasta que se recargue en el panel del campo pagando monedas de oro (las de cartón del
+// mercader): la recarga entera de cada campo (su reload) vale reload veces lo que el mercader
+// paga por lo que recoge con ella (ammo matas), nunca menos de reloadMin; a medio gastar, la
+// parte que falta, al menos 1.
+export const TURRETS = { every: 4, cool: 0.7, burst: 6, rate: 0.075, aim: 0.35, mast: 2.4, hop: 7, ammo: 60, reload: 0.3, reloadMin: 3 };
+
+// Lo que sube cada mejora de un campo (growth veces la anterior) y lo que cuesta su torreta
+// (turret veces su última mejora). Redondeado a números bonitos
+export const CLIMB = { growth: 2.6, turret: 1.5 };
+const nice = (n) => (n < 20 ? Math.round(n) : n < 100 ? Math.round(n / 5) * 5 : n < 1000 ? Math.round(n / 10) * 10 : Math.round(n / 50) * 50);
+const climbCost = (f, k) => {
+    const g = Math.pow(CLIMB.growth, k - 1), c = {};
+    if (f.climb.wheat && f.crop !== 'wheat') c.wheat = nice(f.climb.wheat * g);
+    c[f.crop] = nice(f.climb.own * g);
+    return c;
+};
+for (const f of FARM.fields) {
+    f.levels.forEach((lv, k) => { if (k) lv.cost = climbCost(f, k); });
+    const top = f.levels[f.levels.length - 1].cost;
+    f.turrets = Object.fromEntries(Object.entries(top).map(([c, n]) => [c, nice(n * CLIMB.turret)]));
+    f.reload = Math.max(TURRETS.reloadMin, Math.round(TURRETS.ammo * (MERCHANT.rate[f.crop] || 0.5) * TURRETS.reload));
+}
 
 // Fichas de los edificios: un texto corto debajo del nombre
 export const INFO = {
