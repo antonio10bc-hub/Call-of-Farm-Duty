@@ -2511,11 +2511,11 @@ body.cine.show-album .album-btn { visibility: visible; } /* (en la foto del nive
 .album-big { position: absolute; max-width: min(1100px, 94vw); max-height: 86vh; image-rendering: pixelated; background: #fffaf0; border: 3px solid var(--ink); box-shadow: 0 6px 0 var(--ink); padding: 8px; cursor: zoom-out; animation: album-in .25s steps(3); }
 .album-btn .photo-ico { transform: scale(1.15); }
 
-/* La clase elegida, que se vea de lejos: ficha roja rellena, salida hacia fuera con su flecha;
-   la equipada (si no es la que se mira), con una barra verde a un lado */
+/* La clase elegida, que se vea de lejos: ficha roja rellena, en su sitio (alineada con las
+   demás); la equipada (si no es la que se mira), con una barra verde a un lado */
+.lo-class:focus { outline: none; }
 .lo-class.eq { box-shadow: inset 6px 0 0 var(--nb-good), 2px 3px 0 rgba(58, 36, 18, .25); }
-.lo-class.on, .lo-class.on.eq { position: relative; color: #fff; background: var(--nb-red); border: 3px solid var(--nb-ink); box-shadow: 4px 4px 0 var(--nb-ink); transform: translate(6px, -2px); }
+.lo-class.on, .lo-class.on.eq { color: #fff; background: var(--nb-red); border: 2px solid var(--nb-ink); box-shadow: 2px 3px 0 var(--nb-ink); transform: none; }
 .lo-class.on em { color: #ffe9a8; }
-.lo-class.on::before { content: ''; position: absolute; left: -14px; top: 50%; margin-top: -7px; border: 7px solid transparent; border-left-color: var(--nb-ink); border-right: 0; animation: lo-point .6s steps(2) infinite alternate; }
-@keyframes lo-point { to { transform: translateX(3px); } }
-@media (max-width: 700px) { .lo-class.on, .lo-class.on.eq { transform: translateY(-3px); } .lo-class.on::before { display: none; } }
+/* (la clase que se mira ya equipada: sin el botón de equipar) */
+#class-equip:disabled { display: none; }
