@@ -137,17 +137,22 @@ export const PER_LEVEL = 5;
 export const VILLAGE_LEVELS = [
     { name: L('CAMP', 'CAMPAMENTO'), gold: 0, build: L('A CRATER IN THE CLEARING', 'UN CRÁTER EN EL CLARO') },
     { name: L('OUTPOST', 'PUESTO'), gold: 10, build: L('STONE PLAZA', 'PLAZA DE PIEDRA') },
-    { name: L('HAMLET', 'ALDEA'), gold: 15, build: L('3 MERCHANTS MOVE IN: HOUSES AND PAVED STREETS', '3 MERCADERES SE MUDAN: CASAS Y CALLES ASFALTADAS') },
-    { name: L('SETTLEMENT', 'CASERÍO'), gold: 20, build: L('A ROAD AROUND THE PLAZA', 'UNA CALLE ALREDEDOR DE LA PLAZA'), perk: 'market' },
-    { name: L('VILLAGE', 'PUEBLO'), gold: 25, build: L('THE OTHER 4 MERCHANTS MOVE IN', 'LOS OTROS 4 MERCADERES SE MUDAN') },
-    { name: L('BIG VILLAGE', 'PUEBLO GRANDE'), gold: 30, build: L('STONE AVENUE TO THE MOTHERSHIP', 'AVENIDA DE PIEDRA HASTA LA NAVE MADRE'), perk: 'park' },
-    { name: L('TOWN', 'VILLA'), gold: 40, build: L('THE RING ROAD, WITH ITS CARS', 'LA RONDA, CON SUS COCHES') },
-    { name: L('MARKET TOWN', 'VILLA MERCADO'), gold: 50, build: L('FIRST NEIGHBOURHOOD', 'PRIMER BARRIO'), perk: 'tech' },
-    { name: L('BOROUGH', 'BURGO'), gold: 60, build: L('SECOND NEIGHBOURHOOD', 'SEGUNDO BARRIO') },
-    { name: L('SMALL CITY', 'CIUDAD PEQUEÑA'), gold: 80, build: L('THIRD NEIGHBOURHOOD', 'TERCER BARRIO'), perk: 'grove' },
-    { name: L('CITY', 'CIUDAD'), gold: 100, build: L('WELCOME ARCHES ON EVERY STREET', 'ARCOS DE BIENVENIDA EN CADA CALLE') },
+    { name: L('HAMLET', 'ALDEA'), gold: 20, build: L('3 MERCHANTS MOVE IN: HOUSES AND PAVED STREETS', '3 MERCADERES SE MUDAN: CASAS Y CALLES ASFALTADAS') },
+    { name: L('SETTLEMENT', 'CASERÍO'), gold: 35, build: L('A ROAD AROUND THE PLAZA', 'UNA CALLE ALREDEDOR DE LA PLAZA'), perk: 'market' },
+    { name: L('VILLAGE', 'PUEBLO'), gold: 55, build: L('THE OTHER 4 MERCHANTS MOVE IN', 'LOS OTROS 4 MERCADERES SE MUDAN') },
+    { name: L('BIG VILLAGE', 'PUEBLO GRANDE'), gold: 80, build: L('STONE AVENUE TO THE MOTHERSHIP', 'AVENIDA DE PIEDRA HASTA LA NAVE MADRE'), perk: 'park' },
+    { name: L('TOWN', 'VILLA'), gold: 150, build: L('THE RING ROAD, WITH ITS CARS', 'LA RONDA, CON SUS COCHES') },
+    { name: L('MARKET TOWN', 'VILLA MERCADO'), gold: 250, build: L('FIRST NEIGHBOURHOOD', 'PRIMER BARRIO'), perk: 'tech' },
+    { name: L('BOROUGH', 'BURGO'), gold: 400, build: L('SECOND NEIGHBOURHOOD', 'SEGUNDO BARRIO') },
+    { name: L('SMALL CITY', 'CIUDAD PEQUEÑA'), gold: 600, build: L('THIRD NEIGHBOURHOOD', 'TERCER BARRIO'), perk: 'grove' },
+    { name: L('CITY', 'CIUDAD'), gold: 900, build: L('WELCOME ARCHES ON EVERY STREET', 'ARCOS DE BIENVENIDA EN CADA CALLE') },
 ];
 export const villageLevel = (n) => Math.min(VILLAGE_LEVELS.length - 1, Math.floor(n / PER_LEVEL));
+// Lo que cuesta cada objeto: su precio (gold) por el de su nivel del pueblo (el de ahora): los
+// primeros niveles salen baratos y, del 5 al 10, cada uno cuesta mucho más
+export const TOWN_PRICE = [1, 1.4, 2, 2.8, 4, 7, 10, 14, 19, 25];
+const nice = (n) => (n < 100 ? Math.round(n) : n < 1000 ? Math.round(n / 5) * 5 : Math.round(n / 10) * 10);
+export const decorPrice = (d, owned) => nice(d.gold * TOWN_PRICE[Math.min(TOWN_PRICE.length - 1, villageLevel(owned))]);
 // Qué construye el pueblo y en qué nivel
 export const TOWN = { plaza: 1, first: 2, inner: 3, all: 4, avenue: 5, ring: 6, houses: [7, 8, 9], arches: 10, firstIds: ['m0', 'm2', 'm4'] };
 // Las calles asfaltadas (con la casa de su mercader) en un nivel
@@ -183,11 +188,11 @@ export const marketNow = (t) => marketLeft(t) !== null;
 export const MEDALS = [
     { id: 'first', name: L('FIRST DEAL', 'PRIMER TRATO'), desc: L('DELIVER AN ORDER', 'ENTREGA UN ENCARGO'), gold: 5, test: (S) => !!S.story.sold },
     { id: 'partner', name: L('SOMEONE\'S PARTNER', 'SOCIO DE ALGUIEN'), desc: L('ONE MERCHANT AT TRUST 4', 'UN MERCADER EN CONFIANZA 4'), gold: 15, test: (S) => MERCHANTS.some((d) => S.trustOf(d.id) >= 4) },
-    { id: 'friends', name: L('FRIEND OF ALL', 'AMIGO DE TODOS'), desc: L('ALL MERCHANTS AT TRUST 5', 'TODOS EN CONFIANZA 5'), gold: 100, test: (S) => MERCHANTS.every((d) => S.trustOf(d.id) >= 5) },
+    { id: 'friends', name: L('FRIEND OF ALL', 'AMIGO DE TODOS'), desc: L('ALL MERCHANTS AT TRUST 5', 'TODOS EN CONFIANZA 5'), gold: 300, test: (S) => MERCHANTS.every((d) => S.trustOf(d.id) >= 5) },
     { id: 'gift', name: L('RELIABLE', 'FORMAL'), desc: L('GET A STREAK GIFT', 'CONSIGUE UN REGALO DE RACHA'), gold: 10, test: (S) => !!S.flags.gift },
     { id: 'market', name: L('MARKET DAY', 'DÍA DE MERCADO'), desc: L('DELIVER ON A MARKET DAY', 'ENTREGA EN UN DÍA DE MERCADO'), gold: 15, test: (S) => !!S.flags.market },
     { id: 'exclusive', name: L('SPACE COLLECTOR', 'COLECCIONISTA ESPACIAL'), desc: L('BUY A MOTHERSHIP EXCLUSIVE', 'COMPRA UN EXCLUSIVO DE LA NAVE MADRE'), gold: 20, test: (S) => EXCLUSIVE.some((d) => S.village.includes(d.id)) },
-    { id: 'full', name: L('COMPLETE VILLAGE', 'PUEBLO COMPLETO'), desc: L('EVERYTHING IN THE VILLAGE', 'TODO EN EL PUEBLO'), gold: 150, test: (S) => ALL_DECOR.every((d) => S.village.includes(d.id)) },
+    { id: 'full', name: L('COMPLETE VILLAGE', 'PUEBLO COMPLETO'), desc: L('EVERYTHING IN THE VILLAGE', 'TODO EN EL PUEBLO'), gold: 1000, test: (S) => ALL_DECOR.every((d) => S.village.includes(d.id)) },
 ];
 export const decorOf = (id) => DECOR.filter((d) => d.by === id);
 

@@ -20,7 +20,7 @@ export const MERCHANT = {
     size: [0.25, 0.6],
     step: 5,
     min: 5,
-    rate: { wheat: 0.12, tomato: 0.35, pumpkin: 0.9, corn: 0.2, milk: 0.7, wool: 0.8, egg: 0.75, truffle: 1.1, fish: 0.6, honey: 1.0, sunflower: 0.5 },
+    rate: { wheat: 0.06, tomato: 0.18, pumpkin: 0.45, corn: 0.1, milk: 0.35, wool: 0.4, egg: 0.38, truffle: 0.55, fish: 0.3, honey: 0.5, sunflower: 0.25 },
     site: { zone: [30, -30, 60, 0] }, // (su parcela: en el mapa llena su zona; el pueblo, en content/merchants.js)
     name: L('MERCHANT', 'MERCADER'),
     lines: {

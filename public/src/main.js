@@ -1840,7 +1840,7 @@ function tapMap(x, y) {
     // Las sorpresas: la moneda del ovni de paso, el cofre del día y el pato del lacito
     const ex = farm.extras && farm.extras.tap(ray);
     if (ex === 'coin' || ex === 'chest') {
-        const p = ex === 'coin' ? farm.extras.takeCoin() : farm.extras.openChest(), n = ex === 'coin' ? 2 : 8;
+        const p = ex === 'coin' ? farm.extras.takeCoin() : farm.extras.openChest(), n = ex === 'coin' ? 2 + state.villageLevel : 8 + 6 * state.villageLevel; // (con el pueblo más grande, más)
         state.items.gold += n;
         state.save();
         updateCounts();
@@ -2415,8 +2415,8 @@ function shopHtml(id, open) {
     // (plegada si ya lo tienes todo)
     const stock = state.stock(clocks[id].visit, id);
     return `<div class="rare-shop">${open ? '' : `<div class="merchant-away">${L('ONLY SOLD WHILE THEY ARE HERE.', 'SOLO LAS VENDE MIENTRAS ESTÁ AQUÍ.')}</div>`}` + stock.map((d) => {
-        const it = DECOR_BY_ID[d], have = state.collects(it.id), short = state.items.gold < it.gold;
-        return `<div class="order shop${have ? ' done' : ''}${it.exclusive ? ' party' : ''}">${it.exclusive ? `<em class="order-tag">${L('TODAY ONLY', 'SOLO HOY')}</em>` : ''}<span class="order-want"><b>${it.name}</b><small class="o-where">${WHERE[it.where]}</small></span><span class="order-pay">${ico('gold')}<b>${it.gold}</b></span><button data-buy="${it.id}"${have || short || !open ? ' disabled' : ''}>${have ? L('YOURS', 'TUYO') : L('BUY', 'COMPRAR')}</button></div>`;
+        const it = DECOR_BY_ID[d], have = state.collects(it.id), price = state.decorPrice(it.id), short = state.items.gold < price;
+        return `<div class="order shop${have ? ' done' : ''}${it.exclusive ? ' party' : ''}">${it.exclusive ? `<em class="order-tag">${L('TODAY ONLY', 'SOLO HOY')}</em>` : ''}<span class="order-want"><b>${it.name}</b><small class="o-where">${WHERE[it.where]}</small></span><span class="order-pay">${ico('gold')}<b>${price}</b></span><button data-buy="${it.id}"${have || short || !open ? ' disabled' : ''}>${have ? L('YOURS', 'TUYO') : L('BUY', 'COMPRAR')}</button></div>`;
     }).join('') + '</div>';
 }
 

@@ -6,8 +6,8 @@ import { ARSENAL, ARSENAL_KINDS, DEFAULT_LOADOUT, CLASSES, arsenalItem } from '.
 import { KILLSTREAKS } from '../content/killstreaks.js';
 import { MERCHANT, RARE, rareVisit } from '../content/merchant.js';
 import { WELL, wellPool, wishPick } from '../content/well.js';
-import { trustLevel, TRUST_PAY, MOOD_PAY, GIFT_EVERY, URGENT, BASKET_PAY, SPECIAL } from '../content/merchantLife.js';
-import { MERCHANTS, MERCHANT_BY_ID, DECOR_BY_ID, decorOf, FAV_PAY, exclusiveFor, JEALOUS, MARKET, marketNow, MEDALS, ALL_DECOR, VILLAGE_LEVELS, villageLevel, TOWN_PERKS, PERK_LEVEL } from '../content/merchants.js';
+import { trustLevel, TRUST_PAY, MOOD_PAY, GIFT_EVERY, URGENT, BASKET_PAY, SPECIAL, specialVisit, GIFT_GOLD } from '../content/merchantLife.js';
+import { MERCHANTS, MERCHANT_BY_ID, DECOR_BY_ID, decorOf, FAV_PAY, exclusiveFor, JEALOUS, MARKET, marketNow, MEDALS, ALL_DECOR, VILLAGE_LEVELS, villageLevel, TOWN_PERKS, PERK_LEVEL, decorPrice } from '../content/merchants.js';
 
 // Lo que pide un encargo: { cultivo: cuánto } (el combinado, varios)
 export const orderWants = (o) => o.items || { [o.crop]: o.n };
@@ -73,7 +73,7 @@ export class FarmState {
         //   house     tras ella, el trigo mágico abre la casa (y las parcelas, a la venta)
         this.story = {};
         // Parcelas compradas con oro (content/farm.js: lands)
-        this.lands = Object.fromEntries(FARM.lands.filter((l) => l.price).map((l) => [l.id, false]));
+        this.lands = Object.fromEntries(FARM.lands.filter((l) => l.sale).map((l) => [l.id, false]));
         // El ovni (crashed: ya se ha estrellado en la parcela de la casa; met: ya se ha abierto su
         // tienda alguna vez) y la casa personalizada en su tienda: lo comprado (owned) y lo que
         // lleva puesto en cada parte (look)
@@ -355,7 +355,9 @@ export class FarmState {
 
     // ---------- El pozo de los deseos ----------
     wishCost() {
-        return this.freeCosts || Settings.freeWish ? 0 : this.perks.tech ? Math.round(WELL.cost * TOWN_PERKS.tech.wish) : WELL.cost; // (con el barrio tecnológico, más barato)
+        if (this.freeCosts || Settings.freeWish) return 0;
+        const c = WELL.cost + WELL.step * this.arsenal.owned.length; // (cada pieza sacada, el siguiente deseo un poco más caro)
+        return this.perks.tech ? Math.round(c * TOWN_PERKS.tech.wish) : c; // (con el barrio tecnológico, más barato)
     }
 
     // Lo que aún puede salir
@@ -404,9 +406,10 @@ export class FarmState {
         return this.fields[id].level >= levelsOf(id).length - 1;
     }
 
-    // Lo que cuesta mejorar el campo id, por recurso (todo a 0 con la depuración de costes)
+    // Lo que cuesta mejorar el campo id al nivel siguiente, por recurso (todo a 0 con la
+    // depuración de costes; al máximo, nada)
     cost(id) {
-        const c = FIELD_BY_ID[id].cost;
+        const c = (levelsOf(id)[this.fields[id].level + 1] || {}).cost || {};
         return this.freeCosts ? Object.fromEntries(Object.keys(c).map((k) => [k, 0])) : c;
     }
 
@@ -495,9 +498,9 @@ export class FarmState {
         }
         // Urgente (desde el nivel 3): con cuenta atrás; a tiempo, paga URGENT.pay veces
         if (lv >= 3 && orders.length > 1) Object.assign(orders[1], { kind: 'urgent', until: Date.now() + URGENT.secs * 1000 });
-        // Especial (desde el nivel 2, una visita sí y otra no; desde el 4, siempre): mucho de su
+        // Especial (desde la confianza SPECIAL.from, una visita de cada SPECIAL.every; con la máxima, de cada SPECIAL.top): mucho de su
         // favorito a cambio de uno de sus objetos raros (si ya los tienes todos, oro)
-        if (lv >= 2 && (lv >= 4 || visit % 2 === 0)) {
+        if (specialVisit(lv, visit)) {
             const f = fav || fields[fields.length - 1], n = size(f, SPECIAL.size), reward = decorOf(id).map((d) => d.id).find((d) => !this.village.includes(d) && d !== M.gift) || null;
             orders.push({ kind: 'special', crop: f.crop, n, gold: reward ? gold({ [f.crop]: n }) : Math.ceil(gold({ [f.crop]: n }) * SPECIAL.gold), reward, done: false });
         }
@@ -550,16 +553,21 @@ export class FarmState {
         return this.village.includes(item);
     }
 
+    // Lo que cuesta ahora un objeto del pueblo (sube con el nivel del pueblo)
+    decorPrice(item) {
+        return decorPrice(DECOR_BY_ID[item], this.village.length);
+    }
+
     // ¿Se puede comprar ya? (es suyo, no lo tienes, llega el oro y lo tiene a la venta)
     canBuy(visit, item, id = 'm0') {
         const it = DECOR_BY_ID[item];
-        return !!it && it.by === id && !this.collects(item) && this.items.gold >= it.gold && this.stock(visit, id).includes(item);
+        return !!it && it.by === id && !this.collects(item) && this.items.gold >= this.decorPrice(item) && this.stock(visit, id).includes(item);
     }
 
     buy(visit, item, id = 'm0') {
         const it = DECOR_BY_ID[item];
         if (!this.canBuy(visit, item, id)) return false;
-        this.items.gold -= it.gold;
+        this.items.gold -= this.decorPrice(item);
         this.village.push(item);
         this.save();
         return true;
@@ -567,7 +575,7 @@ export class FarmState {
 
     // El regalo de la racha: uno de sus objetos que no tengas (o, si los tienes todos, oro)
     giftItem(id = 'm0') {
-        return decorOf(id).map((d) => d.id).find((d) => !this.village.includes(d)) || 30;
+        return decorOf(id).map((d) => d.id).find((d) => !this.village.includes(d)) || GIFT_GOLD;
     }
 
     claimGift(id = 'm0') {
@@ -653,7 +661,7 @@ export class FarmState {
     // Lo que cuesta recargarla: la parte que le falta del precio entero (al menos 1 moneda)
     reloadCost(id) {
         if (this.freeCosts) return 0;
-        return Math.max(1, Math.ceil(TURRETS.reload * (1 - this.fields[id].ammo / TURRETS.ammo)));
+        return Math.max(1, Math.ceil(FIELD_BY_ID[id].reload * (1 - this.fields[id].ammo / TURRETS.ammo)));
     }
 
     canReloadTurret(id) {
@@ -735,7 +743,7 @@ export class FarmState {
     }
 
     landPrice(landId) {
-        return this.freeCosts ? 0 : LAND_BY_ID[landId].price;
+        return this.freeCosts ? 0 : FARM.landPrices[Math.min(FARM.landPrices.length - 1, Object.values(this.lands).filter(Boolean).length)];
     }
 
     canBuyLand(landId) {
