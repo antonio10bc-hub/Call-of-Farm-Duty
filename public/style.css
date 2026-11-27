@@ -2472,9 +2472,25 @@ body.cine .stage.small { top: calc(11vh + 26px); }
 /* Álbum del pueblo: el botón (junto al reloj del día) y las fotos, como polaroids */
 .album-btn { position: fixed; z-index: 8; display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 38px; height: 38px; padding: 0; background: var(--cream); border: 3px solid var(--ink); box-shadow: 0 3px 0 rgba(42, 26, 14, .45); cursor: pointer; }
 .album-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(42, 26, 14, .45); }
-.album-btn.new { animation: album-new 0.9s steps(2) infinite; }
-@keyframes album-new { 50% { background: var(--yellow); } }
+/* (foto nueva sin ver: el punto rojo de aviso) */
+.album-btn.new::after { content: ''; position: absolute; right: -7px; top: -7px; width: 12px; height: 12px; background: #e8402e; border: 2px solid var(--ink); border-radius: 50%; animation: album-dot 1s steps(2) infinite; }
+@keyframes album-dot { 50% { transform: scale(1.2); } }
+/* El visor de la cámara: cuatro esquinas que se cierran sobre la escena y un punto rojo de grabar */
+.viewfinder { position: fixed; inset: 0; z-index: 40; pointer-events: none; }
+.viewfinder i { position: absolute; width: 56px; height: 56px; border: 0 solid #fff; filter: drop-shadow(0 3px 0 var(--ink)); animation: vf-in .35s steps(4) both; }
+.viewfinder i:nth-child(1) { left: 10%; top: 14%; border-left-width: 6px; border-top-width: 6px; --dx: -40px; --dy: -40px; }
+.viewfinder i:nth-child(2) { right: 10%; top: 14%; border-right-width: 6px; border-top-width: 6px; --dx: 40px; --dy: -40px; }
+.viewfinder i:nth-child(3) { left: 10%; bottom: 14%; border-left-width: 6px; border-bottom-width: 6px; --dx: -40px; --dy: 40px; }
+.viewfinder i:nth-child(4) { right: 10%; bottom: 14%; border-right-width: 6px; border-bottom-width: 6px; --dx: 40px; --dy: 40px; }
+@keyframes vf-in { from { transform: translate(var(--dx), var(--dy)); opacity: 0; } }
+.viewfinder b { position: absolute; left: calc(10% + 18px); top: calc(14% + 18px); width: 14px; height: 14px; background: #e8402e; border: 2px solid var(--ink); border-radius: 50%; animation: album-dot .5s steps(2) infinite; }
+.viewfinder.snap i { animation: vf-snap .12s steps(2) both; }
+@keyframes vf-snap { 50% { transform: scale(.85); } }
+/* La polaroid: sale en grande y vuela, girando, hasta el botón del álbum */
+.album-fly { position: fixed; z-index: 41; padding: 8px 8px 22px; background: #fffaf0; border: 3px solid var(--ink); box-shadow: 0 6px 0 var(--ink); pointer-events: none; transition: transform .7s steps(10), opacity .2s steps(2) .6s; }
+.album-fly img { display: block; width: 100%; image-rendering: pixelated; border: 2px solid var(--ink); }
 body.cine .album-btn, body.predator .album-btn, body.sniping .album-btn, body.prologue .album-btn, body.photo .album-btn { visibility: hidden; }
+body.cine.show-album .album-btn { visibility: visible; } /* (en la foto del nivel: la polaroid vuela hasta él) */
 .album { position: fixed; inset: 0; z-index: 70; display: flex; align-items: center; justify-content: center; padding: 12px; background: rgba(42, 26, 14, .72); }
 .album-card { display: flex; flex-direction: column; width: min(1180px, 100%); max-height: 94vh; background: var(--cream); border: 3px solid var(--ink); box-shadow: 0 6px 0 var(--ink); animation: album-in .25s steps(3); }
 @keyframes album-in { from { transform: translateY(24px) scale(.96); } }

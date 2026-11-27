@@ -2624,7 +2624,8 @@ function updateTownCine(dt) {
             syncMerchantLife(true); // (lo que construye el nivel nuevo, con sus cubos)
             sfx.play('townBuild');
             c.fwAt = c.t + Math.max(0.5, farm.village.cubesOut) * S;
-            c.stageAt = c.fwAt + 1.5 * S;
+            c.photoAt = c.fwAt + 1.3 * S; // (1,3 s de fuegos, la foto y, cuando la polaroid llega al álbum, el cartel)
+            c.stageAt = c.photoAt + 1.2 * S;
             c.endAt = c.stageAt + 3.2 * S;
         }
         if (at(c.fwAt, 'fw')) {
@@ -2632,8 +2633,14 @@ function updateTownCine(dt) {
             rig.shake(0.25);
         }
         if (at(c.fwAt + 0.9 * S, 'fw2')) launchFireworks(22, 1.6);
-        if (at(c.stageAt - 0.35 * S, 'photo')) albumShot = c.up.lv; // (la foto del álbum: en plenos fuegos)
+        // La foto del álbum: el visor se cierra sobre el pueblo, clic y flash, y la polaroid vuela al álbum
+        if (at(c.photoAt - 0.5 * S, 'aim')) {
+            $('viewfinder').classList.remove('hidden', 'snap');
+            document.body.classList.add('show-album');
+        }
+        if (at(c.photoAt, 'photo')) albumShot = c.up.lv;
         if (at(c.stageAt, 'party')) {
+            document.body.classList.remove('show-album');
             stage(...villageUpText(c.up), false, true); // (el nombre nuevo, en grande)
             sfx.play('townLevel');
             launchFireworks(16, 2);
@@ -4030,7 +4037,7 @@ function takePhoto() {
 // ---------- Álbum del pueblo ----------
 // Al subir de nivel el pueblo, en plenos fuegos artificiales, una foto (pequeña, en JPEG) que se
 // guarda en el álbum: una por nivel, como polaroids; los niveles que faltan, en blanco
-const ALBUM = 'cofd-album';
+const ALBUM = 'cofd-album', ALBUM_NEW = 'cofd-album-new';
 const albumGet = () => { try { return JSON.parse(localStorage.getItem(ALBUM) || '{}'); } catch { return {}; } };
 let albumShot = 0;
 function takeAlbumShot() {
@@ -4046,14 +4053,41 @@ function takeAlbumShot() {
         g.drawImage(src, 0, 0, w, h);
         const A = albumGet();
         A[lv] = { img: c.toDataURL('image/jpeg', 0.82), at: Date.now() };
+        snapFx(A[lv].img);
         localStorage.setItem(ALBUM, JSON.stringify(A));
-        $('btn-album').classList.add('new');
+        localStorage.setItem(ALBUM_NEW, '1');
     } catch { /* sin almacenamiento */ }
     updateAlbumBtn();
+}
+// El momento de la foto: clic, flash, el visor se aprieta y la polaroid vuela al botón del álbum
+function snapFx(img) {
+    sfx.play('shutter');
+    renderer.flash(0xffffff, 1);
+    const vf = $('viewfinder');
+    vf.classList.add('snap');
+    setTimeout(() => vf.classList.add('hidden'), 260);
+    const fly = document.createElement('div'), w = Math.min(innerWidth * 0.5, 520);
+    fly.className = 'album-fly';
+    fly.innerHTML = `<img src="${img}" alt="">`;
+    fly.style.width = `${w}px`;
+    fly.style.left = `${(innerWidth - w) / 2}px`;
+    fly.style.top = `${innerHeight * 0.2}px`;
+    fly.style.transform = 'rotate(-4deg)';
+    document.body.appendChild(fly);
+    setTimeout(() => {
+        const b = $('btn-album').getBoundingClientRect(), f = fly.getBoundingClientRect(), k = 38 / f.width;
+        fly.style.transformOrigin = '0 0';
+        fly.style.transform = `translate(${b.left - f.left}px, ${b.top - f.top}px) scale(${k}) rotate(12deg)`;
+        fly.style.opacity = '0';
+    }, 380);
+    setTimeout(() => fly.remove(), 1200);
 }
 // (el botón, siempre: aunque aún no haya fotos, se ve qué niveles faltan)
 function updateAlbumBtn() {
     $('btn-album').classList.remove('hidden');
+    let nw = false;
+    try { nw = localStorage.getItem(ALBUM_NEW) === '1'; } catch { /* sin almacenamiento */ }
+    $('btn-album').classList.toggle('new', nw); // (el punto rojo: hay foto nueva sin ver)
 }
 function renderAlbum() {
     const A = albumGet();
@@ -4075,7 +4109,8 @@ $('album-big').addEventListener('click', (e) => { e.stopPropagation(); $('album-
 tapBtn('btn-album', () => {
     renderAlbum();
     $('album').classList.remove('hidden');
-    $('btn-album').classList.remove('new');
+    try { localStorage.removeItem(ALBUM_NEW); } catch { /* sin almacenamiento */ }
+    updateAlbumBtn();
 });
 tapBtn('album-close', closeAlbum);
 $('album').addEventListener('click', (e) => e.target === $('album') && closeAlbum());
