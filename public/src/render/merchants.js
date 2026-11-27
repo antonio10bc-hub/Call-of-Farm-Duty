@@ -1587,6 +1587,9 @@ export class Village extends VoxelModel {
             else { this.part(g, 1.0, 0.4, 1.0, STONE, pl.x, 0.2, pl.z); this.lit(g, 0.6, 0.06, 0.6, 0x5af0ff, pl.x, 0.42, pl.z); }
         }
         for (const g of Object.values(this.homeG)) this.bake([g], []);
+        // (los sitios de lo que construye cada nivel: ahí salen sus rayos de luz, de dentro afuera)
+        this.buildPts = { ring: Array.from({ length: 24 }, (_, i) => P((i / 24) * Math.PI * 2, wobR((i / 24) * Math.PI * 2))), arches: streets.map((q) => P(q.a, q.parkR + 1.6)), homes: {} };
+        for (const lv of TOWN.houses) this.buildPts.homes[lv] = homes.filter((h) => h.lv === lv).map((h) => ({ x: h.x, z: h.z }));
         this.doors = homes.map((h) => ({ x: h.x + Math.sin(h.ry) * (h.D / 2 + 0.5), z: h.z + Math.cos(h.ry) * (h.D / 2 + 0.5), lv: h.lv }));
         // --- Los arcos de bienvenida (nivel 10), a la entrada de cada calle
         const arches = (this.archG = new THREE.Group());
@@ -1607,7 +1610,7 @@ export class Village extends VoxelModel {
             const list = (this.regions[id] = this.regions[id] || []);
             let e = list.find((q) => q.lv === lv);
             if (!e) {
-                e = { lv, g: new THREE.Group(), spins: [], waters: [], keep: [] };
+                e = { lv, g: new THREE.Group(), spins: [], waters: [], keep: [], pts: [] };
                 e.g.visible = false;
                 this.root.add(e.g);
                 list.push(e);
@@ -1620,6 +1623,7 @@ export class Village extends VoxelModel {
             g.rotation.y = ry;
             fn(this, g, ...args);
             e.g.add(g);
+            e.pts.push({ x, z }); // (donde sale su rayo de luz al aparecer)
             if (g.spin) { e.spins.push(g); e.keep.push(g.spin); }
             if (g.water) { e.waters.push(g); e.keep.push(...g.water); }
             return g;
@@ -1641,15 +1645,17 @@ export class Village extends VoxelModel {
         // (los parterres, en corro alrededor de la fuente, en la dirección de cada calle)
         for (const q of geos) { const p = P(q.a, 3.3); put('flowers', 0, p.x, p.z, face(p.x, p.z), DECO.flowers); }
         const fire = P(fireA, VILLAGE.fire.r);
-        put('lights', 0, 0, 0, 0, (m, g) => {
+        put('lights', 0, VILLAGE.cx, VILLAGE.cz, 0, (m, g) => {
+            const R = (p) => (p ? { x: p.x - VILLAGE.cx, z: p.z - VILLAGE.cz } : null); // (dentro del grupo, desde el centro)
             for (const g0 of gaps) {
                 const pad = 1.6 / 9.4, a0 = g0.a0 + pad, a1 = g0.a1 - pad, n = Math.max(1, Math.round(((a1 - a0) * 9.4) / 3.2));
                 const pts = [];
                 for (let i = 0; i <= n; i++) {
                     const p = P(a0 + ((a1 - a0) * i) / n, 9.4);
                     if (Math.hypot(p.x - fire.x, p.z - fire.z) < 1.4) { pts.push(null); continue; }
-                    m.part(g, 0.1, 2.4, 0.1, WOOD2, p.x, 1.2, p.z);
-                    pts.push(p);
+                    const q = R(p);
+                    m.part(g, 0.1, 2.4, 0.1, WOOD2, q.x, 1.2, q.z);
+                    pts.push(q);
                 }
                 for (let i = 0; i < n; i++) {
                     const A = pts[i], B = pts[i + 1];
@@ -1798,10 +1804,17 @@ export class Village extends VoxelModel {
     // nuevo sale con un bote; devuelve lo que acaba de aparecer (para enseñarlo)
     setTown(lv, owned, pop = true) {
         const shown = [];
-        const show = (g, on) => {
+        // (lo que aparece: crece del suelo, con un rayo de luz en cada sitio; lo construido, en ola
+        // desde el centro hacia fuera, cada sitio a su tiempo)
+        const wave = (p) => 0.3 + (Math.hypot(p.x - VILLAGE.cx, p.z - VILLAGE.cz) / 55) * 1.8;
+        const show = (g, on, pts = [], build = false) => {
             if (on && !g.visible) {
                 shown.push(g);
-                if (pop) this.pops.push({ g, k: 1 });
+                if (pop) {
+                    const step = Math.max(1, Math.ceil(pts.length / 90)); // (no más de unos 90 rayos por cosa)
+                    for (let i = 0; i < pts.length; i += step) this.beam(pts[i].x, pts[i].z, build ? wave(pts[i]) : Math.random() * 0.4, build ? 0xfff0b0 : 0xffe08a);
+                    this.pops.push({ g, k: 1, wait: build ? (pts.length ? Math.min(...pts.map(wave)) : 0.3) : 0.15 });
+                }
             }
             g.visible = on;
         };
@@ -1809,26 +1822,51 @@ export class Village extends VoxelModel {
         const paved = pavedIn(lv);
         for (const [id, H] of Object.entries(this.houses)) {
             const on = paved.includes(id);
-            if (on && !H.on) { shown.push(H.g); if (pop) H.pop = 1; }
+            if (on && !H.on) {
+                shown.push(H.g);
+                if (pop) { H.pop = 1; H.wait = wave(H.lot); this.beam(H.lot.x, H.lot.z, H.wait, 0xfff0b0); }
+            }
             H.on = on;
             H.g.visible = on && H.pop > 0; // (la que bota, aparte; las asentadas, juntas: rebakeTown)
             H.road.visible = false;
             if (this.fallen[id]) this.fallen[id].visible = !on;
         }
         this.rebakeTown();
-        show(this.ringG, lv >= TOWN.ring);
-        for (const [hl, g] of Object.entries(this.homeG)) show(g, lv >= +hl);
-        show(this.archG, lv >= TOWN.arches);
+        show(this.ringG, lv >= TOWN.ring, this.buildPts.ring, true);
+        for (const [hl, g] of Object.entries(this.homeG)) show(g, lv >= +hl, this.buildPts.homes[hl], true);
+        show(this.archG, lv >= TOWN.arches, this.buildPts.arches, true);
         this.lastShown = { build: shown.slice(), decor: {} };
         for (const [id, list] of Object.entries(this.regions)) {
             const have = owned.includes(id);
             for (const e of list) {
                 const was = e.g.visible;
-                show(e.g, have && lv >= e.lv);
+                show(e.g, have && lv >= e.lv, e.pts);
                 if (!was && e.g.visible) (this.lastShown.decor[id] = this.lastShown.decor[id] || []).push(e.g);
             }
         }
         return this.lastShown;
+    }
+
+    // Un rayo de luz que sube donde sale algo nuevo (como el del pozo de los deseos): se ve aunque
+    // lo nuevo sea pequeño y la cámara esté lejos. delay: cuándo (s)
+    beam(x, z, delay = 0, color = 0xffe08a) {
+        if (!this.beamGeo) {
+            this.beamGeo = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
+            this.beamMats = new Map();
+            this.beamCore = this.own(new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending }));
+            this.beams = [];
+        }
+        if (this.beams.length > 320) return;
+        let m = this.beamMats.get(color);
+        if (!m) this.beamMats.set(color, (m = this.own(new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending }))));
+        const g = new THREE.Mesh(this.beamGeo, m), core = new THREE.Mesh(this.beamGeo, this.beamCore);
+        core.scale.set(0.35, 1, 0.35);
+        g.add(core);
+        g.position.set(x, 0, z);
+        g.visible = false;
+        g.renderOrder = 5;
+        this.root.add(g);
+        this.beams.push({ g, t: -delay });
     }
 
     // ¿Se ve algo de este objeto? ¿Y desde qué nivel se verá lo primero suyo? (para avisar en la tienda)
@@ -1937,12 +1975,25 @@ export class Village extends VoxelModel {
         }
         // Lo nuevo (barrios, ronda, objetos), con un bote: crece del suelo
         for (const P0 of this.pops) {
+            if (P0.wait > 0) { P0.wait -= dt; P0.g.scale.set(1, 0.0001, 1); continue; }
             P0.k = Math.max(0, P0.k - dt * 1.4);
             P0.g.scale.set(1, Math.max(0.0001, back(Math.min(1, (1 - P0.k) * 1.2))), 1);
         }
         if (this.pops.length && this.pops.every((P0) => P0.k === 0)) this.pops.length = 0;
+        // Los rayos de luz: suben de golpe y se van afinando hasta desaparecer
+        if (this.beams) for (let i = this.beams.length - 1; i >= 0; i--) {
+            const B = this.beams[i];
+            B.t += dt;
+            if (B.t < 0) continue;
+            const k = B.t / 1.5;
+            if (k >= 1) { B.g.removeFromParent(); this.beams.splice(i, 1); continue; }
+            B.g.visible = true;
+            const w = 1.6 * (1 - k) ** 1.6 + 0.04;
+            B.g.scale.set(w, 2 + ease(Math.min(1, k * 3)) * 26, w);
+        }
         // Las casas nuevas, con un bote
         if (this.houses) for (const H of Object.values(this.houses)) if (H.pop > 0) {
+            if (H.wait > 0) { H.wait -= dt; H.g.scale.set(1, 0.0001, 1); continue; }
             H.pop = Math.max(0, H.pop - dt * 1.4);
             H.g.scale.set(1, Math.max(0.0001, back(Math.min(1, (1 - H.pop) * 1.2))), 1);
             if (H.pop === 0) {

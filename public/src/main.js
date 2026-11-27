@@ -2541,21 +2541,31 @@ tapBtn('well-wish', () => {
 let townCine = null;
 function townShow(id) {
     const before = Math.min(farm.townLv || 0, state.villageLevel), up = state.checkVillage(); // (si sube, su oro ya)
+    const menu = !$('merchant').classList.contains('hidden'); // (al terminar, se vuelve a abrir si lo estaba)
     $('merchant').classList.add('hidden');
     document.body.classList.add('cine');
     touch = pan = pinch = null;
-    townCine = { id, before, up, view: mView, menu: !$('merchant').classList.contains('hidden'), t: 0, done: new Set() };
+    townCine = { id, before, up, view: mView, menu, t: 0, done: new Set() };
 }
 // (la cámara sobre una caja del mundo: en su centro y con el zoom que la abarca)
-function lookAtBox(box, min = 0.7) {
+// (con margen: lo enfocado nunca llena la pantalla)
+function lookAtBox(box, min = 1.05) {
     const c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
     rigFocus(c.x, c.z, box.min.y);
-    rig.zoomTarget = Math.max(min, Math.min(4.4, Math.max(size.x, size.z) / 19));
+    rig.zoomTarget = Math.max(min, Math.min(4.6, Math.max(size.x, size.z) / 12));
 }
 function lookAtTown(lv) {
     const w = vWorld(VILLAGE.cx, VILLAGE.cz);
     rigFocus(w.x, w.z, w.y);
-    rig.zoomTarget = lv >= 6 ? 4.2 : lv >= 2 ? 2.6 : 1.6;
+    rig.zoomTarget = lv >= 6 ? 4.5 : lv >= 2 ? 3.0 : 2.0;
+}
+// Confeti sobre el pueblo (k: cuánto)
+function townConfetti(k = 1) {
+    if (CONFIG.test) return;
+    for (let i = 0; i < 6 * k; i++) {
+        const a = Math.random() * Math.PI * 2, d = Math.random() * 18, w = vWorld(VILLAGE.cx + Math.cos(a) * d, VILLAGE.cz + Math.sin(a) * d, 6 + Math.random() * 4);
+        farmParticles.burst(w.x, w.y, w.z, 22, RAINBOW, { speed: 6, up: 5, size: 0.2, ttl: 1.8, grav: 5 });
+    }
 }
 function updateTownCine(dt) {
     const c = townCine;
@@ -2577,16 +2587,25 @@ function updateTownCine(dt) {
         stage(D.name, c.none ? L(`YOU WILL SEE IT AT VILLAGE LEVEL ${lv}`, `SE VERÁ CON EL PUEBLO EN NIVEL ${lv}`) : WHERE[D.where], true);
         sfx.play('village');
     }
-    const end = c.up ? 5.8 : 2.8;
+    // Si sube de nivel, más despacio y de fiesta: el pueblo entero, lo nuevo saliendo en ola desde
+    // el centro (cada sitio con su rayo de luz), confeti en varias tandas y el cartel del nivel
+    const end = c.up ? 9.5 : 3.2;
     if (c.up) {
-        if (at(2.7, 'town')) lookAtTown(c.up.lv);
-        if (at(3.4, 'level')) {
-            syncMerchantLife(true); // (lo que construye el nivel nuevo, con su bote)
+        if (at(3.0, 'town')) lookAtTown(c.up.lv);
+        if (at(4.0, 'level')) {
+            syncMerchantLife(true); // (lo que construye el nivel nuevo, en ola, con sus rayos)
+            sfx.play('village');
+            rig.shake(0.25);
+        }
+        if (at(4.8, 'party')) {
             stage(...villageUpText(c.up));
             sfx.play('achievement');
-            rig.shake(0.2);
+            townConfetti(1.5);
             updateCounts(true);
         }
+        if (at(5.8, 'party2')) townConfetti(1);
+        if (at(6.8, 'party3')) { townConfetti(1); sfx.play('coin'); }
+        if (at(7.8, 'party4')) townConfetti(0.7);
     }
     if (at(end, 'back')) {
         document.body.classList.remove('cine');
