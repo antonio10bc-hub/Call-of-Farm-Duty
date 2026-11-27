@@ -510,6 +510,10 @@ test('el pueblo crece: lo comprado va solo a su sitio (de cine) y cada 5 cosas s
     // 9 cosas de otros mercaderes (nivel 1: la plaza de piedra) y oro para comprar la décima
     await page.evaluate(() => { const S = game.state; S.story.merchant = true; S.village = game.allDecor.filter((id) => !['gnome', 'flamingo', 'trophy', 'hedges', 'swings', 'birdbath'].includes(id)).slice(0, 9); S.items.gold = 100; game.syncMerchantLife(false); game.clocks.m0.force = 'here'; });
     expect(await page.evaluate(() => [game.state.villageLevel, game.farm.townLv, game.farm.village.houses.m0.on])).toEqual([1, 1, false]);
+    // El plano: nada se pisa, y todo objeto tiene sitio desde el principio (y varias casas de cada tipo)
+    expect(await page.evaluate(() => game.farm.village.audit())).toEqual([]);
+    expect(await page.evaluate(() => game.allDecor.filter((id) => game.farm.village.firstLevel(id) !== 0))).toEqual([]);
+    expect(await page.evaluate(() => ['chalet', 'row', 'block'].every((k) => game.farm.village.homes.filter((h) => h.kind === k).length >= 3))).toBe(true);
     await expect.poll(() => page.evaluate(() => game.farm.village.byId.m0.open), { timeout: 120_000 }).toBe(true);
     await page.evaluate(() => game.openMerchant('m0'));
     await page.locator('button[data-view="rare"]').click();

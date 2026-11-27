@@ -351,6 +351,18 @@ export class Sfx {
             case 'unlock': this.arp('mallet', [N.F4, N.A4, N.C5, N.F5, N.A5], 0.08, 0.08, pan, 0, 0.7); this.bell(N.C6, 0.06, pan, 0.42, 1.4); this.thud(0.08, pan, 0.42, 90, 0.4); break; // algo nuevo se abre
             case 'achievement': this.arp('mallet', [N.C5, N.F5, N.A5], 0.07, 0.07, pan, 0, 0.5); this.arp('bell', [N.C6, N.F6], 0.12, 0.05, pan, 0.21, 1.2); break; // logro, nivel, aviso bueno
             case 'land': this.playRaw('build', pan); this.playRaw('unlock', pan); break; // comprar una parcela: se clava el cartel y se abre
+            // ----- El pueblo de los mercaderes: lo comprado, sus niveles y los fuegos -----
+            case 'decorIn': this.swish(0.5, 0.05, 1500, 7000, pan); this.arp('bell', [N.C6, N.E6, N.G6, N.C7], 0.07, 0.045, pan, 0.08, 1.0); this.tone('sine', N.C5, N.C6, 0.45, 0.04, pan, 0, { attack: 0.02 }); break; // sube un rayo de luz: algo nuevo en su sitio
+            case 'townBuild': this.tone('sine', 110, 220, 0.9, 0.07, pan, 0, { attack: 0.2, lp: 900 }); this.noise(1.0, 0.04, 2500, pan, 0, { type: 'bandpass', to: 6000, attack: 0.3 }); this.arp('bell', [N.F5, N.A5, N.C6], 0.12, 0.04, pan, 0.5, 1.0); break; // los bloques de luz: algo grande se construye
+            case 'townLevel': // fanfarria: el pueblo sube de nivel
+                this.arp('pluck', [N.C4, N.E4, N.G4, N.C5], 0.09, 0.1, pan);
+                this.arp('mallet', [N.C5, N.E5, N.G5, N.C6], 0.09, 0.09, pan, 0.36, 0.6);
+                for (const [f, d] of [[N.C5, 0.72], [N.E5, 0.72], [N.G5, 0.72]]) this.tone('triangle', f, f, 1.4, 0.05, pan, d, { attack: 0.04, vib: [5.5, 0.006] });
+                this.arp('bell', [N.C6, N.G6, N.C7], 0.12, 0.05, pan, 0.8, 1.6);
+                this.thud(0.1, pan, 0.72, 90, 0.5);
+                break;
+            case 'fwLaunch': this.tone('sine', 700, 2400, 0.55, 0.025, pan, 0, { attack: 0.05 }); this.noise(0.5, 0.025, 3000, pan, 0, { type: 'highpass', to: 5000 }); break; // sube un cohete (silbido)
+            case 'fwBoom': this.thud(0.14, pan, 0, 70, 0.6); this.noise(0.7, 0.09, 1800, pan, 0, { to: 200 }); for (let i = 0; i < 6; i++) this.noise(0.05, 0.03, 5000, pan, 0.15 + Math.random() * 0.5, { type: 'highpass' }); break; // estalla (y chisporrotea)
             case 'secret': for (let i = 0; i < 8; i++) this.bell([N.C6, N.D6, N.F6, N.G6, N.A6, N.C7, N.D6 * 2, N.F6 * 2][i], 0.035, pan, i * 0.07, 0.9); break; // magia, brillo, sorpresa
             case 'win': this.arp('mallet', [N.F4, N.C5, N.F5, N.A5], 0.09, 0.08, pan, 0, 0.6); this.arp('bell', [N.C6, N.F6], 0.18, 0.05, pan, 0.36, 1.5); this.thud(0.08, pan, 0.36, 100, 0.4); break; // campo terminado
             case 'go': this.swish(0.35, 0.08, 800, 4000, pan); this.arp('pluck', [N.C5, N.F5], 0.08, 0.08, pan, 0.15); break; // ¡al campo de tiro!

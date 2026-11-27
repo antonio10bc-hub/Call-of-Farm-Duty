@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { VoxelModel } from './VoxelModel.js';
 import { box, mergeBoxes, bakeRigid } from './materials.js';
-import { MERCHANTS, VILLAGE, EXCLUSIVE, TOWN, polar, pavedIn } from '../content/merchants.js';
+import { MERCHANTS, VILLAGE, TOWN, polar, pavedIn } from '../content/merchants.js';
 import { CROPS } from '../content/crops.js';
+import { layoutTown, auditTown } from './town.js';
 
 // El pueblo de los mercaderes: el cráter grande del centro de su zona (donde montan sus puestos y
 // se va llenando de lo que les compras), los siete surcos que llegan hasta él (cada uno lo dejó la
@@ -10,8 +11,8 @@ import { CROPS } from '../content/crops.js';
 // la nave madre. Cada mercader (Visitor) llega en su ovni disfrazado de vehículo por su surco; la
 // nave madre (Mother) baja en vertical sobre su claro.
 // Las ventanas de las casas de la ampliación, en tres grupos que apagan la luz a horas distintas
-const WINDOWS = [0xffe08a, 0xffe18b, 0xffe28c], WINDOW_OFF = { 0xffe18b: 0.8, 0xffe28c: 0.93 };
-const WOOD = 0x9a6a3a, WOOD2 = 0x7a4f2a, DARK = 0x5a3a22, STONE = 0x9a948a, RED_BOX = 0xc8402e;
+const WINDOW_OFF = { 0xffe18b: 0.8, 0xffe28c: 0.93 };
+const WOOD = 0x9a6a3a, WOOD2 = 0x7a4f2a, DARK = 0x5a3a22, STONE = 0x9a948a;
 const DIRT = [0x8a5a34, 0x76492a, 0x9a6a3a], TRENCH = [0x5a3a22, 0x4a2e1a];
 const METAL = 0x9aa8b8, METAL2 = 0x7a8898, HULL = 0x4a5868, GLASS = 0x9fdcff, CARD = 0xe8d8b0;
 const RUBBER = 0xe0a860; // las gomas de las caretas
@@ -727,442 +728,6 @@ export class Mother extends VoxelModel {
     }
 }
 
-// ---------- Decoración del pueblo ----------
-// Cada objeto que les compras (o te regalan), en su sitio del cráter
-const DECO = {
-    gnome(m, g) {
-        m.part(g, 0.3, 0.34, 0.24, 0x3a6ab8, 0, 0.17, 0);
-        m.part(g, 0.26, 0.24, 0.24, 0x7dff4a, 0, 0.46, 0);
-        m.part(g, 0.28, 0.12, 0.28, 0xd84a3a, 0, 0.64, 0);
-        m.part(g, 0.16, 0.14, 0.16, 0xd84a3a, 0, 0.76, 0);
-        g.scale.setScalar(1.6);
-    },
-    flamingo(m, g) {
-        m.part(g, 0.04, 0.5, 0.04, 0x2a1a0e, 0, 0.25, 0, false);
-        m.part(g, 0.42, 0.22, 0.2, 0xff8ab8, 0, 0.6, 0);
-        m.part(g, 0.08, 0.36, 0.08, 0xff8ab8, 0.16, 0.86, 0);
-        m.part(g, 0.16, 0.12, 0.12, 0xff8ab8, 0.2, 1.06, 0);
-        g.scale.setScalar(1.5);
-    },
-    trophy(m, g) {
-        m.part(g, 0.6, 0.5, 0.6, WOOD2, 0, 0.25, 0);
-        m.part(g, 0.36, 0.1, 0.36, 0xc8952a, 0, 0.55, 0);
-        m.part(g, 0.1, 0.2, 0.1, 0xffd23f, 0, 0.7, 0, false);
-        m.part(g, 0.4, 0.34, 0.4, 0xffd23f, 0, 0.97, 0);
-        for (const s of [-1, 1]) m.part(g, 0.08, 0.18, 0.08, 0xffd23f, s * 0.26, 1.0, 0, false);
-    },
-    banner(m, g) {
-        m.part(g, 0.1, 2.8, 0.1, METAL, 0, 1.4, 0);
-        m.part(g, 1.0, 0.6, 0.04, 0x3aa83a, 0.55, 2.4, 0);
-        m.part(g, 0.44, 0.12, 0.03, 0xd8e0e8, 0.55, 2.4, 0.03, false);
-    },
-    stand(m, g) {
-        for (const [x, z] of [[-0.7, -0.4], [0.7, -0.4], [-0.7, 0.4], [0.7, 0.4]]) m.part(g, 0.08, 1.7, 0.08, WOOD2, x, 0.85, z);
-        m.part(g, 1.5, 0.5, 0.9, WOOD, 0, 0.5, 0);
-        for (let i = 0; i < 4; i++) m.part(g, 0.4, 0.08, 1.1, i % 2 ? 0xfff3d6 : 0x3a8ad8, -0.6 + i * 0.4, 1.75, 0);
-        for (const [x, c] of [[-0.45, 0xe8352a], [0, 0xffd23f], [0.45, 0x7dff4a]]) m.part(g, 0.3, 0.2, 0.3, c, x, 0.85, 0, false);
-    },
-    bench(m, g) {
-        for (const x of [-0.55, 0.55]) m.part(g, 0.1, 0.4, 0.4, DARK, x, 0.2, 0);
-        m.part(g, 1.4, 0.1, 0.46, WOOD, 0, 0.44, 0);
-        m.part(g, 1.4, 0.36, 0.08, WOOD, 0, 0.7, -0.2);
-    },
-    lamps(m, g) {
-        for (const x of [-0.8, 0.8]) {
-            m.part(g, 0.12, 2.2, 0.12, 0x3a3a4a, x, 1.1, 0);
-            m.lit(g, 0.34, 0.36, 0.34, 0xffe9a0, x, 2.35, 0);
-            m.part(g, 0.44, 0.08, 0.44, 0x3a3a4a, x, 2.57, 0);
-        }
-    },
-    mailbox(m, g) {
-        m.part(g, 0.1, 0.9, 0.1, WOOD2, 0, 0.45, 0);
-        m.part(g, 0.4, 0.36, 0.6, 0x3a6ab8, 0, 1.05, 0);
-        m.part(g, 0.04, 0.3, 0.1, 0xd84a3a, 0.22, 1.2, -0.15, false);
-    },
-    flowers(m, g) {
-        m.part(g, 1.6, 0.2, 0.9, 0x6a4a2a, 0, 0.1, 0);
-        for (let i = 0; i < 7; i++) {
-            const x = -0.65 + i * 0.22, z = i % 2 ? 0.2 : -0.2;
-            m.part(g, 0.05, 0.4, 0.05, 0x3ac8b0, x, 0.4, z, false);
-            m.part(g, 0.18, 0.14, 0.18, [0xff7ae0, 0x5af0ff, 0xffe03a][i % 3], x, 0.65, z, false);
-        }
-    },
-    shrubs(m, g) {
-        for (const [x, z, s, c] of [[-0.5, 0, 0.8, 0x7dff9a], [0.4, 0.2, 0.6, 0x5af0ff], [0, -0.4, 0.5, 0xff7ae0]]) {
-            m.part(g, s, s * 0.8, s, 0x3a8a6a, x, s * 0.4, z);
-            m.part(g, s * 0.4, s * 0.4, s * 0.4, c, x, s * 0.9, z, false);
-        }
-    },
-    cone(m, g) {
-        m.part(g, 0.12, 1.6, 0.12, WOOD2, 0, 0.8, 0);
-        [[0.2, 0.3], [0.36, 0.3], [0.5, 0.3]].forEach(([w, h], i) => m.part(g, w, h, w, 0xd8a04a, 0, 1.7 + i * 0.3, 0));
-        m.part(g, 0.7, 0.4, 0.7, 0xffb8d8, 0, 2.7, 0);
-        m.part(g, 0.5, 0.3, 0.5, 0xfff3d6, 0, 3.0, 0);
-        m.part(g, 0.12, 0.12, 0.12, 0xe8352a, 0, 3.22, 0, false);
-    },
-    lights(m, g) {
-        for (const x of [-1.4, 1.4]) m.part(g, 0.1, 2.2, 0.1, WOOD2, x, 1.1, 0);
-        for (let i = 0; i < 9; i++) {
-            const k = i / 8, x = lerp(-1.4, 1.4, k), y = 2.1 - Math.sin(k * Math.PI) * 0.45;
-            m.lit(g, 0.14, 0.16, 0.14, [0xffe03a, 0xff6a5a, 0x7dff4a, 0x6ac8ff][i % 4], x, y, 0);
-        }
-    },
-    well(m, g) {
-        for (let i = 0; i < 8; i++) {
-            const a = (i / 8) * Math.PI * 2;
-            m.part(g, 0.4, 0.6, 0.3, i % 2 ? STONE : 0x8a847a, Math.cos(a) * 0.55, 0.3, Math.sin(a) * 0.55).rotation.y = -a;
-        }
-        m.part(g, 0.8, 0.04, 0.8, 0x4aa8e0, 0, 0.5, 0, false);
-        for (const x of [-0.6, 0.6]) m.part(g, 0.1, 1.4, 0.1, WOOD2, x, 0.9, 0);
-        m.part(g, 1.5, 0.3, 1.0, 0x8a4a2a, 0, 1.7, 0);
-    },
-    dish(m, g) {
-        m.part(g, 0.5, 0.3, 0.5, METAL2, 0, 0.15, 0);
-        m.part(g, 0.12, 1.0, 0.12, METAL2, 0, 0.7, 0);
-        const d = new THREE.Group();
-        d.position.set(0, 1.3, 0);
-        d.rotation.x = -0.6;
-        g.add(d);
-        m.part(d, 1.4, 0.14, 1.4, 0xd8e0e8, 0, 0, 0);
-        m.part(d, 0.06, 0.6, 0.06, METAL2, 0, 0.3, 0, false);
-        m.part(d, 0.14, 0.14, 0.14, 0xff5a5a, 0, 0.62, 0, false);
-    },
-    signpost(m, g) {
-        m.part(g, 0.12, 2.2, 0.12, WOOD2, 0, 1.1, 0);
-        [[0.4, 0xf3ead2], [-0.6, 0xffd23f], [1.2, 0x7dff9a]].forEach(([ry, c], i) => {
-            m.part(g, 1.0, 0.24, 0.06, c, Math.cos(ry) * 0.4, 1.9 - i * 0.32, -Math.sin(ry) * 0.4).rotation.y = ry;
-        });
-    },
-    telescope(m, g) {
-        for (const [x, z] of [[-0.3, -0.2], [0.3, -0.2], [0, 0.3]]) m.part(g, 0.06, 1.0, 0.06, DARK, x * 0.8, 0.5, z * 0.8);
-        const t = m.part(g, 1.4, 0.26, 0.26, 0xb8862a, 0.1, 1.15, 0);
-        t.rotation.z = 0.6;
-        m.part(t, 0.34, 0.34, 0.34, 0x8a5a1a, 0.7, 0, 0);
-    },
-    crystal(m, g) {
-        m.part(g, 0.9, 0.3, 0.9, STONE, 0, 0.15, 0);
-        for (const [x, z, h, ry] of [[0, 0, 1.6, 0.3], [0.3, 0.2, 1.0, -0.4], [-0.3, -0.1, 0.8, 0.6]]) {
-            const c = new THREE.Mesh(new THREE.BoxGeometry(0.3, h, 0.3), m.own(new THREE.MeshBasicMaterial({ color: 0x9f7aff })));
-            c.position.set(x, 0.3 + h / 2, z);
-            c.rotation.set(0.1, ry, 0.15);
-            g.add(c);
-        }
-    },
-    mushrooms(m, g) {
-        for (const [x, z, s, c] of [[0, 0, 1, 0xff5a5a], [0.6, 0.3, 0.6, 0x8a5ad8], [-0.5, 0.2, 0.7, 0xffb020]]) {
-            m.part(g, 0.2 * s, 0.9 * s, 0.2 * s, 0xf3ead2, x, 0.45 * s, z);
-            m.part(g, 0.8 * s, 0.3 * s, 0.8 * s, c, x, 0.95 * s, z);
-            m.part(g, 0.12, 0.06, 0.12, 0xffffff, x + 0.15 * s, 1.11 * s, z, false);
-        }
-    },
-    mill(m, g) {
-        for (let i = 0; i < 3; i++) m.part(g, 1.0 - i * 0.18, 0.7, 1.0 - i * 0.18, i % 2 ? 0xf3ead2 : 0xe0d4b4, 0, 0.35 + i * 0.7, 0);
-        m.part(g, 0.8, 0.4, 0.8, 0xc8402e, 0, 2.3, 0);
-        const sail = new THREE.Group();
-        sail.position.set(0, 1.9, 0.5);
-        g.add(sail);
-        for (let k = 0; k < 4; k++) {
-            const b = new THREE.Group();
-            b.rotation.z = (k * Math.PI) / 2;
-            m.part(b, 0.1, 1.2, 0.04, WOOD2, 0, 0.6, 0);
-            m.part(b, 0.32, 0.9, 0.03, 0xf3ead2, 0.2, 0.7, 0.02);
-            sail.add(b);
-        }
-        g.spin = sail;
-        g.axis = 'z';
-    },
-    pumpkins(m, g) {
-        for (const [x, z, s] of [[0, 0, 1], [0.55, 0.2, 0.7], [-0.5, 0.25, 0.75], [0.1, 0.5, 0.6]]) {
-            m.part(g, 0.6 * s, 0.45 * s, 0.55 * s, 0x9ad04a, x, 0.23 * s, z);
-            m.part(g, 0.08, 0.14, 0.08, 0x5a7a2a, x, 0.5 * s, z, false);
-            m.part(g, 0.14 * s, 0.1 * s, 0.04, 0x2a1a3a, x, 0.28 * s, z + 0.29 * s, false);
-        }
-    },
-    scarecrow(m, g) {
-        m.part(g, 0.12, 1.8, 0.12, WOOD2, 0, 0.9, 0);
-        m.part(g, 1.3, 0.1, 0.1, WOOD2, 0, 1.4, 0);
-        m.part(g, 0.6, 0.7, 0.3, 0x8a5ad8, 0, 1.25, 0);
-        m.part(g, 0.4, 0.36, 0.34, 0x7dff4a, 0, 1.82, 0);
-        m.part(g, 0.3, 0.3, 0.04, 0xf3c8a0, 0, 1.82, 0.19, false); // (también lleva careta)
-        m.part(g, 0.6, 0.06, 0.6, 0xe8c050, 0, 2.03, 0);
-        m.part(g, 0.34, 0.24, 0.34, 0xe8c050, 0, 2.17, 0);
-    },
-    fountain(m, g) {
-        for (let i = 0; i < 12; i++) {
-            const a = (i / 12) * Math.PI * 2;
-            m.part(g, 0.7, 0.5, 0.4, i % 2 ? 0xe8c050 : 0xd8a830, Math.cos(a) * 1.4, 0.25, Math.sin(a) * 1.4).rotation.y = -a;
-        }
-        m.part(g, 2.5, 0.06, 2.5, 0x5ac8ff, 0, 0.42, 0, false);
-        m.part(g, 0.5, 1.2, 0.5, 0xe8c050, 0, 0.8, 0);
-        m.part(g, 1.2, 0.2, 1.2, 0xffd23f, 0, 1.45, 0);
-        m.part(g, 0.3, 0.6, 0.3, 0xe8c050, 0, 1.85, 0);
-        m.lit(g, 0.4, 0.4, 0.4, 0x7dff4a, 0, 2.35, 0);
-        g.water = [];
-        for (let k = 0; k < 6; k++) {
-            const a = (k / 6) * Math.PI * 2, w = m.part(g, 0.12, 0.12, 0.12, 0xb8ecff, Math.cos(a) * 0.6, 1.6, Math.sin(a) * 0.6, false);
-            w.userData.a = a;
-            g.water.push(w);
-        }
-    },
-    statue(m, g) {
-        m.part(g, 1.2, 0.6, 1.2, STONE, 0, 0.3, 0);
-        for (const [x, s] of [[-0.35, 0.9], [0.35, 1.0]]) {
-            const st = buildAlien(m, 0xb8b2a8, 0xa8a298, 0x989288);
-            st.remove(st.party);
-            st.position.set(x, 0.6, 0);
-            st.scale.setScalar(s);
-            g.add(st);
-        }
-    },
-    discoball(m, g) {
-        m.part(g, 0.12, 2.8, 0.12, 0x3a3a4a, 0, 1.4, 0);
-        m.part(g, 0.8, 0.08, 0.08, 0x3a3a4a, 0.35, 2.8, 0);
-        const b = new THREE.Group();
-        b.position.set(0.7, 2.25, 0);
-        g.add(b);
-        for (let i = 0; i < 8; i++) m.part(b, 0.2, 0.2, 0.2, i % 3 ? 0xd8e0e8 : 0x9fdcff, ((i & 1) - 0.5) * 0.2, (((i >> 1) & 1) - 0.5) * 0.2, ((i >> 2) - 0.5) * 0.2, false);
-        g.spin = b;
-    },
-    tree(m, g) {
-        m.part(g, 0.5, 2.6, 0.5, 0xd8c8f0, 0, 1.3, 0);
-        for (const [y, w, c] of [[2.8, 2.4, 0x8a5ad8], [3.4, 1.8, 0x9a6ae8], [3.9, 1.0, 0xb87dff]]) m.part(g, w, 0.5, w, c, 0, y, 0);
-        for (let i = 0; i < 6; i++) {
-            const a = (i / 6) * Math.PI * 2;
-            m.lit(g, 0.2, 0.2, 0.2, [0xff7ae0, 0x5af0ff, 0xffe03a][i % 3], Math.cos(a) * 1.1, 2.5, Math.sin(a) * 1.1);
-        }
-    },
-    // Los exclusivos de la nave madre
-    arch(m, g) {
-        for (const x of [-1.2, 1.2]) for (let k = 0; k < 4; k++) m.part(g, 0.4, 0.6, 0.4, 0x9fdcff, x - Math.sign(x) * k * 0.12, 0.3 + k * 0.6, 0);
-        for (let k = 0; k < 5; k++) m.part(g, 0.5, 0.36, 0.4, 0x9fdcff, -0.9 + k * 0.45, 2.6 + Math.sin((k / 4) * Math.PI) * 0.35, 0);
-        m.lit(g, 0.3, 0.3, 0.3, 0xff7ae0, 0, 3.15, 0);
-    },
-    totem(m, g) {
-        [[0x8a5ad8, 0.9], [0x3ac8b0, 0.8], [0xff7ae0, 0.85], [0x7dff4a, 0.7]].forEach(([c, w], k) => {
-            m.part(g, w, 0.7, w, c, 0, 0.35 + k * 0.7, 0);
-            for (const x of [-0.16, 0.16]) m.lit(g, 0.14, 0.14, 0.04, 0xffe03a, x, 0.45 + k * 0.7, w / 2 + 0.03);
-        });
-        for (const s of [-1, 1]) m.part(g, 0.7, 0.14, 0.2, 0x8a5ad8, s * 0.6, 2.4, 0);
-    },
-    holo(m, g) {
-        m.part(g, 1.0, 0.4, 1.0, 0x4a5868, 0, 0.2, 0);
-        m.lit(g, 0.6, 0.06, 0.6, 0x5af0ff, 0, 0.43, 0);
-        const p = new THREE.Group();
-        p.position.y = 1.6;
-        g.add(p);
-        const mat = m.own(new THREE.MeshBasicMaterial({ color: 0x5af0ff, transparent: true, opacity: 0.55, depthWrite: false }));
-        for (const [w, y] of [[0.6, 0.45], [1.0, 0.15], [1.0, -0.15], [0.6, -0.45]]) {
-            const b = new THREE.Mesh(new THREE.BoxGeometry(w, 0.3, w), mat);
-            b.position.y = y;
-            p.add(b);
-        }
-        g.spin = p;
-    },
-    rocket(m, g) {
-        for (const s of [-1, 1]) m.part(g, 0.2, 0.9, 0.6, 0xc8402e, s * 0.45, 0.45, 0);
-        for (let k = 0; k < 4; k++) m.part(g, 0.7 - k * 0.12, 0.8, 0.7 - k * 0.12, k % 2 ? 0xf3ead2 : 0xd8e0e8, 0, 0.6 + k * 0.8, 0);
-        m.part(g, 0.3, 0.5, 0.3, 0xc8402e, 0, 3.6, 0);
-        m.lit(g, 0.3, 0.3, 0.04, 0x9fdcff, 0, 2.1, 0.33);
-    },
-    pond(m, g) {
-        for (let i = 0; i < 10; i++) {
-            const a = (i / 10) * Math.PI * 2;
-            m.part(g, 0.5, 0.24, 0.4, STONE, Math.cos(a) * 1.15, 0.12, Math.sin(a) * 1.15).rotation.y = -a;
-        }
-        m.lit(g, 1.9, 0.06, 1.9, 0x7dff9a, 0, 0.1, 0);
-        for (const [x, z] of [[-0.4, 0.2], [0.35, -0.3]]) m.part(g, 0.36, 0.06, 0.3, 0x3a8a6a, x, 0.16, z, false);
-    },
-    saucer(m, g) {
-        m.part(g, 0.14, 1.0, 0.14, 0x3a3a4a, 0, 0.5, 0);
-        const p = new THREE.Group();
-        p.position.y = 1.3;
-        p.rotation.z = 0.25;
-        g.add(p);
-        m.part(p, 1.6, 0.16, 1.6, METAL, 0, 0, 0);
-        m.part(p, 1.1, 0.2, 1.1, METAL2, 0, -0.14, 0);
-        m.part(p, 0.6, 0.4, 0.6, GLASS, 0, 0.26, 0);
-        for (let k = 0; k < 6; k++) m.lit(p, 0.12, 0.08, 0.12, k % 2 ? 0xffe03a : 0xff3e5e, Math.cos(k) * 0.72, 0, Math.sin(k) * 0.72);
-    },
-};
-
-// Las piezas de los objetos que se reparten por el pueblo (cada objeto, muchas: en la calle, en el
-// campo, en las casas). Cada una en su grupo, en el suelo y mirando a +z
-const PIECE = {
-    lamp(m, g) {
-        m.part(g, 0.12, 2.4, 0.12, 0x3a3a4a, 0, 1.2, 0);
-        m.part(g, 0.5, 0.08, 0.12, 0x3a3a4a, 0, 2.4, 0.2);
-        m.lit(g, 0.32, 0.26, 0.32, 0xfff0a0, 0, 2.3, 0.42);
-    },
-    flag(m, g) {
-        m.part(g, 0.1, 3.2, 0.1, METAL, 0, 1.6, 0);
-        m.part(g, 0.04, 0.7, 1.0, 0x3aa83a, 0, 2.75, 0.52);
-        m.part(g, 0.03, 0.14, 0.44, 0xd8e0e8, 0.03, 2.75, 0.52, false);
-    },
-    bench(m, g) {
-        for (const x of [-0.5, 0.5]) m.part(g, 0.1, 0.4, 0.4, DARK, x, 0.2, 0);
-        m.part(g, 1.3, 0.1, 0.46, WOOD, 0, 0.44, 0);
-        m.part(g, 1.3, 0.36, 0.08, WOOD, 0, 0.7, -0.2);
-    },
-    planter(m, g) {
-        m.part(g, 0.6, 0.4, 0.6, 0xc8a07a, 0, 0.2, 0);
-        m.part(g, 0.5, 0.1, 0.5, 0x5a3a22, 0, 0.42, 0, false);
-        for (const [x, z, c] of [[-0.12, -0.1, 0xff7ae0], [0.12, 0.08, 0xffe03a], [0, 0.14, 0x5af0ff]]) m.part(g, 0.18, 0.18, 0.18, c, x, 0.58, z, false);
-    },
-    hydrant(m, g) {
-        m.part(g, 0.36, 0.5, 0.36, 0xd8402e, 0, 0.25, 0);
-        m.part(g, 0.26, 0.16, 0.26, 0xd8402e, 0, 0.58, 0);
-        m.part(g, 0.56, 0.12, 0.14, 0xb8301e, 0, 0.36, 0, false);
-    },
-    busstop(m, g) {
-        for (const x of [-0.8, 0.8]) m.part(g, 0.1, 2.0, 0.1, METAL2, x, 1.0, -0.3);
-        m.part(g, 1.9, 0.12, 0.9, 0x3a8ad8, 0, 2.05, 0);
-        m.part(g, 1.7, 1.2, 0.06, GLASS, 0, 1.0, -0.36);
-        m.part(g, 1.3, 0.1, 0.36, WOOD, 0, 0.5, -0.1);
-        m.part(g, 0.08, 2.4, 0.08, METAL2, 1.15, 1.2, 0.2);
-        m.part(g, 0.5, 0.5, 0.06, 0xffd23f, 1.15, 2.4, 0.2);
-    },
-    billboard(m, g, k = 0) {
-        for (const x of [-1.1, 1.1]) m.part(g, 0.14, 2.4, 0.14, DARK, x, 1.2, 0);
-        m.part(g, 2.8, 1.4, 0.14, 0xf3ead2, 0, 2.7, 0);
-        m.part(g, 2.4, 1.0, 0.04, [0xff7ae0, 0x5af0ff, 0x7dff4a, 0xffd23f][k % 4], 0, 2.7, 0.09, false);
-        m.part(g, 0.8, 0.5, 0.04, 0x2a1a0e, -0.5, 2.7, 0.12, false);
-    },
-    hedge(m, g, w = 1) {
-        m.part(g, w, 0.7, 0.7, 0x3d8a2c, 0, 0.35, 0);
-        m.part(g, w * 0.9, 0.16, 0.56, 0x4caf3c, 0, 0.76, 0, false);
-    },
-    swings(m, g) {
-        for (const x of [-1.1, 1.1]) for (const z of [-0.5, 0.5]) m.part(g, 0.1, 2.0, 0.1, 0xd84a3a, x, 1.0, z * 0.6).rotation.x = z * 0.35;
-        m.part(g, 2.4, 0.12, 0.12, 0xd84a3a, 0, 1.95, 0);
-        for (const x of [-0.5, 0.5]) {
-            for (const dz of [-0.12, 0.12]) m.part(g, 0.03, 1.3, 0.03, 0x3a3a4a, x, 1.25, dz, false);
-            m.part(g, 0.5, 0.06, 0.34, 0x3a8ad8, x, 0.6, 0);
-        }
-    },
-    birdbath(m, g) {
-        m.part(g, 0.2, 0.7, 0.2, STONE, 0, 0.35, 0);
-        m.part(g, 0.8, 0.12, 0.8, STONE, 0, 0.74, 0);
-        m.part(g, 0.6, 0.04, 0.6, 0x5ac8ff, 0, 0.81, 0, false);
-        m.part(g, 0.14, 0.12, 0.2, 0xffd23f, 0.2, 0.88, 0, false);
-    },
-    kiosk(m, g) {
-        m.part(g, 1.8, 1.1, 1.4, 0xfff3d6, 0, 0.55, 0);
-        m.part(g, 1.4, 0.5, 0.06, GLASS, 0, 0.9, 0.72);
-        for (let i = 0; i < 5; i++) m.part(g, 0.42, 0.12, 1.8, i % 2 ? 0xfff3d6 : 0xff7ab8, -0.84 + i * 0.42, 1.55 - Math.abs(i - 2) * 0.04, 0.2);
-        m.part(g, 0.14, 0.9, 0.14, WOOD2, 0.6, 2.0, -0.3);
-        m.part(g, 0.44, 0.34, 0.44, 0xffb8d8, 0.6, 2.6, -0.3);
-    },
-    terrace(m, g) {
-        m.part(g, 0.6, 0.06, 0.6, 0xf3ead2, 0, 0.6, 0);
-        m.part(g, 0.08, 0.6, 0.08, DARK, 0, 0.3, 0);
-        m.part(g, 0.06, 1.5, 0.06, DARK, 0, 1.2, 0, false);
-        m.part(g, 1.5, 0.12, 1.5, 0xc8402e, 0, 1.95, 0);
-        m.part(g, 1.0, 0.12, 1.0, 0xfff3d6, 0, 2.07, 0, false);
-        for (const [x, z] of [[-0.6, 0], [0.6, 0]]) {
-            m.part(g, 0.36, 0.06, 0.36, 0x3a8ad8, x, 0.38, z);
-            m.part(g, 0.36, 0.36, 0.06, 0x3a8ad8, x + Math.sign(x) * 0.18, 0.56, z).rotation.y = Math.PI / 2;
-        }
-    },
-    gas(m, g) {
-        m.part(g, 6.0, 0.08, 4.0, 0x9a948a, 0, 0.04, 0, false);
-        for (const x of [-2.4, 2.4]) for (const z of [-1.4, 1.4]) m.part(g, 0.2, 2.6, 0.2, 0xe8e0d0, x, 1.3, z);
-        m.part(g, 5.6, 0.36, 3.6, 0xfff3d6, 0, 2.75, 0);
-        m.part(g, 5.7, 0.14, 3.7, 0xd8402e, 0, 2.55, 0, false);
-        for (const x of [-1.1, 1.1]) {
-            m.part(g, 0.6, 1.1, 0.4, 0xd8402e, x, 0.55, 0);
-            m.part(g, 0.4, 0.3, 0.04, 0x2a1a0e, x, 0.8, 0.22, false);
-        }
-        m.part(g, 2.2, 1.6, 1.4, 0xe8e0d0, 0, 0.8, -2.6);
-        m.part(g, 1.0, 0.5, 0.06, GLASS, 0, 0.9, -1.88);
-        m.part(g, 0.14, 3.6, 0.14, DARK, 3.4, 1.8, 1.6);
-        m.part(g, 1.0, 1.0, 0.14, 0xffd23f, 3.4, 3.6, 1.6);
-    },
-    crates(m, g) {
-        m.part(g, 0.6, 0.6, 0.6, WOOD, 0, 0.3, 0);
-        m.part(g, 0.5, 0.5, 0.5, 0xb8864a, 0.15, 0.85, 0.05).rotation.y = 0.3;
-        m.part(g, 0.4, 0.6, 0.4, 0x3a6ab8, 0.6, 0.3, 0.3);
-        m.part(g, 0.4, 0.06, 0.4, 0x2a4a88, 0.6, 0.62, 0.3, false);
-    },
-    shed(m, g) {
-        m.part(g, 1.6, 1.0, 1.3, 0xa8642e, 0, 0.5, 0);
-        m.part(g, 1.8, 0.16, 1.5, 0x5a8a3a, 0, 1.08, 0);
-        m.part(g, 0.5, 0.8, 0.06, DARK, 0.3, 0.4, 0.66);
-    },
-    tent(m, g, k = 0) {
-        const c = [0xd8402e, 0x3a8ad8, 0xffb020, 0x5aa83a][k % 4];
-        for (let i = 0; i < 4; i++) m.part(g, 1.8 - i * 0.42, 0.3, 1.6, c, 0, 0.15 + i * 0.3, 0);
-        m.part(g, 0.3, 0.6, 0.04, 0x2a1a0e, 0, 0.3, 0.8, false);
-        m.part(g, 0.06, 0.5, 0.06, WOOD2, 0, 1.35, 0, false);
-    },
-    tree(m, g, k = 0) {
-        const c = [0x4caf3c, 0x3d9a34, 0x5ab83f][k % 3], s = 0.85 + (k % 4) * 0.12;
-        m.part(g, 0.24 * s, 1.1 * s, 0.24 * s, WOOD2, 0, 0.55 * s, 0);
-        m.part(g, 1.2 * s, 0.9 * s, 1.2 * s, c, 0, 1.45 * s, 0).rotation.y = k * 0.7;
-        m.part(g, 0.8 * s, 0.6 * s, 0.8 * s, k % 5 ? 0x5cc04a : 0xb87dff, 0, 2.1 * s, 0).rotation.y = k * 0.7 + 0.4;
-    },
-    orchard(m, g, k = 0) {
-        for (let i = 0; i < 4; i++) {
-            const x = (i % 2 ? 0.7 : -0.7), z = (i < 2 ? -0.7 : 0.7);
-            m.part(g, 0.2, 1.0, 0.2, WOOD2, x, 0.5, z);
-            m.part(g, 0.9, 0.8, 0.9, 0x4caf3c, x, 1.3, z);
-            m.part(g, 0.16, 0.16, 0.16, [0xe8352a, 0xffb020, 0xffe03a][(i + k) % 3], x + 0.3, 1.2, z + 0.3, false);
-        }
-    },
-    garden(m, g, k = 0) {
-        for (let i = 0; i < 4; i++) {
-            m.part(g, 0.5, 0.12, 2.2, 0x8a5a3a, -1.05 + i * 0.7, 0.06, 0, false);
-            for (let j = 0; j < 3; j++) m.part(g, 0.34, 0.3, 0.34, [0x5aa83a, 0x7ac83a, 0xd8a83a][(i + k) % 3], -1.05 + i * 0.7, 0.25, -0.7 + j * 0.7, false);
-        }
-    },
-    haystack(m, g) {
-        m.part(g, 1.0, 0.7, 1.0, 0xe0c060, 0, 0.35, 0);
-        m.part(g, 0.7, 0.3, 0.7, 0xd0b050, 0, 0.85, 0);
-    },
-    fence(m, g, w = 3, d = 3) {
-        for (const [len, x, z, ry] of [[w, 0, -d / 2, 0], [w, 0, d / 2, 0], [d, -w / 2, 0, Math.PI / 2], [d, w / 2, 0, Math.PI / 2]]) {
-            const n = Math.max(2, Math.round(len / 0.6)), f = new THREE.Group();
-            f.position.set(x, 0, z);
-            f.rotation.y = ry;
-            for (let i = 0; i <= n; i++) m.part(f, 0.08, 0.5, 0.08, 0xf3ead2, -len / 2 + (i * len) / n, 0.25, 0, false);
-            m.part(f, len, 0.06, 0.04, 0xf3ead2, 0, 0.38, 0, false);
-            g.add(f);
-        }
-    },
-    // (lo de las casas: en su sitio de la casa, ya girado con ella)
-    mailbox(m, g) {
-        m.part(g, 0.08, 0.7, 0.08, WOOD2, 0, 0.35, 0);
-        m.part(g, 0.3, 0.26, 0.44, 0x3a6ab8, 0, 0.82, 0);
-        m.part(g, 0.04, 0.22, 0.08, 0xd84a3a, 0.17, 0.92, -0.1, false);
-    },
-    flowerbox(m, g) {
-        for (const x of [-0.28, 0.28]) m.part(g, 0.08, 0.4, 0.08, WOOD2, x, 0.2, 0);
-        const c = new THREE.Group();
-        c.position.y = 0.46;
-        c.scale.setScalar(1.3);
-        PIECE.windowbox(m, c);
-        g.add(c);
-    },
-    windowbox(m, g) {
-        m.part(g, 0.6, 0.14, 0.18, 0xa8642e, 0, 0, 0);
-        for (const [x, c] of [[-0.18, 0xff7ae0], [0, 0xffe03a], [0.18, 0xff5a5a]]) m.part(g, 0.14, 0.14, 0.14, c, x, 0.12, 0, false);
-    },
-    dish(m, g) {
-        m.part(g, 0.06, 0.4, 0.06, METAL2, 0, 0.2, 0);
-        m.part(g, 0.5, 0.06, 0.5, 0xd8e0e8, 0, 0.44, 0.06).rotation.x = -0.6;
-        m.part(g, 0.08, 0.08, 0.08, 0xff5a5a, 0, 0.62, 0.2, false);
-    },
-    // Los arcos de bienvenida (nivel 10), sobre la entrada de cada calle (w: de lado a lado)
-    arch(m, g, w = 6) {
-        for (const x of [-w / 2, w / 2]) {
-            m.part(g, 0.5, 4.0, 0.5, 0xe8c050, x, 2.0, 0);
-            m.part(g, 0.7, 0.3, 0.7, 0xd8a830, x, 0.15, 0);
-        }
-        m.part(g, w + 0.8, 0.5, 0.6, 0xe8c050, 0, 4.2, 0);
-        m.part(g, w * 0.6, 0.7, 0.12, 0x8a5ad8, 0, 4.2, 0.36);
-        m.lit(g, 0.3, 0.3, 0.3, 0x7dff4a, 0, 4.7, 0);
-    },
-};
-
 // ---------- El pueblo entero ----------
 export class Village extends VoxelModel {
     // reach(grados): hasta dónde llega la zona en esa dirección (desde el centro)
@@ -1247,31 +812,9 @@ export class Village extends VoxelModel {
                     if (n % 5 === 1) this.part(r, 0.32, 0.22, 0.26, STONE, p.x, h + 0.08, p.z).rotation.y = n;
                 }
             }
-            // Árboles tumbados hacia fuera a los dos lados (más cuanto más cerca del surco y del
-            // principio, donde la nave tocó tierra). Aparte: se quitan cuando su calle se pavimenta
-            const fallen = new THREE.Group();
-            r.add(fallen);
-            (this.fallen = this.fallen || {})[g.def.id] = fallen;
-            let i = 0;
-            for (let rr = g.parkR + 2; rr < g.endR - 0.5; rr += 1.9, i++) {
-                for (const side of [-1, 1]) {
-                    const j = (i * 7 + (side > 0 ? 3 : 0)) % 5, w = furrowHalf(g, rr), d = w + 1.6 + j * 0.42 + (i % 2) * 0.3;
-                    const k = Math.min(1, Math.max(0, (rr - g.parkR) / (g.endR - g.parkR))), p = P(rr + (j - 2) * 0.2, side, d);
-                    const pivot = new THREE.Group();
-                    pivot.position.set(p.x, 0, p.z);
-                    pivot.rotation.y = -g.a;
-                    const tree = new THREE.Group(), sc = 0.8 + ((i * 3 + j) % 4) * 0.12;
-                    tree.rotation.set(side * (0.32 + 0.4 * k), (j - 2) * 0.12, (j - 2) * 0.05);
-                    tree.scale.setScalar(sc);
-                    this.part(tree, 0.3, 1.0, 0.3, 0x7a4f2a, 0, 0.5, 0);
-                    this.part(tree, 1.5, 0.9, 1.5, 0x3d9a34, 0, 1.35, 0).rotation.y = i * 0.7;
-                    this.part(tree, 1.05, 0.7, 1.05, 0x4caf3c, 0, 2.0, 0).rotation.y = i * 0.7 + 0.4;
-                    this.part(tree, 0.55, 0.4, 0.55, 0x5cc04a, 0, 2.5, 0);
-                    this.part(tree, 0.7, 0.18, 0.4, DIRT[(i + j) % 3], 0, 0.06, -side * 0.35);
-                    pivot.add(tree);
-                    fallen.add(pivot);
-                }
-            }
+            // (los árboles tumbados de los lados ya no: el pueblo está diseñado entero y ese sitio es
+            // suyo; queda su grupo, vacío, por si acaso)
+            (this.fallen = this.fallen || {})[g.def.id] = new THREE.Group();
         }
         // La zona de impacto de la nave madre: el suelo quemado y con grietas que salen del centro, un
         // anillo de tierra levantada, terrones y piedras sueltos y, alrededor, los árboles tumbados
@@ -1429,399 +972,43 @@ export class Village extends VoxelModel {
         }
     }
 
-    // ---------- El pueblo entero, diseñado de antemano ----------
-    // Todo tiene su sitio desde el principio, sin pisarse: la ronda (con sus coches), las casas del
-    // pueblo (tres barrios, de dentro hacia fuera), los arcos de bienvenida y el sitio de cada
-    // objeto de la tienda (content/merchants.js: DECOR), que «pinta» su parte: la plaza, alrededor
-    // de la plaza, las calles, el campo de todo el pueblo, las casas o la plataforma de la nave
-    // madre. setTown enseña lo que toca según el nivel y lo comprado.
+    // ---------- El pueblo entero, diseñado de antemano (render/town.js) ----------
     buildLayout() {
-        const geos = Object.values(this.geo), mother = geos.find((q) => q.def.mother), streets = geos.filter((q) => !q.def.mother);
-        const rnd = (n) => { const v = Math.sin(n * 12.9898 + 4.1) * 43758.5453; return v - Math.floor(v); };
-        const deg = (a) => (a * 180) / Math.PI, P = (a, r) => ({ x: VILLAGE.cx + Math.cos(a) * r, z: VILLAGE.cz + Math.sin(a) * r });
-        const face = (x, z) => Math.atan2(VILLAGE.cx - x, VILLAGE.cz - z); // (de cara al centro)
         this.buildTown();
-        // --- La ronda: asfalto con su raya y aceras, ondulada; donde el claro se acaba antes, se mete
-        // hacia dentro (sin cortes)
-        const RING = 29.5, wobR = (a) => Math.min(RING + Math.sin(a * 3 + RING) * 1.3 + Math.sin(a * 5 - RING * 0.7) * 0.6, this.reach(deg(a)) - 3.4);
-        this.ringAt = wobR;
-        const onStreet = (a, r, m) => streets.some((q) => Math.abs(Math.atan2(Math.sin(a - q.a), Math.cos(a - q.a))) * r < (q.half || 2) + m);
-        const ring = (this.ringG = new THREE.Group());
-        ring.visible = false;
-        this.root.add(ring);
-        const ASPH = [0x54545a, 0x4e4e54], WALK = 0xc8c0b0, nR = Math.round((Math.PI * 2 * RING) / 0.8);
-        for (let i = 0; i < nR; i++) {
-            const a = (i / nR) * Math.PI * 2, R = wobR(a), p = P(a, R), th = i % 2 ? 0.12 : 0.126;
-            this.part(ring, 2.6, th, 0.96, ASPH[i % 2], p.x, th / 2, p.z, false).rotation.y = -a;
-            if (i % 3 === 0 && !onStreet(a, R, 0.5)) this.part(ring, 0.1, 0.13, 0.5, 0xf3e6c4, p.x, 0.066, p.z, false).rotation.y = -a;
-            for (const sd of [-1, 1]) {
-                const q = P(a, R + sd * 1.65);
-                if (!onStreet(a, R + sd * 1.65, 0.3)) this.part(ring, 0.7, 0.18, 0.98, WALK, q.x, 0.09, q.z, false).rotation.y = -a;
-            }
-        }
-        this.bake([ring], []);
-        // Los coches que dan vueltas por la ronda: cochecitos de colores con su antena alien
-        this.cars = [[0xc8402e, 0.5, 1], [0x3a8ad8, 2.6, -1], [0xffd23f, 4.4, 1]].map(([col, a, dir]) => {
-            const c = new THREE.Group();
-            this.part(c, 0.8, 0.36, 1.5, col, 0, 0.36, 0);
-            this.part(c, 0.66, 0.3, 0.8, GLASS, 0, 0.66, -0.1);
-            this.part(c, 0.7, 0.06, 0.84, col, 0, 0.84, -0.1);
-            for (const x of [-0.42, 0.42]) for (const z of [-0.48, 0.48]) this.part(c, 0.12, 0.28, 0.28, 0x2e2a28, x, 0.14, z, false);
-            this.part(c, 0.04, 0.4, 0.04, METAL, 0.25, 1.05, -0.4, false);
-            this.lit(c, 0.12, 0.12, 0.12, 0x7dff4a, 0.25, 1.28, -0.4);
-            for (const x of [-0.26, 0.26]) this.lit(c, 0.16, 0.12, 0.04, 0xfff0a0, x, 0.4, 0.76);
-            c.visible = false;
-            this.root.add(c);
-            this.bake([c], []);
-            return { g: c, a, dir, v: 0.12 + Math.random() * 0.05 };
-        });
-        // --- Lo ocupado: nada se pisa (las parcelas de las casas de los mercaderes, de salida)
-        const placed = streets.map((q) => ({ ...houseLot(q), r: 3.3 }));
-        const onPath = (dx, dz) => { const c = Math.cos(mother.a), s = Math.sin(mother.a), t = dx * c + dz * s; return t > VILLAGE.R - 1 && t < mother.padR && Math.abs(-dx * s + dz * c) < 3.4; };
-        // ¿Libre? (rad: su radio; sm: margen hasta las calles; gap: hasta lo de al lado)
-        const free = (x, z, rad, sm = 1.6, gap = 0.3) => {
-            const dx = x - VILLAGE.cx, dz = z - VILLAGE.cz, r = Math.hypot(dx, dz), a = Math.atan2(dz, dx);
-            if (r < 15 + rad || r > this.reach(deg(a)) - 2.5 - rad || Math.abs(r - wobR(a)) < rad + 2.1) return false;
-            if (Math.hypot(x - mother.pad.x, z - mother.pad.z) < VILLAGE.impact + 0.8 + rad || onPath(dx, dz)) return false;
-            for (const q of streets) {
-                const c = Math.cos(q.a), s = Math.sin(q.a), along = dx * c + dz * s;
-                if (along > VILLAGE.R - 2 && along < q.endR + 2 && Math.abs(-dx * s + dz * c) < furrowHalf(q, Math.max(along, q.parkR)) + sm + rad) return false;
-            }
-            return placed.every((p) => Math.hypot(p.x - x, p.z - z) > p.r + rad + gap);
-        };
-        // La calle más cercana a un punto: hacia dónde (ux, uz) y a qué distancia de su acera
-        const nearestRoad = (x, z) => {
-            const dx = x - VILLAGE.cx, dz = z - VILLAGE.cz, r = Math.hypot(dx, dz), a = Math.atan2(dz, dx), sg = Math.sign(wobR(a) - r) || 1;
-            let best = { ux: Math.cos(a) * sg, uz: Math.sin(a) * sg, d: Math.abs(wobR(a) - r) - 1.65 };
-            for (const q of streets) {
-                const c = Math.cos(q.a), sn = Math.sin(q.a), along = dx * c + dz * sn, side = -dx * sn + dz * c;
-                if (along < VILLAGE.R || along > q.endR) continue;
-                const d = Math.abs(side) - furrowHalf(q, along) - 0.6;
-                if (d < best.d) best = { ux: sn * Math.sign(side), uz: -c * Math.sign(side), d };
-            }
-            return best;
-        };
-        // --- Los regalos de la nave madre, alrededor de su plataforma (los primeros, para que quepan)
-        const padSpots = [];
-        for (let dd = VILLAGE.impact + 2.6; dd < VILLAGE.impact + 10 && padSpots.length < EXCLUSIVE.length; dd += 1.3) {
-            for (let i = 0; i < 24 && padSpots.length < EXCLUSIVE.length; i++) {
-                const b = ((i * 7) % 24) / 24 * Math.PI * 2, x = mother.pad.x + Math.cos(b) * dd, z = mother.pad.z + Math.sin(b) * dd;
-                if (!free(x, z, 1.7, 1.6, 0.6)) continue;
-                placed.push({ x, z, r: 1.7 });
-                padSpots.push({ x, z });
-            }
-        }
-        // --- Los puestos de la calle del mercado (la del primero), apartados antes que las casas
-        const mk = streets.find((q) => q.def.id === 'm0'), stalls = [];
-        {
-            const c = Math.cos(mk.a), s = Math.sin(mk.a), lot = houseLot(mk);
-            for (let t = mk.parkR + 6, i = 0; t < mk.endR - 2.5; t += 2.4, i++) for (const sd of [-1, 1]) {
-                const off = (furrowHalf(mk, t) + 2.0) * sd, x = VILLAGE.cx + c * t - s * off, z = VILLAGE.cz + s * t + c * off;
-                if (Math.hypot(x - lot.x, z - lot.z) < 4.6 || Math.abs(Math.hypot(x - VILLAGE.cx, z - VILLAGE.cz) - wobR(mk.a)) < 3.2) continue;
-                placed.push({ x, z, r: 1.1 });
-                stalls.push({ x, z, ry: Math.atan2(s * sd, -c * sd), i });
-            }
-        }
-        // --- Las casas del pueblo: grupitos alrededor de su placita y casas sueltas, de cara a su calle
-        // con su camino; luego, más, hasta llenar el claro. Se reparten en tres barrios por distancia
-        const dims = (k) => {
-            const form = Math.floor(rnd(k * 3.1) * 5), sc = 0.85 + rnd(k * 5.7) * 0.45;
-            return { form, W: (form === 4 ? 3.0 : form === 1 ? 1.7 : 2.2) * sc, D: (form === 4 ? 2.2 : 1.9) * sc, H: (form === 1 ? 2.4 : 1.3) * sc, sc };
-        };
-        const homes = [], lanes = [], plazas = [];
-        let k = 0;
-        const home = (x, z, ry, r, plaza = null) => {
-            const h = { x, z, ry, k, ...dims(k), plaza, d: Math.hypot(x - VILLAGE.cx, z - VILLAGE.cz) };
-            k++;
-            homes.push(h);
-            placed.push({ x, z, r });
-            return h;
-        };
-        const lane = (owner, x, z, ux, uz, from, len, w = 0.6, col = 0xd8c8a0) => {
-            if (len < 0.3) return;
-            lanes.push({ owner, x, z, ux, uz, from, len, w, col });
-            for (let t = from + 0.4; t < from + len; t += 0.8) placed.push({ x: x + ux * t, z: z + uz * t, r: 0.4 });
-        };
-        let tries = 0;
-        for (let n = 0; n < 14 && tries < 700; tries++) {
-            const a = rnd(tries * 3.7) * Math.PI * 2, r = 17 + rnd(tries * 5.1) * 26, p = P(a, r);
-            if (!free(p.x, p.z, 5)) continue;
-            n++;
-            const pl = { x: p.x, z: p.z, tree: rnd(tries) < 0.5, n, houses: [] };
-            plazas.push(pl);
-            placed.push({ x: p.x, z: p.z, r: 1.6 });
-            const m = 3 + Math.floor(rnd(tries * 9.9) * 3), a0 = rnd(tries * 1.9) * 6.3;
-            for (let i = 0; i < m; i++) {
-                const b = a0 + (i / m) * Math.PI * 2 + (rnd(i + tries) - 0.5) * 0.4, d = 3.2 + rnd(i * 3 + tries) * 0.6, hx = p.x + Math.cos(b) * d, hz = p.z + Math.sin(b) * d;
-                if (!free(hx, hz, 1.5)) continue;
-                const h = home(hx, hz, Math.atan2(p.x - hx, p.z - hz) + (rnd(i * 7 + tries) - 0.5) * 0.3, 1.7, pl);
-                pl.houses.push(h);
-                lane(h, hx, hz, (p.x - hx) / d, (p.z - hz) / d, h.D / 2, d - h.D / 2 - 1.5, 0.5);
-            }
-            const R0 = nearestRoad(p.x, p.z);
-            lane(pl, p.x, p.z, R0.ux, R0.uz, 1.6, R0.d - 1.6, 1.2, 0x8a8a86);
-        }
-        const loose = (seedA, seedR, n0, rad, sm, gap, maxD) => {
-            for (let n = 0; n < n0 && tries < 9000; tries++) {
-                const a = rnd(tries * seedA) * Math.PI * 2, r = 16 + Math.sqrt(rnd(tries * seedR)) * Math.max(0, this.reach(deg(a)) - 16), p = P(a, r);
-                if (!free(p.x, p.z, rad, sm, gap)) continue;
-                const R0 = nearestRoad(p.x, p.z);
-                if (R0.d > maxD) continue;
-                n++;
-                const h = home(p.x, p.z, Math.atan2(R0.ux, R0.uz) + (rnd(tries * 2.2) - 0.5) * 0.2, rad + 0.1);
-                lane(h, p.x, p.z, R0.ux, R0.uz, h.D / 2, R0.d - h.D / 2);
-            }
-        };
-        // Lo que va por todo el pueblo se aparta aquí, antes de rellenar con más casas (que todo tenga
-        // su sitio): lo grande primero, repartido; si no cabe, con menos margen, pero al menos uno
-        const townSpots = {}, TOWN_FN = {};
-        const toRoad = (p) => { const R0 = nearestRoad(p.x, p.z); return Math.atan2(R0.ux, R0.uz); };
-        const inRing = (p, r, a) => r < wobR(a) - 3, outRing = (p, r, a) => r > wobR(a) + 3;
-        const reserve = (id, n, rad, fn, test = () => true, turn = null) => {
-            const seed = id.split('').reduce((h, ch) => h * 31 + ch.charCodeAt(0), 7) % 997, out = (townSpots[id] = []);
-            TOWN_FN[id] = fn;
-            for (const [sm, tries2, need] of [[1.7, 3000, n], [1.0, 3000, 1]]) {
-                for (let t = 0; t < tries2 && out.length < need; t++) {
-                    const a = rnd(seed * 7.3 + t * 2.9 + sm) * Math.PI * 2, r = 15 + Math.sqrt(rnd(seed * 3.1 + t * 4.3 + sm)) * Math.max(0, this.reach(deg(a)) - 15), p = P(a, r);
-                    if ((sm > 1.5 && !test(p, r, a)) || !free(p.x, p.z, rad, sm, 0.3)) continue;
-                    placed.push({ x: p.x, z: p.z, r: rad });
-                    out.push({ ...p, ry: turn ? turn(p) : rnd(seed + t) * Math.PI * 2, rad });
-                }
-            }
-        };
-        reserve('gas', 1, 3.6, PIECE.gas, (p, r, a) => Math.abs(r - wobR(a)) < 7, toRoad);
-        reserve('mill', 2, 1.5, DECO.mill, outRing);
-        reserve('swings', 3, 1.5, PIECE.swings);
-        reserve('kiosk', 2, 1.4, PIECE.kiosk, (p) => nearestRoad(p.x, p.z).d < 6, toRoad);
-        reserve('parasols', 4, 1.2, PIECE.terrace, inRing);
-        reserve('orchards', 4, 1.7, PIECE.orchard);
-        reserve('gardens', 5, 1.7, PIECE.garden);
-        reserve('pumpkins', 5, 1.1, DECO.pumpkins);
-        reserve('sheds', 4, 1.1, PIECE.shed, () => true, toRoad);
-        reserve('tents', 4, 1.2, PIECE.tent, outRing);
-        reserve('well', 2, 1.2, DECO.well);
-        reserve('dish', 3, 1.0, DECO.dish); // (las grandes, en el campo; las pequeñas, en los tejados)
-        reserve('stand', 3, 1.2, DECO.stand, inRing, toRoad); // (y algún puesto suelto, antes de la calle del mercado)
-        // (las casas sueltas, después de lo grande y antes de lo pequeño)
-        loose(3.7, 5.1, 45, 1.8, 1.6, 0.3, 9);
-        reserve('woods', 32, 0.8, PIECE.tree);
-        reserve('haystacks', 8, 0.7, PIECE.haystack);
-        reserve('scarecrow', 5, 0.5, DECO.scarecrow);
-        reserve('crystal', 6, 0.7, DECO.crystal);
-        reserve('mushrooms', 6, 0.7, DECO.mushrooms);
-        reserve('shrubs', 10, 0.6, DECO.shrubs);
-        reserve('crates', 5, 0.6, PIECE.crates);
-        reserve('gnome', 8, 0.4, DECO.gnome);
-        reserve('flamingo', 8, 0.4, DECO.flamingo);
-        reserve('birdbath', 5, 0.5, PIECE.birdbath);
-        loose(2.9, 4.3, 70, 1.4, 1.5, 0.2, 10);
-        // Los tres barrios: por distancia al centro (los de cerca, antes)
-        const byD = [...homes].sort((p, q) => p.d - q.d);
-        byD.forEach((h, i) => (h.lv = TOWN.houses[Math.min(2, Math.floor((i / byD.length) * 3))]));
-        for (const pl of plazas) pl.lv = pl.houses.length ? Math.min(...pl.houses.map((h) => h.lv)) : TOWN.houses[0];
-        for (const L0 of lanes) L0.lv = L0.owner.lv;
-        // Se dibujan: un grupo por barrio y, dentro, por tandas de distancia (al subir de nivel salen
-        // en ola desde el centro, cada tanda cuando se va su cubo de luz)
-        this.homeG = {};
-        this.homeBands = {};
-        const BANDS = 6;
-        for (const lv of TOWN.houses) {
-            const g = (this.homeG[lv] = new THREE.Group()), mine = homes.filter((h) => h.lv === lv);
-            g.visible = false;
-            this.root.add(g);
-            const d0 = Math.min(...mine.map((h) => h.d)), d1 = Math.max(...mine.map((h) => h.d)) + 0.01;
-            this.homeBands[lv] = Array.from({ length: BANDS }, () => { const b = { g: new THREE.Group(), pts: [] }; g.add(b.g); return b; });
-            for (const h of mine) h.band = this.homeBands[lv][Math.floor(((h.d - d0) / (d1 - d0)) * BANDS)];
-        }
-        const bandOf = (o) => (o.band ? o.band : o.houses && o.houses.length ? o.houses[0].band : this.homeBands[o.lv][0]);
-        for (const h of homes) { this.drawHome(h.band.g, h); h.band.pts.push({ x: h.x, z: h.z }); }
-        for (const L0 of lanes) this.part(bandOf(L0.owner).g, L0.w, 0.1, L0.len, L0.col, L0.x + L0.ux * (L0.from + L0.len / 2), 0.05, L0.z + L0.uz * (L0.from + L0.len / 2), false).rotation.y = Math.atan2(L0.ux, L0.uz);
-        for (const pl of plazas) {
-            const g = bandOf(pl).g;
-            for (let i = 0; i < 10; i++) { const b = (i / 10) * Math.PI * 2; this.part(g, 0.9, 0.08, 0.9, i % 2 ? 0xd4c8b0 : 0xc8bca4, pl.x + Math.cos(b) * 1.1, 0.04, pl.z + Math.sin(b) * 1.1, false).rotation.y = -b; }
-            if (pl.tree) { this.part(g, 0.24, 1.2, 0.24, WOOD2, pl.x, 0.6, pl.z); this.part(g, 1.2, 0.9, 1.2, [0x4caf3c, 0xb87dff][pl.n % 2], pl.x, 1.6, pl.z); }
-            else { this.part(g, 1.0, 0.4, 1.0, STONE, pl.x, 0.2, pl.z); this.lit(g, 0.6, 0.06, 0.6, 0x5af0ff, pl.x, 0.42, pl.z); }
-        }
-        for (const list of Object.values(this.homeBands)) for (const b of list) this.bake([b.g], []);
-        // (los sitios de lo que construye cada nivel: ahí salen sus rayos de luz, de dentro afuera)
-        this.buildPts = { ring: Array.from({ length: 24 }, (_, i) => P((i / 24) * Math.PI * 2, wobR((i / 24) * Math.PI * 2))), arches: streets.map((q) => P(q.a, q.parkR + 1.6)) };
-        this.doors = homes.map((h) => ({ x: h.x + Math.sin(h.ry) * (h.D / 2 + 0.5), z: h.z + Math.cos(h.ry) * (h.D / 2 + 0.5), lv: h.lv }));
-        // --- Los arcos de bienvenida (nivel 10), a la entrada de cada calle
-        const arches = (this.archG = new THREE.Group());
-        arches.visible = false;
-        this.root.add(arches);
-        for (const q of streets) {
-            const t = q.parkR + 1.6, p = P(q.a, t), a = new THREE.Group();
-            a.position.set(p.x, 0, p.z);
-            a.rotation.y = Math.atan2(-Math.cos(q.a), -Math.sin(q.a));
-            PIECE.arch(this, a, (furrowHalf(q, t) + 0.7) * 2);
-            arches.add(a);
-        }
-        this.bake([arches], []);
-
-        // ---------- El sitio de cada objeto ----------
-        this.regions = {};
-        const reg = (id, lv) => {
-            const list = (this.regions[id] = this.regions[id] || []);
-            let e = list.find((q) => q.lv === lv);
-            if (!e) {
-                e = { lv, g: new THREE.Group(), spins: [], waters: [], keep: [], pts: [] };
-                e.g.visible = false;
-                this.root.add(e.g);
-                list.push(e);
-            }
-            return e;
-        };
-        const put = (id, lv, x, z, ry, fn, ...args) => {
-            const e = reg(id, lv), g = new THREE.Group();
-            g.position.set(x, 0, z);
-            g.rotation.y = ry;
-            fn(this, g, ...args);
-            e.g.add(g);
-            e.pts.push({ x, z }); // (donde sale su rayo de luz al aparecer)
-            if (g.spin) { e.spins.push(g); e.keep.push(g.spin); }
-            if (g.water) { e.waters.push(g); e.keep.push(...g.water); }
-            return g;
-        };
-        // (una pieza dentro de otro sitio: en x, y, z de su grupo)
-        const sub = (fn, x, y, z, ...args) => (m, g) => { const c = new THREE.Group(); c.position.set(x, y, z); fn(m, c, ...args); g.add(c); };
-        // --- La plaza: la fuente en el centro y, en los huecos entre los puestos, una cosa en cada uno
-        const angs = MERCHANTS.map((d) => d.angle * RAD).sort((p, q) => p - q);
-        const gaps = angs.map((a, i) => { const b = i + 1 < angs.length ? angs[i + 1] : angs[0] + Math.PI * 2; return { a0: a, a1: b, mid: (a + b) / 2, half: (b - a) / 2 }; });
-        const fireA = VILLAGE.fire.angle * RAD, near = (p, q) => Math.abs(Math.atan2(Math.sin(p - q), Math.cos(p - q)));
-        const fireGap = gaps.find((g) => near(g.mid, fireA) < g.half);
-        put('fountain', 0, VILLAGE.cx, VILLAGE.cz, 0, DECO.fountain);
-        const spots = gaps.filter((g) => g !== fireGap);
-        ['statue', 'trophy', 'cone', 'signpost', 'telescope', 'tree', 'discoball'].forEach((id, i) => {
-            const p = P(spots[i % spots.length].mid, 5.4);
-            put(id, 0, p.x, p.z, face(p.x, p.z), DECO[id]);
-        });
-        // --- Alrededor de la plaza: parterres, guirnaldas de un poste a otro y setos por fuera
-        // (los parterres, en corro alrededor de la fuente, en la dirección de cada calle)
-        for (const q of geos) { const p = P(q.a, 3.3); put('flowers', 0, p.x, p.z, face(p.x, p.z), DECO.flowers); }
-        const fire = P(fireA, VILLAGE.fire.r);
-        put('lights', 0, VILLAGE.cx, VILLAGE.cz, 0, (m, g) => {
-            const R = (p) => (p ? { x: p.x - VILLAGE.cx, z: p.z - VILLAGE.cz } : null); // (dentro del grupo, desde el centro)
-            for (const g0 of gaps) {
-                const pad = 1.6 / 9.4, a0 = g0.a0 + pad, a1 = g0.a1 - pad, n = Math.max(1, Math.round(((a1 - a0) * 9.4) / 3.2));
-                const pts = [];
-                for (let i = 0; i <= n; i++) {
-                    const p = P(a0 + ((a1 - a0) * i) / n, 9.4);
-                    if (Math.hypot(p.x - fire.x, p.z - fire.z) < 1.4) { pts.push(null); continue; }
-                    const q = R(p);
-                    m.part(g, 0.1, 2.4, 0.1, WOOD2, q.x, 1.2, q.z);
-                    pts.push(q);
-                }
-                for (let i = 0; i < n; i++) {
-                    const A = pts[i], B = pts[i + 1];
-                    if (!A || !B) continue;
-                    for (let j = 1; j < 6; j++) { const t = j / 6; m.lit(g, 0.14, 0.16, 0.14, [0xffe03a, 0xff6a5a, 0x7dff4a, 0x6ac8ff][(i + j) % 4], lerp(A.x, B.x, t), 2.3 - Math.sin(t * Math.PI) * 0.4, lerp(A.z, B.z, t)); }
-                }
-            }
-        });
-        for (const g0 of gaps) {
-            const sideM = (q) => (q && q.half ? q.half + 2.2 : 3.6) / 13.6;
-            const qa = geos.find((q) => near(q.a, g0.a0) < 0.01), qb = geos.find((q) => near(q.a, g0.a1 % (Math.PI * 2)) < 0.01 || near(q.a, g0.a1) < 0.01);
-            const a0 = g0.a0 + sideM(qa), a1 = g0.a1 - sideM(qb);
-            for (let a = a0; a <= a1; a += 1.0 / 13.6) { const p = P(a, 13.6); put('hedges', 0, p.x, p.z, face(p.x, p.z), PIECE.hedge, 1.0); }
-        }
-        // --- Por las calles: banderas a la entrada; farolas, maceteros, bancos y bocas de incendio a
-        // los dos lados; una parada de autobús y una valla publicitaria al final; y las farolas de la
-        // ronda. (Sin pisar los caminos de las casas, la parcela de la casa del mercader ni la ronda)
-        const laneEnds = lanes.map((L0) => ({ x: L0.x + L0.ux * (L0.from + L0.len), z: L0.z + L0.uz * (L0.from + L0.len) }));
-        for (const q of streets) {
-            const c = Math.cos(q.a), s = Math.sin(q.a), lot = houseLot(q);
-            const at = (t, sd, extra = 0) => { const off = (furrowHalf(q, t) + 0.95 + extra) * sd; return { x: VILLAGE.cx + c * t - s * off, z: VILLAGE.cz + s * t + c * off }; };
-            const look = (sd) => Math.atan2(s * sd, -c * sd);
-            const busy = (p) => Math.hypot(p.x - lot.x, p.z - lot.z) < 3.8 || laneEnds.some((e) => Math.hypot(e.x - p.x, e.z - p.z) < 1.4)
-                || Math.abs(Math.hypot(p.x - VILLAGE.cx, p.z - VILLAGE.cz) - wobR(q.a)) < 2.8 || stalls.some((st) => Math.hypot(st.x - p.x, st.z - p.z) < 1.3);
-            for (const sd of [-1, 1]) { const p = at(VILLAGE.R + 0.2, sd, -0.4); put('banner', 0, p.x, p.z, look(sd) + (sd > 0 ? 0 : Math.PI), PIECE.flag); }
-            const tEnd = q.endR - 1.2, bb = at(q.endR - 2.2, -1, 0.7);
-            if (!busy(bb)) put('billboard', 0, bb.x, bb.z, look(-1), PIECE.billboard, streets.indexOf(q));
-            let bus = false; // (la parada: en el primer hueco libre de la derecha)
-            for (let j = 0, t = q.parkR + 3.2; t < tEnd; j++, t += 1.5) {
-                for (const sd of [-1, 1]) {
-                    if (sd < 0 && t > q.endR - 3.8) continue; // (la valla)
-                    const p = at(t, sd);
-                    if (busy(p)) continue;
-                    const r6 = j % 6, r12 = j % 12, R = sd > 0 ? [0, 2, 4, 10] : [3, 5, 1, 7];
-                    // (buzones y jardineras también en la calle: se ven desde el principio)
-                    if (sd < 0 && r12 === 2) { put('mailbox', 0, p.x, p.z, look(sd), PIECE.mailbox); continue; }
-                    if (sd > 0 && (r12 === 3 || r12 === 9)) { put('windowbox', 0, p.x, p.z, look(sd), PIECE.flowerbox); continue; }
-                    if (sd > 0 && !bus && j % 6 !== 0) { bus = true; const b = at(t, sd, 0.3); put('busstop', 0, b.x, b.z, look(sd), PIECE.busstop); }
-                    else if (r6 === R[0]) put('lamps', 0, p.x, p.z, look(sd), PIECE.lamp);
-                    else if (r6 === R[1]) put('planters', 0, p.x, p.z, look(sd), PIECE.planter);
-                    else if (r12 === R[2]) put('bench', 0, p.x, p.z, look(sd), PIECE.bench);
-                    else if (r12 === R[3]) put('hydrant', 0, p.x, p.z, look(sd), PIECE.hydrant);
-                }
-            }
-        }
-        for (const st of stalls) put('stand', TOWN.first, st.x, st.z, st.ry, DECO.stand);
-        // (las farolas de la ronda: por fuera, con la ronda)
-        for (let a = 0; a < Math.PI * 2; a += 7 / RING) {
-            const R = wobR(a) + 2.1;
-            if (onStreet(a, R, 1)) continue;
-            const p = P(a, R);
-            put('lamps', TOWN.ring, p.x, p.z, face(p.x, p.z), PIECE.lamp);
-        }
-        // --- Por todo el pueblo: cada cosa en su sitio apartado (antes que las casas de relleno)
-        for (const [id, spots] of Object.entries(townSpots)) for (const [k, p] of spots.entries()) put(id, 0, p.x, p.z, p.ry, TOWN_FN[id], k);
-        for (const id of ['orchards', 'gardens', 'pumpkins']) for (const p of townSpots[id]) put('fences', 0, p.x, p.z, p.ry, PIECE.fence, p.rad * 2 + 0.2, p.rad * 2 + 0.2);
-        // --- En las casas: buzón, jardineras y parabólica (y, en algunas, gnomo, flamenco o bebedero);
-        // salen con su casa
-        for (const h of homes) {
-            const top = 0.16 + h.H, roof = h.form === 3 ? top + 0.14 : top + 0.15 + (h.form === 1 ? 2 : 3) * 0.3;
-            const wy = 0.16 + Math.min(h.H, 1.3) * 0.6;
-            put('mailbox', h.lv, h.x, h.z, h.ry, sub(PIECE.mailbox, h.W / 2 + 0.3, 0, h.D / 2 + 0.8));
-            put('windowbox', h.lv, h.x, h.z, h.ry, sub(PIECE.windowbox, h.W / 2 - 0.45, wy - 0.26, h.D / 2 + 0.1));
-            if (h.form !== 3 && h.k % 3 === 0) put('dish', h.lv, h.x, h.z, h.ry, sub(PIECE.dish, -h.W / 4, roof - 0.35, h.D / 4));
-            if (h.k % 4 === 0) put('gnome', h.lv, h.x, h.z, h.ry, sub(DECO.gnome, -h.W / 2 - 0.1, 0, h.D / 2 + 0.6));
-            if (h.k % 4 === 1) put('flamingo', h.lv, h.x, h.z, h.ry, sub(DECO.flamingo, -h.W / 2 - 0.1, 0, h.D / 2 + 0.6));
-            if (h.k % 5 === 2) put('birdbath', h.lv, h.x, h.z, h.ry, sub(PIECE.birdbath, 0, 0, -h.D / 2 - 0.8));
-        }
-        for (const q of streets) {
-            const H = this.houses[q.def.id], lv = TOWN.firstIds.includes(q.def.id) ? TOWN.first : TOWN.all;
-            put('mailbox', lv, H.lot.x, H.lot.z, H.lot.ry, sub(PIECE.mailbox, 1.9, 0, 1.6));
-            for (const x of [-0.9, 0.9]) put('windowbox', lv, H.lot.x, H.lot.z, H.lot.ry, sub(PIECE.windowbox, x, 1.06, 1.32));
-            put('dish', lv, H.lot.x, H.lot.z, H.lot.ry, sub(PIECE.dish, -0.2, 2.75, 0.7));
-        }
-        // --- Los regalos de la nave madre, en sus sitios junto a la plataforma
-        EXCLUSIVE.forEach((d, i) => { const p = padSpots[i] || P(mother.a, mother.padR); put(d.id, 0, p.x, p.z, face(p.x, p.z), DECO[d.id]); });
-        // Cada sitio, junto (lo que se mueve, aparte)
-        for (const list of Object.values(this.regions)) for (const e of list) this.bake([e.g], e.keep);
+        layoutTown(this);
     }
 
-    // Una casa del pueblo: de una de cinco formas (casita a dos aguas, alta de dos plantas, en L, de
-    // tejado plano con su parabólica o nave ancha), de tamaños y colores distintos
-    drawHome(parent, k) {
-        const WALLS = [0xf3e6c4, 0xe8c8a0, 0xc8dce8, 0xe0b8c8, 0xd8e0b0, 0xf0d0a0], ROOFS = [0xc8402e, 0x3a6ab8, 0x5a8a3a, 0x8a4a8a, 0xd88a2a];
-        const rnd = (n) => { const v = Math.sin(n * 12.9898 + 4.1) * 43758.5453; return v - Math.floor(v); };
-        const h = new THREE.Group(), { form, W, D, H, sc } = k, n = k.k;
-        h.position.set(k.x, 0, k.z);
-        h.rotation.y = k.ry;
-        const wall = WALLS[Math.floor(rnd(n * 7.3) * WALLS.length)], roof = ROOFS[Math.floor(rnd(n * 9.1) * ROOFS.length)];
-        this.part(h, W + 0.3, 0.16, D + 0.3, STONE, 0, 0.08, 0);
-        this.part(h, W, H, D, wall, 0, 0.16 + H / 2, 0);
-        const top = 0.16 + H;
-        if (form === 3) {
-            this.part(h, W + 0.1, 0.14, D + 0.1, 0x8a8a86, 0, top + 0.07, 0);
-            this.part(h, 0.5, 0.06, 0.5, 0xd8dce2, W / 4, top + 0.5, -D / 4).rotation.x = -0.6;
-            this.part(h, 0.06, 0.4, 0.06, METAL, W / 4, top + 0.3, -D / 4, false);
-        } else {
-            const steps = form === 1 ? 2 : 3;
-            for (let i = 0; i < steps; i++) this.part(h, W + 0.3 - i * (W / steps), 0.3, D + 0.24 - i * 0.02, roof, 0, top + 0.15 + i * 0.3, 0);
-            if (rnd(n * 2.3) < 0.5) this.part(h, 0.3, 0.6, 0.3, 0x8a5a3a, -W / 3, top + 0.5, -D / 4); // (chimenea)
+    furrowHalf(q, t) {
+        return furrowHalf(q, t);
+    }
+
+    // (para las piezas: una estatua de mercader, un material que brilla y el del holograma)
+    alien(skin, coat, hat) {
+        const st = buildAlien(this, skin, coat, hat);
+        st.remove(st.party);
+        return st;
+    }
+
+    glow(color) {
+        this.glowMats = this.glowMats || new Map();
+        if (!this.glowMats.has(color)) this.glowMats.set(color, this.own(new THREE.MeshBasicMaterial({ color })));
+        return this.glowMats.get(color);
+    }
+
+    holo() {
+        return (this.holoMat = this.holoMat || this.own(new THREE.MeshBasicMaterial({ color: 0x5af0ff, transparent: true, opacity: 0.55, depthWrite: false })));
+    }
+
+    // Un arco de bienvenida (nivel 10), sobre la entrada de una calle (w: de lado a lado)
+    archPiece(g, w = 6) {
+        for (const x of [-w / 2, w / 2]) {
+            this.part(g, 0.6, 4.6, 0.6, 0xe8c050, x, 2.3, 0);
+            this.part(g, 0.9, 0.4, 0.9, 0xd8a830, x, 0.2, 0);
+            this.lit(g, 0.3, 0.3, 0.3, 0x7dff4a, x, 4.8, 0);
         }
-        if (form === 2) {
-            const w2 = 1.3 * sc, d2 = 1.4 * sc;
-            this.part(h, w2, 1.0 * sc, d2, wall, W / 2 + w2 / 2 - 0.1, 0.16 + 0.5 * sc, -D / 2 + d2 / 2);
-            for (let i = 0; i < 2; i++) this.part(h, w2 + 0.2 - i * 0.6, 0.26, d2 + 0.2, roof, W / 2 + w2 / 2 - 0.1, 0.16 + 1.0 * sc + 0.13 + i * 0.26, -D / 2 + d2 / 2);
-        }
-        this.part(h, 0.5, 0.8, 0.06, DARK, -W / 5, 0.56, D / 2 + 0.01);
-        const win = WINDOWS[n % WINDOWS.length]; // (cada casa apaga la luz a su hora)
-        this.lit(h, 0.4, 0.36, 0.06, win, W / 2 - 0.45, 0.16 + Math.min(H, 1.3) * 0.6, D / 2 + 0.01);
-        if (form === 1) this.lit(h, 0.4, 0.36, 0.06, win, 0, 0.16 + H * 0.78, D / 2 + 0.01);
-        parent.add(h);
+        this.part(g, w + 1.0, 0.6, 0.7, 0xe8c050, 0, 4.8, 0);
+        this.part(g, w * 0.6, 0.9, 0.14, 0x8a5ad8, 0, 4.8, 0.42);
+        this.lit(g, 0.4, 0.4, 0.4, 0xffd23f, 0, 5.5, 0);
     }
 
     // Lo que se ve del pueblo: lo construido en el nivel lv (casas y calles de los mercaderes, la
@@ -1830,22 +1017,21 @@ export class Village extends VoxelModel {
     setTown(lv, owned, pop = true) {
         const shown = [], prev = this.level === undefined ? lv : this.level;
         this.cubesIn = this.cubesOut = 0;
-        // (lo que aparece: crece del suelo, con un rayo de luz en cada sitio; lo construido, en ola
-        // desde el centro hacia fuera, cada sitio a su tiempo)
+        // (lo construido sale en ola desde el centro hacia fuera, cada sitio a su tiempo)
         const wave = (p) => 0.3 + (Math.hypot(p.x - VILLAGE.cx, p.z - VILLAGE.cz) / 55) * 1.8;
-        // (lo de los objetos: un rayo de luz por pieza; lo que construye el nivel: un cubo de luz
-        // enorme en cada sitio y, cuando se va, aparece lo nuevo)
-        const show = (g, on, pts = [], build = 0) => {
+        // (lo de los objetos: un rayo de luz por pieza, con su forma; lo que construye el nivel: un
+        // bloque de luz con la forma de lo que anuncia y, cuando se va, aparece lo nuevo)
+        const show = (g, on, shapes = [], build = false) => {
             if (on && !g.visible) {
                 shown.push(g);
                 if (pop && build) {
                     let t0 = Infinity;
-                    for (const p of pts) t0 = Math.min(t0, this.cube(p.x, p.z, wave(p), build));
-                    this.pops.push({ g, k: 1, wait: pts.length ? t0 : 0.3 });
+                    for (const S of shapes) t0 = Math.min(t0, this.cube(S, wave(S)));
+                    this.pops.push({ g, k: 1, wait: shapes.length ? t0 : 0.3 });
                 } else if (pop) {
-                    const step = Math.max(1, Math.ceil(pts.length / 90)); // (no más de unos 90 rayos por cosa)
-                    for (let i = 0; i < pts.length; i += step) this.beam(pts[i].x, pts[i].z, Math.random() * 0.4);
-                    this.pops.push({ g, k: 1, wait: 0.15 });
+                    const step = Math.max(1, Math.ceil(shapes.length / 90)); // (no más de unos 90 rayos por cosa)
+                    for (let i = 0; i < shapes.length; i += step) this.beam(shapes[i], Math.random() * 0.45);
+                    this.pops.push({ g, k: 1, wait: 0.2 });
                 }
             }
             g.visible = on;
@@ -1857,13 +1043,16 @@ export class Village extends VoxelModel {
             if (on && !H.on) {
                 shown.push(H.g);
                 if (pop) {
-                    // (su casa y su calle, cada una de su cubo de luz; los árboles tumbados se quitan
+                    // (su casa y su calle, cada una de su bloque de luz; los árboles tumbados se quitan
                     // cuando entra la calle)
                     H.pop = 1;
-                    H.wait = this.cube(H.lot.x, H.lot.z, wave(H.lot), 5.5);
+                    H.wait = this.cube({ x: H.lot.x, z: H.lot.z, hx: 1.9, hz: 1.7, ry: H.lot.ry, h: 4.2 }, wave(H.lot));
                     const q = this.geo[id], c = Math.cos(q.a), sn = Math.sin(q.a);
                     let t0 = Infinity;
-                    for (let t = VILLAGE.R + 2, i = 0; t < q.endR; t += 5.5, i++) { const p = { x: VILLAGE.cx + c * t, z: VILLAGE.cz + sn * t }; t0 = Math.min(t0, this.cube(p.x, p.z, wave(p), 5)); }
+                    for (let t = VILLAGE.R + 0.4; t < q.endR; t += 6) {
+                        const len = Math.min(6, q.endR - t), m = t + len / 2, p = { x: VILLAGE.cx + c * m, z: VILLAGE.cz + sn * m };
+                        t0 = Math.min(t0, this.cube({ x: p.x, z: p.z, hx: furrowHalf(q, m) + 0.6, hz: len / 2, ry: Math.atan2(c, sn), h: 1.6 }, wave(p)));
+                    }
                     H.roadWait = t0;
                     this.pops.push({ g: H.road, k: 1, wait: t0 });
                 }
@@ -1874,35 +1063,35 @@ export class Village extends VoxelModel {
             if (this.fallen[id]) this.fallen[id].visible = !on || (H.pop > 0 && H.roadWait > 0);
         }
         this.rebakeTown();
-        show(this.ringG, lv >= TOWN.ring, this.buildPts.ring, 4.5);
+        show(this.ringG, lv >= TOWN.ring, [{ ...this.ringShape, x: VILLAGE.cx, z: VILLAGE.cz }], true);
         for (const [hl, g] of Object.entries(this.homeG)) {
             const on = lv >= +hl;
             if (on && !g.visible) {
                 shown.push(g);
                 if (pop) for (const b of this.homeBands[hl]) {
                     let t0 = Infinity;
-                    for (const p of b.pts) t0 = Math.min(t0, this.cube(p.x, p.z, wave(p), 4.2));
-                    if (b.pts.length) this.pops.push({ g: b.g, k: 1, wait: t0 });
+                    for (const S of b.shapes) t0 = Math.min(t0, this.cube(S, wave(S)));
+                    if (b.shapes.length) this.pops.push({ g: b.g, k: 1, wait: t0 });
                 }
             }
             g.visible = on;
         }
-        show(this.archG, lv >= TOWN.arches, this.buildPts.arches, 7);
+        show(this.archG, lv >= TOWN.arches, this.archShapes, true);
         this.lastShown = { build: shown.slice(), decor: {} };
         for (const [id, list] of Object.entries(this.regions)) {
             const have = owned.includes(id);
             for (const e of list) {
                 const was = e.g.visible;
-                // (lo que sale porque ahora hay sitio, al subir de nivel: con lo construido, sin rayo)
                 e.on = have && lv >= e.lv; // (lo que tiene que verse, aunque aún espere su turno)
+                // (lo que sale porque ahora hay sitio, al subir de nivel: dentro de lo construido)
                 if (pop && have && !was && e.lv > prev && lv >= e.lv) {
                     e.g.visible = true;
                     shown.push(e.g);
-                    this.pops.push({ g: e.g, k: 1, wait: Math.min(...e.pts.map((p) => wave(p) + 0.84)) });
+                    this.pops.push({ g: e.g, k: 1, wait: Math.min(...e.shapes.map((S) => wave(S) + 0.84)) });
                     (this.lastShown.decor[id] = this.lastShown.decor[id] || []).push(e.g);
                     continue;
                 }
-                show(e.g, have && lv >= e.lv, e.pts);
+                show(e.g, e.on, e.shapes);
                 if (!was && e.g.visible) (this.lastShown.decor[id] = this.lastShown.decor[id] || []).push(e.g);
             }
         }
@@ -1912,63 +1101,78 @@ export class Village extends VoxelModel {
         return this.lastShown;
     }
 
-    // Un rayo de luz que sube donde sale algo nuevo (como el del pozo de los deseos): se ve aunque
-    // lo nuevo sea pequeño y la cámara esté lejos. delay: cuándo (s)
-    beam(x, z, delay = 0, color = 0xffe08a) {
-        if (!this.beamGeo) {
-            this.beamGeo = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
-            this.beamMats = new Map();
-            this.beamCore = this.own(new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending }));
-            this.beams = [];
+    // Las formas de luz (rayos y bloques): una caja, un cilindro o un donut del tamaño de lo que
+    // anuncian (shape: x, z, hx, hz, ry, h; round: cilindro; donut: r y w, de anillo)
+    lightMesh(S, mat, core) {
+        if (!this.lightGeo) {
+            this.lightGeo = {
+                box: new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0),
+                cyl: new THREE.CylinderGeometry(0.5, 0.5, 1, 20).translate(0, 0.5, 0),
+                tube: new THREE.CylinderGeometry(1, 1, 1, 64, 1, true).translate(0, 0.5, 0),
+            };
         }
-        if (this.beams.length > 320) return;
-        let m = this.beamMats.get(color);
-        if (!m) this.beamMats.set(color, (m = this.own(new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending }))));
-        const g = new THREE.Mesh(this.beamGeo, m), core = new THREE.Mesh(this.beamGeo, this.beamCore);
-        core.scale.set(0.35, 1, 0.35);
-        g.add(core);
-        g.position.set(x, 0, z);
+        const G = this.lightGeo, g = new THREE.Group();
+        if (S.donut) {
+            for (const [r, m] of [[S.r + S.w, mat], [S.r - S.w, mat], [S.r, core]]) {
+                const t = new THREE.Mesh(G.tube, m);
+                t.scale.set(r, 1, r);
+                t.material.side = THREE.DoubleSide;
+                g.add(t);
+            }
+        } else {
+            const geo = S.round ? G.cyl : G.box, o = new THREE.Mesh(geo, mat), c = new THREE.Mesh(geo, core);
+            o.scale.set(S.hx * 2 + 0.3, 1, (S.round ? S.hx : S.hz) * 2 + 0.3);
+            c.scale.set(o.scale.x * 0.5, 1, o.scale.z * 0.5);
+            g.add(o, c);
+            g.rotation.y = S.ry || 0;
+        }
+        g.position.set(S.x, 0, S.z);
         g.visible = false;
         g.renderOrder = 5;
         this.root.add(g);
-        this.beams.push({ g, t: -delay });
+        return g;
     }
 
-    // Un cubo de luz enorme donde el pueblo construye algo nuevo (al subir de nivel): crece, palpita
-    // y se va; lo nuevo aparece al irse. Devuelve cuándo se va (s)
-    cube(x, z, delay = 0, size = 4, color = 0x5af0ff) {
-        if (!this.cubeGeo) {
-            this.cubeGeo = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
-            this.cubeMat = this.own(new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending }));
-            this.cubeCore = this.own(new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.32, depthWrite: false, blending: THREE.AdditiveBlending }));
+    lightMats() {
+        if (!this.lightMat) {
+            const add = (c, o) => this.own(new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+            this.lightMat = { beam: add(0xffe08a, 0.45), beamCore: add(0xffffff, 0.75), cube: add(0x5af0ff, 0.42), cubeCore: add(0xffffff, 0.28) };
+            this.beams = [];
             this.cubes = [];
         }
-        // (lo nuevo entra con el cubo aún entero; luego el cubo se va: cubesOut, cuándo se va el último)
-        const DUR = 2.2, inAt = delay + DUR * 0.38;
+        return this.lightMat;
+    }
+
+    // Un rayo de luz donde sale una pieza nueva (como el del pozo de los deseos), con su forma: sube
+    // de golpe y se va afinando; se ve aunque la pieza sea pequeña y la cámara esté lejos
+    beam(S, delay = 0) {
+        const M = this.lightMats();
+        if (this.beams.length > 320) return;
+        const g = this.lightMesh(S, M.beam, M.beamCore);
+        this.beams.push({ g, t: -delay, h: Math.max(14, (S.h || 2) * 5) });
+    }
+
+    // Un bloque de luz donde el pueblo construye algo (al subir de nivel), con su forma: crece,
+    // palpita y se va hacia arriba; lo nuevo entra con el bloque aún entero. Devuelve cuándo entra
+    cube(S, delay = 0) {
+        const M = this.lightMats(), DUR = 2.2, inAt = delay + DUR * 0.38;
         this.cubesIn = Math.max(this.cubesIn || 0, inAt);
         this.cubesOut = Math.max(this.cubesOut || 0, delay + DUR * 0.55);
         if (this.cubes.length > 420) return inAt;
-        const g = new THREE.Mesh(this.cubeGeo, this.cubeMat), core = new THREE.Mesh(this.cubeGeo, this.cubeCore);
-        core.scale.set(0.55, 0.8, 0.55);
-        g.add(core);
-        g.position.set(x, 0, z);
-        g.visible = false;
-        g.renderOrder = 5;
-        this.root.add(g);
-        this.cubes.push({ g, t: -delay, size, dur: DUR, spin: Math.random() * 6 });
+        const g = this.lightMesh(S, M.cube, M.cubeCore);
+        this.cubes.push({ g, t: -delay, h: (S.h || 3) * 1.25 + 1, dur: DUR, donut: !!S.donut, ry: S.ry || 0 });
         return inAt;
     }
 
-    // Los cubos de luz del suelo nuevo de un nivel (la plaza de piedra, la calle de alrededor de la
-    // plaza, la avenida de la nave madre); devuelve cuándo ha entrado todo (s): ahí se rehace el suelo
+    // Los bloques de luz del suelo nuevo de un nivel (la plaza de piedra, la calle de alrededor de
+    // la plaza, la avenida de la nave madre); devuelve cuándo ha entrado todo (s): ahí se rehace el suelo
     floorCubes(prev, lv) {
-        const wave = (p) => 0.3 + (Math.hypot(p.x - VILLAGE.cx, p.z - VILLAGE.cz) / 55) * 1.8, P = (a, r) => ({ x: VILLAGE.cx + Math.cos(a) * r, z: VILLAGE.cz + Math.sin(a) * r });
-        const passed = (k) => prev < k && lv >= k;
-        if (passed(TOWN.plaza)) this.cube(VILLAGE.cx, VILLAGE.cz, 0.3, 21);
-        if (passed(TOWN.inner)) for (let i = 0; i < 14; i++) { const p = P((i / 14) * Math.PI * 2, 11.9); this.cube(p.x, p.z, wave(p), 4); }
+        const passed = (k) => prev < k && lv >= k, C = { x: VILLAGE.cx, z: VILLAGE.cz };
+        if (passed(TOWN.plaza)) this.cube({ ...C, hx: VILLAGE.R, hz: VILLAGE.R, round: true, h: 2 }, 0.3);
+        if (passed(TOWN.inner)) this.cube({ ...C, donut: true, r: 11.9, w: 1.0, h: 2 }, 0.4);
         if (passed(TOWN.avenue)) {
-            const M = Object.values(this.geo).find((q) => q.def.mother);
-            for (let t = VILLAGE.R + 1; t < M.padR - 5; t += 3) { const p = P(M.a, t); this.cube(p.x, p.z, wave(p), 4.5); }
+            const M = Object.values(this.geo).find((q) => q.def.mother), len = M.padR - 5 - VILLAGE.R, m = VILLAGE.R + len / 2;
+            this.cube({ x: VILLAGE.cx + Math.cos(M.a) * m, z: VILLAGE.cz + Math.sin(M.a) * m, hx: 2.3, hz: len / 2, ry: Math.atan2(Math.cos(M.a), Math.sin(M.a)), h: 2 }, 0.6);
         }
         return this.cubesIn || 0;
     }
@@ -1980,6 +1184,11 @@ export class Village extends VoxelModel {
 
     firstLevel(id) {
         return Math.min(...(this.regions[id] || [{ lv: 0 }]).map((e) => e.lv));
+    }
+
+    // Lo que se pisa (debe estar vacío: render/town.js: auditTown)
+    audit() {
+        return auditTown(this);
     }
 
     // Las casas asentadas y las calles de los mercaderes, juntas (una malla por material)
@@ -2095,10 +1304,11 @@ export class Village extends VoxelModel {
             const k = C.t / C.dur;
             if (k >= 1) { C.g.removeFromParent(); this.cubes.splice(i, 1); continue; }
             C.g.visible = true;
-            const grow = ease(Math.min(1, k / 0.3)), gone = Math.max(0, (k - 0.55) / 0.45), puls = 1 + Math.sin(C.t * 18) * 0.05 * (1 - gone);
-            const w = C.size * grow * puls * (1 - gone * 0.9), h = C.size * 1.3 * grow * puls * (1 + gone * 2.5);
-            C.g.scale.set(w, h, w);
-            C.g.rotation.y = C.spin + C.t * 1.5;
+            // (crece del suelo con su forma, palpita y se va hacia arriba cada vez más fino; el donut,
+            // abriéndose)
+            const grow = ease(Math.min(1, k / 0.3)), gone = Math.max(0, (k - 0.55) / 0.45), puls = 1 + Math.sin(C.t * 18) * 0.04 * (1 - gone);
+            const w = C.donut ? 1 + gone * 0.12 : (0.4 + grow * 0.6) * puls * (1 - gone * 0.92);
+            C.g.scale.set(w, Math.max(0.01, C.h * grow * puls * (1 + gone * 2.5) * (C.donut ? 1 - gone * 0.6 : 1)), w);
         }
         // Los rayos de luz: suben de golpe y se van afinando hasta desaparecer
         if (this.beams) for (let i = this.beams.length - 1; i >= 0; i--) {
@@ -2108,8 +1318,8 @@ export class Village extends VoxelModel {
             const k = B.t / 1.5;
             if (k >= 1) { B.g.removeFromParent(); this.beams.splice(i, 1); continue; }
             B.g.visible = true;
-            const w = 1.6 * (1 - k) ** 1.6 + 0.04;
-            B.g.scale.set(w, 2 + ease(Math.min(1, k * 3)) * 26, w);
+            const w = (1 - k) ** 1.6 + 0.04;
+            B.g.scale.set(w, 2 + ease(Math.min(1, k * 3)) * B.h, w);
         }
         // Las casas nuevas, con un bote
         if (this.houses) for (const H of Object.values(this.houses)) if (H.pop > 0) {
@@ -2203,14 +1413,10 @@ export class Village extends VoxelModel {
         this.flames.visible = lit;
         if (lit) this.flames.children.forEach((f, i) => f.scale.set(1, 0.75 + Math.abs(Math.sin(time * (7 + i * 3) + i)) * 0.5, 1));
         this.fireGlow.intensity = lit ? (1.5 + nightK * 4) * (0.85 + Math.sin(time * 13) * 0.15) : 0;
-        // Lo que se mueve de los objetos: las aspas de los molinos, la bola de discoteca, el agua
+        // Lo que se mueve de los objetos (render/townPieces.js): cada pieza con su desfase
         for (const list of Object.values(this.regions)) for (const e of list) {
             if (!e.g.visible) continue;
-            for (const g of e.spins) g.spin.rotation[g.axis || 'y'] = time * 1.6;
-            for (const g of e.waters) g.water.forEach((w, k) => {
-                const t = (time * 0.8 + k / 6) % 1, a = w.userData.a;
-                w.position.set(Math.cos(a) * (0.3 + t * 0.9), 1.6 + Math.sin(t * Math.PI) * 0.5 - t * 1.0, Math.sin(a) * (0.3 + t * 0.9));
-            });
+            for (const a of e.anims) a.fn(a.o, time + a.ph);
         }
         this.updateFx(dt);
     }

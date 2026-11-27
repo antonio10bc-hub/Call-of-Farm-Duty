@@ -2576,6 +2576,7 @@ function updateFireworks(dt) {
         const f = fireworks[i];
         f.t += dt;
         if (f.t < 0) continue;
+        if (!f.up) { f.up = true; if (Math.random() < 0.3) sfx.play('fwLaunch'); }
         f.y += f.vy * dt;
         const w = vWorld(f.x, f.z, f.y);
         farmParticles.spawn(w.x, w.y, w.z, (Math.random() - 0.5) * 0.6, -2, (Math.random() - 0.5) * 0.6, 0.12, 0.35, 0xfff0b0, 0); // (la estela)
@@ -2586,7 +2587,8 @@ function updateFireworks(dt) {
             const u = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2, r = Math.sqrt(1 - u * u), s = 7 + Math.random() * 3;
             farmParticles.spawn(w.x, w.y, w.z, r * Math.cos(th) * s, u * s, r * Math.sin(th) * s, 0.22 + Math.random() * 0.12, 1.1 + Math.random() * 0.7, k % 4 ? f.color : two, 4);
         }
-        if (Math.random() < 0.35) sfx.play('pop');
+        const now = performance.now();
+        if (now - (updateFireworks.last || 0) > 140) { updateFireworks.last = now; sfx.play('fwBoom'); }
     }
 }
 function updateTownCine(dt) {
@@ -2607,7 +2609,7 @@ function updateTownCine(dt) {
         syncMerchantLife(true, c.before); // (sale, con su bote)
         const lv = farm.village.firstLevel(c.id);
         stage(D.name, c.none ? L(`YOU WILL SEE IT AT VILLAGE LEVEL ${lv}`, `SE VERÁ CON EL PUEBLO EN NIVEL ${lv}`) : WHERE[D.where], true);
-        sfx.play('village');
+        sfx.play('decorIn');
     }
     // Si sube de nivel, más despacio y de fiesta: el pueblo entero; lo nuevo, cada cosa de su cubo de
     // luz (en ola desde el centro), entra con el cubo aún entero; los cubos se van con fuegos
@@ -2617,7 +2619,7 @@ function updateTownCine(dt) {
         if (at(3.0, 'town')) lookAtTown(c.up.lv);
         if (at(4.0, 'level')) {
             syncMerchantLife(true); // (lo que construye el nivel nuevo, con sus cubos)
-            sfx.play('village');
+            sfx.play('townBuild');
             c.fwAt = c.t + Math.max(0.5, farm.village.cubesOut) * S;
             c.stageAt = c.fwAt + 1.5 * S;
             c.endAt = c.stageAt + 3.2 * S;
@@ -2625,12 +2627,11 @@ function updateTownCine(dt) {
         if (at(c.fwAt, 'fw')) {
             launchFireworks(30, 1.4);
             rig.shake(0.25);
-            sfx.play('achievement');
         }
         if (at(c.fwAt + 0.9 * S, 'fw2')) launchFireworks(22, 1.6);
         if (at(c.stageAt, 'party')) {
             stage(...villageUpText(c.up), false, true); // (el nombre nuevo, en grande)
-            sfx.play('coin');
+            sfx.play('townLevel');
             launchFireworks(16, 2);
             updateCounts(true);
         }
