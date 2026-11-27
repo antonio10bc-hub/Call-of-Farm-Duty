@@ -240,6 +240,9 @@ html, body {
 .map-btn { position: absolute; left: 10px; bottom: max(8px, env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 6px; padding: 7px 10px 6px 7px; font-family: var(--font); font-size: 10px; color: var(--ink); background: var(--cream); border: 3px solid var(--ink); box-shadow: 0 4px 0 var(--ink); cursor: pointer; }
 .map-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
 .map-btn.on { background: var(--yellow); }
+.walk-btn { left: 96px; }
+body.walking .map-btn:not(.walk-btn), body.walking #btn-photo { display: none; }
+body.walking::after { content: ''; position: fixed; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; background: var(--cream); border: 2px solid var(--ink); pointer-events: none; z-index: 50; }
 .map-btn .ico { width: 18px; height: 18px; }
 .map-ico { --ico: var(--px-map); }
 .debug-box .toggles-col { width: 100%; }
