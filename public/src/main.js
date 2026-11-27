@@ -123,9 +123,9 @@ function updateClock() {
     if (el.innerHTML !== html) el.innerHTML = html;
     if (el.title !== title) el.title = title;
     el.classList.toggle('is-night', night);
-    // A la derecha del botón MAPA (en la granja)
-    const r = $('btn-map').getBoundingClientRect();
-    if (r.width) placeAt(el, r.right + 8, r.top);
+    // A la derecha de los botones MAPA y ANDAR (en la granja; a la altura de MAPA)
+    const m = $('btn-map').getBoundingClientRect(), w = $('btn-walk').getBoundingClientRect();
+    if (m.width) placeAt(el, Math.max(m.right, w.right) + 8, m.top);
     // (y el álbum del pueblo, a su derecha)
     const d = el.getBoundingClientRect();
     if (d.width) placeAt($('btn-album'), d.right + 8, d.top);
@@ -2855,7 +2855,7 @@ function openStreaks() {
 // A la izquierda las clases; a la derecha la que se edita: el arma principal, sus accesorios y dos
 // secciones de rachas de bajas (de cultivos y de alienígenas) que se ponen o quitan tocándolas.
 // Tocar el arma o un accesorio abre su lista (se compra con oro y se monta en esta clase).
-// EQUIPAR CLASE: la que se lleva al campo de tiro.
+// Tocar una clase la equipa (la que se lleva al campo de tiro).
 const pips = (n) => Array.from({ length: 5 }, (_, i) => `<i class="pip${i < n ? ' on' : ''}"></i>`).join('');
 const clampPip = (v) => Math.max(1, Math.min(5, Math.round(v)));
 const GEAR = {
@@ -2886,8 +2886,12 @@ CLASSES.forEach((c, i) => {
             vibrate('pickup');
             updateCounts();
         }
+        // (tocarla la equipa: es la que se lleva al campo de tiro)
         loEdit = i;
-        sfx.play('ui');
+        if (state.arsenal.active !== i && state.useClass(i)) {
+            sfx.play('reloaded');
+            vibrate('pickup');
+        } else sfx.play('ui');
         $('gear-picker').classList.add('hidden');
         refreshRifle();
     });
@@ -2973,12 +2977,6 @@ for (const track of ['crop', 'alien']) {
         ksBtns[k.id] = b;
     }
 }
-tapBtn('class-equip', () => {
-    if (!state.useClass(loEdit)) return sfx.play('deny');
-    sfx.play('reloaded');
-    vibrate('pickup');
-    refreshRifle();
-});
 // La lista de un tipo de pieza (en esta clase). Las armas, con una primera fila de tipos para
 // filtrar (uno; ninguno: todas)
 let pickKind = 'rifle';
@@ -3091,9 +3089,6 @@ function refreshRifle() {
     });
     if (!$('class-name').querySelector('input')) $('class-name').textContent = className(c, loEdit);
     $('class-name').title = L('TAP TO RENAME', 'TOCA PARA CAMBIAR EL NOMBRE');
-    const eq = $('class-equip'), using = A.active === loEdit;
-    eq.disabled = using;
-    eq.textContent = using ? L('EQUIPPED', 'EQUIPADA') : L('EQUIP CLASS', 'EQUIPAR CLASE');
     for (const kind of ['rifle', 'scope', 'mag']) {
         // (el arma principal, con la foto del fusil entero tal cual va montado)
         const it = ARSENAL[kind].find((x) => x.id === c[kind]), slot = loSlots[kind], img = slot.querySelector('img');

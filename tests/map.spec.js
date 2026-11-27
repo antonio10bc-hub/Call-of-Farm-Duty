@@ -150,13 +150,11 @@ test('armería: en el granero se montan las mirillas, rifles y cargadores, cada 
     expect([await lo(), await page.evaluate(() => game.state.items.gold)]).toEqual([{ scope: 'dot', rifle: 'semi', mag: 'ext' }, 40]);
     await pick('rifle', 'bolt');
     await pick('rifle', 'semi');
-    // Otra clase: se edita aparte y se equipa con su botón
+    // Otra clase: se edita aparte y tocarla la equipa
     await page.locator('#class-1').click();
     await expect(page.locator('#slot-rifle')).toContainText('DE CERROJO');
-    await page.locator('#class-equip').click();
     expect(await page.evaluate(() => game.state.arsenal.active)).toBe(1);
     await page.locator('#class-0').click();
-    await page.locator('#class-equip').click();
     expect(await page.evaluate(() => game.state.arsenal.active)).toBe(0);
     // En el campo de tiro el fusil va con lo montado: punto rojo (poco zoom, se sube al momento),
     // semiautomático (rápido, sin colaterales) y cargador ampliado de 18

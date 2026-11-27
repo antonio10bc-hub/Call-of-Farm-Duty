@@ -1405,8 +1405,6 @@ body.cine .aim-btn { display: none !important; }
 .lo-ks.on .ks-ico { filter: none; }
 .lo-ks.on .kc-n b { color: #c8402e; }
 .lo-ks-alien.on { background: #b8f08a; }
-.lo-equip { margin-top: 8px; align-self: flex-end; padding: 14px 22px; font-size: 12px; background: #2fbf4a; }
-.lo-equip:disabled { background: #8a8a80; color: #e8e8e0; box-shadow: none; }
 /* La lista de piezas de un tipo, encima del menú */
 .gear-picker { position: fixed; left: 50%; top: 50%; z-index: 40; transform: translate(-50%, -50%); width: min(560px, calc(100vw - 24px)); max-height: calc(100vh - 40px); overflow-y: auto; box-sizing: border-box; padding: 14px; display: flex; flex-direction: column; gap: 10px; background: #2a2a30; border: 4px solid var(--ink); box-shadow: 0 10px 0 var(--ink), 0 0 0 100vmax rgba(10, 8, 6, .6); }
 .gear-picker.hidden { display: none; }
@@ -1486,7 +1484,6 @@ body.cine .aim-btn { display: none !important; }
 .lo-gun, .lo-streaks { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .lo-sec .lo-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .lo-tip { font-size: 6px; color: #a89878; white-space: nowrap; }
-.lo-equip { margin-top: 0; align-self: flex-end; padding: 12px 20px; font-size: 12px; }
 .lo-sec { gap: 8px; padding: 9px 10px; }
 .lo-sec .lo-h { padding-bottom: 6px; font-size: 8px; }
 .lo-slot { padding: 8px 10px; }
@@ -1524,7 +1521,6 @@ body.cine .aim-btn { display: none !important; }
     .lo-ks .ks-ico { width: 22px; height: 22px; }
     .lo-ks { grid-template-columns: 22px 1fr; }
     .lo-ks .kc-n b { font-size: 11px; }
-    .lo-equip { align-self: stretch; padding: 10px; font-size: 11px; }
 }
 
 /* ---------- Debug: columnas en horizontal que caben en la pantalla, sin desplazar ----------
@@ -1582,7 +1578,6 @@ body.cine .aim-btn { display: none !important; }
     .lo-ks .kc-n b { font-size: 16px; }
     .lo-ks .kc-n small { font-size: 7px; }
     .lo-ks .kc-name { font-size: 8px; }
-    .lo-equip { padding: 15px 26px; font-size: 14px; }
 }
 
 /* ---------- Llamada entrante del mercader ----------
@@ -2175,8 +2170,6 @@ body.photo .debug-btn { visibility: hidden; }
 .lo-ks .kc-n small, .lo-ks .kc-name { font-family: var(--nb-body); font-size: 11px; }
 .lo-ks.on, .lo-ks-alien.on { background: #fff; border: 2px solid var(--nb-red); box-shadow: 2px 3px 0 rgba(58, 36, 18, .3); }
 .lo-ks.on .kc-n b { color: var(--nb-red); }
-.lo-equip { font-size: 15px; }
-.lo-equip:disabled { color: #fff1d6; background: var(--nb-good); border-color: #18440f; box-shadow: none; opacity: 1; }
 .lo-sec.locked::after { font-family: var(--nb-head); font-size: 11px; color: var(--nb-red); background: var(--nb-paper); border: 2px solid var(--nb-red); transform: translate(-50%, -50%) rotate(-4deg); }
 
 /* El selector de piezas: rejilla a la izquierda, ficha a la derecha */
@@ -2520,5 +2513,3 @@ body.cine.show-album .album-btn { visibility: visible; } /* (en la foto del nive
 .lo-class.eq { box-shadow: inset 6px 0 0 var(--nb-good), 2px 3px 0 rgba(58, 36, 18, .25); }
 .lo-class.on, .lo-class.on.eq { color: #fff; background: var(--nb-red); border: 2px solid var(--nb-ink); box-shadow: 2px 3px 0 var(--nb-ink); transform: none; }
 .lo-class.on em { color: #ffe9a8; }
-/* (la clase que se mira ya equipada: sin el botón de equipar) */
-#class-equip:disabled { display: none; }
