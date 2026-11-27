@@ -605,6 +605,7 @@ export class FarmState {
 
     checkVillage() {
         const lv = this.villageLevel;
+        if (this.villageLv > lv) this.villageLv = lv; // (si ha perdido cosas, DEBUG: los niveles se vuelven a celebrar)
         if (lv <= this.villageLv) return null;
         let gold = 0;
         for (let k = this.villageLv + 1; k <= lv; k++) gold += VILLAGE_LEVELS[k].gold;

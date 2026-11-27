@@ -1134,6 +1134,14 @@ const PIECE = {
         m.part(g, 0.3, 0.26, 0.44, 0x3a6ab8, 0, 0.82, 0);
         m.part(g, 0.04, 0.22, 0.08, 0xd84a3a, 0.17, 0.92, -0.1, false);
     },
+    flowerbox(m, g) {
+        for (const x of [-0.28, 0.28]) m.part(g, 0.08, 0.4, 0.08, WOOD2, x, 0.2, 0);
+        const c = new THREE.Group();
+        c.position.y = 0.46;
+        c.scale.setScalar(1.3);
+        PIECE.windowbox(m, c);
+        g.add(c);
+    },
     windowbox(m, g) {
         m.part(g, 0.6, 0.14, 0.18, 0xa8642e, 0, 0, 0);
         for (const [x, c] of [[-0.18, 0xff7ae0], [0, 0xffe03a], [0.18, 0xff5a5a]]) m.part(g, 0.14, 0.14, 0.14, c, x, 0.12, 0, false);
@@ -1592,6 +1600,8 @@ export class Village extends VoxelModel {
         reserve('sheds', 4, 1.1, PIECE.shed, () => true, toRoad);
         reserve('tents', 4, 1.2, PIECE.tent, outRing);
         reserve('well', 2, 1.2, DECO.well);
+        reserve('dish', 3, 1.0, DECO.dish); // (las grandes, en el campo; las pequeñas, en los tejados)
+        reserve('stand', 3, 1.2, DECO.stand, inRing, toRoad); // (y algún puesto suelto, antes de la calle del mercado)
         // (las casas sueltas, después de lo grande y antes de lo pequeño)
         loose(3.7, 5.1, 45, 1.8, 1.6, 0.3, 9);
         reserve('woods', 32, 0.8, PIECE.tree);
@@ -1735,6 +1745,9 @@ export class Village extends VoxelModel {
                     const p = at(t, sd);
                     if (busy(p)) continue;
                     const r6 = j % 6, r12 = j % 12, R = sd > 0 ? [0, 2, 4, 10] : [3, 5, 1, 7];
+                    // (buzones y jardineras también en la calle: se ven desde el principio)
+                    if (sd < 0 && r12 === 2) { put('mailbox', 0, p.x, p.z, look(sd), PIECE.mailbox); continue; }
+                    if (sd > 0 && (r12 === 3 || r12 === 9)) { put('windowbox', 0, p.x, p.z, look(sd), PIECE.flowerbox); continue; }
                     if (sd > 0 && !bus && j % 6 !== 0) { bus = true; const b = at(t, sd, 0.3); put('busstop', 0, b.x, b.z, look(sd), PIECE.busstop); }
                     else if (r6 === R[0]) put('lamps', 0, p.x, p.z, look(sd), PIECE.lamp);
                     else if (r6 === R[1]) put('planters', 0, p.x, p.z, look(sd), PIECE.planter);
