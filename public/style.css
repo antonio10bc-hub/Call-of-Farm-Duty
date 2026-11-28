@@ -2525,3 +2525,46 @@ body.cine.show-album .album-btn { visibility: visible; } /* (en la foto del nive
 .lo-class.eq { box-shadow: inset 6px 0 0 var(--nb-good), 2px 3px 0 rgba(58, 36, 18, .25); }
 .lo-class.on, .lo-class.on.eq { color: #fff; background: var(--nb-red); border: 2px solid var(--nb-ink); box-shadow: 2px 3px 0 var(--nb-ink); transform: none; }
 .lo-class.on em { color: #ffe9a8; }
+
+/* ===== Capa de UX común: respuesta de todos los botones (hover, pulsado, foco) =====
+   Usa las propiedades sueltas translate/scale, que se suman al transform de cada botón
+   (posición, su propio :active), así no pisa ningún estilo ni animación. */
+button, summary, .lo-class, .well-card, .album-photo img {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: translate .1s steps(2), scale .08s steps(2), opacity .1s steps(2);
+}
+button:not(:disabled), summary { cursor: pointer; }
+@media (hover: hover) {
+    button:not(:disabled):not(.aim-btn):not(.soon):hover,
+    summary:hover {
+        translate: 0 -2px;
+    }
+    /* Pestañas y fichas apagadas: se encienden un poco al pasar por encima */
+    .m-tab:not(.on):hover, .ufo-tab:not(.on):hover, .ufo-cat:not(.on):hover,
+    .nb-tab:not(.on):hover, .debug-tab:not(.on):hover, .lo-class:not(.on):hover { opacity: 1; }
+    .album-photo img:hover { translate: 0 -2px; }
+}
+/* Al pulsar: se encoge un poco (y se anula la elevación del hover) */
+button:not(:disabled):not(.aim-btn):not(.soon):active,
+summary:active {
+    translate: 0 0;
+    scale: .94;
+    transition-duration: 0s;
+}
+/* Botones grandes: el encogido, más suave para que no baile el texto */
+.btn:not(:disabled):active, .shop-card:not(.soon):active, .lo-slot:active, .gear:active,
+.lo-class:active, .debug-tab:active, .nb-tab:active { scale: .97; }
+button:disabled { translate: none; scale: none; }
+/* Foco con teclado: marco amarillo con tinta, visible sobre claro y oscuro */
+button:focus-visible, summary:focus-visible {
+    outline: 3px dashed var(--ink);
+    outline-offset: 2px;
+}
+.lo-class:focus-visible { outline: none; }
+@media (prefers-reduced-motion: reduce) {
+    button, summary { transition: none; }
+    button:hover, summary:hover { translate: none; }
+}
