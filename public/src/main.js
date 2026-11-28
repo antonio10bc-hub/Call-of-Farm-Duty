@@ -2583,11 +2583,12 @@ function renderWell() {
     const b = $('well-wish');
     b.disabled = busy || !size || state.items.gold < cost;
     b.innerHTML = !size ? L('NOTHING LEFT TO WISH FOR', 'YA NO QUEDA NADA QUE PEDIR')
-        : r ? `${L('ANOTHER WISH', 'OTRO DESEO')} <span class="cost">${ico('gold')}${cost}</span>` : `${ico('gold')}${L('THROW THE COIN', 'ECHAR LA MONEDA')}`;
-    // Arriba: lo último que ha salido o, si no, el boleto del próximo deseo (su número, lo que puede
-    // tocar de cada rareza, la letra pequeña y el precio troquelado en la matriz)
-    $('well-result').innerHTML = r ? `<div class="well-card${r.dup ? ' dup' : ''}" data-tier="${r.tier.id}" style="--tier:${hex(r.tier)}"><img alt="" src="${gearArt(r.kind, r.it)}"><b>${r.it.name}</b><em>${r.tier.name}</em><small>${r.dup ? `${L('DUPLICATE', 'REPETIDA')}: +${r.refund} ${L('GOLD BACK', 'DE ORO DE VUELTA')}` : r.it.desc}</small></div>`
-        : `<div class="well-ticket"><div class="wt-main"><h3>${L('WISH', 'DESEO')} Nº ${(state.arsenal.wishes | 0) + 1}</h3>`
+        : `${ico('gold')}${L('THROW THE COIN', 'ECHAR LA MONEDA')}`;
+    // Arriba: lo último que ha salido (si acaba de salir algo, en pequeño) y, siempre, el boleto del
+    // próximo deseo (su número, lo que puede tocar de cada rareza, la letra pequeña y el precio
+    // troquelado en la matriz)
+    $('well-result').innerHTML = (r ? `<div class="well-card${r.dup ? ' dup' : ''}" data-tier="${r.tier.id}" style="--tier:${hex(r.tier)}"><img alt="" src="${gearArt(r.kind, r.it)}"><b>${r.it.name}</b><em>${r.tier.name}</em><small>${r.dup ? `${L('DUPLICATE', 'REPETIDA')}: +${r.refund} ${L('GOLD BACK', 'DE ORO DE VUELTA')}` : r.it.desc}</small></div>` : '')
+        + `<div class="well-ticket"><div class="wt-main"><h3>${L('WISH', 'DESEO')} Nº ${(state.arsenal.wishes | 0) + 1}</h3>`
         + tiers.map(({ t, odds }) => `<div class="wt-odd" style="--tier:${hex(t)}"><i class="gem"></i><span>${t.name}</span><i class="dots"></i><b>${pct(odds)}</b></div>`).join('')
         + `<small>${got < size ? L(`NEW PIECE: ${pct(fresh)} · IF REPEATED: ${back} GOLD BACK`, `PIEZA NUEVA: ${pct(fresh)} · SI REPITE: ${back} DE ORO DE VUELTA`) : L(`YOU HAVE THEM ALL: EACH WISH GIVES ${back} GOLD BACK`, `LAS TIENES TODAS: CADA DESEO DEVUELVE ${back} DE ORO`)}</small></div>`
         + `<div class="wt-stub${state.items.gold < cost ? ' poor' : ''}"><span>${L('PRICE', 'PRECIO')}</span><b>${cost}</b><span>${L('GOLD', 'ORO')}</span></div></div>`;

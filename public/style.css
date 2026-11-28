@@ -2126,12 +2126,12 @@ body.photo .debug-btn { visibility: hidden; }
 
 /* ---- El pozo: lo último que salió, el botón y la colección ---- */
 .well-sheet { gap: 12px; }
-.well-card { min-height: 150px; }
-.well-card { grid-template-columns: 150px 1fr; padding: 12px; color: var(--nb-ink); background: var(--nb-paper); border: 2px solid var(--nb-wood); box-shadow: inset 0 0 0 4px var(--tier, #9aa8b8), 2px 3px 0 rgba(58, 36, 18, .3); }
-.well-card img { width: 150px; }
-.well-card b { font-family: var(--nb-head); font-size: 16px; font-weight: 400; }
+.well-result { display: flex; flex-direction: column; gap: 12px; }
+.well-card { grid-template-columns: 84px 1fr; padding: 10px; color: var(--nb-ink); background: var(--nb-paper); border: 2px solid var(--nb-wood); box-shadow: inset 0 0 0 4px var(--tier, #9aa8b8), 2px 3px 0 rgba(58, 36, 18, .3); }
+.well-card img { width: 84px; }
+.well-card b { font-family: var(--nb-head); font-size: 14px; font-weight: 400; }
 .well-card em { font-family: var(--nb-head); font-size: 11px; color: #fff1d6; background: var(--tier); padding: 2px 6px; justify-self: start; }
-.well-card small { font-family: var(--nb-body); font-size: 13px; color: var(--nb-mute); }
+.well-card small { font-family: var(--nb-body); font-size: 12px; color: var(--nb-mute); }
 .well-wish { align-self: stretch; justify-content: center; gap: 12px; padding: 14px; font-size: 18px; }
 .well-wish .cost { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 13px; color: var(--nb-ink); background: #fff1d6; text-shadow: none; }
 .well-wish .ico { width: 18px; height: 18px; }
